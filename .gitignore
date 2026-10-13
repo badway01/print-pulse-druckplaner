@@ -1,0 +1,35 @@
+
+# Vertrauliche Daten und Zugangsdaten
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.json.bak
+*backup*.json
+*.env
+.env*
+*.key
+*.pem
+*.p12
+*.pfx
+*token*
+*secret*
+
+# Python
+__pycache__/
+*.pyc
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
+
+# Private Dateien
+*.png
+*.jpg
+*.jpeg
+*.pdf
+*.zip
+/data/
+data/
+config.json
+settings.json
