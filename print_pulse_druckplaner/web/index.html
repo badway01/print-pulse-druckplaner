@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f6f7fb">
+  <title>Print & Pulse – Druckplanung</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-icon" aria-hidden="true">P<span>+</span></div>
+      <div class="brand"><strong>PRINT & PULSE</strong><span>Lokale Druckplanung</span></div>
+      <div class="top-controls"><span id="sync-indicator" class="sync-indicator">Noch nicht verbunden</span><button class="btn btn-icon" id="settings-toggle" title="Etsy-Verbindung" aria-label="Etsy-Verbindung">⚙</button></div>
+    </header>
+    <main>
+      <section class="hero">
+        <div><div class="eyebrow">PRODUKTIONSZENTRALE</div><h1>Was drucke ich als Nächstes?</h1><p>Deine offenen Etsy-Artikel, gebündelt nach identischer Druckvariante und nach Versandtermin priorisiert.</p></div>
+        <button id="sync-now" class="btn primary">↻ &nbsp;Etsy aktualisieren</button>
+      </section>
+      <div id="alert" class="alert" hidden role="status"></div>
+      <section class="stats" aria-label="Kennzahlen">
+        <article class="stat"><span>Offene Bestellungen</span><strong id="stat-orders">–</strong></article>
+        <article class="stat"><span>Noch zu drucken</span><strong id="stat-units">–</strong></article>
+        <article class="stat"><span>Produktvarianten</span><strong id="stat-groups">–</strong></article>
+        <article class="stat warn"><span>Versanddatum prüfen</span><strong id="stat-unknown">–</strong></article>
+      </section>
+      <div class="toolbar">
+        <div class="tabstrip" role="tablist" aria-label="Produktionsansicht"><button id="tab-pending" class="tab active" role="tab" aria-selected="true">Druckbedarf</button><button id="tab-done" class="tab" role="tab" aria-selected="false">Vollständig gedruckt</button></div>
+        <div class="toolbar-actions"><input id="search" type="search" placeholder="Produkt oder Bestellung suchen" aria-label="Druckaufträge suchen"><button id="print-btn" class="btn secondary">⎙ Drucken</button><button id="export-btn" class="btn secondary">⇩ Sicherung</button><button id="import-btn" class="btn secondary">⇧ Wiederherstellen</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
+      </div>
+      <section id="print-plan" class="plan" aria-label="Priorisierte Druckliste"><div class="placeholder">Etsy-Verbindung wird geprüft …</div></section>
+      <footer><span>Nur Produktionsdaten · Keine Adressen und Kundennamen</span><span id="sync-time">Letzter Abgleich: –</span></footer>
+    </main>
+  </div>
+  <dialog id="settings-modal" class="modal">
+    <form method="dialog"><button aria-label="Schließen" class="close">×</button></form>
+    <h2>Etsy-Verbindung</h2>
+    <p>Die Zugangsdaten bleiben ausschließlich auf deinem Raspberry Pi. Deine bisherige Etsy-Home-Assistant-Integration wird nicht verändert.</p>
+    <div id="settings-status" class="muted"></div>
+    <form id="etsy-config" autocomplete="off">
+      <label>API Keystring<input required name="keystring" placeholder="Etsy App Keystring"></label>
+      <label>Shared Secret<input required name="shared_secret" type="password" placeholder="Nur hier auf dem Raspberry Pi eintragen"></label>
+      <label>Shop-ID<input required name="shop_id" type="text" inputmode="numeric" placeholder="Deine numerische Shop-ID"></label>
+      <label>Registrierte HTTPS-Callback-URL<input required name="callback" type="url" placeholder="https://deine-domain.de/etsy-druckplaner"></label>
+      <div class="small-notice">Wähle eine URL auf einer Domain, die du selbst kontrollierst. Registriere sie zusätzlich in Etsy Developer. Die existierende Home-Assistant-Callback-Adresse nicht ändern. Die erste Anmeldung erfolgt über eine manuell eingefügte Redirect-URL; siehe Anleitung.</div>
+      <button class="btn primary" type="submit">Etsy-Einstellungen speichern</button>
+    </form>
+    <div class="oauth-step"><h3>Einmalige Etsy-Autorisierung</h3><p>1. Nach dem Speichern auf „Etsy-Autorisierung starten“ klicken. 2. Auf Etsy zustimmen. 3. Die vollständige Adresse aus der Browser-Adresszeile kopieren – auch wenn die Zielseite „Nicht gefunden“ anzeigt. 4. Hier einfügen. Den Code nicht an Dritte weitergeben.</p><button id="oauth-start" class="btn secondary">Etsy-Autorisierung starten</button><label>Vollständige Redirect-Adresse<input id="oauth-return-url" type="url" placeholder="https://deine-domain.de/etsy-druckplaner?code=…&state=…"></label><button id="oauth-finish" class="btn primary">Autorisierung abschließen</button></div>
+  </dialog>
+  <dialog id="product-modal" class="modal small-modal">
+    <form method="dialog"><button aria-label="Schließen" class="close">×</button></form><h2>Produkt zuordnen</h2><p>Die Bezeichnung und die Druckerzuordnung gelten für diese exakte Produkt-/Farbvariante.</p>
+    <form id="product-form"><input type="hidden" id="product-key"><label>Kurzer Produktname<input id="product-name" maxlength="100" placeholder="z. B. Produkt – Schwarz"></label><label>Bevorzugter Drucker<select id="product-printer"><option value="">Nicht festgelegt</option><option value="P1S Old">P1S Old</option><option value="P1S New">P1S New</option><option value="H2D">H2D</option><option value="A1 mini">A1 mini</option><option value="Snapmaker U1">Snapmaker U1</option><option value="Prusa MK4">Prusa MK4</option></select></label><button type="submit" class="btn primary">Speichern</button></form>
+  </dialog>
+  <template id="empty-template"><div class="empty"><div class="empty-icon">✓</div><h2>Nichts zu drucken</h2><p>Momentan gibt es in dieser Ansicht keine offenen Druckpositionen.</p></div></template>
+</body>
+</html>

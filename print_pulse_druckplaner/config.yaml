@@ -1,0 +1,20 @@
+name: "Print & Pulse Druckplaner"
+version: "0.4.0"
+slug: "print_pulse_druckplaner"
+description: "Lokale Etsy-Produktionsplanung mit Versandprioritäten und Sammeldrucken"
+arch:
+  - aarch64
+startup: application
+boot: auto
+init: false
+ingress: true
+ingress_port: 8099
+ingress_entry: /
+panel_icon: mdi:printer-3d
+panel_title: "Druckplanung"
+panel_admin: true
+homeassistant_api: false
+hassio_api: false
+backup: cold
+options: {}
+schema: {}
