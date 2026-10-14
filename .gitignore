@@ -33,3 +33,6 @@ Thumbs.db
 data/
 config.json
 settings.json
+
+# Public brand asset explicitly included in the app
+!print_pulse_druckplaner/web/brand.png

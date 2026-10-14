@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Private Home Assistant ingress-only Etsy production planner."""
 import base64
+import io
+import zipfile
 import datetime as dt
 import hashlib
 import hmac
@@ -40,6 +42,10 @@ DISPLAY_VARIANT_NAMES = {
     "primary color": "Hauptfarbe", "secondary color": "Zweitfarbe",
     "primary colour": "Hauptfarbe", "secondary colour": "Zweitfarbe",
 }
+PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "A1 mini", "Prusa MK4")
+MAX_3MF_BYTES = 100 * 1024 * 1024
+CATALOG_LOCK = threading.Lock()
+CATALOG_STATUS = {"running": False, "error": None, "count": 0}
 SYNC_LOCK = threading.Lock()
 SYNC_STATUS = {"running": False, "at": None, "error": None, "ok": False, "excluded": 0, "review_receipts": []}
 # Proxy is the Home Assistant Supervisor ingress gateway. Tests run with PP_DEV=1.
@@ -95,10 +101,124 @@ def init_db():
             checked_at INTEGER NOT NULL
           );
         """)
+        # Additive migration: existing production counts, tokens and names survive.
+        for table, column, declaration in (
+            ("orders", "created_at", "INTEGER"),
+            ("orders", "first_seen", "INTEGER NOT NULL DEFAULT 0"),
+            ("products", "stage", "TEXT NOT NULL DEFAULT 'planned'"),
+        ):
+            columns = {r["name"] for r in db.execute(f"PRAGMA table_info({table})")}
+            if column not in columns:
+                db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}")
+        db.executescript("""
+          CREATE TABLE IF NOT EXISTS catalog (
+            id TEXT PRIMARY KEY, listing_id TEXT UNIQUE, title TEXT NOT NULL,
+            custom_title TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+            image_url TEXT NOT NULL DEFAULT '', updated_at INTEGER NOT NULL
+          );
+          CREATE TABLE IF NOT EXISTS product_files (
+            product_id TEXT NOT NULL REFERENCES catalog(id), printer TEXT NOT NULL,
+            filename TEXT NOT NULL, size INTEGER NOT NULL, sha256 TEXT NOT NULL,
+            uploaded_at INTEGER NOT NULL, content BLOB NOT NULL,
+            PRIMARY KEY(product_id, printer)
+          );
+        """)
+        seed_catalog(db)
         try:
             os.chmod(DB_PATH, 0o600)
         except OSError:
             pass
+
+
+def seed_catalog(db):
+    """Keep a permanent listing catalog, including products in archived orders."""
+    db.execute("""INSERT OR IGNORE INTO catalog(id,listing_id,title,updated_at)
+                  SELECT 'etsy-' || listing_id, listing_id, MAX(title), ?
+                  FROM lines WHERE listing_id != '0' GROUP BY listing_id""", (int(time.time()),))
+
+
+def catalog_view():
+    with connect() as db:
+        rows = db.execute("""SELECT c.*,lt.german_title,li.image_url AS cached_image
+            FROM catalog c LEFT JOIN listing_titles lt ON c.listing_id=lt.listing_id
+            LEFT JOIN listing_images li ON c.listing_id=li.listing_id
+            ORDER BY COALESCE(NULLIF(c.custom_title,''),lt.german_title,c.title) COLLATE NOCASE""").fetchall()
+        files = [dict(r) for r in db.execute("SELECT product_id,printer,filename,size,sha256,uploaded_at FROM product_files")]
+    result = []
+    for row in rows:
+        item = dict(row)
+        item["title"] = item["custom_title"] or item.pop("german_title") or html.unescape(item["title"])
+        item["image_url"] = safe_etsy_image_url(item.pop("cached_image") or item["image_url"])
+        item["files"] = [f for f in files if f["product_id"] == item["id"]]
+        result.append(item)
+    return {"products": result, "printers": PRINTERS, "sync": dict(CATALOG_STATUS)}
+
+
+def pull_catalog():
+    with connect() as db:
+        shop = cfg(db, "shop_id")
+    if not shop.isdigit():
+        raise ValueError("Bitte zuerst Etsy verbinden.")
+    items, offset = [], 0
+    while True:
+        page = api_request(f"/application/shops/{shop}/listings/active", {"limit": 100, "offset": offset})
+        batch = page.get("results")
+        if not isinstance(batch, list):
+            raise ValueError("Etsy lieferte keinen gültigen Katalog.")
+        items.extend(batch)
+        offset += len(batch)
+        if offset > 10000:
+            raise ValueError("Katalog zu groß; bisherige Produkte bleiben erhalten.")
+        if len(batch) < 100 or offset >= page.get("count", offset + 1):
+            break
+        time.sleep(.3)
+    # No destructive deletion; local titles, notes and files are never overwritten.
+    with connect() as db:
+        for item in items:
+            lid = str(item.get("listing_id") or "")
+            if not lid.isdigit():
+                raise ValueError("Ungültige Produkt-ID von Etsy.")
+            db.execute("""INSERT INTO catalog(id,listing_id,title,updated_at) VALUES(?,?,?,?)
+                ON CONFLICT(listing_id) DO UPDATE SET title=excluded.title,updated_at=excluded.updated_at""",
+                ('etsy-' + lid, lid, html.unescape(str(item.get("title") or "Produkt")), int(time.time())))
+    # Images are best effort and cached; failure cannot lose a catalog item.
+    for item in items:
+        get_listing_image(str(item["listing_id"]))
+        time.sleep(.3)
+    return len(items)
+
+
+def run_catalog_sync():
+    if not CATALOG_LOCK.acquire(blocking=False):
+        return False
+    CATALOG_STATUS.update(running=True, error=None)
+    def job():
+        try:
+            CATALOG_STATUS["count"] = pull_catalog()
+        except Exception as exc:
+            CATALOG_STATUS["error"] = str(exc)[:240]
+        finally:
+            CATALOG_STATUS["running"] = False
+            CATALOG_LOCK.release()
+    threading.Thread(target=job, daemon=True).start()
+    return True
+
+
+def validate_3mf(data, filename):
+    if not filename.lower().endswith('.3mf') or not 1 <= len(data) <= MAX_3MF_BYTES:
+        raise ValueError("Bitte eine 3MF-Datei bis 100 MB auswählen.")
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            entries = archive.infolist()
+            names = {x.filename.casefold() for x in entries}
+            if (len(entries) > 20000 or '[content_types].xml' not in names
+                    or not any(n.endswith('.model') for n in names)
+                    or sum(x.file_size for x in entries) > 2 * 1024 * 1024 * 1024
+                    or any(x.flag_bits & 1 for x in entries)):
+                raise ValueError("Keine unterstützte 3MF-Projektdatei.")
+            # Inspect the ZIP directory only. Never extract or execute uploaded content.
+    except zipfile.BadZipFile:
+        raise ValueError("Die Datei ist kein gültiges 3MF-Archiv.") from None
 
 
 def cfg(db, key, default=""):
@@ -273,7 +393,7 @@ def api_request(endpoint, params=None, method="GET", body=None, retry=True):
     url = API_BASE + endpoint
     if params:
         url += "?" + urllib.parse.urlencode(params)
-    headers = {"x-api-key": f"{key}:{secret}", "Authorization": f"Bearer {token}", "Accept": "application/json", "User-Agent": "PrintPulseDruckplaner/0.6"}
+    headers = {"x-api-key": f"{key}:{secret}", "Authorization": f"Bearer {token}", "Accept": "application/json", "User-Agent": "PrintPulseDruckplaner/0.7"}
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=35) as res:
@@ -337,6 +457,7 @@ def pull_orders():
             break
         time.sleep(0.24)
     normalized_orders = []
+    created_dates = {}
     normalized_lines = []
     excluded_count = 0
     review_ids = []
@@ -369,6 +490,11 @@ def pull_orders():
             raise RuntimeError(f"Bestellung {rid} enthält keine abrufbaren Artikel. Keine unvollständige Planung übernommen.")
         order_due = due_iso(order.get("expected_ship_date") or order.get("ship_by_date"))
         normalized_orders.append((rid, order_due))
+        raw_created = order.get("create_timestamp") or order.get("created_timestamp") or order.get("creation_timestamp")
+        try:
+            created_dates[rid] = int(raw_created) if raw_created else None
+        except (TypeError, ValueError):
+            created_dates[rid] = None
         for item in raw_lines:
             txn = str(item.get("transaction_id") or "")
             if not txn.isdigit():
@@ -386,15 +512,21 @@ def pull_orders():
     now = int(time.time())
     # One transaction: never partially overwrite cached orders on failure.
     with connect() as db:
+        previously_synced = bool(cfg(db, "last_sync"))
+        known_receipts = {r[0] for r in db.execute("SELECT receipt_id FROM orders")}
         db.execute("UPDATE orders SET active=0")
         for rid, due in normalized_orders:
             db.execute("INSERT INTO orders(receipt_id,active,due_api,updated_at) VALUES (?,1,?,?) ON CONFLICT(receipt_id) DO UPDATE SET active=1,due_api=excluded.due_api,updated_at=excluded.updated_at", (rid, due, now))
+            db.execute("UPDATE orders SET created_at=COALESCE(?,created_at) WHERE receipt_id=?", (created_dates.get(rid), rid))
+            if rid not in known_receipts and previously_synced:
+                db.execute("UPDATE orders SET first_seen=? WHERE receipt_id=?", (now, rid))
         for txn, rid, listing_id, title, qty, variants, vkey, due in normalized_lines:
             db.execute("""INSERT INTO lines(transaction_id,receipt_id,listing_id,title,qty,variants,variant_key,due_api)
                           VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(transaction_id) DO UPDATE SET
                           receipt_id=excluded.receipt_id,listing_id=excluded.listing_id,title=excluded.title,
                           qty=excluded.qty,variants=excluded.variants,variant_key=excluded.variant_key,due_api=excluded.due_api,
                           produced=MIN(lines.produced,excluded.qty)""", (txn, rid, listing_id, title, qty, variants, vkey, due))
+        seed_catalog(db)
         # Remove stale archived orders 90 days after last update; never expose buyer info.
         old = now - 90 * 86400
         db.execute("DELETE FROM lines WHERE receipt_id IN (SELECT receipt_id FROM orders WHERE active=0 AND updated_at < ?)", (old,))
@@ -435,9 +567,10 @@ def dashboard():
     with connect() as db:
         rows = db.execute("""SELECT l.transaction_id,l.receipt_id,l.listing_id,l.title,l.qty,l.produced,l.variants,l.variant_key,
                         COALESCE(o.due_override,l.due_api,o.due_api) AS due, p.short_name,p.printer,
-                        lt.german_title, li.image_url
+                        lt.german_title, li.image_url, o.created_at, o.first_seen, p.stage, c.custom_title AS catalog_title
                         FROM lines l JOIN orders o ON l.receipt_id=o.receipt_id
                         LEFT JOIN products p ON l.variant_key=p.variant_key
+                        LEFT JOIN catalog c ON l.listing_id=c.listing_id
                         LEFT JOIN listing_titles lt ON l.listing_id=lt.listing_id
                         LEFT JOIN listing_images li ON l.listing_id=li.listing_id
                         WHERE o.active=1 ORDER BY l.receipt_id DESC""").fetchall()
@@ -446,32 +579,42 @@ def dashboard():
         authorized = bool(cfg(db, "refresh_token"))
         last_sync = int(cfg(db, "last_sync", "0"))
         pending = bool(cfg(db, "pending_state"))
+        seen_at = int(cfg(db, "orders_seen_at", "0"))
     groups = {}
+    today = dt.datetime.now(TZ).date().isoformat()
     for r in rows:
         line = dict(r)
         line["variants"] = german_display_variants(json.loads(line["variants"]))
         line["remaining"] = max(0, line["qty"] - line["produced"])
+        line["new_today"] = due_iso(line["created_at"]) == today
+        line["unseen"] = line["first_seen"] > seen_at
         key = line["variant_key"]
         if key not in groups:
-            groups[key] = {"key": key, "title": line["short_name"] or line["german_title"] or html.unescape(line["title"]), "listing_id": line["listing_id"],
+            groups[key] = {"key": key, "title": line["short_name"] or line["catalog_title"] or line["german_title"] or html.unescape(line["title"]), "listing_id": line["listing_id"],
                 "image_url": safe_etsy_image_url(line["image_url"]),
                 "printer": line["printer"] or "", "variants": line["variants"], "qty": 0, "remaining": 0,
-                "due": None, "missing_due": False, "lines": []}
+                "due": None, "missing_due": False, "lines": [], "stage": line["stage"] or "planned", "new_today": False, "unseen": False}
         group = groups[key]
+        group["new_today"] |= line["new_today"]
+        group["unseen"] |= line["unseen"]
         group["qty"] += line["qty"]
         group["remaining"] += line["remaining"]
         if line["due"]:
             group["due"] = min(group["due"], line["due"]) if group["due"] else line["due"]
         else:
             group["missing_due"] = True
-        group["lines"].append({k: line[k] for k in ("transaction_id", "receipt_id", "qty", "produced", "remaining", "due")})
+        group["lines"].append({k: line[k] for k in ("transaction_id", "receipt_id", "qty", "produced", "remaining", "due", "new_today", "unseen")})
     all_groups = list(groups.values())
     for g in all_groups:
+        if g["remaining"] == 0:
+            g["stage"] = "done"
         g["lines"].sort(key=lambda l: (l["due"] is None, l["due"] or "9999", l["receipt_id"]))
     all_groups.sort(key=lambda g: (g["remaining"] == 0, g["due"] is None, g["due"] or "9999", g["title"].casefold()))
     pending_groups = [g for g in all_groups if g["remaining"] > 0]
     return {"configured": shop_configured, "authorized": authorized, "oauth_pending": pending,
             "shop_id": shop, "last_sync": last_sync, "sync": dict(SYNC_STATUS),
+            "new_today": len({r["receipt_id"] for r in rows if due_iso(r["created_at"]) == today}),
+            "unseen_orders": len({r["receipt_id"] for r in rows if r["first_seen"] > seen_at}),
             "orders": len({r["receipt_id"] for r in rows}), "positions": len(rows),
             "missing_dates": len({r["receipt_id"] for r in rows if not r["due"]}),
             "open_units": sum(g["remaining"] for g in all_groups), "groups": pending_groups,
@@ -479,7 +622,7 @@ def dashboard():
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "PrintPulse/0.6"
+    server_version = "PrintPulse/0.7"
     def log_message(self, fmt, *args):
         # Deliberately avoid logging paths that might contain OAuth codes.
         log.debug("Request %s", self.command)
@@ -516,6 +659,26 @@ class Handler(BaseHTTPRequestHandler):
             return self.static_file("index.html", "text/html; charset=utf-8")
         if path in ("/app.js", "/style.css"):
             return self.static_file(path[1:], "application/javascript; charset=utf-8" if path.endswith(".js") else "text/css; charset=utf-8")
+        if path == "/brand.png":
+            return self.static_file("brand.png", "image/png")
+        if path == "/api/catalog":
+            return self.respond(200, catalog_view())
+        if path == "/api/file":
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            with connect() as db:
+                row = db.execute("SELECT filename,content FROM product_files WHERE product_id=? AND printer=?",
+                                 ((query.get("product_id") or [""])[0], (query.get("printer") or [""])[0])).fetchone()
+            if not row:
+                return self.respond(404, {"error": "Druckdatei nicht gefunden"})
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(len(row["content"])))
+            self.send_header("Content-Disposition", "attachment; filename*=UTF-8''" + urllib.parse.quote(row["filename"], safe=""))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(row["content"])
+            return
         if path == "/api/status":
             return self.respond(200, dashboard())
         if path == "/api/export":
@@ -537,9 +700,45 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(contents)
 
+    def upload_3mf(self):
+        if self.headers.get("Sec-Fetch-Site") not in (None, "same-origin", "none"):
+            return self.respond(403, {"error": "Ungültiger Ursprung"})
+        if self.headers.get("Content-Type", "").split(";")[0] != "application/octet-stream":
+            return self.respond(415, {"error": "Binäre 3MF-Datei erforderlich"})
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 1 <= length <= MAX_3MF_BYTES:
+                raise ValueError("Die 3MF-Datei darf höchstens 100 MB groß sein.")
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            pid = (query.get("product_id") or [""])[0]
+            printer = (query.get("printer") or [""])[0]
+            filename = (query.get("filename") or [""])[0]
+            if printer not in PRINTERS or len(filename)>180 or not filename or any(ord(c)<32 or c in '/\\' for c in filename):
+                raise ValueError("Ungültiger Drucker oder Dateiname")
+            with connect() as db:
+                if not db.execute("SELECT 1 FROM catalog WHERE id=?", (pid,)).fetchone():
+                    raise ValueError("Produkt zuerst speichern.")
+            self.connection.settimeout(120)
+            payload = self.rfile.read(length)
+            if len(payload) != length:
+                raise ValueError("Upload unvollständig; bitte erneut versuchen.")
+            validate_3mf(payload, filename)
+            with connect() as db:
+                db.execute("""INSERT INTO product_files(product_id,printer,filename,size,sha256,uploaded_at,content)
+                    VALUES(?,?,?,?,?,?,?) ON CONFLICT(product_id,printer) DO UPDATE SET
+                    filename=excluded.filename,size=excluded.size,sha256=excluded.sha256,
+                    uploaded_at=excluded.uploaded_at,content=excluded.content""",
+                    (pid,printer,filename,len(payload),hashlib.sha256(payload).hexdigest(),int(time.time()),payload))
+            return self.respond(200, {"ok": True})
+        except (ValueError, OSError) as exc:
+            return self.respond(400, {"error": str(exc)[:240]})
+
     def do_POST(self):
         if not self.allowed():
             return self.respond(403, {"error": "Zugriff nur über Home Assistant"})
+        # Binary uploads have the same ingress and same-origin boundary as JSON.
+        if urllib.parse.urlsplit(self.path).path == "/api/file":
+            return self.upload_3mf()
         # JSON only; no CORS; the browser sends same-origin only.
         if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
             return self.respond(415, {"error": "JSON erforderlich"})
@@ -551,6 +750,42 @@ class Handler(BaseHTTPRequestHandler):
         try:
             path = urllib.parse.urlsplit(self.path).path
             data = self.json_body(max_bytes=2097152 if path == "/api/import" else 16384)
+            if path == "/api/seen":
+                with connect() as db:
+                    put_cfg(db, "orders_seen_at", int(time.time()))
+                return self.respond(200, {"ok": True})
+            if path == "/api/stage":
+                key, stage = str(data.get("key", "")), data.get("stage")
+                if stage not in ("planned", "printing"):
+                    raise ValueError("Ungültiger Produktionsstatus")
+                with connect() as db:
+                    if not db.execute("SELECT 1 FROM lines l JOIN orders o ON o.receipt_id=l.receipt_id WHERE o.active=1 AND l.variant_key=? AND l.produced<l.qty", (key,)).fetchone():
+                        raise ValueError("Keine offene Druckposition gefunden")
+                    db.execute("INSERT INTO products(variant_key,stage) VALUES(?,?) ON CONFLICT(variant_key) DO UPDATE SET stage=excluded.stage", (key, stage))
+                return self.respond(200, {"ok": True})
+            if path == "/api/catalog/sync":
+                run_catalog_sync()
+                return self.respond(202, {"ok": True})
+            if path == "/api/catalog/save":
+                pid = str(data.get("id") or secrets.token_hex(16))
+                title = str(data.get("title") or "").strip()
+                notes = str(data.get("notes") or "").strip()
+                lid = str(data.get("listing_id") or "").strip() or None
+                if (not re.fullmatch(r"[a-zA-Z0-9-]{1,80}", pid) or not title or len(title)>200
+                        or len(notes)>4000 or (lid and not re.fullmatch(r"[0-9]{1,24}", lid))):
+                    raise ValueError("Produktname, Notizen oder Etsy-ID ungültig.")
+                with connect() as db:
+                    other = db.execute("SELECT id FROM catalog WHERE listing_id=? AND id!=?", (lid, pid)).fetchone()
+                    if other:
+                        raise ValueError("Diese Etsy-ID ist bereits im Katalog hinterlegt.")
+                    db.execute("""INSERT INTO catalog(id,listing_id,title,custom_title,notes,updated_at) VALUES(?,?,?,?,?,?)
+                        ON CONFLICT(id) DO UPDATE SET listing_id=excluded.listing_id,custom_title=excluded.custom_title,
+                        notes=excluded.notes,updated_at=excluded.updated_at""", (pid,lid,title,title,notes,int(time.time())))
+                return self.respond(200, {"ok": True, "id": pid})
+            if path == "/api/file/delete":
+                with connect() as db:
+                    db.execute("DELETE FROM product_files WHERE product_id=? AND printer=?", (str(data.get("product_id", "")), str(data.get("printer", ""))))
+                return self.respond(200, {"ok": True})
             if path == "/api/import":
                 # Migration of production state only, after fresh OAuth and sync.
                 # Never accepts credentials, buyer details or arbitrary columns.
@@ -698,6 +933,7 @@ class Handler(BaseHTTPRequestHandler):
                             left -= add
                         if left == 0:
                             break
+                    db.execute("UPDATE products SET stage='planned' WHERE variant_key=? AND NOT EXISTS (SELECT 1 FROM lines l JOIN orders o ON o.receipt_id=l.receipt_id WHERE o.active=1 AND l.variant_key=? AND l.produced<l.qty)", (vkey,vkey))
                 return self.respond(200, {"ok": True})
             if path == "/api/progress":
                 txn = str(data.get("transaction_id", ""))

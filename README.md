@@ -41,3 +41,11 @@ Drei Druckkarten auf großen Bildschirmen, zwei auf Tablets und eine auf dem Sma
 
 ### Direkt verbuchen (v0.6)
 Auf der Produktkarte verbucht „🖨 Gedruckt“ (bzw. „+1 gedruckt“) genau ein fertig gedrucktes Stück. Bei Sammeldrucken können mehrere Stück über „Mehrere Stück …“ eingetragen werden. Eine versehentliche Buchung lässt sich unter „Positionen“ korrigieren.
+
+## Version 0.7.0
+
+Produktionslinie, Kachel-/Listenansicht, Filter, neue Bestellungen, eigener Produktkatalog und 3MF-Projekte je Drucker. Details: [Changelog](CHANGELOG.md) und [Bedienung](print_pulse_druckplaner/README.md).
+
+Der Katalog kann aus aktiven Etsy-Listings ergänzt werden. Der Import verwendet den offiziellen lesenden Endpoint `GET /v3/application/shops/{shop_id}/listings/active`; bestehende Produktnamen, Notizen und Dateien werden dabei nicht überschrieben.
+
+**Sicherung:** 3MF-Dateien sind lokal in der App-Datenbank gespeichert. Eine Home-Assistant-App-Sicherung enthält die vollständigen Daten. Der bisherige JSON-Export ist ausschließlich für Produktionsstände gedacht.

@@ -12,16 +12,17 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div class="brand-icon" aria-hidden="true">P<span>+</span></div>
-      <div class="brand"><strong>PRINT & PULSE</strong><span>Lokale Druckplanung</span></div>
+      <div class="brand-logo"><img src="brand.png" alt="Print &amp; Pulse – Designs mit Herz"></div>
+      <div class="brand"><strong>PRINT & PULSE</strong><span>Deine Produktionszentrale</span></div>
       <div class="top-controls"><span id="sync-indicator" class="sync-indicator">Noch nicht verbunden</span><button class="btn btn-icon" id="settings-toggle" title="Etsy-Verbindung" aria-label="Etsy-Verbindung">⚙</button></div>
     </header>
     <main>
       <section class="hero">
-        <div><div class="eyebrow">PRODUKTIONSZENTRALE</div><h1>Was drucke ich als Nächstes?</h1><p>Deine offenen Etsy-Artikel, gebündelt nach identischer Druckvariante und nach Versandtermin priorisiert.</p></div>
+        <div><div class="eyebrow">PRODUKTIONSZENTRALE</div><h1 id="page-title">Deine Produktion im Überblick</h1><p id="page-description">Vom Auftrag zum fertigen Druck. Alle Varianten, Fristen und Druckdateien an einem Ort.</p></div>
         <button id="sync-now" class="btn primary">↻ &nbsp;Etsy aktualisieren</button>
       </section>
       <div id="alert" class="alert" hidden role="status"></div>
+      <div id="new-orders" class="new-orders" hidden></div>
       <section class="stats" aria-label="Kennzahlen">
         <article class="stat"><span>Offene Bestellungen</span><strong id="stat-orders">–</strong></article>
         <article class="stat"><span>Noch zu drucken</span><strong id="stat-units">–</strong></article>
@@ -29,11 +30,25 @@
         <article class="stat warn"><span>Versanddatum prüfen</span><strong id="stat-unknown">–</strong></article>
       </section>
       <div class="toolbar">
-        <div class="tabstrip" role="tablist" aria-label="Produktionsansicht"><button id="tab-pending" class="tab active" role="tab" aria-selected="true">Druckbedarf</button><button id="tab-done" class="tab" role="tab" aria-selected="false">Vollständig gedruckt</button></div>
+        <div class="tabstrip" role="tablist" aria-label="Produktionsansicht"><button id="tab-pending" class="tab active" role="tab" aria-selected="true">Produktion</button><button id="tab-done" class="tab" role="tab" aria-selected="false">Gedruckt</button><button id="tab-products" class="tab" role="tab" aria-selected="false">Produkte</button></div>
         <div class="toolbar-actions"><input id="search" type="search" placeholder="Produkt oder Bestellung suchen" aria-label="Druckaufträge suchen"><button id="print-btn" class="btn secondary">⎙ Drucken</button><button id="export-btn" class="btn secondary">⇩ Sicherung</button><button id="import-btn" class="btn secondary">⇧ Wiederherstellen</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
       </div>
+      <section id="production-controls" class="production-controls">
+        <div class="view-switch" role="group" aria-label="Ansicht"><button class="btn" data-view="board">Produktionslinie</button><button class="btn" data-view="tiles">Kacheln</button><button class="btn" data-view="list">Liste</button></div>
+        <div class="filters">
+          <label>Versand<select id="filter-due"><option value="">Alle Termine</option><option value="late">Überfällig</option><option value="today">Bis heute</option><option value="week">Nächste 7 Tage</option><option value="missing">Termin fehlt</option></select></label>
+          <label>Stückzahl<select id="filter-qty"><option value="">Alle Mengen</option><option value="single">Einzelstück</option><option value="batch">Mehrere Stück</option></select></label>
+          <label>Status<select id="filter-stage"><option value="">Alle Phasen</option><option value="planned">Geplant</option><option value="printing">Im Druck</option><option value="done">Gedruckt</option></select></label>
+          <label>Drucker<select id="filter-printer"><option value="">Alle Drucker</option><option value="unassigned">Nicht zugeordnet</option><option>H2D</option><option>P1S Old</option><option>P1S New</option><option>Snapmaker U1</option><option>A1 mini</option><option>Prusa MK4</option></select></label>
+          <label>Sortieren<select id="sort-order"><option value="priority">Versandpriorität</option><option value="quantity">Stückzahl absteigend</option><option value="name">Produktname A–Z</option></select></label>
+          <label class="check-filter"><input id="filter-new" type="checkbox">Heute bestellt</label><button id="reset-filters" class="btn secondary">Zurücksetzen</button>
+        </div>
+        <div id="recommendation" class="recommendation" hidden></div>
+      </section>
+      <section id="catalog-controls" class="catalog-controls" hidden><div><h2>Dein Produktkatalog</h2><p id="catalog-status">Produkte und passende Druckdateien je Drucker.</p></div><button id="catalog-sync" class="btn secondary">Etsy-Katalog laden</button><button id="catalog-add" class="btn primary">+ Neues Produkt</button></section>
+      <section id="catalog-grid" class="catalog-grid" aria-label="Produkte" hidden></section>
       <section id="print-plan" class="plan" aria-label="Priorisierte Druckliste"><div class="placeholder">Etsy-Verbindung wird geprüft …</div></section>
-      <footer><span>Nur Produktionsdaten · Keine Adressen und Kundennamen</span><span id="sync-time">Letzter Abgleich: –</span></footer>
+      <footer><span>Print &amp; Pulse · v0.7.0 · Produktion bleibt lokal</span><span id="sync-time">Letzter Abgleich: –</span></footer>
     </main>
   </div>
   <dialog id="settings-modal" class="modal">
@@ -55,6 +70,13 @@
     <form method="dialog"><button aria-label="Schließen" class="close">×</button></form><h2>Produkt zuordnen</h2><p>Die Bezeichnung und die Druckerzuordnung gelten für diese exakte Produkt-/Farbvariante.</p>
     <form id="product-form"><input type="hidden" id="product-key"><label>Kurzer Produktname<input id="product-name" maxlength="100" placeholder="z. B. Produkt – Schwarz"></label><label>Bevorzugter Drucker<select id="product-printer"><option value="">Nicht festgelegt</option><option value="P1S Old">P1S Old</option><option value="P1S New">P1S New</option><option value="H2D">H2D</option><option value="A1 mini">A1 mini</option><option value="Snapmaker U1">Snapmaker U1</option><option value="Prusa MK4">Prusa MK4</option></select></label><button type="submit" class="btn primary">Speichern</button></form>
   </dialog>
-  <template id="empty-template"><div class="empty"><div class="empty-icon">✓</div><h2>Nichts zu drucken</h2><p>Momentan gibt es in dieser Ansicht keine offenen Druckpositionen.</p></div></template>
+  <dialog id="catalog-modal" class="modal catalog-modal">
+    <form method="dialog"><button class="close" aria-label="Schließen">×</button></form>
+    <h2 id="catalog-detail-title">Produktdetails</h2>
+    <form id="catalog-form"><input id="catalog-id" type="hidden"><label>Produktname<input id="catalog-title" required maxlength="200"></label><label>Etsy-Listing-ID (optional)<input id="catalog-listing" inputmode="numeric" pattern="[0-9]*" maxlength="24"></label><label>Notizen / Druckhinweise<textarea id="catalog-notes" maxlength="4000" rows="3" placeholder="Material, Farben, Besonderheiten …"></textarea></label><button class="btn primary" type="submit">Produkt speichern</button></form>
+    <p id="catalog-feedback" role="status"></p>
+    <div class="file-section"><h3>Druckdateien je Drucker</h3><p>Ein 3MF-Projekt je Drucker, bis 100 MB. Dateien bleiben auf deinem Home-Assistant-System und werden beim App-Update beibehalten.</p><div id="printer-files"></div></div>
+  </dialog>
+  <template id="empty-template"><div class="empty"><div class="empty-icon">✓</div><h2>Keine passenden Aufträge</h2><p>In dieser Ansicht gibt es aktuell keine Positionen. Prüfe bei Bedarf die Filter.</p></div></template>
 </body>
 </html>

@@ -9,7 +9,8 @@ allowed={
  'print_pulse_druckplaner/app.py','print_pulse_druckplaner/config.yaml',
  'print_pulse_druckplaner/Dockerfile','print_pulse_druckplaner/README.md',
  'print_pulse_druckplaner/web/index.html','print_pulse_druckplaner/web/app.js',
- 'print_pulse_druckplaner/web/style.css',
+ 'print_pulse_druckplaner/web/style.css','print_pulse_druckplaner/web/brand.png',
+ 'print_pulse_druckplaner/CHANGELOG.md','tests/test_catalog.py',
  'scripts/check_public.py','tests/test_production.py','tests/test_frontend.py',
  '.github/workflows/validate.yml',
 }
@@ -18,6 +19,9 @@ errors=[]
 if files!=allowed:
  errors.append(f'Unexpected/missing files: {sorted(files^allowed)}')
 for name in sorted(files):
+ if name == 'print_pulse_druckplaner/web/brand.png':
+  if not (root/name).read_bytes().startswith(b'\x89PNG\r\n\x1a\n'):errors.append('Brand asset is not PNG')
+  continue
  data=(root/name).read_text(encoding='utf-8')
  if re.search(r'(?<!\d)\d{10,}(?!\d)',data):errors.append(f'Potential hardcoded order/listing/shop ID: {name}')
  if re.search(r'(?i)\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b',data):errors.append(f'Email address in code: {name}')
@@ -28,4 +32,4 @@ if errors:
  print('PUBLICATION BLOCKED:')
  print('\n'.join(' - '+s for s in errors))
  sys.exit(1)
-print(f'Public source scan: PASS ({len(files)} permitted text files)')
+print(f'Public source scan: PASS ({len(files)} permitted source files)')
