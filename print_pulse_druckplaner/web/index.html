@@ -18,7 +18,7 @@
     </header>
     <main>
       <section class="hero">
-        <div><div class="eyebrow">PRODUKTIONSZENTRALE</div><h1 id="page-title">Deine Produktion im Überblick</h1><p id="page-description">Vom Auftrag zum fertigen Druck. Alle Varianten, Fristen und Druckdateien an einem Ort.</p></div>
+        <div><div class="eyebrow">PRODUKTIONSZENTRALE</div><h1 id="page-title">Deine Produktion im Überblick</h1><p id="sync-time" class="sync-time" role="status">Noch kein erfolgreicher Abgleich</p><p id="page-description">Vom Auftrag zum fertigen Druck. Alle Varianten, Fristen und Druckdateien an einem Ort.</p></div>
         <button id="sync-now" class="btn primary">↻ &nbsp;Etsy aktualisieren</button>
       </section>
       <div id="alert" class="alert" hidden role="status"></div>
@@ -48,7 +48,7 @@
       <section id="catalog-controls" class="catalog-controls" hidden><div><h2>Dein Produktkatalog</h2><p id="catalog-status">Produkte und passende Druckdateien je Drucker.</p></div><button id="catalog-sync" class="btn secondary">Etsy-Katalog laden</button><button id="catalog-add" class="btn primary">+ Neues Produkt</button></section>
       <section id="catalog-grid" class="catalog-grid" aria-label="Produkte" hidden></section>
       <section id="print-plan" class="plan" aria-label="Priorisierte Druckliste"><div class="placeholder">Etsy-Verbindung wird geprüft …</div></section>
-      <footer><span>Print &amp; Pulse · v0.7.0 · Produktion bleibt lokal</span><span id="sync-time">Letzter Abgleich: –</span></footer>
+      <footer><span>Print &amp; Pulse · v0.8.0 · Produktion bleibt lokal</span><span>Zeiten: Europe/Berlin</span></footer>
     </main>
   </div>
   <dialog id="settings-modal" class="modal">
@@ -76,6 +76,10 @@
     <form id="catalog-form"><input id="catalog-id" type="hidden"><label>Produktname<input id="catalog-title" required maxlength="200"></label><label>Etsy-Listing-ID (optional)<input id="catalog-listing" inputmode="numeric" pattern="[0-9]*" maxlength="24"></label><label>Notizen / Druckhinweise<textarea id="catalog-notes" maxlength="4000" rows="3" placeholder="Material, Farben, Besonderheiten …"></textarea></label><button class="btn primary" type="submit">Produkt speichern</button></form>
     <p id="catalog-feedback" role="status"></p>
     <div class="file-section"><h3>Druckdateien je Drucker</h3><p>Ein 3MF-Projekt je Drucker, bis 100 MB. Dateien bleiben auf deinem Home-Assistant-System und werden beim App-Update beibehalten.</p><div id="printer-files"></div></div>
+  </dialog>
+  <dialog id="new-orders-modal" class="modal">
+    <form method="dialog"><button class="close" aria-label="Schließen">×</button></form>
+    <h2 id="new-orders-title">Neue Bestellungen</h2><div id="new-orders-list"></div>
   </dialog>
   <template id="empty-template"><div class="empty"><div class="empty-icon">✓</div><h2>Keine passenden Aufträge</h2><p>In dieser Ansicht gibt es aktuell keine Positionen. Prüfe bei Bedarf die Filter.</p></div></template>
 </body>

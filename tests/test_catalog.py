@@ -155,6 +155,55 @@ class CatalogTests(production.ProductionTests):
         self.assertEqual(state['unseen_orders'],0)
         self.assertEqual(len(self.app.catalog_view()['products']),1)
 
+    def test_recommendation_reserves_once_and_consumes_finished_units(self):
+        self.populate()
+        g=self.app.dashboard()['groups'][0]
+        pid=self.app.catalog_view()['products'][0]['id']
+        with self.upload(pid): pass
+        with self.request('/api/profile',{'product_id':pid,'printer':'H2D','capacity':2,'minutes':90,'slicer':'Bambu Studio'}): pass
+        s=self.app.dashboard()['suggestions'][0]
+        self.assertEqual((s['amount'],s['printer'],s['minutes']),(2,'H2D',90))
+        self.assertTrue(s['has_file'])
+        with self.request('/api/reserve',{'key':g['key'],'printer':'H2D','amount':2}): pass
+        self.assertEqual(self.app.dashboard()['suggestions'],[])
+        self.app.init_db()
+        self.assertEqual(self.app.dashboard()['groups'][0]['reserved'],2)
+        with self.assertRaises(HTTPError) as caught:
+            self.request('/api/reserve',{'key':g['key'],'printer':'H2D','amount':2})
+        self.assertEqual(caught.exception.code,400)
+        with self.request('/api/batch',{'key':g['key'],'amount':2}): pass
+        state=self.app.dashboard()
+        self.assertEqual(state['groups'][0]['reserved'],0)
+        self.assertEqual(state['suggestions'][0]['amount'],1)
+        with self.request('/api/reserve',{'key':g['key'],'printer':'H2D','amount':1}): pass
+        with self.request('/api/reservation/delete',{'key':g['key']}): pass
+        self.assertEqual(self.app.dashboard()['suggestions'][0]['amount'],1)
+
+    def test_reservations_follow_order_reduction_and_closure(self):
+        self.populate()
+        key=self.app.dashboard()['groups'][0]['key']
+        with self.request('/api/reserve',{'key':key,'printer':'H2D','amount':3}): pass
+        with self.app.connect() as db:
+            db.execute("UPDATE orders SET active=0 WHERE receipt_id='102'")
+            db.execute("UPDATE lines SET qty=1 WHERE transaction_id='201'")
+        self.assertEqual(self.app.dashboard()['groups'][0]['reserved'],1)
+        with self.request('/api/progress',{'transaction_id':'201','produced':1}): pass
+        self.assertEqual(self.app.dashboard()['done_groups'][0]['reserved'],0)
+        with self.request('/api/progress',{'transaction_id':'201','produced':0}): pass
+        self.assertEqual(self.app.dashboard()['suggestions'][0]['available'],1)
+
+    def test_profile_validation_and_printing_conflict(self):
+        self.populate()
+        key=self.app.dashboard()['groups'][0]['key']
+        pid=self.app.catalog_view()['products'][0]['id']
+        for capacity in (0,-1,True,1.5,5001):
+            with self.assertRaises(HTTPError):
+                self.request('/api/profile',{'product_id':pid,'printer':'H2D','capacity':capacity,'minutes':0,'slicer':'Bambu Studio'})
+        with self.request('/api/stage',{'key':key,'stage':'printing'}): pass
+        self.assertEqual(self.app.dashboard()['suggestions'],[])
+        with self.assertRaises(HTTPError):
+            self.request('/api/reserve',{'key':key,'printer':'H2D','amount':1})
+
 # Do not run the inherited v0.6 regression suite a second time in this subclass.
 for _name in list(production.ProductionTests.__dict__):
     if _name.startswith('test_') and _name not in CatalogTests.__dict__:

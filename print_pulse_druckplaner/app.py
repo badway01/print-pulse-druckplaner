@@ -123,6 +123,17 @@ def init_db():
             PRIMARY KEY(product_id, printer)
           );
         """)
+        db.executescript("""
+          CREATE TABLE IF NOT EXISTS print_profiles (
+            product_id TEXT NOT NULL REFERENCES catalog(id), printer TEXT NOT NULL,
+            capacity INTEGER NOT NULL DEFAULT 1, minutes INTEGER NOT NULL DEFAULT 0,
+            slicer TEXT NOT NULL DEFAULT 'Bambu Studio', PRIMARY KEY(product_id,printer)
+          );
+          CREATE TABLE IF NOT EXISTS reservations (
+            transaction_id TEXT PRIMARY KEY REFERENCES lines(transaction_id),
+            printer TEXT NOT NULL, amount INTEGER NOT NULL CHECK(amount>0)
+          );
+        """)
         seed_catalog(db)
         try:
             os.chmod(DB_PATH, 0o600)
@@ -144,12 +155,14 @@ def catalog_view():
             LEFT JOIN listing_images li ON c.listing_id=li.listing_id
             ORDER BY COALESCE(NULLIF(c.custom_title,''),lt.german_title,c.title) COLLATE NOCASE""").fetchall()
         files = [dict(r) for r in db.execute("SELECT product_id,printer,filename,size,sha256,uploaded_at FROM product_files")]
+        profiles = [dict(r) for r in db.execute("SELECT * FROM print_profiles")]
     result = []
     for row in rows:
         item = dict(row)
         item["title"] = item["custom_title"] or item.pop("german_title") or html.unescape(item["title"])
         item["image_url"] = safe_etsy_image_url(item.pop("cached_image") or item["image_url"])
         item["files"] = [f for f in files if f["product_id"] == item["id"]]
+        item["profiles"] = [p for p in profiles if p["product_id"] == item["id"]]
         result.append(item)
     return {"products": result, "printers": PRINTERS, "sync": dict(CATALOG_STATUS)}
 
@@ -563,8 +576,30 @@ def periodic_sync():
             run_sync()
 
 
+def reconcile_reservations(db):
+    # A reservation never survives a closed order or exceeds its remaining demand.
+    db.execute("""UPDATE reservations SET amount=MIN(amount,COALESCE((
+        SELECT MAX(0,l.qty-l.produced) FROM lines l JOIN orders o ON o.receipt_id=l.receipt_id
+        WHERE l.transaction_id=reservations.transaction_id AND o.active=1),0))
+        WHERE EXISTS (SELECT 1 FROM lines l JOIN orders o ON o.receipt_id=l.receipt_id
+          WHERE l.transaction_id=reservations.transaction_id AND o.active=1 AND l.qty>l.produced)""")
+    db.execute("""DELETE FROM reservations WHERE NOT EXISTS (
+        SELECT 1 FROM lines l JOIN orders o ON o.receipt_id=l.receipt_id
+        WHERE l.transaction_id=reservations.transaction_id AND o.active=1 AND l.qty>l.produced)""")
+
+
+def consume_reservation(db, txn, amount):
+    row = db.execute("SELECT amount FROM reservations WHERE transaction_id=?", (txn,)).fetchone()
+    if row and amount > 0:
+        if amount >= row["amount"]:
+            db.execute("DELETE FROM reservations WHERE transaction_id=?", (txn,))
+        else:
+            db.execute("UPDATE reservations SET amount=amount-? WHERE transaction_id=?", (amount,txn))
+
+
 def dashboard():
     with connect() as db:
+        reconcile_reservations(db)
         rows = db.execute("""SELECT l.transaction_id,l.receipt_id,l.listing_id,l.title,l.qty,l.produced,l.variants,l.variant_key,
                         COALESCE(o.due_override,l.due_api,o.due_api) AS due, p.short_name,p.printer,
                         lt.german_title, li.image_url, o.created_at, o.first_seen, p.stage, c.custom_title AS catalog_title
@@ -580,6 +615,11 @@ def dashboard():
         last_sync = int(cfg(db, "last_sync", "0"))
         pending = bool(cfg(db, "pending_state"))
         seen_at = int(cfg(db, "orders_seen_at", "0"))
+        reserved = {r["transaction_id"]: dict(r) for r in db.execute("SELECT * FROM reservations")}
+        profiles = {(r["product_id"],r["printer"]):dict(r) for r in db.execute("SELECT * FROM print_profiles")}
+        files = {(r["product_id"],r["printer"]) for r in db.execute("SELECT product_id,printer FROM product_files")}
+        product_ids = {r["listing_id"]:r["id"] for r in db.execute("SELECT id,listing_id FROM catalog")}
+
     groups = {}
     today = dt.datetime.now(TZ).date().isoformat()
     for r in rows:
@@ -588,6 +628,8 @@ def dashboard():
         line["remaining"] = max(0, line["qty"] - line["produced"])
         line["new_today"] = due_iso(line["created_at"]) == today
         line["unseen"] = line["first_seen"] > seen_at
+        line["reserved"] = reserved.get(line["transaction_id"],{}).get("amount",0)
+        line["reserved_printer"] = reserved.get(line["transaction_id"],{}).get("printer","")
         key = line["variant_key"]
         if key not in groups:
             groups[key] = {"key": key, "title": line["short_name"] or line["catalog_title"] or line["german_title"] or html.unescape(line["title"]), "listing_id": line["listing_id"],
@@ -603,15 +645,37 @@ def dashboard():
             group["due"] = min(group["due"], line["due"]) if group["due"] else line["due"]
         else:
             group["missing_due"] = True
-        group["lines"].append({k: line[k] for k in ("transaction_id", "receipt_id", "qty", "produced", "remaining", "due", "new_today", "unseen")})
+        group["lines"].append({k: line[k] for k in ("transaction_id", "receipt_id", "qty", "produced", "remaining", "due", "new_today", "unseen", "reserved", "reserved_printer")})
     all_groups = list(groups.values())
     for g in all_groups:
+        g["reserved"] = sum(l["reserved"] for l in g["lines"])
+        g["available"] = max(0,g["remaining"]-g["reserved"]) if g["stage"] != "printing" else 0
         if g["remaining"] == 0:
             g["stage"] = "done"
         g["lines"].sort(key=lambda l: (l["due"] is None, l["due"] or "9999", l["receipt_id"]))
     all_groups.sort(key=lambda g: (g["remaining"] == 0, g["due"] is None, g["due"] or "9999", g["title"].casefold()))
     pending_groups = [g for g in all_groups if g["remaining"] > 0]
-    return {"configured": shop_configured, "authorized": authorized, "oauth_pending": pending,
+    # Propose a single plate per variant, using earliest still-unreserved deadline.
+    busy = {r["printer"] for r in reserved.values()}
+    busy.update(g["printer"] for g in all_groups if g["stage"]=="printing" and g["printer"])
+    suggestions = []
+    for g in pending_groups:
+        if not g["available"] or g["reserved"]:
+            continue
+        pid = product_ids.get(g["listing_id"])
+        candidates = [p for p in PRINTERS if (pid,p) in files]
+        printer = g["printer"] or next((p for p in candidates if p not in busy), next(iter(candidates), ""))
+        profile = profiles.get((pid,printer),{})
+        amount = min(g["available"], profile.get("capacity",1))
+        available_lines = [l for l in g["lines"] if l["remaining"]>l["reserved"]]
+        due = min((l["due"] for l in available_lines if l["due"]),default=None)
+        suggestions.append({"key":g["key"],"title":g["title"],"variants":g["variants"],
+            "printer":printer,"amount":amount,"available":g["available"],"due":due,
+            "minutes":profile.get("minutes",0),"has_profile":bool(profile),
+            "has_file":(pid,printer) in files,"busy":printer in busy,
+            "missing_due":any(not l["due"] for l in available_lines)})
+    suggestions.sort(key=lambda s:(s["due"] is None,s["due"] or "9999",s["busy"],-s["available"],s["title"]))
+    return {"suggestions":suggestions, "configured": shop_configured, "authorized": authorized, "oauth_pending": pending,
             "shop_id": shop, "last_sync": last_sync, "sync": dict(SYNC_STATUS),
             "new_today": len({r["receipt_id"] for r in rows if due_iso(r["created_at"]) == today}),
             "unseen_orders": len({r["receipt_id"] for r in rows if r["first_seen"] > seen_at}),
@@ -622,7 +686,7 @@ def dashboard():
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "PrintPulse/0.7"
+    server_version = "PrintPulse/0.8"
     def log_message(self, fmt, *args):
         # Deliberately avoid logging paths that might contain OAuth codes.
         log.debug("Request %s", self.command)
@@ -750,6 +814,52 @@ class Handler(BaseHTTPRequestHandler):
         try:
             path = urllib.parse.urlsplit(self.path).path
             data = self.json_body(max_bytes=2097152 if path == "/api/import" else 16384)
+            if path == "/api/profile":
+                pid, printer = str(data.get("product_id", "")), str(data.get("printer", ""))
+                capacity, minutes, slicer = data.get("capacity"), data.get("minutes"), data.get("slicer")
+                if (printer not in PRINTERS or type(capacity) is not int or not 1<=capacity<=5000
+                    or type(minutes) is not int or not 0<=minutes<=43200
+                    or slicer not in ("Bambu Studio","OrcaSlicer","Snapmaker Orca","PrusaSlicer")):
+                    raise ValueError("Druckprofil ungültig: 1–5000 Stück, 0–43200 Minuten.")
+                with connect() as db:
+                    if not db.execute("SELECT 1 FROM catalog WHERE id=?",(pid,)).fetchone():
+                        raise ValueError("Produkt nicht gefunden")
+                    db.execute("""INSERT INTO print_profiles VALUES(?,?,?,?,?) ON CONFLICT(product_id,printer)
+                        DO UPDATE SET capacity=excluded.capacity,minutes=excluded.minutes,slicer=excluded.slicer""",
+                        (pid,printer,capacity,minutes,slicer))
+                return self.respond(200,{"ok":True})
+            if path == "/api/reserve":
+                key, printer, amount = str(data.get("key","")), str(data.get("printer","")), data.get("amount")
+                if printer not in PRINTERS or type(amount) is not int or not 1<=amount<=5000:
+                    raise ValueError("Bitte Drucker und gültige Stückzahl auswählen.")
+                with connect() as db:
+                    db.execute("BEGIN IMMEDIATE")
+                    reconcile_reservations(db)
+                    if db.execute("SELECT 1 FROM reservations r JOIN lines l ON l.transaction_id=r.transaction_id WHERE r.printer=? OR l.variant_key=?",(printer,key)).fetchone():
+                        raise ValueError("Dieser Drucker hat bereits eine Reservierung. Erst abschließen oder freigeben.")
+                    if db.execute("""SELECT 1 FROM products p JOIN lines l ON l.variant_key=p.variant_key
+                        JOIN orders o ON o.receipt_id=l.receipt_id WHERE p.stage='printing' AND o.active=1
+                        AND l.qty>l.produced AND (p.printer=? OR p.variant_key=?)""",(printer,key)).fetchone():
+                        raise ValueError("Drucker oder Variante ist bereits als Im Druck markiert.")
+                    lines=db.execute("""SELECT l.transaction_id,MAX(0,l.qty-l.produced-COALESCE(r.amount,0)) AS available
+                        FROM lines l JOIN orders o ON o.receipt_id=l.receipt_id
+                        LEFT JOIN reservations r ON r.transaction_id=l.transaction_id
+                        WHERE o.active=1 AND l.variant_key=? AND r.transaction_id IS NULL
+                        ORDER BY COALESCE(o.due_override,l.due_api,o.due_api,'9999'),l.transaction_id""",(key,)).fetchall()
+                    if amount>sum(l["available"] for l in lines):
+                        raise ValueError("Menge inzwischen eingeplant oder gedruckt. Bitte aktualisieren.")
+                    left=amount
+                    for line in lines:
+                        add=min(left,line["available"])
+                        if add:
+                            db.execute("INSERT INTO reservations VALUES(?,?,?)",(line["transaction_id"],printer,add))
+                            left-=add
+                        if not left: break
+                return self.respond(200,{"ok":True})
+            if path == "/api/reservation/delete":
+                with connect() as db:
+                    db.execute("DELETE FROM reservations WHERE transaction_id IN (SELECT transaction_id FROM lines WHERE variant_key=?)",(str(data.get("key","")),))
+                return self.respond(200,{"ok":True})
             if path == "/api/seen":
                 with connect() as db:
                     put_cfg(db, "orders_seen_at", int(time.time()))
@@ -930,6 +1040,7 @@ class Handler(BaseHTTPRequestHandler):
                         add = min(max(0, line["qty"]-line["produced"]), left)
                         if add:
                             db.execute("UPDATE lines SET produced=produced+? WHERE transaction_id=?", (add,line["transaction_id"]))
+                            consume_reservation(db,line["transaction_id"],add)
                             left -= add
                         if left == 0:
                             break
@@ -941,9 +1052,10 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(qty,int) or isinstance(qty,bool):
                     raise ValueError("Menge muss eine ganze Zahl sein.")
                 with connect() as db:
-                    line = db.execute("SELECT l.qty FROM lines l JOIN orders o ON o.receipt_id=l.receipt_id WHERE l.transaction_id=? AND o.active=1", (txn,)).fetchone()
+                    line = db.execute("SELECT l.qty,l.produced FROM lines l JOIN orders o ON o.receipt_id=l.receipt_id WHERE l.transaction_id=? AND o.active=1", (txn,)).fetchone()
                     if line is None or not (0 <= qty <= line["qty"]):
                         raise ValueError("Menge außerhalb der Bestellposition")
+                    consume_reservation(db,txn,max(0,qty-line["produced"]))
                     db.execute("UPDATE lines SET produced=? WHERE transaction_id=?", (qty,txn))
                 return self.respond(200,{"ok":True})
             if path == "/api/product":

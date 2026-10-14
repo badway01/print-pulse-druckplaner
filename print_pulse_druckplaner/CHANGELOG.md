@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.8.0 – Druckvorschläge und einheitliche Produktkarten
+
+### Neu
+- Größere Produktbilder mit festem Bildbereich, klarere Print-&-Pulse-Kacheln, drei Desktop-Spalten und gleich hohe Aktionsbuttons. „Gedruckt“ steht in einer Kachelreihe auf gleicher Höhe.
+- Die Hinweise auf heutige und neue Bestellungen sind anklickbar. Die Detailansicht zeigt genau die zugehörigen Bestellnummern, Produkte, Farben, Mengen und Versandfristen.
+- Datum und Uhrzeit des letzten erfolgreichen Etsy-Abgleichs direkt oben, ausdrücklich in deutscher Ortszeit (Europe/Berlin). Fehlgeschlagene Abgleiche ändern diesen Zeitstempel nicht.
+- Konkrete lokale Druckvorschläge: Produkt/Farbe, Stückzahl, Drucker, Versandfrist und verfügbare 3MF. Gleiche Varianten werden gebündelt; gedruckte und reservierte Mengen werden berücksichtigt. Die Vorschläge bleiben unabhängig von Ansichtsfiltern.
+- „Vorschlag übernehmen“ reserviert die Menge dauerhaft. Pro Drucker und Variante höchstens eine aktive Reservierung, mit Schutz vor doppelter Übernahme. Fertigmeldungen bauen die zugehörigen Reservierungen ab; „Freigeben“ hebt sie auf. Geschlossene Bestellungen und reduzierte Mengen werden abgeglichen.
+- Unter Produkte je Drucker Plattenkapazität, Dauer in Minuten und Slicer hinterlegen. Ohne Profil zunächst ein Stück pro Vorschlag; 0 Minuten bedeutet unbekannt. Reservierte Varianten werden erst nach Abschluss oder Freigabe erneut vorgeschlagen.
+- „Für [Slicer] laden“ lädt die hinterlegte 3MF und zeigt den Öffnen-Ablauf für Bambu Studio, OrcaSlicer, Snapmaker Orca oder PrusaSlicer. Der normale Download bleibt verfügbar.
+
+### Grenzen und Daten
+- Die Vorschläge nutzen nachvollziehbare lokale Regeln, keinen externen KI-Dienst. Sie starten keine Drucker und kennen keinen Live-Druckerstatus; „belegt“ basiert auf Reservierungen und manuell gesetzter Phase.
+- Echtes direktes Öffnen im lokalen Slicer ist noch nicht enthalten: Eine native App kann die geschützte Home-Assistant-Ingress-Sitzung nicht übernehmen. Dafür wäre eine lokale Brücke erforderlich; derzeit die heruntergeladene Datei im zugeordneten Slicer öffnen.
+- Plattenbelegung, Druckzeit und Farbzuordnung stammen aus deinen Angaben. Vor jedem Druck die 3MF im Slicer prüfen; gespeicherte Produktdateien werden nicht automatisch an eine Farbvariante angepasst.
+- Additive Datenbankerweiterung erhält vorhandene Produktionsstände, Katalog, 3MF und Zugangsdaten. Profile und Reservierungen sind Teil der Home-Assistant-App-Sicherung, nicht des bisherigen JSON-Exports.
+
+### Geprüft
+- 24 automatisierte Tests, einschließlich Reservierung, doppelter Übernahme, Fertigmeldung, Mengenänderung, Auftragsabschluss und Migration.
+- Browserprüfung: Bestelldetails, ausgerichtete Buttons, Reservierungen, Profil speichern, bytegleicher 3MF-Download und mobile Ansicht.
+
 ## 0.7.0 – Produktionszentrale und Produktkatalog
 
 ### Neu

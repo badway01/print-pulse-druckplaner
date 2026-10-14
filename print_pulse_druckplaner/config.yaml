@@ -1,5 +1,5 @@
 name: "Print & Pulse Druckplaner"
-version: "0.7.0"
+version: "0.8.0"
 slug: "print_pulse_druckplaner"
 description: "Lokale Etsy-Produktionsplanung mit Versandprioritäten und Sammeldrucken"
 arch:
