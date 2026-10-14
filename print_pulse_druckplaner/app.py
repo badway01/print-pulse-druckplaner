@@ -31,6 +31,8 @@ OAUTH_AUTH = "https://www.etsy.com/oauth/connect"
 OAUTH_TOKEN = "https://api.etsy.com/v3/public/oauth/token"
 SYNC_INTERVAL_SEC = 15 * 60
 TITLE_REFRESH_SEC = 24 * 60 * 60
+IMAGE_REFRESH_SEC = 7 * 24 * 60 * 60
+IMAGE_RETRY_SEC = 60 * 60
 DISPLAY_VARIANT_NAMES = {
     "color": "Farbe", "colour": "Farbe", "size": "Größe",
     "length": "Länge", "width": "Breite", "height": "Höhe",
@@ -86,6 +88,10 @@ def init_db():
           );
           CREATE TABLE IF NOT EXISTS listing_titles (
             listing_id TEXT PRIMARY KEY, german_title TEXT NOT NULL,
+            checked_at INTEGER NOT NULL
+          );
+          CREATE TABLE IF NOT EXISTS listing_images (
+            listing_id TEXT PRIMARY KEY, image_url TEXT NOT NULL,
             checked_at INTEGER NOT NULL
           );
         """)
@@ -184,6 +190,64 @@ def get_german_title(listing_id):
     return title
 
 
+def safe_etsy_image_url(value):
+    """Accept only HTTPS images from the official Etsy image CDN."""
+    try:
+        url = urllib.parse.urlsplit(str(value or ""))
+        host = (url.hostname or "").casefold()
+        if (url.scheme != "https" or not host.endswith(".etsystatic.com")
+                or host == ".etsystatic.com" or url.username or url.password
+                or url.port is not None or not url.path.startswith("/")):
+            return ""
+        return urllib.parse.urlunsplit((url.scheme, url.netloc, url.path, url.query, ""))
+    except (ValueError, TypeError):
+        return ""
+
+
+def get_listing_image(listing_id):
+    """Retrieve Etsy's primary listing image, cached locally for 7 days.
+
+    Missing/deactivated images never block production order synchronization.
+    No API token or confidential data is embedded in the resulting image URL.
+    """
+    if not listing_id.isdigit() or listing_id == "0":
+        return ""
+    now = int(time.time())
+    with connect() as db:
+        cached = db.execute("SELECT image_url, checked_at FROM listing_images WHERE listing_id=?",
+                            (listing_id,)).fetchone()
+    if cached and now - cached["checked_at"] < IMAGE_REFRESH_SEC:
+        return cached["image_url"]
+    image_url = ""
+    checked_at = now
+    try:
+        response = api_request(f"/application/listings/{listing_id}/images")
+        images = response.get("results") if isinstance(response, dict) else []
+        if not isinstance(images, list):
+            images = []
+        for entry in sorted((x for x in images if isinstance(x, dict)),
+                            key=lambda x: int(x.get("rank") or 999999)):
+            # Rank 1 is Etsy's primary (hero) image.
+            for dimension in ("url_170x135", "url_570xN", "url_75x75"):
+                image_url = safe_etsy_image_url(entry.get(dimension))
+                if image_url:
+                    break
+            if image_url:
+                break
+    except Exception as exc:
+        # Retry temporary errors sooner but retain any previously cached image.
+        log.info("Thumbnail for listing %s unavailable: %s", listing_id, exc)
+        if cached and cached["image_url"]:
+            return cached["image_url"]
+        checked_at = now - IMAGE_REFRESH_SEC + IMAGE_RETRY_SEC
+    with connect() as db:
+        db.execute("""INSERT INTO listing_images(listing_id,image_url,checked_at) VALUES (?,?,?)
+                      ON CONFLICT(listing_id) DO UPDATE SET
+                      image_url=excluded.image_url, checked_at=excluded.checked_at""",
+                   (listing_id, image_url, checked_at))
+    return image_url
+
+
 def german_display_variants(raw):
     result = []
     for item in raw:
@@ -209,7 +273,7 @@ def api_request(endpoint, params=None, method="GET", body=None, retry=True):
     url = API_BASE + endpoint
     if params:
         url += "?" + urllib.parse.urlencode(params)
-    headers = {"x-api-key": f"{key}:{secret}", "Authorization": f"Bearer {token}", "Accept": "application/json", "User-Agent": "PrintPulseDruckplaner/0.4"}
+    headers = {"x-api-key": f"{key}:{secret}", "Authorization": f"Bearer {token}", "Accept": "application/json", "User-Agent": "PrintPulseDruckplaner/0.6"}
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=35) as res:
@@ -312,12 +376,13 @@ def pull_orders():
             listing_id = str(item.get("listing_id") or "0")
             variants = normalized_variants(item)
             normalized_lines.append((txn, rid, listing_id, str(item.get("title") or "Unbenannt"), int(item.get("quantity") or 0), json.dumps(variants, ensure_ascii=False), variant_key(listing_id, variants), due_iso(item.get("expected_ship_date")) or order_due))
-    # Titles are requested separately because Etsy's receipt language can
-    # differ from the shop's German listing language. Cache per listing ID;
-    # show order title as fallback when Etsy doesn't supply a German title.
+    # Read-only listing metadata. Fetch/cached per listing ID, not per order;
+    # an unavailable title or image must never block production planning.
     for listing_id in sorted({row[2] for row in normalized_lines}):
         get_german_title(listing_id)
-        time.sleep(0.22)  # respect Etsy's 5 QPS limit
+        time.sleep(0.28)
+        get_listing_image(listing_id)
+        time.sleep(0.28)  # respect Etsy's 5 QPS limit
     now = int(time.time())
     # One transaction: never partially overwrite cached orders on failure.
     with connect() as db:
@@ -370,10 +435,11 @@ def dashboard():
     with connect() as db:
         rows = db.execute("""SELECT l.transaction_id,l.receipt_id,l.listing_id,l.title,l.qty,l.produced,l.variants,l.variant_key,
                         COALESCE(o.due_override,l.due_api,o.due_api) AS due, p.short_name,p.printer,
-                        lt.german_title
+                        lt.german_title, li.image_url
                         FROM lines l JOIN orders o ON l.receipt_id=o.receipt_id
                         LEFT JOIN products p ON l.variant_key=p.variant_key
                         LEFT JOIN listing_titles lt ON l.listing_id=lt.listing_id
+                        LEFT JOIN listing_images li ON l.listing_id=li.listing_id
                         WHERE o.active=1 ORDER BY l.receipt_id DESC""").fetchall()
         shop = cfg(db, "shop_id")
         shop_configured = bool(cfg(db, "keystring") and cfg(db, "shared_secret") and shop and cfg(db, "callback"))
@@ -388,6 +454,7 @@ def dashboard():
         key = line["variant_key"]
         if key not in groups:
             groups[key] = {"key": key, "title": line["short_name"] or line["german_title"] or html.unescape(line["title"]), "listing_id": line["listing_id"],
+                "image_url": safe_etsy_image_url(line["image_url"]),
                 "printer": line["printer"] or "", "variants": line["variants"], "qty": 0, "remaining": 0,
                 "due": None, "missing_due": False, "lines": []}
         group = groups[key]
@@ -412,7 +479,7 @@ def dashboard():
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "PrintPulse/0.4"
+    server_version = "PrintPulse/0.6"
     def log_message(self, fmt, *args):
         # Deliberately avoid logging paths that might contain OAuth codes.
         log.debug("Request %s", self.command)
@@ -466,7 +533,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(contents)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://*.etsystatic.com; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'")
         self.end_headers()
         self.wfile.write(contents)
 

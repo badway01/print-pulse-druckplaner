@@ -10,7 +10,7 @@ allowed={
  'print_pulse_druckplaner/Dockerfile','print_pulse_druckplaner/README.md',
  'print_pulse_druckplaner/web/index.html','print_pulse_druckplaner/web/app.js',
  'print_pulse_druckplaner/web/style.css',
- 'scripts/check_public.py','tests/test_production.py',
+ 'scripts/check_public.py','tests/test_production.py','tests/test_frontend.py',
  '.github/workflows/validate.yml',
 }
 files={str(p.relative_to(root)) for p in root.rglob('*') if p.is_file() and '__pycache__' not in str(p) and '.git/' not in str(p)}

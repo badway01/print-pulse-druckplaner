@@ -33,3 +33,11 @@ Die neue App ist noch nicht live getestet; bis zum Abschluss der Migration bleib
 - Die Betreiberin bzw. der Betreiber eines öffentlichen GitHub-Repositories ist als GitHub-Account sichtbar. Die Inhalte dieser App stellen jedoch keine Etsy-Zugangsdaten bereit.
 - Die frühere manuelle OAuth-Rückleitung über eine normale Shop-Startseite ist nicht ideal; vor erneuter Autorisierung sollte eine eigene HTTPS-Callback-Seite ohne Drittanbieter-Skripte verwendet werden.
 - Die statischen Sicherheitsprüfungen und synthetischen Tests ersetzen weder einen unabhängigen Security-Audit noch einen Live-Test der Etsy-API oder der Home-Assistant-Update-Migration.
+
+## Anzeige v0.6
+
+Drei Druckkarten auf großen Bildschirmen, zwei auf Tablets und eine auf dem Smartphone. Die kleine Vorschau rechts oben stammt aus dem ersten Etsy-Listingbild; der serverseitig zwischengespeicherte Bildlink wird nur vom offiziellen `etsystatic.com`-CDN akzeptiert. Bei fehlendem Bild erscheint ein Platzhalter.
+
+
+### Direkt verbuchen (v0.6)
+Auf der Produktkarte verbucht „🖨 Gedruckt“ (bzw. „+1 gedruckt“) genau ein fertig gedrucktes Stück. Bei Sammeldrucken können mehrere Stück über „Mehrere Stück …“ eingetragen werden. Eine versehentliche Buchung lässt sich unter „Positionen“ korrigieren.

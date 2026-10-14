@@ -35,6 +35,9 @@ class ProductionTests(unittest.TestCase):
         self.title_patcher = patch.object(self.app, 'get_german_title', return_value='Musterprodukt')
         self.title_patcher.start()
         self.addCleanup(self.title_patcher.stop)
+        self.image_patcher = patch.object(self.app, 'get_listing_image', return_value='')
+        self.image_patcher.start()
+        self.addCleanup(self.image_patcher.stop)
 
     def mock_api(self, endpoint, params=None, **kwargs):
         if endpoint.endswith('/receipts'):
@@ -54,6 +57,82 @@ class ProductionTests(unittest.TestCase):
     def populate(self):
         result=self.app.pull_orders()
         self.assertEqual(result,(2,2,2,[]))
+
+    def test_single_print_is_allocated_to_earliest_due_order(self):
+        self.populate()
+        key=self.app.dashboard()['groups'][0]['key']
+        srv=ThreadingHTTPServer(('127.0.0.1',0),self.app.Handler)
+        thread=threading.Thread(target=srv.serve_forever,daemon=True)
+        thread.start()
+        self.addCleanup(lambda:(srv.shutdown(),srv.server_close(),thread.join(timeout=2)))
+        url=f'http://127.0.0.1:{srv.server_port}/api/batch'
+        req=Request(url,data=json.dumps({'key':key,'amount':1}).encode(),headers={'Content-Type':'application/json'},method='POST')
+        with urlopen(req,timeout=5) as response:
+            self.assertEqual(json.load(response)['ok'],True)
+        with self.app.connect() as db:
+            earlier=db.execute('SELECT produced FROM lines WHERE transaction_id=?',('202',)).fetchone()[0]
+            later=db.execute('SELECT produced FROM lines WHERE transaction_id=?',('201',)).fetchone()[0]
+        self.assertEqual((earlier,later),(1,0))
+        self.assertEqual(self.app.dashboard()['open_units'],2)
+
+    def test_static_assets_and_thumbnail_security_policy(self):
+        srv=ThreadingHTTPServer(('127.0.0.1',0),self.app.Handler)
+        thread=threading.Thread(target=srv.serve_forever,daemon=True)
+        thread.start()
+        self.addCleanup(lambda:(srv.shutdown(),srv.server_close(),thread.join(timeout=2)))
+        for path in ('/', '/app.js', '/style.css'):
+            with urlopen(f'http://127.0.0.1:{srv.server_port}'+path,timeout=5) as response:
+                self.assertEqual(response.status,200)
+                self.assertTrue(response.read())
+                policy=response.headers['Content-Security-Policy']
+                directives=dict(part.strip().split(' ',1) for part in policy.split(';') if part.strip())
+                self.assertEqual(directives['img-src'], "'self' data: https://*.etsystatic.com")
+                self.assertEqual(directives['script-src'], "'self'")
+                self.assertEqual(directives['connect-src'], "'self'")
+
+    def test_etsy_hero_image_rank_and_local_cache(self):
+        # The first image by rank is the listing hero, not the API result order.
+        self.image_patcher.stop()
+        hero='https://i.etsystatic.com/000/il_170x135.example.jpg'
+        secondary='https://i.etsystatic.com/000/il_170x135.secondary.jpg'
+        sample={'results':[
+            {'rank':2,'url_170x135':secondary},
+            {'rank':1,'url_170x135':hero},
+        ]}
+        with patch.object(self.app,'api_request',return_value=sample) as req:
+            self.assertEqual(self.app.get_listing_image('301'),hero)
+            self.assertEqual(self.app.get_listing_image('301'),hero)
+            req.assert_called_once_with('/application/listings/301/images')
+        with self.app.connect() as db:
+            self.assertEqual(db.execute('SELECT image_url FROM listing_images WHERE listing_id=?',('301',)).fetchone()[0],hero)
+
+    def test_bad_image_urls_are_rejected(self):
+        safe=self.app.safe_etsy_image_url
+        self.assertEqual(safe('https://i.etsystatic.com/path/pic.jpg'),'https://i.etsystatic.com/path/pic.jpg')
+        for unsafe in ['http://i.etsystatic.com/a.jpg','https://etsystatic.com.evil.com/a.jpg',
+                       'https://user'+chr(64)+'i.etsystatic.com/x','javascript:alert(1)',
+                       'https://i.etsystatic.com:8080/x','https://example.com/x']:
+            self.assertEqual(safe(unsafe),'')
+
+    def test_cached_image_included_without_credentials(self):
+        self.populate()
+        hero='https://i.etsystatic.com/123/hero.jpg'
+        with self.app.connect() as db:
+            db.execute('INSERT INTO listing_images(listing_id,image_url,checked_at) VALUES (?,?,?)',('301',hero,100))
+        data=self.app.dashboard()
+        self.assertEqual(data['groups'][0]['image_url'],hero)
+        self.assertNotIn('dummy-not-real', json.dumps(data))
+        self.assertEqual(data['open_units'],3)
+
+    def test_schema_upgrade_retains_existing_production_rows(self):
+        self.populate()
+        with self.app.connect() as db:
+            db.execute('UPDATE lines SET produced=1 WHERE transaction_id=?',('201',))
+            db.execute('DROP TABLE listing_images')  # simulate DB schema before v0.5
+        self.app.init_db()
+        self.assertEqual(self.app.dashboard()['open_units'],2)
+        with self.app.connect() as db:
+            self.assertIsNotNone(db.execute("SELECT name FROM sqlite_master WHERE name='listing_images'").fetchone())
 
     def test_only_production_relevant_orders_are_included(self):
         self.populate()
