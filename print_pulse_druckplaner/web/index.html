@@ -8,6 +8,7 @@
   <title>Print & Pulse – Druckplanung</title>
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
+  <script src="workshop.js" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -30,9 +31,10 @@
         <article class="stat warn"><span>Versanddatum prüfen</span><strong id="stat-unknown">–</strong></article>
       </section>
       <div class="toolbar">
-        <div class="tabstrip" role="tablist" aria-label="Produktionsansicht"><button id="tab-pending" class="tab active" role="tab" aria-selected="true">Produktion</button><button id="tab-done" class="tab" role="tab" aria-selected="false">Gedruckt</button><button id="tab-products" class="tab" role="tab" aria-selected="false">Produkte</button></div>
+        <div class="tabstrip" role="tablist" aria-label="Produktionsansicht"><button id="tab-dashboard" class="tab" role="tab" aria-selected="false">Dashboard</button><button id="tab-pending" class="tab active" role="tab" aria-selected="true">Produktion</button><button id="tab-orders" class="tab" role="tab" aria-selected="false">Bestellungen</button><button id="tab-printers" class="tab" role="tab" aria-selected="false">Drucker</button><button id="tab-done" class="tab" role="tab" aria-selected="false">Gedruckt</button><button id="tab-products" class="tab" role="tab" aria-selected="false">Produkte</button></div>
         <div class="toolbar-actions"><input id="search" type="search" placeholder="Produkt oder Bestellung suchen" aria-label="Druckaufträge suchen"><button id="print-btn" class="btn secondary">⎙ Drucken</button><button id="export-btn" class="btn secondary">⇩ Sicherung</button><button id="import-btn" class="btn secondary">⇧ Wiederherstellen</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
       </div>
+      <section id="workshop-view" class="workshop-view" aria-label="Werkstattansicht" hidden></section>
       <section id="production-controls" class="production-controls">
         <div class="view-switch" role="group" aria-label="Ansicht"><button class="btn" data-view="board">Produktionslinie</button><button class="btn" data-view="tiles">Kacheln</button><button class="btn" data-view="list">Liste</button></div>
         <div class="filters">
@@ -48,7 +50,7 @@
       <section id="catalog-controls" class="catalog-controls" hidden><div><h2>Dein Produktkatalog</h2><p id="catalog-status">Produkte und passende Druckdateien je Drucker.</p></div><button id="catalog-sync" class="btn secondary">Etsy-Katalog laden</button><button id="catalog-add" class="btn primary">+ Neues Produkt</button></section>
       <section id="catalog-grid" class="catalog-grid" aria-label="Produkte" hidden></section>
       <section id="print-plan" class="plan" aria-label="Priorisierte Druckliste"><div class="placeholder">Etsy-Verbindung wird geprüft …</div></section>
-      <footer><span>Print &amp; Pulse · v0.9.0 · Produktion bleibt lokal</span><span>Zeiten: Europe/Berlin</span></footer>
+      <footer><span>Print &amp; Pulse · v0.10.0 · Produktion bleibt lokal</span><span>Zeiten: Europe/Berlin</span></footer>
     </main>
   </div>
   <dialog id="settings-modal" class="modal">
