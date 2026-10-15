@@ -1,5 +1,11 @@
 # Print & Pulse – Druckplanung (Home Assistant App)
 
+## Neu in 0.10.0 (in Entwicklung)
+
+Das Dashboard zeigt nur vier zentrale Kennzahlen und einen Überblick über anstehende Drucke und Drucker. Die bekannten Produktkarten mit großen Stückzahl-Badges bleiben unter **Produktion**. Unter **Bestellungen** erscheint eine übersichtliche, nach Versandfrist sortierte Etsy-artige Liste; die Produktionsstände werden unverändert aus den bestehenden Daten verwendet. Unter **Drucker** zeigen sechs Geräte Status, Fortschritt, Restzeit und Jobname aus Home Assistant, sofern entsprechende Sensoren vorhanden sind. Die Werte können pro Drucker über **Sensoren zuordnen** eingestellt werden.
+
+Home-Assistant-API: App benötigt ab dieser Version `homeassistant_api: true`; der Supervisor-Token wird nur serverseitig verwendet, nie an den Browser weitergegeben. Der neue Druckerstatus ist reine Überwachung und startet oder stoppt keinen Druck. Ohne Sensorwerte zeigt die Oberfläche „Sensor zuordnen“ oder „Nicht verfügbar“, keine erfundenen Werte. Die Zuordnung bleibt bei Updates in SQLite erhalten und gehört zur Home-Assistant-App-Sicherung, nicht zum JSON-Produktionsbackup.
+
 ## Neu in 0.9.0
 
 Die Hauptseite zeigt gebündelte, reduzierte Produktkarten mit einer dezenten Versand-Ampel. Klicke auf „Bestellungen öffnen“, um Varianten, Kunden, Versandtermine, Etsy-Versandkosten und ggf. Versand-Upgrades einzusehen. Für jeden Auftrag lässt sich der tatsächliche Versanddienstleister von Hand speichern. Alle Angaben bleiben in Home Assistant, nicht im öffentlichen Repository oder JSON-Export.
