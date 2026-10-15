@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0 – Gebündelte Produktkarten und Versand-Ampel
+
+- Gleiche Etsy-Produkte über unterschiedliche Bestellungen und Varianten auf einer kompakten Hauptkarte, mit Anzahl oben links und aufklappbaren Unterkarten.
+- Dezent rot für überfällig bis 2 Tage, gelb für 3 Tage und grün ab 4 Tagen bis zum Versand. Frühester offener Termin zählt, dringende Produkte erscheinen zuerst.
+- Unterkarten je Bestellung mit Etsy-Kundenname, Versandfrist, Varianten, gedruckten Mengen, Versandart und Versandkosten (wenn von Etsy übermittelt), optionalem Upgrade und bearbeitbarem Versanddienstleister.
+- Neue Felder werden ergänzend in der bestehenden Datenbank angelegt, ohne alte Druckstände zu löschen. Noch nicht von Etsy gelieferte Versandinformationen werden nicht geraten.
+- Standardansicht ist die dreispaltige Kachelansicht; bisherige Druckverwaltung und Reservierung bleiben bestehen.
+
 ## 0.8.0 – Druckvorschläge und einheitliche Produktkarten
 
 ### Neu
