@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.10.0 – Dashboard, Etsy-Bestellungen, Druckerstatus (Entwicklung)
+## 0.10.0 – Dashboard, Etsy-Bestellungen, Druckerstatus
 
 - Separater Reiter Dashboard mit vier einfachen Kennzahlen, Produktionsvorschlägen und Druckerüberblick.
 - Vorhandene Produktkarten mit Stückzahl-Badge und Versand-Ampel bleiben in der Produktion.
