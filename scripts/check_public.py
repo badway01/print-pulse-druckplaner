@@ -9,7 +9,7 @@ allowed={
  'print_pulse_druckplaner/app.py','print_pulse_druckplaner/config.yaml',
  'print_pulse_druckplaner/Dockerfile','print_pulse_druckplaner/README.md',
  'print_pulse_druckplaner/web/index.html','print_pulse_druckplaner/web/app.js',
- 'print_pulse_druckplaner/web/style.css','print_pulse_druckplaner/web/brand.png',
+ 'print_pulse_druckplaner/web/style.css','print_pulse_druckplaner/web/workshop.js','print_pulse_druckplaner/web/brand.png',
  'print_pulse_druckplaner/CHANGELOG.md','tests/test_catalog.py',
  'scripts/check_public.py','tests/test_production.py','tests/test_frontend.py',
  '.github/workflows/validate.yml',
