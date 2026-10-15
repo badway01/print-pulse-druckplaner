@@ -1,6 +1,6 @@
 # Print & Pulse – Druckplanung (Home Assistant App)
 
-## Neu in 0.10.0 (in Entwicklung)
+## Neu in 0.10.0
 
 Das Dashboard zeigt nur vier zentrale Kennzahlen und einen Überblick über anstehende Drucke und Drucker. Die bekannten Produktkarten mit großen Stückzahl-Badges bleiben unter **Produktion**. Unter **Bestellungen** erscheint eine übersichtliche, nach Versandfrist sortierte Etsy-artige Liste; die Produktionsstände werden unverändert aus den bestehenden Daten verwendet. Unter **Drucker** zeigen sechs Geräte Status, Fortschritt, Restzeit und Jobname aus Home Assistant, sofern entsprechende Sensoren vorhanden sind. Die Werte können pro Drucker über **Sensoren zuordnen** eingestellt werden.
 
