@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.10.0 – Dashboard, Bestellungen, Druckerstatus (Entwicklung)
+## 0.10.0 – Dashboard, Bestellungen, Druckerstatus
 
 - Dashboard nach BolloPrint-Vorbild verschlankt.
 - Etsy-artige Bestellliste; bestehende Produktkarten bleiben unter Produktion.
