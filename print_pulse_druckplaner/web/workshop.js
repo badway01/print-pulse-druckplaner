@@ -104,8 +104,8 @@ function renderWorkshopPrinterCards(compact=false){
   <small>${p.remaining!==null?'Restzeit: '+esc(p.remaining):'Keine Restzeit verfügbar'}</small>
   ${compact?'':`<button class="btn secondary" data-printer-map-toggle="${esc(p.name)}" aria-expanded="${active}">${active?'Sensorzuordnung schließen':'Sensoren zuordnen'} ▾</button>
   <form class="ha-sensor-form" data-printer-form="${esc(p.name)}" ${active?'':'hidden'}>
-   ${fields.map(([field,label])=>`<label>${label}<input data-sensor-field="${field}" list="ha-sensors-${esc(p.name.replace(/\\s/g,'-'))}" value="${esc(p.mapping[field]||'')}" placeholder="sensor.…"></label>`).join('')}
-   <datalist id="ha-sensors-${esc(p.name.replace(/\\s/g,'-'))}">${candidates.map(c=>`<option value="${esc(c.id)}" label="${esc(c.name)}"></option>`).join('')}</datalist>
+   ${fields.map(([field,label])=>`<label>${label}<input data-sensor-field="${field}" list="ha-sensors-${esc(p.name.replaceAll(' ','-'))}" value="${esc(p.mapping[field]||'')}" placeholder="sensor.…"></label>`).join('')}
+   <datalist id="ha-sensors-${esc(p.name.replaceAll(' ','-'))}">${candidates.map(c=>`<option value="${esc(c.id)}" label="${esc(c.name)}"></option>`).join('')}</datalist>
    <small>Sensor-ID aus Home Assistant übernehmen. Leere Felder werden automatisch gesucht, wenn ein eindeutiger passender Sensor vorhanden ist.</small>
    <button class="btn primary" type="submit">Sensoren speichern</button>
   </form>`}
