@@ -1,6 +1,6 @@
 # Print & Pulse Druckplaner
 
-## Neu in 0.10.0 (in Entwicklung)
+## Neu in 0.10.0
 
 **Dashboard**: vier Kennzahlen, bevorstehende Druckaufträge und Druckerübersicht. **Produktion**: unverändert gebündelte Produktkarten mit Stückzahl-Badge und Versand-Ampel. **Bestellungen**: Etsy-artige, nach Versandtermin gruppierte Liste mit Details pro Bestellposition. **Drucker**: alle sechs vorhandenen Drucker und Home-Assistant-Statusdaten – wenn vorhanden Status, Fortschritt, Restzeit, Druckauftrag. Sensoren unter „Sensoren zuordnen“ je Gerät auswählen. Die Statusüberwachung ist read-only und steuert keine Drucker.
 
