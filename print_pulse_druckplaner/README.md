@@ -1,5 +1,9 @@
 # Print & Pulse Druckplaner
 
+## Neu in 0.9.0
+
+Kompakte, gebündelte Produktkarten mit Versand-Ampel (rot 0–2 Tage oder überfällig, gelb 3 Tage, grün ab 4 Tagen). Aufklappen zeigt Etsy-Bestellungen, Kunden, Varianten, Versanddatum und – soweit von Etsy geliefert – Versandkosten sowie Upgrade. Dienstleister lassen sich pro Auftrag manuell speichern; fehlende Angaben bleiben leer.
+
 ## Neu in 0.8.0
 
 Größere, gleichmäßig aufgebaute Kacheln; neue Bestellungen per Klick ansehen; letzter erfolgreicher Abgleich mit Datum und Uhrzeit direkt oben.
