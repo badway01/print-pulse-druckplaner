@@ -105,6 +105,12 @@ def init_db():
         for table, column, declaration in (
             ("orders", "created_at", "INTEGER"),
             ("orders", "first_seen", "INTEGER NOT NULL DEFAULT 0"),
+            ("orders", "buyer_name", "TEXT NOT NULL DEFAULT ''"),
+            ("orders", "shipping_provider", "TEXT NOT NULL DEFAULT ''"),
+            ("orders", "shipping_paid", "TEXT NOT NULL DEFAULT ''"),
+            ("orders", "shipping_method", "TEXT NOT NULL DEFAULT ''"),
+            ("lines", "shipping_upgrade", "TEXT NOT NULL DEFAULT ''"),
+            ("lines", "shipping_method", "TEXT NOT NULL DEFAULT ''"),
             ("products", "stage", "TEXT NOT NULL DEFAULT 'planned'"),
         ):
             columns = {r["name"] for r in db.execute(f"PRAGMA table_info({table})")}
@@ -450,6 +456,18 @@ def refresh_token():
         save_tokens(response)
 
 
+def shipping_money(value):
+    """Only format buyer-paid postage supplied by Etsy."""
+    if not isinstance(value, dict) or not isinstance(value.get("amount"), (int, float)):
+        return ""
+    divisor = value.get("divisor")
+    if not isinstance(divisor, (int, float)) or divisor <= 0:
+        return ""
+    amount = float(value["amount"]) / divisor
+    currency = str(value.get("currency_code") or "EUR")[:3].upper()
+    return (f"{amount:.2f}".replace(".", ",") + " €") if currency == "EUR" else f"{amount:.2f} {currency}"
+
+
 def pull_orders():
     with connect() as db:
         shop_id = cfg(db, "shop_id")
@@ -471,6 +489,7 @@ def pull_orders():
         time.sleep(0.24)
     normalized_orders = []
     created_dates = {}
+    shipping_details = {}
     normalized_lines = []
     excluded_count = 0
     review_ids = []
@@ -503,6 +522,11 @@ def pull_orders():
             raise RuntimeError(f"Bestellung {rid} enthält keine abrufbaren Artikel. Keine unvollständige Planung übernommen.")
         order_due = due_iso(order.get("expected_ship_date") or order.get("ship_by_date"))
         normalized_orders.append((rid, order_due))
+        shipping_details[rid] = (
+            str(order.get("name") or "").strip()[:160],
+            str(order.get("carrier_name") or order.get("shipping_carrier") or "").strip()[:80],
+            shipping_money(order.get("total_shipping_cost")),
+            str(order.get("shipping_method") or "").strip()[:160])
         raw_created = order.get("create_timestamp") or order.get("created_timestamp") or order.get("creation_timestamp")
         try:
             created_dates[rid] = int(raw_created) if raw_created else None
@@ -514,7 +538,7 @@ def pull_orders():
                 raise RuntimeError(f"Bestellung {rid} enthält einen Artikel ohne ID.")
             listing_id = str(item.get("listing_id") or "0")
             variants = normalized_variants(item)
-            normalized_lines.append((txn, rid, listing_id, str(item.get("title") or "Unbenannt"), int(item.get("quantity") or 0), json.dumps(variants, ensure_ascii=False), variant_key(listing_id, variants), due_iso(item.get("expected_ship_date")) or order_due))
+            normalized_lines.append((txn, rid, listing_id, str(item.get("title") or "Unbenannt"), int(item.get("quantity") or 0), json.dumps(variants, ensure_ascii=False), variant_key(listing_id, variants), due_iso(item.get("expected_ship_date")) or order_due, str(item.get("shipping_upgrade") or "")[:160], str(item.get("shipping_method") or "")[:160]))
     # Read-only listing metadata. Fetch/cached per listing ID, not per order;
     # an unavailable title or image must never block production planning.
     for listing_id in sorted({row[2] for row in normalized_lines}):
@@ -531,14 +555,19 @@ def pull_orders():
         for rid, due in normalized_orders:
             db.execute("INSERT INTO orders(receipt_id,active,due_api,updated_at) VALUES (?,1,?,?) ON CONFLICT(receipt_id) DO UPDATE SET active=1,due_api=excluded.due_api,updated_at=excluded.updated_at", (rid, due, now))
             db.execute("UPDATE orders SET created_at=COALESCE(?,created_at) WHERE receipt_id=?", (created_dates.get(rid), rid))
+            buyer, carrier, paid, method = shipping_details[rid]
+            db.execute("""UPDATE orders SET buyer_name=?,shipping_paid=?,shipping_method=?,
+                shipping_provider=CASE WHEN shipping_provider='' THEN ? ELSE shipping_provider END
+                WHERE receipt_id=?""", (buyer, paid, method, carrier, rid))
             if rid not in known_receipts and previously_synced:
                 db.execute("UPDATE orders SET first_seen=? WHERE receipt_id=?", (now, rid))
-        for txn, rid, listing_id, title, qty, variants, vkey, due in normalized_lines:
-            db.execute("""INSERT INTO lines(transaction_id,receipt_id,listing_id,title,qty,variants,variant_key,due_api)
-                          VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(transaction_id) DO UPDATE SET
+        for txn, rid, listing_id, title, qty, variants, vkey, due, upgrade, method in normalized_lines:
+            db.execute("""INSERT INTO lines(transaction_id,receipt_id,listing_id,title,qty,variants,variant_key,due_api,shipping_upgrade,shipping_method)
+                          VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(transaction_id) DO UPDATE SET
                           receipt_id=excluded.receipt_id,listing_id=excluded.listing_id,title=excluded.title,
                           qty=excluded.qty,variants=excluded.variants,variant_key=excluded.variant_key,due_api=excluded.due_api,
-                          produced=MIN(lines.produced,excluded.qty)""", (txn, rid, listing_id, title, qty, variants, vkey, due))
+                          shipping_upgrade=excluded.shipping_upgrade,shipping_method=excluded.shipping_method,
+                          produced=MIN(lines.produced,excluded.qty)""", (txn, rid, listing_id, title, qty, variants, vkey, due, upgrade, method))
         seed_catalog(db)
         # Remove stale archived orders 90 days after last update; never expose buyer info.
         old = now - 90 * 86400
@@ -602,7 +631,9 @@ def dashboard():
         reconcile_reservations(db)
         rows = db.execute("""SELECT l.transaction_id,l.receipt_id,l.listing_id,l.title,l.qty,l.produced,l.variants,l.variant_key,
                         COALESCE(o.due_override,l.due_api,o.due_api) AS due, p.short_name,p.printer,
-                        lt.german_title, li.image_url, o.created_at, o.first_seen, p.stage, c.custom_title AS catalog_title
+                        lt.german_title, li.image_url, o.created_at, o.first_seen, p.stage, c.custom_title AS catalog_title,
+                         o.buyer_name, o.shipping_provider, o.shipping_paid, o.shipping_method AS order_shipping_method,
+                         l.shipping_method AS line_shipping_method, l.shipping_upgrade
                         FROM lines l JOIN orders o ON l.receipt_id=o.receipt_id
                         LEFT JOIN products p ON l.variant_key=p.variant_key
                         LEFT JOIN catalog c ON l.listing_id=c.listing_id
@@ -645,7 +676,7 @@ def dashboard():
             group["due"] = min(group["due"], line["due"]) if group["due"] else line["due"]
         else:
             group["missing_due"] = True
-        group["lines"].append({k: line[k] for k in ("transaction_id", "receipt_id", "qty", "produced", "remaining", "due", "new_today", "unseen", "reserved", "reserved_printer")})
+        group["lines"].append({k: line[k] for k in ("transaction_id", "receipt_id", "qty", "produced", "remaining", "due", "new_today", "unseen", "reserved", "reserved_printer", "buyer_name", "shipping_provider", "shipping_paid", "order_shipping_method", "line_shipping_method", "shipping_upgrade")})
     all_groups = list(groups.values())
     for g in all_groups:
         g["reserved"] = sum(l["reserved"] for l in g["lines"])
@@ -686,7 +717,7 @@ def dashboard():
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "PrintPulse/0.8"
+    server_version = "PrintPulse/0.9"
     def log_message(self, fmt, *args):
         # Deliberately avoid logging paths that might contain OAuth codes.
         log.debug("Request %s", self.command)
@@ -860,6 +891,16 @@ class Handler(BaseHTTPRequestHandler):
                 with connect() as db:
                     db.execute("DELETE FROM reservations WHERE transaction_id IN (SELECT transaction_id FROM lines WHERE variant_key=?)",(str(data.get("key","")),))
                 return self.respond(200,{"ok":True})
+            if path == "/api/shipping-provider":
+                rid = str(data.get("receipt_id") or "")
+                provider = str(data.get("provider") or "").strip()
+                if not rid.isdigit() or len(provider)>80 or any(ord(c)<32 for c in provider):
+                    raise ValueError("Ungültiger Versanddienstleister")
+                with connect() as db:
+                    result = db.execute("UPDATE orders SET shipping_provider=? WHERE receipt_id=? AND active=1", (provider, rid))
+                    if result.rowcount != 1:
+                        raise ValueError("Offene Bestellung nicht gefunden")
+                return self.respond(200, {"ok": True})
             if path == "/api/seen":
                 with connect() as db:
                     put_cfg(db, "orders_seen_at", int(time.time()))
