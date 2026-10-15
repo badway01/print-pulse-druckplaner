@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0 – Gebündelte Produktkarten und Versand-Ampel
+
+- Gleiche Etsy-Produkte unabhängig von Bestellzeitpunkt und Farbvarianten zu aufklappbaren Hauptkarten bündeln.
+- Pastell-Ampel: überfällig bis 2 Tage rot, genau 3 Tage gelb, ab 4 Tagen grün; früheste offene Versandfrist zuerst.
+- Bestellunterkarten mit Etsy-Kundenname, Menge, Variante, Versanddatum, -art, Käufer-Versandkosten, gegebenenfalls Upgrade sowie manuell bearbeitbarem Dienstleister.
+- Additive Migration ohne Datenverlust. Fehlende Versandinformationen bleiben ausdrücklich ungeklärt; Druckvorschläge und Drucker-Zuordnungen bleiben.
+
 ## 0.8.0 – Druckvorschläge und einheitliche Produktkarten
 
 ### Neu
