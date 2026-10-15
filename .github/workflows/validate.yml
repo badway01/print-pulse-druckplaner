@@ -25,6 +25,11 @@ jobs:
       - name: Python-Code pruefen
         run: python -m py_compile print_pulse_druckplaner/app.py
 
+      - name: JavaScript auf Syntax prüfen
+        run: |
+          node --check print_pulse_druckplaner/web/app.js
+          node --check print_pulse_druckplaner/web/workshop.js
+
       - name: Private Daten suchen
         run: python scripts/check_public.py
 
