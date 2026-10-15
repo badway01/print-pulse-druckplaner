@@ -130,7 +130,7 @@ $('import-file').addEventListener('change',async(e)=>{
 
 // Views and combinable production filters.
 for(const id of ['filter-due','filter-qty','filter-stage','filter-printer','sort-order','filter-new'])$(id).addEventListener('change',render);
-document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{view=b.dataset.view;try{localStorage.setItem('pp-view',view);}catch{}render();}));
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{view=b.dataset.view;try{localStorage.setItem('pp-view-v09',view);}catch{}render();}));
 $('reset-filters').addEventListener('click',()=>{for(const id of ['filter-due','filter-qty','filter-stage','filter-printer'])$(id).value='';$('filter-new').checked=false;$('search').value='';$('sort-order').value='priority';render();});
 $('print-plan').addEventListener('change',async e=>{if(!e.target.dataset.stage)return;e.target.disabled=true;try{await api('stage',{key:e.target.dataset.stage,stage:e.target.value});await reload();}catch(err){showAlert(err.message,true);await reload();}});
 async function loadCatalog(){try{catalog=await api('catalog');if(mode==='products')renderCatalog();return true;}catch(err){showAlert('Produktkatalog: '+err.message,true);return false;}}
@@ -199,3 +199,76 @@ $('printer-files').addEventListener('click',async e=>{
  const row=save.closest('.printer-file');save.disabled=true;
  try{await api('profile',{product_id:$('catalog-id').value,printer:save.dataset.profileSave,capacity:Number(row.querySelector('[data-capacity]').value),minutes:Number(row.querySelector('[data-minutes]').value),slicer:row.querySelector('[data-slicer]').value});await loadCatalog();renderFiles(catalog.products.find(p=>p.id===$('catalog-id').value));$('catalog-feedback').textContent='Druckprofil gespeichert. Vorschläge berücksichtigen diese Plattenkapazität.';await reload();}catch(err){$('catalog-feedback').textContent=err.message;}finally{save.disabled=false;}
 });
+
+// v0.9: product-first overview and order-level information
+
+const previousRender = render;
+const originalPriority = priority;
+priority = function(iso,missing){
+ const d=daysUntil(iso);
+ if(d===2)return {label:'Noch 2 Tage',cls:'red',card:'urgent'};
+ if(d===3)return {label:'Noch 3 Tage',cls:'amber',card:'warning'};
+ const p=originalPriority(iso,missing);
+ if(d!==null && d>=4)return {...p,cls:'green',card:'normal'};
+ return p;
+};
+function productOverview(groups){
+ const products=new Map();
+ for(const g of groups){
+  const key=g.listing_id&&g.listing_id!=='0'?'listing-'+g.listing_id:'variant-'+g.key;
+  if(!products.has(key))products.set(key,{key,title:g.title,image_url:g.image_url,groups:[],orders:new Map(),remaining:0,due:null,missing_due:false});
+  const p=products.get(key);p.groups.push(g);p.remaining+=g.remaining;
+  for(const l of g.lines){
+   if(mode==='pending'&&l.remaining<=0)continue;
+   if(!p.orders.has(l.receipt_id))p.orders.set(l.receipt_id,{id:l.receipt_id,name:l.buyer_name||'',provider:l.shipping_provider||'',paid:l.shipping_paid||'',method:l.order_shipping_method||l.line_shipping_method||'',due:null,items:[]});
+   const o=p.orders.get(l.receipt_id);o.items.push({g,l});
+   if(l.due&&(!o.due||l.due<o.due))o.due=l.due;
+   if(l.due&&(!p.due||l.due<p.due))p.due=l.due;
+   if(!l.due)p.missing_due=true;
+  }
+ }
+ return [...products.values()].map(p=>({...p,orders:[...p.orders.values()].sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999'))}));
+}
+function overviewCard(p){
+ const level=priority(p.due,p.missing_due),open=expandedGroups.has(p.key),url=safeEtsyThumbnail(p.image_url);
+ const photo=url?`<img class="listing-thumb" src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'<span class="thumb-placeholder">▧</span>';
+ const details=p.orders.map(o=>`<article class="suborder"><div class="suborder-head"><b>${esc(o.name||'Kundenname nicht übermittelt')}</b><span>${esc(fmtDate(o.due))}</span></div><small>Bestellung #${esc(o.id)}</small>
+ <p>Versanddienstleister: <b>${esc(o.provider||'Nicht hinterlegt')}</b><br>Versandkosten (Etsy): <b>${esc(o.paid||'Nicht übermittelt')}</b>${o.method?`<br>Versandart: ${esc(o.method)}`:''}</p>
+ <div class="carrier-edit"><input data-carrier-for="${esc(o.id)}" maxlength="80" value="${esc(o.provider)}" placeholder="Hermes / DHL" aria-label="Versanddienstleister"><button class="btn secondary" data-carrier-save="${esc(o.id)}">Speichern</button></div>
+ ${o.items.map(({g,l})=>`<div class="suborder-item"><div><strong>${esc(g.title)}</strong><small>${g.variants.map(v=>esc(v.name)+': '+esc(v.value)).join(' · ')||'Standardvariante'} · ${l.qty} Stück</small>${l.shipping_upgrade?`<small class="upgrade-label">Versand-Upgrade: ${esc(l.shipping_upgrade)}</small>`:''}</div><div class="line-actions"><button class="qty-button" data-txn="${esc(l.transaction_id)}" data-qty="${l.produced-1}" ${l.produced<=0?'disabled':''}>−</button><span>${l.produced}/${l.qty}</span><button class="qty-button" data-txn="${esc(l.transaction_id)}" data-qty="${l.produced+1}" ${l.produced>=l.qty?'disabled':''}>+</button></div></div>`).join('')}
+ <div class="deadline-editor"><input type="date" value="${esc(o.due||'')}" data-date-for="${esc(o.id)}"><button type="button" data-due-save="${esc(o.id)}">Versanddatum speichern</button></div></article>`).join('');
+ return `<article class="work compact-work ${level.card}"><div class="compact-image">${photo}<b class="quantity-badge">${p.remaining}×</b></div><h3>${esc(p.title)}</h3><span class="pill ${level.cls}">${esc(level.label)}</span>
+ <div class="compact-summary">${p.orders.length} Bestellungen · ${p.remaining} noch drucken</div>
+ <div class="compact-actions">${p.groups.length===1&&p.remaining?`<button class="btn printed-action" data-print-one="${esc(p.groups[0].key)}">${printerIcon} +1 gedruckt</button>`:''}<button type="button" class="btn secondary" data-expand="${esc(p.key)}" aria-expanded="${open}">${open?'Schließen ▲':'Bestellungen öffnen ▼'}</button></div>
+ <div class="suborders" data-list="${esc(p.key)}" ${open?'':'hidden'}>${details}<div class="variant-tools">${p.groups.map(g=>`<div class="variant-tool"><small>${esc(g.variants.map(v=>v.value).join(' / ')||'Standard')} · ${g.remaining} offen</small><button class="btn secondary" data-product="${esc(g.key)}">Produkt / Drucker</button><button class="btn secondary" data-catalog-listing="${esc(g.listing_id)}">3MF</button>${g.reserved?`<button class="btn secondary" data-release="${esc(g.key)}">Reservierung freigeben</button>`:''}${g.remaining?`<select data-stage="${esc(g.key)}"><option value="planned" ${g.stage==='planned'?'selected':''}>Geplant</option><option value="printing" ${g.stage==='printing'?'selected':''}>Im Druck</option></select>`:''}</div>`).join('')}</div></div></article>`;
+}
+render = function(){
+ previousRender();
+ if(!model||mode==='products')return;
+ const source=mode==='done'?model.done_groups:model.groups;
+ const term=$('search').value.toLocaleLowerCase('de');
+ const products=productOverview(source).filter(p=>{
+  if(![p.title,p.key,...p.orders.flatMap(o=>[o.id,o.name,...o.items.flatMap(({g})=>g.variants.map(v=>v.value))])].join(' ').toLocaleLowerCase('de').includes(term))return false;
+  const due=$('filter-due').value,days=daysUntil(p.due),qty=$('filter-qty').value,stage=$('filter-stage').value,printer=$('filter-printer').value;
+  if(due==='late'&&(days===null||days>=0)||due==='today'&&(days===null||days>0)||due==='week'&&(days===null||days<0||days>7)||due==='missing'&&!p.missing_due)return false;
+  if(qty==='single'&&p.remaining!==1||qty==='batch'&&p.remaining<=1)return false;
+  if(stage&&!p.groups.some(g=>g.stage===stage))return false;
+  if(printer==='unassigned'&&p.groups.every(g=>g.printer)||printer&&printer!=='unassigned'&&!p.groups.some(g=>g.printer===printer))return false;
+  return !$('filter-new').checked||p.groups.some(g=>g.new_today);
+ });
+ products.sort((a,b)=>$('sort-order').value==='quantity'?b.remaining-a.remaining:$('sort-order').value==='name'?a.title.localeCompare(b.title,'de'):(a.due||'9999').localeCompare(b.due||'9999'));
+ $('stat-groups').textContent=productOverview(model.groups).length;
+ const list=$('print-plan');list.className='plan '+view;
+ if(!products.length){list.innerHTML=$('empty-template').innerHTML;return;}
+ if(view==='board'){
+  const stagesFor=p=>p.remaining===0?'done':p.groups.some(g=>g.stage==='printing')?'printing':'planned';
+  list.innerHTML=Object.entries(stages).map(([stage,label])=>`<section class="lane"><h2>${label}</h2><div class="lane-cards">${products.filter(p=>stagesFor(p)===stage).map(overviewCard).join('')||'<p class="lane-empty">Keine Produkte</p>'}</div></section>`).join('');
+ }else list.innerHTML=products.map(overviewCard).join('');
+};
+try{if(!localStorage.getItem('pp-view-v09')){view='tiles';localStorage.setItem('pp-view-v09','tiles')}else{view=localStorage.getItem('pp-view-v09')}}catch{view='tiles'}
+$('print-plan').addEventListener('click',async e=>{
+ const b=e.target.closest('[data-carrier-save]');if(!b)return;
+ e.stopImmediatePropagation();
+ const id=b.dataset.carrierSave,input=[...document.querySelectorAll('[data-carrier-for]')].find(x=>x.dataset.carrierFor===id);
+ try{await api('shipping-provider',{receipt_id:id,provider:input?.value||''});await reload();}catch(err){showAlert(err.message,true)}
+},true);
