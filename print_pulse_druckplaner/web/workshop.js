@@ -115,7 +115,7 @@ function renderWorkshopPrinterCards(compact=false){
 }
 function workshopDashboard(){
  const orders=workshopOrders();
- const printCount=workshopPrinterData?.printers.filter(p=>p.kind==='printing').length??null;
+ const printCount=workshopPrinterData?.connected?workshopPrinterData.printers.filter(p=>p.kind==='printing').length:null;
  const dueSoon=orders.filter(o=>o.due!==null&&daysUntil(o.due)<=2).length;
  const stats=[['Offene Bestellungen',orders.length],['Noch zu drucken',model?.open_units??0],['Drucker im Druck',printCount??'–'],['Versand ≤ 2 Tage',dueSoon]];
  let html=`<div class="workshop-heading"><h2>Dashboard</h2><p>Alles Wichtige auf einen Blick</p></div>
@@ -206,3 +206,8 @@ $('workshop-view').addEventListener('submit',async e=>{
  finally{button.disabled=false;}
 });
 setInterval(()=>{if(mode==='printers'||mode==='dashboard')loadWorkshopPrinters();},30000);
+
+// Start on the simplified dashboard; production cards are one tab away.
+mode='dashboard';
+if(model)render();
+loadWorkshopPrinters();
