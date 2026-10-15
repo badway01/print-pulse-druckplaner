@@ -89,6 +89,11 @@ def init_db():
             FOREIGN KEY (receipt_id) REFERENCES orders(receipt_id)
           );
           CREATE INDEX IF NOT EXISTS idx_lines_receipt ON lines(receipt_id);
+          CREATE TABLE IF NOT EXISTS printer_sensors (
+            printer TEXT PRIMARY KEY, status_entity TEXT NOT NULL DEFAULT '',
+            progress_entity TEXT NOT NULL DEFAULT '', remaining_entity TEXT NOT NULL DEFAULT '',
+            job_entity TEXT NOT NULL DEFAULT ''
+          );
           CREATE TABLE IF NOT EXISTS products (
             variant_key TEXT PRIMARY KEY, short_name TEXT, printer TEXT
           );
@@ -626,6 +631,141 @@ def consume_reservation(db, txn, amount):
             db.execute("UPDATE reservations SET amount=amount-? WHERE transaction_id=?", (amount,txn))
 
 
+
+# Home Assistant Core access is read-only. The Supervisor bearer token is never sent to browsers,
+# persisted to SQLite or logged. Only printer-like sensor entities are returned by this endpoint.
+SENSOR_FIELDS = ("status", "progress", "remaining", "job")
+SENSOR_TYPES = ("sensor", "binary_sensor", "select", "input_text")
+SENSOR_TERMS = {
+    "status": ("druckstatus", "print_status", "gcode_state", "print_state", "machine_status", "status"),
+    "progress": ("druckfortschritt", "print_progress", "progress", "completion", "fortschritt", "percent"),
+    "remaining": ("remaining_time", "remaining_minutes", "restzeit", "verbleibende", "time_left", "remaining"),
+    "job": ("subtask_name", "job_name", "print_name", "file_name", "filename", "task_name")
+}
+PRINTER_ALIASES = {
+    "H2D": ("h2d",),
+    "P1S Old": ("p1s_old", "p1s old"),
+    "P1S New": ("p1s_new", "p1s new"),
+    "Snapmaker U1": ("snapmaker_u1", "snapmaker u1"),
+    "A1 mini": ("a1_mini", "a1 mini"),
+    "Prusa MK4": ("prusa_mk4", "prusa mk4")
+}
+
+
+def valid_entity_id(value):
+    return value == "" or bool(re.fullmatch(
+        r"(?:sensor|binary_sensor|select|input_text)\.[a-z0-9_]{1,100}", value))
+
+
+def get_home_assistant_states():
+    token = os.environ.get("SUPERVISOR_TOKEN", "")
+    if not token:
+        raise RuntimeError("Keine Home-Assistant-API-Berechtigung. App-Update und Neustart prüfen.")
+    req = urllib.request.Request(
+        "http://supervisor/core/api/states",
+        headers={"Authorization": "Bearer " + token, "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as response:
+            raw = response.read(8_000_001)
+        if len(raw) > 8_000_000:
+            raise RuntimeError("Home Assistant liefert zu viele Zustandsdaten.")
+        states = json.loads(raw)
+        if not isinstance(states, list):
+            raise RuntimeError("Ungültige Antwort der Home-Assistant-API")
+        return states
+    except (OSError, urllib.error.URLError, ValueError) as exc:
+        log.warning("Home Assistant state access temporarily unavailable (%s)", type(exc).__name__)
+        raise RuntimeError("Home-Assistant-Sensoren momentan nicht erreichbar.") from None
+
+
+def printer_sensor_summary(states, mapping):
+    sensors = {}
+    for obj in states:
+        if not isinstance(obj, dict):
+            continue
+        entity = str(obj.get("entity_id") or "")
+        if not valid_entity_id(entity) or not entity or entity.split(".", 1)[0] not in SENSOR_TYPES:
+            continue
+        attrs = obj.get("attributes") or {}
+        friendly = attrs.get("friendly_name", "") if isinstance(attrs, dict) else ""
+        sensors[entity] = {"state": str(obj.get("state") or "")[:150],
+                           "friendly_name": str(friendly)[:160]}
+    items = []
+    for printer in PRINTERS:
+        aliases = PRINTER_ALIASES[printer]
+        matching = [(eid, state) for eid, state in sensors.items()
+                    if any(alias in (eid + " " + state["friendly_name"].lower()).lower().replace("-", "_")
+                           for alias in aliases)]
+        assigned = dict(mapping.get(printer, {}))
+        choices = []
+        effective = {}
+        for field in SENSOR_FIELDS:
+            candidates = []
+            for eid, state in matching:
+                hay = (eid + " " + state["friendly_name"]).lower().replace("-", "_").replace(" ", "_")
+                rank = next((i for i, term in enumerate(SENSOR_TERMS[field]) if term in hay), None)
+                if rank is not None:
+                    candidates.append((rank, eid))
+            candidates.sort()
+            choice = str(assigned.get(field + "_entity") or "")
+            if not choice and candidates:
+                choice = candidates[0][1]
+            effective[field] = choice
+            if choice and choice not in sensors:
+                # Missing exact mapping stays visible but never treated as a live value.
+                pass
+        for eid, state in matching[:100]:
+            choices.append({"id": eid, "name": state["friendly_name"] or eid})
+        # Keep explicitly selected mappings even if HA no longer advertises them.
+        for eid in effective.values():
+            if eid and not any(c["id"] == eid for c in choices):
+                choices.append({"id": eid, "name": eid})
+        vals = {field: sensors.get(effective[field], {}).get("state") for field in SENSOR_FIELDS}
+        status = (vals["status"] or "").lower()
+        if not effective["status"]:
+            label, kind = "Sensor zuordnen", "unmapped"
+        elif vals["status"] is None or status in ("unavailable", "unknown", "none", ""):
+            label, kind = "Nicht verfügbar", "unavailable"
+        elif status in ("running", "printing", "druckt", "busy", "print", "pause", "paused", "pause_requested"):
+            label, kind = ("Pausiert", "paused") if "paus" in status else ("Druckt", "printing")
+        elif status in ("idle", "finish", "finished", "complete", "completed", "ready", "standby"):
+            label, kind = "Bereit", "ready"
+        elif status in ("offline", "disconnected", "failed", "error"):
+            label, kind = "Offline / Fehler", "offline"
+        else:
+            label, kind = vals["status"], "other"
+        try:
+            progress = float(str(vals["progress"]).replace(",", ".").replace("%", ""))
+            if not 0 <= progress <= 100:
+                progress = None
+        except (TypeError, ValueError):
+            progress = None
+        remaining = vals["remaining"]
+        if remaining in (None, "", "unknown", "unavailable"):
+            remaining = None
+        job = vals["job"]
+        if job in (None, "", "unknown", "unavailable"):
+            job = None
+        items.append({"name": printer, "status": label, "kind": kind,
+                      "progress": progress, "remaining": remaining, "job": job,
+                      "mapping": effective, "choices": choices})
+    return items
+
+
+def printer_overview():
+    with connect() as db:
+        mapping = {}
+        for row in db.execute("SELECT * FROM printer_sensors"):
+            mapping[row["printer"]] = {key: row[key] for key in
+                ("status_entity", "progress_entity", "remaining_entity", "job_entity")}
+    try:
+        states = get_home_assistant_states()
+        return {"connected": True, "printers": printer_sensor_summary(states, mapping)}
+    except RuntimeError as exc:
+        return {"connected": False, "error": str(exc),
+                "printers": printer_sensor_summary([], mapping)}
+
+
 def dashboard():
     with connect() as db:
         reconcile_reservations(db)
@@ -717,7 +857,7 @@ def dashboard():
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "PrintPulse/0.9"
+    server_version = "PrintPulse/0.10"
     def log_message(self, fmt, *args):
         # Deliberately avoid logging paths that might contain OAuth codes.
         log.debug("Request %s", self.command)
@@ -756,6 +896,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.static_file(path[1:], "application/javascript; charset=utf-8" if path.endswith(".js") else "text/css; charset=utf-8")
         if path == "/brand.png":
             return self.static_file("brand.png", "image/png")
+        if path == "/api/printers":
+            return self.respond(200, printer_overview())
         if path == "/api/catalog":
             return self.respond(200, catalog_view())
         if path == "/api/file":
@@ -845,6 +987,19 @@ class Handler(BaseHTTPRequestHandler):
         try:
             path = urllib.parse.urlsplit(self.path).path
             data = self.json_body(max_bytes=2097152 if path == "/api/import" else 16384)
+            if path == "/api/printers/map":
+                printer = data.get("printer")
+                assigned = {field + "_entity": str(data.get(field + "_entity") or "").strip()
+                            for field in SENSOR_FIELDS}
+                if printer not in PRINTERS or not all(valid_entity_id(v) for v in assigned.values()):
+                    raise ValueError("Drucker oder Sensor-ID ungültig")
+                with connect() as db:
+                    db.execute("""INSERT INTO printer_sensors(printer,status_entity,progress_entity,remaining_entity,job_entity)
+                        VALUES(?,?,?,?,?) ON CONFLICT(printer) DO UPDATE SET
+                        status_entity=excluded.status_entity,progress_entity=excluded.progress_entity,
+                        remaining_entity=excluded.remaining_entity,job_entity=excluded.job_entity""",
+                        (printer, *(assigned[field + "_entity"] for field in SENSOR_FIELDS)))
+                return self.respond(200, {"ok": True})
             if path == "/api/profile":
                 pid, printer = str(data.get("product_id", "")), str(data.get("printer", ""))
                 capacity, minutes, slicer = data.get("capacity"), data.get("minutes"), data.get("slicer")
