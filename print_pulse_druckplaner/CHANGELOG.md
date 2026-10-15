@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0 – Dashboard, Bestellungen, Druckerstatus (Entwicklung)
+
+- Dashboard nach BolloPrint-Vorbild verschlankt.
+- Etsy-artige Bestellliste; bestehende Produktkarten bleiben unter Produktion.
+- Sechs Drucker im neuen Reiter mit Home-Assistant-Statusüberwachung, Fortschritt und Restzeit.
+- Sensoren können pro Drucker zugeordnet werden; fehlende Werte werden klar angezeigt und nichts wird geschätzt.
+- Home-Assistant-Core-API über lokalen Supervisor-Proxy und nur serverseitigen Token.
+- Bestehende Druckdaten und Reservierungen bleiben beim Update erhalten.
+
 ## 0.9.0 – Gebündelte Produktkarten und Versand-Ampel
 
 - Gleiche Etsy-Produkte unabhängig von Bestellzeitpunkt und Farbvarianten zu aufklappbaren Hauptkarten bündeln.
