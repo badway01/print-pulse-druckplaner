@@ -1,5 +1,9 @@
 # Print & Pulse – Druckplanung (Home Assistant App)
 
+## Neu in 0.9.0
+
+Die Hauptseite zeigt gebündelte, reduzierte Produktkarten mit einer dezenten Versand-Ampel. Klicke auf „Bestellungen öffnen“, um Varianten, Kunden, Versandtermine, Etsy-Versandkosten und ggf. Versand-Upgrades einzusehen. Für jeden Auftrag lässt sich der tatsächliche Versanddienstleister von Hand speichern. Alle Angaben bleiben in Home Assistant, nicht im öffentlichen Repository oder JSON-Export.
+
 ## Neu in 0.8.0
 
 Größere, gleichmäßig aufgebaute Kacheln; neue Bestellungen per Klick ansehen; letzter erfolgreicher Abgleich mit Datum und Uhrzeit direkt oben.
