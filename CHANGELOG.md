@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0 – Dashboard, Etsy-Bestellungen, Druckerstatus
+
+- Separater Reiter Dashboard mit vier einfachen Kennzahlen, Produktionsvorschlägen und Druckerüberblick.
+- Vorhandene Produktkarten mit Stückzahl-Badge und Versand-Ampel bleiben in der Produktion.
+- Etsy-artige Bestellliste nach Versandfristen mit Status, Produkten, Varianten und aufklappbaren Details.
+- Neuer Reiter Drucker: die sechs bekannten Drucker, Live-Status, Fortschritt, Restzeit und Auftragsname aus Home Assistant sofern verfügbar.
+- Sichere, lokal gespeicherte Sensorzuordnung. Home-Assistant-Core-API über Supervisor-Token, der das Backend nicht verlässt. Kein Zugriff zum Starten/Stoppen von Drucken.
+- Additives Upgrade, kein Zurücksetzen der Druckfortschritte und Etsy-Konfiguration.
+
 ## 0.9.0 – Gebündelte Produktkarten und Versand-Ampel
 
 - Gleiche Etsy-Produkte über unterschiedliche Bestellungen und Varianten auf einer kompakten Hauptkarte, mit Anzahl oben links und aufklappbaren Unterkarten.

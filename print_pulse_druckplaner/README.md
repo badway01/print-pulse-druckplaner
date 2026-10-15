@@ -1,5 +1,11 @@
 # Print & Pulse Druckplaner
 
+## Neu in 0.10.0
+
+**Dashboard**: vier Kennzahlen, bevorstehende Druckaufträge und Druckerübersicht. **Produktion**: unverändert gebündelte Produktkarten mit Stückzahl-Badge und Versand-Ampel. **Bestellungen**: Etsy-artige, nach Versandtermin gruppierte Liste mit Details pro Bestellposition. **Drucker**: alle sechs vorhandenen Drucker und Home-Assistant-Statusdaten – wenn vorhanden Status, Fortschritt, Restzeit, Druckauftrag. Sensoren unter „Sensoren zuordnen“ je Gerät auswählen. Die Statusüberwachung ist read-only und steuert keine Drucker.
+
+Die App greift serverseitig über die Home-Assistant-Core-API mit dem vom Supervisor bereitgestellten Token auf den Sensorstatus zu. Der Token wird nicht im Browser angezeigt oder gespeichert. Fehlende Sensoren bleiben klar gekennzeichnet. Neue Zuordnungen werden in der lokalen Home-Assistant-App-Datenbank gespeichert und nicht in den JSON-Export übernommen.
+
 ## Neu in 0.9.0
 
 Kompakte, gebündelte Produktkarten mit Versand-Ampel (rot 0–2 Tage oder überfällig, gelb 3 Tage, grün ab 4 Tagen). Aufklappen zeigt Etsy-Bestellungen, Kunden, Varianten, Versanddatum und – soweit von Etsy geliefert – Versandkosten sowie Upgrade. Dienstleister lassen sich pro Auftrag manuell speichern; fehlende Angaben bleiben leer.
