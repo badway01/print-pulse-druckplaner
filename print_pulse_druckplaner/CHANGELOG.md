@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.4 – Nachdruckvarianten auf einen Blick
+
+- Nachdruckmengen je Variante direkt auf der Produktkarte oberhalb der Variantenauswahl, auch im eingeklappten Zustand.
+- Klick auf einen Bedarf öffnet die zugehörige Variante für Bestands- und Druckaktionen.
+- Bei mehreren Merkmalen bleibt die komplette Kombination sichtbar. Ungezählte Varianten werden ausdrücklich als offen gekennzeichnet.
+- Lange Bedarfslisten bleiben innerhalb der Karte scrollbar. Bestandsdaten unverändert.
+
 ## 0.11.3 – Ruhige Hintergrundaktualisierung
 
 - Bestehende Karten, Bilder und Bedienelemente bei Hintergrundaktualisierungen erhalten; nur geänderte Inhalte anpassen.

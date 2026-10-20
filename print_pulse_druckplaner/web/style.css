@@ -18,3 +18,12 @@
 .variant-picker select{width:100%;min-width:0;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font:inherit}
 .variant-picker small{font-size:10px;color:var(--muted)}
 .variant-picker select:focus-visible{outline:3px solid #cf9c45;outline-offset:3px}
+
+.print-overview{margin-top:14px;padding:12px;border-radius:9px;background:#f6f7f3}
+.print-overview-title{display:block;font-size:12px;margin-bottom:7px}
+.print-needs{display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto}
+.print-need{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;padding:7px 9px;font-size:12px;font-weight:400;border-color:#ecd9cc;background:#fff7f0}
+.print-need strong{white-space:nowrap;color:#973b30}
+.print-need span{overflow-wrap:anywhere;min-width:0}
+.print-overview p{margin:0;font-size:12px;color:var(--muted)}
+.print-overview small{display:block;margin-top:8px;font-size:10px;color:var(--muted)}
