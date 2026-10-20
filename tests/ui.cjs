@@ -6,7 +6,7 @@ const assert=require('node:assert/strict');
  data.products.push({...data.products[0],id:'inactive-cat',title:'Inaktive Katze',state:'inactive',need:999,uninitialized:999});
  const many=data.products.find(p=>p.id==='102');
 many.inventory_error='Varianten bitte prüfen.';
-many.items=Array.from({length:784},(_,n)=>({...many.items[0],id:'combination-'+n,label:'Katzenfarbe: Farbe '+Math.floor(n/28)+' · Laternenfarbe: Farbe '+(n%28),on_hand:n}));
+many.items=Array.from({length:784},(_,n)=>({...many.items[0],id:'combination-'+n,label:'Katzenfarbe: Farbe '+Math.floor(n/28)+' · Laternenfarbe: Farbe '+(n%28),on_hand:n===2?null:n,need:n===0?2:n===1?3:0}));
  await route.fulfill({response,json:data});
 });
 await page.route('https://test.etsystatic.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="green"/></svg>'}));
@@ -22,6 +22,16 @@ async function equalRows(){
  for(const a of boxes)for(const b of boxes)if(Math.abs(a.y-b.y)<1)assert(Math.abs(a.h-b.h)<1,'card heights must match within each row');
 }
 await equalRows();
+const overview=page.locator('[data-product="102"] .print-overview');
+assert.equal(await overview.locator('.print-need').count(),2);
+assert((await overview.textContent()).includes('2 ×'));
+assert((await overview.textContent()).includes('3 ×'));
+assert((await overview.textContent()).includes('noch nicht gezählt'));
+assert.equal(await page.locator('[data-product="102"] .variant').count(),0);
+await overview.locator('[data-show-variant="combination-1"]').click();
+assert.equal(await page.locator('[data-product="102"] .variant').getAttribute('data-variant'),'combination-1');
+assert.equal(await overview.locator('.print-need').count(),2);
+await page.locator('[data-product="102"] [data-expand]').click();
 const note=page.locator('[data-product="102"] details.notices');
 assert.equal(await note.getAttribute('open'),null);
 await note.locator('summary').click();
