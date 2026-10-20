@@ -1,80 +1,54 @@
-# Print & Pulse – Druckplanung (Home Assistant App)
+# Print & Pulse · Lager v0.1
 
-## Neu in 0.10.0
+Eine bewusst kleine Home-Assistant-App für deinen echten Lagervorrat: Etsy-Produkte mit Bild und Titel, separate Etsy-Menge, echte Bestände mit **− / Zahl / +**, laufende Drucke und nachvollziehbare Nachdruckempfehlungen.
 
-Das Dashboard zeigt nur vier zentrale Kennzahlen und einen Überblick über anstehende Drucke und Drucker. Die bekannten Produktkarten mit großen Stückzahl-Badges bleiben unter **Produktion**. Unter **Bestellungen** erscheint eine übersichtliche, nach Versandfrist sortierte Etsy-artige Liste; die Produktionsstände werden unverändert aus den bestehenden Daten verwendet. Unter **Drucker** zeigen sechs Geräte Status, Fortschritt, Restzeit und Jobname aus Home Assistant, sofern entsprechende Sensoren vorhanden sind. Die Werte können pro Drucker über **Sensoren zuordnen** eingestellt werden.
+## Update in Home Assistant
 
-Home-Assistant-API: App benötigt ab dieser Version `homeassistant_api: true`; der Supervisor-Token wird nur serverseitig verwendet, nie an den Browser weitergegeben. Der neue Druckerstatus ist reine Überwachung und startet oder stoppt keinen Druck. Ohne Sensorwerte zeigt die Oberfläche „Sensor zuordnen“ oder „Nicht verfügbar“, keine erfundenen Werte. Die Zuordnung bleibt bei Updates in SQLite erhalten und gehört zur Home-Assistant-App-Sicherung, nicht zum JSON-Produktionsbackup.
+Der Neustart heißt in der Oberfläche **Lager v0.1**. Die technische App-Version ist **0.11.0**, damit Home Assistant sie als Update der vorherigen 0.10.0 anbietet. Repository, Ordner und App-Slug bleiben identisch. In der HA-App-Verwaltung nach Updates suchen, sichern und aktualisieren. Nicht deinstallieren oder eine zweite App anlegen.
 
-## Neu in 0.9.0
+Die alte Oberfläche (Dashboard, Bestellverwaltung, Drucker, 3MF-Dateien und Produktionslinien) ist vollständig ersetzt. Bestehende Etsy-Zugangsdaten bleiben lokal erhalten. Alte Tabellen werden aus Rücksichtsgründen nicht gelöscht, aber nicht mehr verwendet. Frühere Produktionsstände sind **keine Lagerzählung** und werden nicht übernommen.
 
-Die Hauptseite zeigt gebündelte, reduzierte Produktkarten mit einer dezenten Versand-Ampel. Klicke auf „Bestellungen öffnen“, um Varianten, Kunden, Versandtermine, Etsy-Versandkosten und ggf. Versand-Upgrades einzusehen. Für jeden Auftrag lässt sich der tatsächliche Versanddienstleister von Hand speichern. Alle Angaben bleiben in Home Assistant, nicht im öffentlichen Repository oder JSON-Export.
+**Einmalige Etsy-Freigabe:** Die bisherige Verbindung las nur Bestellungen (`transactions_r`). Für Varianten benötigt Etsy zusätzlich `listings_r`. Bei entsprechendem Hinweis unter **Einstellungen → Etsy-Freigabe öffnen** erneut erlauben und die vollständige Rückleitungsadresse einfügen. Schlüssel müssen bei gleicher Installation nicht neu eingegeben werden. Etsy erhält ausschließlich Lesezugriffe; die angebotenen Mengen werden nie überschrieben.
 
-## Neu in 0.8.0
+## So nutzt du das Lager
 
-Größere, gleichmäßig aufgebaute Kacheln; neue Bestellungen per Klick ansehen; letzter erfolgreicher Abgleich mit Datum und Uhrzeit direkt oben.
+1. Produkte laden lassen. Aktive, ausverkaufte, inaktive, abgelaufene und Entwurfs-Listings werden eingelesen; entfernte bereits bekannte Produkte bleiben als solche erhalten.
+2. Varianten öffnen und einmal **Zählen** wählen. Tatsächliche fertige Stücke inklusive reservierter / gepackter Ware erfassen. Unbekannt wird niemals als null angenommen. Die Einheit ist die Etsy-Verkaufseinheit: ein 2er-Set zählt als ein Set, nicht zwei einzelne Stücke.
+3. **− / +** korrigiert den echten Bestand. Auf die Zahl tippen erlaubt die Direkteingabe. Neu sortiert wird erst nach fünf Sekunden Bedienpause.
+4. **Im Druck** erfasst die gestartete Menge. **Fertig** bucht die erfolgreiche Menge ins Lager. **Abbruch** entfernt fehlgeschlagene Stücke nur aus der Druckmenge. Es wird kein Drucker ferngesteuert.
+5. Offene bezahlte Bestellungen reservieren Bestand. Neu erkannter Versand bereits beobachteter offener Positionen zieht die Stücke genau einmal ab. Historische versandte Bestellungen werden beim ersten Import nicht nachträglich abgebucht. Stornierungen/Erstattungen lösen keine Versandabbuchung aus. Retouren nach Rückerhalt selbst einbuchen. Bestandskorrekturen dürfen den automatischen Versandabzug nicht vorwegnehmen.
+6. **Rückgängig** nimmt die letzte Bestands-/Druckmengenänderung zurück, solange die Variante inzwischen nicht weiter verändert oder versendet wurde.
 
-### Nächsten Druck planen
+## Empfehlungen und Badges
 
-Unter **Produkte → Produkt öffnen** für jeden verwendeten Drucker **Stück pro Platte**, **Minuten pro Platte** und **Slicer** eintragen und **Druckprofil speichern**. Ohne Profil wird zunächst ein Stück vorgeschlagen. 0 Minuten bedeutet unbekannte Dauer.
+- Karten mit ungedecktem Kundenbedarf bzw. leerem Vorrat zuerst (rot), danach Nachfüllbedarf (gelb), ungezählte Varianten, ausreichend versorgte Produkte (grün).
+- Vorschlag = **offene Bestellmenge + Zielvorrat − gezählter Bestand − im Druck**, mindestens null.
+- Zielvorrat = aufgerundeter höherer Tagesdurchschnitt aus 7 bzw. 30 Tagen × Vorratstage (anfangs 7), mindestens der je Variante eingestellte Mindestbestand (anfangs 2).
+- Reichweite verwendet nur frei verfügbare fertige Ware; „Im Druck“ reduziert die Nachdruckmenge, nicht die sofortige Verfügbarkeit.
+- **Nur auf Bestellung**: manuell pro Produkt. Keine Vorratsempfehlung, aber fehlende Kundenmengen bleiben sichtbar.
+- **Bestseller**: mindestens fünf verkaufte Verkaufseinheiten in 30 Tagen und unter den obersten 20 % der geladenen Produkte nach Absatz (aufgerundet, mindestens ein Platz). Die Berechnung zählt offene bezahlte und versandte Verkäufe; Erstattungen und unklare Zahlungen bleiben ausgeschlossen.
+- Beide Badges stehen **untereinander unten rechts**. Alle Angaben zu Verkäufen zählen Stück/Verkaufseinheiten, nicht die Anzahl Bestellungen.
+- Inaktive/entfernte Produkte erhalten keine Vorratsempfehlung; offene Kundenmengen bleiben berücksichtigt.
 
-Die Produktion zeigt bis zu drei Vorschläge nach frühester offener Versandfrist. Farben werden pro Variante gebündelt, fertige und reservierte Mengen abgezogen. **Vorschlag übernehmen** reserviert eine Platte auf dem angezeigten Drucker. Bereits reservierte Varianten werden vorerst nicht erneut vorgeschlagen. **Gedruckt** beziehungsweise **Mehrere Stück** verbucht fertige Mengen; **Freigeben** hebt die Reservierung ohne Fertigmeldung auf. Eine Reservierung startet keinen Drucker. Die Phase „Im Druck“ bleibt manuell; Live-Druckerzustände werden nicht abgerufen.
+Die Prognose ist eine einfache lokale Rechenregel. Sie erkennt keine zukünftigen Saisonspitzen. Neue Produkte haben zunächst den Mindestbestand als Ziel; bei null Verkäufen wird keine erfundene Reichweite angezeigt. Für individuelle Produkte „Nur auf Bestellung“ aktivieren.
 
-Diese Planung verwendet lokale Regeln, keinen externen KI-Dienst. Dateien, Farbzuordnung und Kapazitäten vor dem Druck im Slicer prüfen.
+## Daten und Sicherheit
 
-### Datei im Slicer öffnen
+Alle 15 Minuten automatischer Abgleich, zusätzlich manuell. Bei unvollständigem Bestellabruf bleibt der letzte komplette Stand erhalten. Nicht eindeutig zuordenbare Bestellvarianten werden ausdrücklich als zusätzlicher Prüfbedarf angezeigt. Bei fehlender Varianten-Leseberechtigung können aktive Produktbilder und Etsy-Mengen schon erscheinen, die Inventarerfassung wartet auf die Freigabe.
 
-**Für [Slicer] laden** lädt die passende 3MF herunter. Anschließend im ausgewählten Slicer öffnen, auf dem Mac beispielsweise über **Öffnen mit**. Das ist noch kein automatischer Direktstart: Die geschützte Home-Assistant-Sitzung lässt sich nicht an eine native App weiterreichen. Eine lokale Brücke ist in dieser Version nicht enthalten.
+Die lokale SQLite-Datenbank unter `/data/production.sqlite3` enthält Zugangsdaten, Lagerbestand, aggregierbare Bestellpositionen und Änderungen. Keine Kundennamen/Adressen werden durch v0.1 neu gespeichert. Vorherige Daten bleiben in alten Tabellen für einen möglichen Rollback erhalten. Eine vollständige Home-Assistant-App-Sicherung enthält die Daten; der frühere JSON-Export ist entfallen. Keine Zugangsdaten, Datenbanken oder echten Shopdaten gehören nach GitHub.
 
-Profile und Reservierungen bleiben beim Update erhalten und sind in einer vollständigen Home-Assistant-App-Sicherung enthalten. Der bisherige JSON-Export enthält sie nicht.
+Zugriff ausschließlich über Home Assistant Ingress. Keine externen Ports, keine externe KI, keine laufenden Dienst-Abos. Bestehende App-Daten bleiben bei einem normalen Update erhalten.
 
+## Entwicklung und Prüfung
 
-Öffentlicher **Quellcode** für eine lokal betriebene Home-Assistant-App.
+Python-Standardbibliothek, SQLite, HTML/CSS/JavaScript. Lokale Tests mit ausschließlich synthetischen Daten:
 
-- Keine eingebauten Etsy-Listing-IDs, Bestellnummern oder Shop-Konfiguration.
-- OAuth-Schlüssel, Etsy-Bestellungen und der Produktionsstand werden nur zur Laufzeit unter `/data/` auf der Home-Assistant-Installation gespeichert.
-- Der öffentliche Code darf **keine** Datenbank, keine Backups, keine Log-Dateien und keine Echtdaten enthalten.
-- Updates werden nach Einrichtung dieses Repositorys in Home Assistant über die App-Verwaltung verteilt.
-- App verwendet Home Assistant Ingress, keinen eigenen veröffentlichten Port.
+```sh
+python -m unittest discover -s tests -v
+python scripts/check_public.py
+python -m py_compile print_pulse_druckplaner/app.py
+node --check print_pulse_druckplaner/web/app.js
+```
 
-## Sicherheit & Betrieb
-
-Etsy-API-Zugangsdaten nur in der lokalen App-Oberfläche eintragen. Das Repository wird nicht mit Live-Zugangsdaten befüllt. Die private Datenbank ist Bestandteil von Home-Assistant-Backups und muss entsprechend geschützt werden. Vor produktivem Einsatz echte Versandfristen mit Etsy abgleichen.
-
-## Migration von der lokalen App
-
-Der Wechsel von `local_apps` zu einer App aus einem GitHub-Repository kann eine **separate Installation** mit eigener `/data`-Datenbank erzeugen. Die lokale App deshalb **nicht deinstallieren**.
-
-1. In der alten App eine **Sicherung** exportieren und zusätzlich ein Home-Assistant-Backup erstellen.
-2. Die neue App aus dem Repository installieren (nicht gleich die alte entfernen).
-3. Etsy in der neuen App separat autorisieren und erfolgreich synchronisieren.
-4. In der neuen App **Wiederherstellen** aufrufen und die lokale JSON-Sicherung importieren.
-5. Bestellzahlen, Termine, Mengen und manuelle Produktnamen **gegen Etsy und die alte App prüfen**.
-6. Erst nach erfolgreicher Prüfung die alte lokale App stoppen.
-
-**Die Produktionsdaten-Sicherung enthält bewusst keine Etsy-Schlüssel oder OAuth-Tokens.**
-
-Die neue App ist noch nicht live getestet; bis zum Abschluss der Migration bleibt die Etsy-Bestellübersicht die maßgebliche Produktionsreferenz.
-
-## Hinweise vor einer Veröffentlichung
-
-- Dieses Repository muss **neu** angelegt werden: niemals ältere ZIP-Archive, private Backups oder ein bestehendes Git-Repository mit fremder Historie hochladen.
-- Die Betreiberin bzw. der Betreiber eines öffentlichen GitHub-Repositories ist als GitHub-Account sichtbar. Die Inhalte dieser App stellen jedoch keine Etsy-Zugangsdaten bereit.
-- Die frühere manuelle OAuth-Rückleitung über eine normale Shop-Startseite ist nicht ideal; vor erneuter Autorisierung sollte eine eigene HTTPS-Callback-Seite ohne Drittanbieter-Skripte verwendet werden.
-- Die statischen Sicherheitsprüfungen und synthetischen Tests ersetzen weder einen unabhängigen Security-Audit noch einen Live-Test der Etsy-API oder der Home-Assistant-Update-Migration.
-
-## Anzeige v0.6
-
-Drei Druckkarten auf großen Bildschirmen, zwei auf Tablets und eine auf dem Smartphone. Die kleine Vorschau rechts oben stammt aus dem ersten Etsy-Listingbild; der serverseitig zwischengespeicherte Bildlink wird nur vom offiziellen `etsystatic.com`-CDN akzeptiert. Bei fehlendem Bild erscheint ein Platzhalter.
-
-
-### Direkt verbuchen (v0.6)
-Auf der Produktkarte verbucht „🖨 Gedruckt“ (bzw. „+1 gedruckt“) genau ein fertig gedrucktes Stück. Bei Sammeldrucken können mehrere Stück über „Mehrere Stück …“ eingetragen werden. Eine versehentliche Buchung lässt sich unter „Positionen“ korrigieren.
-
-## Version 0.7.0
-
-Produktionslinie, Kachel-/Listenansicht, Filter, neue Bestellungen, eigener Produktkatalog und 3MF-Projekte je Drucker. Details: [Changelog](CHANGELOG.md) und [Bedienung](print_pulse_druckplaner/README.md).
-
-Der Katalog kann aus aktiven Etsy-Listings ergänzt werden. Der Import verwendet den offiziellen lesenden Endpoint `GET /v3/application/shops/{shop_id}/listings/active`; bestehende Produktnamen, Notizen und Dateien werden dabei nicht überschrieben.
-
-**Sicherung:** 3MF-Dateien sind lokal in der App-Datenbank gespeichert. Eine Home-Assistant-App-Sicherung enthält die vollständigen Daten. Der bisherige JSON-Export ist ausschließlich für Produktionsstände gedacht.
+Die automatisierten Prüfungen ersetzen keinen echten Test mit deiner Etsy-Freigabe und deiner Home-Assistant-Installation. Nach dem ersten Abgleich eine Bestellung und eine Variante gegen Etsy und das Regal prüfen.

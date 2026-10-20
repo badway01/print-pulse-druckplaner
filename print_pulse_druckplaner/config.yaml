@@ -1,7 +1,7 @@
 name: "Print & Pulse Druckplaner"
-version: "0.10.0"
+version: "0.11.0"
 slug: "print_pulse_druckplaner"
-description: "Lokale Etsy-Produktionsplanung mit Versandprioritäten und Sammeldrucken"
+description: "Lager v0.1: echte Bestände, Etsy-Produkte und Nachdruckempfehlungen"
 arch:
   - aarch64
 startup: application
@@ -11,9 +11,9 @@ ingress: true
 ingress_port: 8099
 ingress_entry: /
 panel_icon: mdi:printer-3d
-panel_title: "Druckplanung"
+panel_title: "Lager"
 panel_admin: true
-homeassistant_api: true
+homeassistant_api: false
 hassio_api: false
 backup: cold
 options: {}

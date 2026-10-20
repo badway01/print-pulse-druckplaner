@@ -4,16 +4,7 @@ import re
 import sys
 
 root=Path(__file__).resolve().parents[1]
-allowed={
- 'repository.yaml','README.md','CHANGELOG.md','.gitignore',
- 'print_pulse_druckplaner/app.py','print_pulse_druckplaner/config.yaml',
- 'print_pulse_druckplaner/Dockerfile','print_pulse_druckplaner/README.md',
- 'print_pulse_druckplaner/web/index.html','print_pulse_druckplaner/web/app.js',
- 'print_pulse_druckplaner/web/style.css','print_pulse_druckplaner/web/workshop.js','print_pulse_druckplaner/web/brand.png',
- 'print_pulse_druckplaner/CHANGELOG.md','tests/test_catalog.py',
- 'scripts/check_public.py','tests/test_production.py','tests/test_frontend.py',
- '.github/workflows/validate.yml','tests/test_printers.py',
-}
+allowed={'tests/ui.cjs', 'tests/preview.py', 'print_pulse_druckplaner/web/app.js', 'print_pulse_druckplaner/config.yaml', 'repository.yaml', 'print_pulse_druckplaner/README.md', '.github/workflows/validate.yml', 'scripts/check_public.py', 'print_pulse_druckplaner/app.py', 'CHANGELOG.md', 'print_pulse_druckplaner/Dockerfile', 'print_pulse_druckplaner/CHANGELOG.md', '.gitignore', 'README.md', 'print_pulse_druckplaner/web/index.html', 'tests/test_stock.py', 'print_pulse_druckplaner/web/style.css'}
 files={str(p.relative_to(root)) for p in root.rglob('*') if p.is_file() and '__pycache__' not in str(p) and '.git/' not in str(p)}
 errors=[]
 if files!=allowed:

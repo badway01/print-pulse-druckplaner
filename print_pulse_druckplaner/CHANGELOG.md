@@ -1,64 +1,34 @@
 # Changelog
 
-## 0.10.0 – Dashboard, Bestellungen, Druckerstatus
+## 0.11.0 – Lager-Neustart v0.1
 
-- Dashboard nach BolloPrint-Vorbild verschlankt.
-- Etsy-artige Bestellliste; bestehende Produktkarten bleiben unter Produktion.
-- Sechs Drucker im neuen Reiter mit Home-Assistant-Statusüberwachung, Fortschritt und Restzeit.
-- Sensoren können pro Drucker zugeordnet werden; fehlende Werte werden klar angezeigt und nichts wird geschätzt.
-- Home-Assistant-Core-API über lokalen Supervisor-Proxy und nur serverseitigen Token.
-- Bestehende Druckdaten und Reservierungen bleiben beim Update erhalten.
-
-## 0.9.0 – Gebündelte Produktkarten und Versand-Ampel
-
-- Gleiche Etsy-Produkte unabhängig von Bestellzeitpunkt und Farbvarianten zu aufklappbaren Hauptkarten bündeln.
-- Pastell-Ampel: überfällig bis 2 Tage rot, genau 3 Tage gelb, ab 4 Tagen grün; früheste offene Versandfrist zuerst.
-- Bestellunterkarten mit Etsy-Kundenname, Menge, Variante, Versanddatum, -art, Käufer-Versandkosten, gegebenenfalls Upgrade sowie manuell bearbeitbarem Dienstleister.
-- Additive Migration ohne Datenverlust. Fehlende Versandinformationen bleiben ausdrücklich ungeklärt; Druckvorschläge und Drucker-Zuordnungen bleiben.
-
-## 0.8.0 – Druckvorschläge und einheitliche Produktkarten
+Technische Update-Version 0.11.0, neue Produktversion **Lager v0.1**. Die höhere technische Version ermöglicht das normale Home-Assistant-Update von 0.10.0.
 
 ### Neu
-- Größere Produktbilder mit festem Bildbereich, klarere Print-&-Pulse-Kacheln, drei Desktop-Spalten und gleich hohe Aktionsbuttons. „Gedruckt“ steht in einer Kachelreihe auf gleicher Höhe.
-- Die Hinweise auf heutige und neue Bestellungen sind anklickbar. Die Detailansicht zeigt genau die zugehörigen Bestellnummern, Produkte, Farben, Mengen und Versandfristen.
-- Datum und Uhrzeit des letzten erfolgreichen Etsy-Abgleichs direkt oben, ausdrücklich in deutscher Ortszeit (Europe/Berlin). Fehlgeschlagene Abgleiche ändern diesen Zeitstempel nicht.
-- Konkrete lokale Druckvorschläge: Produkt/Farbe, Stückzahl, Drucker, Versandfrist und verfügbare 3MF. Gleiche Varianten werden gebündelt; gedruckte und reservierte Mengen werden berücksichtigt. Die Vorschläge bleiben unabhängig von Ansichtsfiltern.
-- „Vorschlag übernehmen“ reserviert die Menge dauerhaft. Pro Drucker und Variante höchstens eine aktive Reservierung, mit Schutz vor doppelter Übernahme. Fertigmeldungen bauen die zugehörigen Reservierungen ab; „Freigeben“ hebt sie auf. Geschlossene Bestellungen und reduzierte Mengen werden abgeglichen.
-- Unter Produkte je Drucker Plattenkapazität, Dauer in Minuten und Slicer hinterlegen. Ohne Profil zunächst ein Stück pro Vorschlag; 0 Minuten bedeutet unbekannt. Reservierte Varianten werden erst nach Abschluss oder Freigabe erneut vorgeschlagen.
-- „Für [Slicer] laden“ lädt die hinterlegte 3MF und zeigt den Öffnen-Ablauf für Bambu Studio, OrcaSlicer, Snapmaker Orca oder PrusaSlicer. Der normale Download bleibt verfügbar.
 
-### Grenzen und Daten
-- Die Vorschläge nutzen nachvollziehbare lokale Regeln, keinen externen KI-Dienst. Sie starten keine Drucker und kennen keinen Live-Druckerstatus; „belegt“ basiert auf Reservierungen und manuell gesetzter Phase.
-- Echtes direktes Öffnen im lokalen Slicer ist noch nicht enthalten: Eine native App kann die geschützte Home-Assistant-Ingress-Sitzung nicht übernehmen. Dafür wäre eine lokale Brücke erforderlich; derzeit die heruntergeladene Datei im zugeordneten Slicer öffnen.
-- Plattenbelegung, Druckzeit und Farbzuordnung stammen aus deinen Angaben. Vor jedem Druck die 3MF im Slicer prüfen; gespeicherte Produktdateien werden nicht automatisch an eine Farbvariante angepasst.
-- Additive Datenbankerweiterung erhält vorhandene Produktionsstände, Katalog, 3MF und Zugangsdaten. Profile und Reservierungen sind Teil der Home-Assistant-App-Sicherung, nicht des bisherigen JSON-Exports.
+- Kompletter Neustart mit einer übersichtlichen Lagerseite.
+- Etsy-Produkte mit Bild und Titel; Etsy-Angebotsmenge strikt getrennt vom tatsächlichen Bestand.
+- Varianten aufklappbar, echte Bestände per Minus/Plus oder Direkteingabe.
+- Ungezählte Bestände ausdrücklich „Zählen“ statt erfundener Nullbestände.
+- Laufende Druckmengen erfassen, fertige Mengen einlagern und Fehldruckmengen zurücknehmen.
+- Reservierungen aus offenen bezahlten Bestellungen; idempotente Lagerabbuchung bei bestätigtem Versand.
+- Verkaufszahlen der letzten 7/30 Tage, geschätzte Reichweite und automatische Nachdruckmengen.
+- Einstellbares Vorratsziel und Mindestbestand je Variante.
+- Badge „Nur auf Bestellung“ und automatischer „Bestseller“ untereinander unten rechts.
+- Farbiger Kartenrand, Suche und Filter für Nachdrucken, Im Druck und Noch zählen.
+- Letzte Bestandsänderung rückgängig machen, sofern keine neuere Buchung/Versandabbuchung vorliegt.
+- Automatische Priorisierung nach Bedarf; Umsortieren nach fünf Sekunden Bedienpause.
+- Automatischer Etsy-Abgleich alle 15 Minuten und sichtbarer letzter erfolgreicher Abgleich.
+- Hinweise bei fehlenden Berechtigungen, unzugeordneten Varianten und Bestandsabweichungen.
 
-### Geprüft
-- 24 automatisierte Tests, einschließlich Reservierung, doppelter Übernahme, Fertigmeldung, Mengenänderung, Auftragsabschluss und Migration.
-- Browserprüfung: Bestelldetails, ausgerichtete Buttons, Reservierungen, Profil speichern, bytegleicher 3MF-Download und mobile Ansicht.
+### Entfernt
 
-## 0.7.0 – Produktionszentrale und Produktkatalog
+Alte Dashboard-, Bestell-, Drucker-, Produktionslinien- und 3MF-Oberflächen. Kein Druckerstart, keine Sensorzuordnung und kein alter JSON-Export in v0.1.
 
-### Neu
-- Produktionslinie mit den Phasen Geplant, Im Druck und Gedruckt. Phase manuell wechseln; fertige Mengen werden weiterhin bewusst verbucht.
-- Kachelansicht mit drei Spalten am Desktop sowie kompakte Listenansicht; Ansichtswechsel wird im Browser gespeichert.
-- Kombinierbare Filter: Versandtermin, Stückzahl, Phase, Drucker und heute eingegangene Bestellungen. Suche umfasst Produkt, Farbvariante, Etsy-ID und Bestellnummer.
-- Sortierung nach Versandpriorität, Menge oder Produktname. Empfehlung für den nächsten geplanten Auftrag anhand der frühesten bekannten Versandfrist.
-- Print-&-Pulse-Logo, Salbeigrün und warme Goldtöne; überarbeitete Karten, Fortschrittsbalken und Bedienelemente.
-- Anzeige „Heute bestellt“ anhand des Etsy-Bestelldatums (Europe/Berlin) und „Neu“ für nach dem ersten Abgleich hinzugekommene offene Bestellungen. „Als gesehen markieren“ bestätigt neue Eingänge.
-- Reiter Produkte mit dauerhaftem Katalog, Produktdetails, lokalen Namen und Drucknotizen. Bekannte Bestellprodukte werden übernommen; aktive Etsy-Listings lassen sich zusätzlich importieren. Eigene Produkte können manuell angelegt werden.
-- Eine 3MF-Datei pro Produkt und Drucker: H2D, P1S Old, P1S New, Snapmaker U1, A1 mini und Prusa MK4. Hochladen, herunterladen, ersetzen und entfernen; bis 100 MB pro Datei.
-- Direkter Zugang zu Produktdetails und 3MF-Dateien aus der Auftragskarte.
+### Updatehinweise
 
-### Daten und Updates
-- Additive Datenbankmigration erhält Bestellstände, eigene Produktnamen, Druckerzuordnungen und Etsy-Zugangsdaten.
-- Katalog und 3MF-Dateien liegen ausschließlich in der lokalen App-Datenbank unter /data. Normale App-Updates behalten sie bei. Home-Assistant-Sicherungen der App schließen sie ein.
-- Der bisherige JSON-Export bleibt eine Sicherung der Produktionsstände; er enthält keinen vollständigen Produktkatalog und keine 3MF-Dateien. Dafür eine Home-Assistant-App-Sicherung verwenden.
-- Hochgeladene 3MF-Dateien werden als ZIP-Projektcontainer geprüft, nie entpackt oder ausgeführt. Ein ungültiger Upload ersetzt keine vorhandene Datei.
-- Changelog zusätzlich im App-Verzeichnis, damit Home Assistant die Versionshinweise anzeigen kann.
+Etsy-Zugangsdaten und alte Daten bleiben bei einem normalen App-Update erhalten. Neue Lagerbestände einmal selbst zählen. Für Varianten kann eine einmalige erneute Etsy-Freigabe für `listings_r` nötig sein; die App führt ausschließlich Lesezugriffe auf Etsy aus. Historische Produktionsstände werden nicht als Lagerbestand interpretiert. Vollständige Sicherung über Home Assistant verwenden.
 
-### Hinweise
-- „Gedruckt“ verändert nur die lokale Produktion, nicht den Versandstatus auf Etsy. Produktionsphasen sind manuell und kein Live-Druckerstatus.
-- „Heute bestellt“ zählt aktuell offene, produktionsrelevante Bestellungen; bereits versendete Bestellungen sind nicht Teil dieser Ansicht.
-- Die Dateien dienen als gespeicherte Druckprojekte; automatisches Senden oder Starten auf einem Drucker ist nicht enthalten.
+### Prüfung
 
+Synthetische Tests für Bestandskorrekturen, Reservierungen, Versand-Deduplizierung, Stornierungen, Rückgängig, Empfehlungen, Varianten, Migration und Zugriffsschutz. Kein Live-Abgleich mit privaten Etsy-/HA-Daten während der Entwicklung.
