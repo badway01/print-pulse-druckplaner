@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.1 – Übersicht aufgeräumt
+
+- Nur aktive Etsy-Listings in Produktübersicht, Suche, Filtern und Kennzahlen. Inaktive Angebote bleiben intern für vorhandene Bestellzuordnungen erhalten.
+- Gleich hohe Karten pro Reihe; zweizeilige Titel und unten ausgerichtete Badges.
+- Hinweise klein und standardmäßig eingeklappt. Aufgeklappte Hinweise bleiben beim automatischen Aktualisieren geöffnet.
+- Globale Hinweise werden einmal oberhalb der Übersicht angezeigt.
+
 ## 0.11.0 – Lager-Neustart v0.1
 
 Technische Update-Version 0.11.0, neue Produktversion **Lager v0.1**. Die höhere technische Version ermöglicht das normale Home-Assistant-Update von 0.10.0.

@@ -4,6 +4,12 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 let model=null,filter='all',busy=false,polling=false,sortTimer=null,quantityContext=null;
 let order=[];
 const expanded=new Set();
+let openNotices=new Set();
+function notices(messages,key){
+ const unique=[...new Set(messages.filter(Boolean))];
+ return unique.length?`<details class="notices" data-notice-key="${esc(key)}" ${openNotices.has(key)?'open':''}><summary>Hinweise (${unique.length})</summary>${unique.map(message=>`<p class="warning">${esc(message)}</p>`).join('')}</details>`:'';
+}
+function showAlert(messages){const html=notices(messages,'global');$('alert').innerHTML=html;$('alert').hidden=!html;}
 const stateNames={active:'Aktiv',sold_out:'Bei Etsy ausverkauft',inactive:'Inaktiv',draft:'Entwurf',expired:'Abgelaufen'};
 function flash(message,error=false){$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;clearTimeout(flash.timer);flash.timer=setTimeout(()=>$('toast').hidden=true,error?9000:3500);}
 async function api(path,body){const response=await fetch('api/'+path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw Error(data.error||'Aktion fehlgeschlagen.');return data;}
@@ -19,25 +25,26 @@ function variant(p,i){
  <p class="availability">${unknown?'Noch nicht erfasst':`${i.reserved} bestellt · ${i.free} frei${coverage}`}</p>
  <div class="recommend ${i.level}"><span class="dot"></span>${esc(recommendation)}</div>
  <div class="print-row"><button class="secondary small" data-action="printing" data-id="${esc(i.id)}" ${unknown?'disabled':''}>+ Im Druck ${i.in_print?`(${i.in_print})`:''}</button>${i.in_print?`<button class="primary small" data-action="finish" data-id="${esc(i.id)}">Fertig</button><button class="text-button small" data-action="cancel" data-id="${esc(i.id)}">Abbruch</button>`:''}<button class="text-button small minimum" data-action="minimum" data-id="${esc(i.id)}">Minimum ${i.minimum}</button></div>
- ${i.notice?`<p class="warning">${esc(i.notice)}</p>`:''}</div>`;
+ ${notices([i.notice],'variant-'+i.id)}</div>`;
 }
 function card(p){
  const image=thumbnail(p.image),open=expanded.has(p.id)||p.items.length===1;
  const total=p.items.every(i=>i.on_hand!==null)?p.items.reduce((s,i)=>s+i.on_hand,0):null;
- return `<article class="product ${p.level}" data-product="${esc(p.id)}"><div class="product-photo">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:'<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}<span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span></div><div class="product-body"><h2>${esc(p.title)}</h2><div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span><span><b>${p.sold30}</b> / 30 Tage</span>${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}</div>
- ${p.inventory_error?`<p class="warning">${esc(p.inventory_error)}</p>`:''}${p.unmatched?`<p class="warning">${p.unmatched} bestellte Stück noch keiner Variante zugeordnet. Bedarf zusätzlich in Etsy prüfen.</p>`:''}${p.review?`<p class="warning">${p.review} Stück mit Erstattung oder unklarem Zahlungsstatus: in Etsy prüfen.</p>`:''}
+ return `<article class="product ${p.level}" data-product="${esc(p.id)}"><div class="product-photo">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:'<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}<span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span></div><div class="product-body"><h2 title="${esc(p.title)}">${esc(p.title)}</h2><div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span><span><b>${p.sold30}</b> / 30 Tage</span>${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}</div>
+ ${notices([p.inventory_error,p.unmatched?`${p.unmatched} bestellte Stück noch keiner Variante zugeordnet. Bedarf zusätzlich in Etsy prüfen.`:'',p.review?`${p.review} Stück mit Erstattung oder unklarem Zahlungsstatus: in Etsy prüfen.`:''],'product-'+p.id)}
  ${p.items.length>1?`<button class="variant-toggle" data-expand="${esc(p.id)}" aria-expanded="${open}"><span>${p.items.length} Varianten · ${total===null?'Bestände erfassen':total+' im Lager'}</span><b>${open?'−':'+'}</b></button>${!open?`<p class="collapsed-need">${p.need?p.need+' Stück nachdrucken':p.uninitialized?'Noch '+p.uninitialized+' Varianten zählen':'Bedarf gedeckt'}</p>`:''}`:''}
  ${open?p.items.map(i=>variant(p,i)).join(''):''}
  <div class="card-bottom"><label class="order-mode"><input type="checkbox" data-mode="${esc(p.id)}" ${p.made_to_order?'checked':''}><span>Auf Bestellung</span></label><div class="badges">${p.made_to_order?'<span class="badge made">Nur auf Bestellung</span>':''}${p.bestseller?'<span class="badge best">Bestseller</span>':''}</div></div></div></article>`;
 }
 function render(){if(!model)return;
- const products=model.products;
+ openNotices=new Set([...document.querySelectorAll('[data-notice-key][open]')].map(el=>el.dataset.noticeKey));
+ const products=model.products.filter(p=>p.state==='active');
  $('sync').disabled=!!model.sync.running||!model.authorized;
  $('undo').disabled=!model.undo||busy;
  const date=model.last_sync?new Date(model.last_sync*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Berlin'}):'noch kein Abgleich';
  $('sync-state').textContent=model.sync.running?model.sync.message:`Letzter erfolgreicher Etsy-Abgleich: ${date} · automatisch alle 15 Minuten`;
  const stale=model.last_sync&&Date.now()/1000-model.last_sync>3600;
- $('alert').textContent=model.sync.error||model.warning||(!model.authorized?'Bitte Etsy unter Einstellungen verbinden.':stale?'Etsy-Daten sind älter als eine Stunde. Verbindung prüfen.':'');$('alert').hidden=!$('alert').textContent;
+ showAlert([model.sync.error,model.warning,!model.authorized?'Bitte Etsy unter Einstellungen verbinden.':stale?'Etsy-Daten sind älter als eine Stunde. Verbindung prüfen.':'']);
  $('summary').innerHTML=[['Produkte',products.length],['Nachdrucken',products.reduce((n,p)=>n+p.need,0)+' Stk.'],['Im Druck',products.flatMap(p=>p.items).reduce((n,i)=>n+i.in_print,0)+' Stk.'],['Noch zählen',products.reduce((n,p)=>n+p.uninitialized,0)+' Varianten']].map(([label,value])=>`<div><span>${label}</span><b>${value}</b></div>`).join('');
  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('selected',b.dataset.filter===filter));
  const search=$('search').value.trim().toLocaleLowerCase('de');
@@ -46,7 +53,7 @@ function render(){if(!model)return;
  $('products').innerHTML=selected.length?selected.map(card).join(''):`<div class="empty"><h2>${products.length?'Hier ist alles erledigt.':'Dein Lager startet hier.'}</h2><p>${products.length?'Kein Produkt passt zu dieser Auswahl.':'Etsy verbinden, Produkte laden und einmal deine echten Bestände zählen.'}</p></div>`;
  if(focusId){const next=[...document.querySelectorAll('[data-action]')].find(b=>b.dataset.id===focusId&&b.dataset.action===focusAction&&b.dataset.delta===delta);next?.focus({preventScroll:true});}
 }
-async function load(resort=false){if(polling||busy)return;polling=true;try{const data=await api('status');if(!busy&&!$('quantity').open&&!$('settings').open)setModel(data,resort);}catch(err){$('alert').textContent='Verbindung zum Lager unterbrochen: '+err.message;$('alert').hidden=false;}finally{polling=false;}}
+async function load(resort=false){if(polling||busy)return;polling=true;try{const data=await api('status');if(!busy&&!$('quantity').open&&!$('settings').open)setModel(data,resort);}catch(err){showAlert(['Verbindung zum Lager unterbrochen: '+err.message]);}finally{polling=false;}}
 async function mutate(path,data){if(busy)return;busy=true;document.querySelectorAll('#products button,#products input,#undo').forEach(b=>b.disabled=true);try{setModel(await api(path,data));scheduleSort();flash('Gespeichert.');}catch(err){flash(err.message,true);try{setModel(await api('status'));}catch{}}finally{busy=false;render();}}
 function findItem(id){for(const p of model.products){const i=p.items.find(i=>i.id===id);if(i)return {p,i};}return null;}
 function quantityDialog(id,action){const found=findItem(id);if(!found)return;const {p,i}=found;quantityContext={id,action,revision:i.revision};const labels={set:'Bestand erfassen',printing:'Druck gestartet',finish:'Fertige Stücke einlagern',cancel:'Druckmenge zurücknehmen',minimum:'Mindestbestand'};$('quantity-title').textContent=labels[action];$('quantity-label').textContent=p.title+' · '+i.label;const input=$('quantity-value');input.min=['set','minimum'].includes(action)?0:1;input.max=['finish','cancel'].includes(action)?i.in_print:100000;input.value=action==='set'?(i.on_hand??0):action==='minimum'?i.minimum:action==='printing'?Math.max(1,i.need||1):i.in_print;$('quantity-help').textContent=action==='set'?'Alle fertigen Stücke zählen, einschließlich reservierter und gepackter Ware.':action==='finish'?'Nur erfolgreich gedruckte Stücke buchen. Fehlgeschlagene Stücke über „Abbruch“ zurücknehmen.':action==='printing'?'Merkt die Menge vor. Startet keinen Drucker.':action==='minimum'?'Wird bei Lagerartikeln mindestens als freier Vorrat empfohlen.':'Entfernt die Menge aus „Im Druck“, ohne den Lagerbestand zu erhöhen.';$('quantity').showModal();input.focus();input.select();}
