@@ -194,8 +194,10 @@ def pages(endpoint, params=None):
 
 def receipt_status(receipt):
     status=str(receipt.get('status') or '').lower().replace('_',' ').replace('-',' ')
-    if receipt.get('refunds') or status in ('canceled','cancelled','fully refunded','partially refunded') or receipt.get('was_canceled'):
+    if status in ('canceled','cancelled','fully refunded') or receipt.get('was_canceled'):
         return 'excluded'
+    if receipt.get('refunds') or status=='partially refunded':
+        return 'review'
     if receipt.get('is_paid') is False or status not in ('paid','completed'):
         return 'review'
     return 'shipped' if receipt.get('is_shipped') or receipt.get('was_shipped') or status=='completed' else 'open'

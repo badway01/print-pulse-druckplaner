@@ -64,7 +64,7 @@ class StockTests(unittest.TestCase):
 
     def test_initial_historical_shipments_do_not_reduce_count(self):
         self.act('set',5)
-        app.apply_snapshot(catalog(),[transaction('shipped')],{'401'})
+        app.apply_snapshot(catalog(),[transaction('shipped',created=int(time.time())-86400)],{'401'})
         self.assertEqual(self.item()['on_hand'],5)
         self.assertEqual(self.item()['sold30'],2)
 
@@ -252,7 +252,7 @@ class StockTests(unittest.TestCase):
     def test_refunds_and_payment_status(self):
         self.assertEqual(app.receipt_status({'status':'paid','is_paid':True}),'open')
         self.assertEqual(app.receipt_status({'status':'paid','is_shipped':True}),'shipped')
-        self.assertEqual(app.receipt_status({'status':'completed','refunds':[{}]}),'excluded')
+        self.assertEqual(app.receipt_status({'status':'completed','refunds':[{}]}),'review')
         self.assertEqual(app.receipt_status({'status':'payment processing'}),'review')
 
     def test_no_etsy_write_api(self):
