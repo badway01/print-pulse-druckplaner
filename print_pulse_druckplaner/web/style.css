@@ -12,3 +12,9 @@
 .notices[open]>summary{color:#805914}
 .notices .warning{font-size:11px;margin:6px 0}
 .alert{padding:0;background:transparent}
+
+.variant-picker{display:grid;gap:10px;margin-top:15px}
+.variant-picker label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.variant-picker select{width:100%;min-width:0;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font:inherit}
+.variant-picker small{font-size:10px;color:var(--muted)}
+.variant-picker select:focus-visible{outline:3px solid #cf9c45;outline-offset:3px}
