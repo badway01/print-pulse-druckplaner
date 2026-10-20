@@ -28,10 +28,31 @@ jobs:
       - name: JavaScript auf Syntax prüfen
         run: |
           node --check print_pulse_druckplaner/web/app.js
-          node --check print_pulse_druckplaner/web/workshop.js
 
       - name: Private Daten suchen
         run: python scripts/check_public.py
 
       - name: Funktionstests ausfuehren
         run: python -m unittest discover -s tests -v
+
+      - name: Browser für Bedienprüfung installieren
+        run: |
+          npm install --no-save --package-lock=false playwright@1.61.1
+          npx playwright install --with-deps chromium
+
+      - name: Oberfläche auf Desktop und Handy prüfen
+        run: |
+          python tests/preview.py &
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8099/api/status >/dev/null; then break; fi
+            sleep 1
+          done
+          node tests/ui.cjs
+
+      - name: Ansichten der Bedienprüfung
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lager-v01-ui
+          path: /tmp/lager-*.png
+          if-no-files-found: ignore

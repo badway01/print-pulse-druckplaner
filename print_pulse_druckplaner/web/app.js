@@ -1,274 +1,66 @@
-"use strict";
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let model = null, mode = 'pending', timer = null;
-let view = 'board', catalog = {products:[],printers:[],sync:{}};
-try { view = localStorage.getItem('pp-view') || 'board'; } catch {}
-if(!['board','tiles','list'].includes(view))view='board';
-const stages = {planned:'Geplant',printing:'Im Druck',done:'Gedruckt'};
-const expandedGroups = new Set();
-const pendingPrints = new Set();
-const printerIcon = `<svg class="printer-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/><path d="M18 12h.01"/></svg>`;
-function fmtDate(iso){ if(!iso)return 'Versanddatum fehlt'; const [y,m,d]=iso.split('-');return `${d}.${m}.${y}`; }
-function localDay(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const get=(n)=>parts.find(p=>p.type===n)?.value;return `${get('year')}-${get('month')}-${get('day')}`;}
-function daysUntil(iso){if(!iso)return null; const a=Date.parse(iso+'T12:00:00Z'),b=Date.parse(localDay()+'T12:00:00Z');return Math.round((a-b)/86400000);}
-function priority(iso,missing){if(!iso)return {label:'Termin prüfen',cls:'amber',card:'warning'};let d=daysUntil(iso);if(d<0)return {label:'Überfällig · '+fmtDate(iso),cls:'red',card:'urgent'};if(d===0)return {label:'Heute versenden',cls:'red',card:'urgent'};if(d===1)return {label:'Morgen versenden',cls:'red',card:'urgent'};return {label:fmtDate(iso)+(missing?' · weitere Termine prüfen':''),cls:d<=3?'amber':'',card:d<=3?'warning':'normal'};}
-async function api(path,data){const opt={credentials:'same-origin',cache:'no-store'};if(data!==undefined){opt.method='POST';opt.headers={'Content-Type':'application/json'};opt.body=JSON.stringify(data);}const response=await fetch('api/'+path,opt);let j=await response.json().catch(()=>({error:'Ungültige Serverantwort'}));if(!response.ok)throw new Error(j.error||'Serverfehler');return j;}
-function safeEtsyThumbnail(raw){try{const u=new URL(String(raw||''));return u.protocol==='https:' && u.hostname.toLowerCase().endsWith('.etsystatic.com') && u.hostname.toLowerCase()!=='.etsystatic.com' && !u.port && !u.username && !u.password ? u.href : '';}catch{return '';}}
-function showAlert(text,error=false){const el=$('alert');el.textContent=text;el.className='alert'+(error?' error':'');el.hidden=!text;}
-async function reload(){try{model=await api('status');render();if(mode==='products')await loadCatalog();}catch(e){showAlert('Verbindungsfehler: '+e.message,true);}}
+'use strict';
+const $=id=>document.getElementById(id);
+const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let model=null,filter='all',busy=false,polling=false,sortTimer=null,quantityContext=null;
+let order=[];
+const expanded=new Set();
+const stateNames={active:'Aktiv',sold_out:'Bei Etsy ausverkauft',inactive:'Inaktiv',draft:'Entwurf',expired:'Abgelaufen'};
+function flash(message,error=false){$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;clearTimeout(flash.timer);flash.timer=setTimeout(()=>$('toast').hidden=true,error?9000:3500);}
+async function api(path,body){const response=await fetch('api/'+path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw Error(data.error||'Aktion fehlgeschlagen.');return data;}
+function thumbnail(url){try{const u=new URL(url);return u.protocol==='https:'&&u.hostname.endsWith('.etsystatic.com')&&!u.username&&!u.password?u.href:'';}catch{return '';}}
+function setModel(data,resort=false){model=data;if(resort||!order.length)order=data.products.map(p=>p.id);else order=[...order.filter(id=>data.products.some(p=>p.id===id)),...data.products.filter(p=>!order.includes(p.id)).map(p=>p.id)];render();}
+function scheduleSort(){clearTimeout(sortTimer);sortTimer=setTimeout(()=>{if(busy||$('quantity').open||$('settings').open){scheduleSort();return;}order=model.products.map(p=>p.id);render();},5000);}
+function variant(p,i){
+ const unknown=i.on_hand===null;
+ let recommendation=unknown?'Einmal zählen – danach übernimmt deine Lagerübersicht.':i.need?`${i.need} Stück nachdrucken${i.reserved?' · '+i.reserved+' für Bestellungen benötigt':''}`:i.in_print?'Laufende Drucke decken den Bedarf.':p.made_to_order?'Fertigung nach Bestellung.':'Vorrat ausreichend.';
+ const coverage=i.coverage===null?'':` · frei für ca. ${i.coverage.toLocaleString('de-DE')} Tage`;
+ return `<div class="variant" data-variant="${esc(i.id)}"><div class="variant-heading"><b>${esc(i.label)}</b>${!i.enabled?'<small>Variante inaktiv</small>':''}<span>Etsy: ${i.etsy_qty??'–'}</span></div>
+ <div class="stock-label">Tatsächlicher Bestand</div><div class="stock-row"><button data-action="adjust" data-id="${esc(i.id)}" data-delta="-1" class="step" ${unknown||i.on_hand===0?'disabled':''} aria-label="Ein Stück weniger, ${esc(i.label)}">−</button><button data-action="set" data-id="${esc(i.id)}" class="stock-number" aria-label="Bestand direkt eingeben, ${esc(i.label)}">${unknown?'Zählen':i.on_hand}</button><button data-action="adjust" data-id="${esc(i.id)}" data-delta="1" class="step" ${unknown?'disabled':''} aria-label="Ein Stück mehr, ${esc(i.label)}">+</button></div>
+ <p class="availability">${unknown?'Noch nicht erfasst':`${i.reserved} bestellt · ${i.free} frei${coverage}`}</p>
+ <div class="recommend ${i.level}"><span class="dot"></span>${esc(recommendation)}</div>
+ <div class="print-row"><button class="secondary small" data-action="printing" data-id="${esc(i.id)}" ${unknown?'disabled':''}>+ Im Druck ${i.in_print?`(${i.in_print})`:''}</button>${i.in_print?`<button class="primary small" data-action="finish" data-id="${esc(i.id)}">Fertig</button><button class="text-button small" data-action="cancel" data-id="${esc(i.id)}">Abbruch</button>`:''}<button class="text-button small minimum" data-action="minimum" data-id="${esc(i.id)}">Minimum ${i.minimum}</button></div>
+ ${i.notice?`<p class="warning">${esc(i.notice)}</p>`:''}</div>`;
+}
+function card(p){
+ const image=thumbnail(p.image),open=expanded.has(p.id)||p.items.length===1;
+ const total=p.items.every(i=>i.on_hand!==null)?p.items.reduce((s,i)=>s+i.on_hand,0):null;
+ return `<article class="product ${p.level}" data-product="${esc(p.id)}"><div class="product-photo">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:'<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}<span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span></div><div class="product-body"><h2>${esc(p.title)}</h2><div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span><span><b>${p.sold30}</b> / 30 Tage</span>${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}</div>
+ ${p.inventory_error?`<p class="warning">${esc(p.inventory_error)}</p>`:''}${p.unmatched?`<p class="warning">${p.unmatched} bestellte Stück noch keiner Variante zugeordnet. Bedarf zusätzlich in Etsy prüfen.</p>`:''}${p.review?`<p class="warning">${p.review} Stück mit unklarem Zahlungsstatus: in Etsy prüfen.</p>`:''}
+ ${p.items.length>1?`<button class="variant-toggle" data-expand="${esc(p.id)}" aria-expanded="${open}"><span>${p.items.length} Varianten · ${total===null?'Bestände erfassen':total+' im Lager'}</span><b>${open?'−':'+'}</b></button>${!open?`<p class="collapsed-need">${p.need?p.need+' Stück nachdrucken':p.uninitialized?'Noch '+p.uninitialized+' Varianten zählen':'Bedarf gedeckt'}</p>`:''}`:''}
+ ${open?p.items.map(i=>variant(p,i)).join(''):''}
+ <div class="card-bottom"><label class="order-mode"><input type="checkbox" data-mode="${esc(p.id)}" ${p.made_to_order?'checked':''}><span>Auf Bestellung</span></label><div class="badges">${p.made_to_order?'<span class="badge made">Nur auf Bestellung</span>':''}${p.bestseller?'<span class="badge best">Bestseller</span>':''}</div></div></div></article>`;
+}
 function render(){if(!model)return;
- for(const name of ['pending','done','products']){const active=mode===name;$('tab-'+name).classList.toggle('active',active);$('tab-'+name).setAttribute('aria-selected',String(active));}
- $('print-plan').hidden=mode==='products';$('production-controls').hidden=mode==='products';$('catalog-grid').hidden=mode!=='products';$('catalog-controls').hidden=mode!=='products';
- $('page-title').textContent=mode==='products'?'Alles für deinen nächsten Druck':'Deine Produktion im Überblick';
- $('search').placeholder=mode==='products'?'Produkt oder Etsy-ID suchen':'Produkt, Farbe oder Bestellung suchen';
- $('new-orders').hidden=!model.new_today&&!model.unseen_orders;
- $('new-orders').innerHTML=`<button class="order-link" data-orders="today">${model.new_today||0} Bestellung(en) heute eingegangen →</button><button class="order-link" data-orders="unseen">${model.unseen_orders||0} neue Bestellungen ansehen →</button>${model.unseen_orders?'<button class="btn secondary" id="mark-seen">Als gesehen markieren</button>':''}`;
- $('mark-seen')?.addEventListener('click',async()=>{try{await api('seen',{});await reload();}catch(e){showAlert(e.message,true);}});
- $('stat-orders').textContent=model.orders; $('stat-units').textContent=model.open_units;$('stat-groups').textContent=model.groups.length;$('stat-unknown').textContent=model.missing_dates;
- const last=model.last_sync?new Date(model.last_sync*1000).toLocaleString('de-DE',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Berlin'}):'–';$('sync-time').textContent='Aktualisiert: '+last+' · deutsche Ortszeit';
- $('sync-indicator').textContent=model.sync.running?'Synchronisiert …':model.authorized?'Etsy verbunden':'Etsy noch nicht verbunden';
- $('sync-now').disabled=model.sync.running||!model.authorized;
- if(model.sync.error)showAlert('Etsy-Synchronisierung fehlgeschlagen: '+model.sync.error,true);
- else if(!model.configured)showAlert('Bitte unter ⚙ deine Etsy-App einrichten. Es werden noch keine echten Etsy-Daten angezeigt.');
- else if(!model.authorized)showAlert('Etsy-Einstellungen gespeichert. Bitte die einmalige Autorisierung unter ⚙ abschließen.');
- else if((model.sync.review_receipts||[]).length)showAlert(`Achtung: ${model.sync.review_receipts.length} Bestellung(en) mit unklarem Zahlungs-/Erstattungsstatus wurden vorsorglich nicht eingeplant. Bitte in Etsy prüfen: ${model.sync.review_receipts.join(', ')}.`, true);
- else if(model.missing_dates)showAlert(`Bei ${model.missing_dates} Bestellung(en) fehlt ein zuverlässiger Versandtermin. Bitte die Daten mit Etsy vergleichen und gegebenenfalls eintragen.`);
- else showAlert('');
- if(mode==='products'){renderCatalog();return;}
- document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('selected',b.dataset.view===view);b.setAttribute('aria-pressed',String(b.dataset.view===view));});
- const all=[...model.groups,...model.done_groups];
- const term=$('search').value.toLocaleLowerCase('de');
- const groups=all.filter(g=>{
-  if(mode==='done'&&g.stage!=='done')return false;
-  if(mode==='pending'&&view!=='board'&&!$('filter-stage').value&&g.stage==='done')return false;
-  if(!`${g.title} ${g.listing_id} ${g.variants.map(v=>v.value).join(' ')} ${g.lines.map(l=>l.receipt_id).join(' ')}`.toLocaleLowerCase('de').includes(term))return false;
-  const due=$('filter-due').value, days=daysUntil(g.due), qty=$('filter-qty').value, printer=$('filter-printer').value;
-  if(due==='late'&&(days===null||days>=0)||due==='today'&&(days===null||days>0)||due==='week'&&(days===null||days<0||days>7)||due==='missing'&&!g.missing_due)return false;
-  if(qty==='single'&&g.qty!==1||qty==='batch'&&g.qty<=1)return false;
-  if($('filter-stage').value&&g.stage!==$('filter-stage').value)return false;
-  if(printer==='unassigned'&&g.printer||printer&&printer!=='unassigned'&&g.printer!==printer)return false;
-  return !$('filter-new').checked||g.new_today;
- });
- groups.sort((a,b)=>$('sort-order').value==='quantity'?b.qty-a.qty:$('sort-order').value==='name'?a.title.localeCompare(b.title,'de'):(a.due||'9999').localeCompare(b.due||'9999'));
- renderSuggestions();
- const list=$('print-plan');list.className='plan '+view;if(!groups.length){list.innerHTML=$('empty-template').innerHTML;return;}
- const cardHTML=g=>{
- const p=priority(g.due,g.missing_due);const variants=(g.variants||[]).map(v=>`${esc(v.name)}: <b>${esc(v.value)}</b>`).join(' &nbsp;·&nbsp; ');
- const imageUrl=safeEtsyThumbnail(g.image_url);
- const thumbnail=imageUrl?`<img class="listing-thumb" src="${esc(imageUrl)}" width="70" height="70" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`:`<span class="thumb-placeholder" aria-hidden="true">▧</span>`;
- const lines=g.lines.map(l=>`<li class="line"><div class="line-info"><b>Bestellung #${esc(l.receipt_id)}</b><span>${esc(fmtDate(l.due))} · ${l.produced} von ${l.qty} gedruckt${l.reserved?` · ${l.reserved} eingeplant auf ${esc(l.reserved_printer)}`:''}</span><div class="deadline-editor"><input type="date" value="${esc(l.due||'')}" aria-label="Versanddatum für ${esc(l.receipt_id)}" data-date-for="${esc(l.receipt_id)}"><button type="button" data-due-save="${esc(l.receipt_id)}">Speichern</button></div></div><div class="line-actions"><button class="qty-button" data-txn="${esc(l.transaction_id)}" data-qty="${l.produced-1}" ${l.produced<=0?'disabled':''} aria-label="Ein Stück weniger">−</button><span class="qty-number">${l.produced}/${l.qty}</span><button class="qty-button" data-txn="${esc(l.transaction_id)}" data-qty="${l.produced+1}" ${l.produced>=l.qty?'disabled':''} aria-label="Ein Stück mehr">+</button></div></li>`).join('');
- return `<article class="work ${p.card}"><div class="work-heading"><div class="work-heading-copy"><span class="pill ${p.cls}">${esc(p.label)}</span><h3 title="${esc(g.title)}">${esc(g.title)}</h3></div>${thumbnail}</div><div class="order-count">${g.new_today?'<span class="new-pill">Heute bestellt</span> ':''}${g.unseen?'<span class="new-pill">Neu</span> ':''}${new Set(g.lines.map(l=>l.receipt_id)).size} Etsy-Bestellung(en)</div><div class="variants">${variants||'Keine Farbvarianten angegeben'}</div><div class="numbers"><strong>${g.remaining}</strong><span>Stück noch drucken · ${g.qty} bestellt</span></div><progress class="production-progress" value="${g.qty-g.remaining}" max="${g.qty||1}" aria-label="Druckfortschritt"></progress><div class="work-top"><small>${g.printer?'Bevorzugter Drucker: '+esc(g.printer):'Drucker noch nicht festgelegt'}</small><small>Listing ${esc(g.listing_id)}</small></div><div class="reservation-note">${g.reserved?`${g.reserved} Stück eingeplant · ${esc([...new Set(g.lines.filter(l=>l.reserved).map(l=>l.reserved_printer))].join(', '))} <button class="text-button" data-release="${g.key}">Freigeben</button>`:'Noch keine Menge reserviert'}</div><div class="stage-control">${g.remaining>0?`<label>Phase <select data-stage="${g.key}"><option value="planned" ${g.stage==='planned'?'selected':''}>Geplant</option><option value="printing" ${g.stage==='printing'?'selected':''}>Im Druck</option></select></label>`:'<span class="pill">Gedruckt · bereit zum Verpacken</span>'}</div><div class="work-actions">${g.remaining>0?`<button class="btn printed-action" type="button" data-print-one="${g.key}" aria-label="Ein Stück als gedruckt verbuchen" title="Ein Klick verbucht genau ein fertig gedrucktes Stück">${printerIcon}<span>${g.remaining===1?'Gedruckt':'+1 gedruckt'}</span></button><button class="btn secondary" type="button" data-batch="${g.key}">Mehrere Stück …</button>`:`<span class="printed-complete">✓ Vollständig gedruckt</span>`}<button class="btn secondary" type="button" data-product="${g.key}">✎ Produkt / Drucker</button><button class="btn secondary" type="button" data-catalog-listing="${esc(g.listing_id)}">3MF / Produktdetails</button><button class="btn secondary" type="button" data-expand="${g.key}">Positionen (${g.lines.length}) ▾</button></div><ul class="line-list" data-list="${g.key}" ${expandedGroups.has(g.key)?'':'hidden'}>${lines}</ul></article>`;};
- list.innerHTML=view==='board'?Object.entries(stages).map(([stage,label])=>`<section class="lane"><h2><span class="stage-dot ${stage}"></span>${label}<span class="lane-count">${groups.filter(g=>g.stage===stage).length}</span></h2><div class="lane-cards">${groups.filter(g=>g.stage===stage).map(cardHTML).join('')||'<p class="lane-empty">Keine Aufträge in dieser Phase</p>'}</div></section>`).join(''):groups.map(cardHTML).join('');
- list.querySelectorAll('img.listing-thumb').forEach(img=>{
-  img.addEventListener('error',()=>{
-   const fallback=document.createElement('span');
-   fallback.className='thumb-placeholder';
-   fallback.setAttribute('aria-hidden','true');
-   fallback.textContent='▧';
-   img.replaceWith(fallback);
-  },{once:true});
- });
+ const products=model.products;
+ $('sync').disabled=!!model.sync.running||!model.authorized;
+ $('undo').disabled=!model.undo||busy;
+ const date=model.last_sync?new Date(model.last_sync*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Berlin'}):'noch kein Abgleich';
+ $('sync-state').textContent=model.sync.running?model.sync.message:`Letzter erfolgreicher Etsy-Abgleich: ${date} · automatisch alle 15 Minuten`;
+ const stale=model.last_sync&&Date.now()/1000-model.last_sync>3600;
+ $('alert').textContent=model.sync.error||model.warning||(!model.authorized?'Bitte Etsy unter Einstellungen verbinden.':stale?'Etsy-Daten sind älter als eine Stunde. Verbindung prüfen.':'');$('alert').hidden=!$('alert').textContent;
+ $('summary').innerHTML=[['Produkte',products.length],['Nachdrucken',products.reduce((n,p)=>n+p.need,0)+' Stk.'],['Im Druck',products.flatMap(p=>p.items).reduce((n,i)=>n+i.in_print,0)+' Stk.'],['Noch zählen',products.reduce((n,p)=>n+p.uninitialized,0)+' Varianten']].map(([label,value])=>`<div><span>${label}</span><b>${value}</b></div>`).join('');
+ document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('selected',b.dataset.filter===filter));
+ const search=$('search').value.trim().toLocaleLowerCase('de');
+ const selected=order.map(id=>products.find(p=>p.id===id)).filter(Boolean).filter(p=>(filter!=='need'||p.need>0||p.unmatched>0)&&(filter!=='printing'||p.items.some(i=>i.in_print>0))&&(filter!=='uncounted'||p.uninitialized>0)).filter(p=>(p.title+' '+p.items.map(i=>i.label).join(' ')).toLocaleLowerCase('de').includes(search));
+ const focus=document.activeElement,focusId=focus?.dataset.id,focusAction=focus?.dataset.action,delta=focus?.dataset.delta;
+ $('products').innerHTML=selected.length?selected.map(card).join(''):`<div class="empty"><h2>${products.length?'Hier ist alles erledigt.':'Dein Lager startet hier.'}</h2><p>${products.length?'Kein Produkt passt zu dieser Auswahl.':'Etsy verbinden, Produkte laden und einmal deine echten Bestände zählen.'}</p></div>`;
+ if(focusId){const next=[...document.querySelectorAll('[data-action]')].find(b=>b.dataset.id===focusId&&b.dataset.action===focusAction&&b.dataset.delta===delta);next?.focus({preventScroll:true});}
 }
-for(const name of ['pending','done','products'])$('tab-'+name).addEventListener('click',async()=>{mode=name;render();if(mode==='products')await loadCatalog();});
-$('search').addEventListener('input',render);$('sync-now').addEventListener('click',async()=>{try{await api('sync',{});await reload();}catch(e){showAlert(e.message,true)}});
-$('settings-toggle').addEventListener('click',()=>{$('settings-status').textContent=model?.configured?'Einstellungen hinterlegt. Beim erneuten Speichern werden nur die Zugangsdaten dieser App verwendet.':'Noch keine Konfiguration gespeichert.';$('settings-modal').showModal()});
-$('etsy-config').addEventListener('submit',async(e)=>{e.preventDefault();const form=new FormData(e.target);try{await api('config',Object.fromEntries(form.entries()));$('settings-status').textContent='Etsy-Einstellungen gespeichert. Als Nächstes autorisieren.';await reload();}catch(err){$('settings-status').textContent='Fehler: '+err.message;}});
-$('oauth-start').addEventListener('click',async()=>{try{const {url}=await api('oauth/start',{});window.open(url,'_blank','noopener,noreferrer');$('settings-status').textContent='Etsy wurde in einem neuen Tab geöffnet. Nach Bestätigung die vollständige Redirect-Adresse hier einfügen.';}catch(e){$('settings-status').textContent='Fehler: '+e.message;}});
-$('oauth-finish').addEventListener('click',async()=>{try{await api('oauth/finish',{redirected_url:$('oauth-return-url').value});$('oauth-return-url').value='';$('settings-modal').close();await reload();}catch(e){$('settings-status').textContent='Fehler: '+e.message;}});
-$('print-plan').addEventListener('click',async(e)=>{
- let t=e.target.closest('[data-release],[data-print-one],[data-expand],[data-batch],[data-product],[data-txn],[data-due-save],[data-catalog-listing]');if(!t)return;
- if(t.dataset.release){t.disabled=true;try{await api('reservation/delete',{key:t.dataset.release});await reload();}catch(err){showAlert(err.message,true);}finally{t.disabled=false;}return;}
- if(t.dataset.catalogListing){await loadCatalog();const p=catalog.products.find(p=>p.listing_id===t.dataset.catalogListing);if(p)openCatalog(p);else showAlert('Produkt noch nicht im Katalog. Bitte unter Produkte hinzufügen.',true);return;}
- if(t.dataset.printOne){
-  const key=t.dataset.printOne;
-  if(pendingPrints.has(key))return;
-  pendingPrints.add(key);
-  t.disabled=true;
-  try{await api('batch',{key,amount:1});await reload();showAlert('1 Stück als gedruckt verbucht. Korrektur bei Bedarf unter „Positionen“ möglich.');}
-  catch(err){showAlert('Buchung fehlgeschlagen: '+err.message,true);}
-  finally{pendingPrints.delete(key);t.disabled=false;}
-  return;
- }
- if(t.dataset.batch){
-  const g=[...(model?.groups||[]),...(model?.done_groups||[])].find(x=>x.key===t.dataset.batch);
-  if(!g)return;
-  const raw=window.prompt(`Wie viele Stück von „${g.title}“ sind fertig gedruckt?\nDie Menge wird zuerst den dringendsten Etsy-Bestellungen zugeordnet.\nNoch offen: ${g.remaining}`,'1');
-  if(raw===null)return;
-  const amount=Number(raw);
-  if(!Number.isInteger(amount)||amount<1||amount>g.remaining){showAlert(`Bitte eine Stückzahl zwischen 1 und ${g.remaining} eingeben.`,true);return;}
-  try{await api('batch',{key:g.key,amount});await reload();}catch(err){showAlert(err.message,true)}
-  return;
- }
- if(t.dataset.expand){const el=document.querySelector(`[data-list="${t.dataset.expand}"]`);if(el){el.hidden=!el.hidden;if(el.hidden)expandedGroups.delete(t.dataset.expand);else expandedGroups.add(t.dataset.expand);}return;}
- if(t.dataset.product){const g=[...(model?.groups||[]),...(model?.done_groups||[])].find(x=>x.key===t.dataset.product);if(!g)return;$('product-key').value=g.key;$('product-name').value=g.title;$('product-printer').value=g.printer||'';$('product-modal').showModal();return;}
- if(t.dataset.txn){try{await api('progress',{transaction_id:t.dataset.txn,produced:Number(t.dataset.qty)});await reload();}catch(err){showAlert(err.message,true);}return;}
- if(t.dataset.dueSave){const rid=t.dataset.dueSave;const inp=[...document.querySelectorAll('[data-date-for]')].find(x=>x.dataset.dateFor===rid);try{await api('due',{receipt_id:rid,due:inp?.value||''});await reload();}catch(err){showAlert(err.message,true);}}
-});
-$('product-form').addEventListener('submit',async(e)=>{e.preventDefault();try{await api('product',{key:$('product-key').value,short_name:$('product-name').value,printer:$('product-printer').value});$('product-modal').close();await reload();}catch(err){showAlert(err.message,true)}});
-$('print-btn').addEventListener('click',()=>window.print());
-$('export-btn').addEventListener('click',async()=>{try{showAlert('Diese JSON-Sicherung enthält Produktionsstände. Für Produktkatalog und 3MF-Dateien eine Home-Assistant-Sicherung der App erstellen.');const backup=await api('export');const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='print-pulse-produktionsstand-'+localDay()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);}catch(e){showAlert(e.message,true)}});
-reload();timer=setInterval(reload,20000);
-
-// Restore a local production-state export when migrating between installations.
-$('import-btn').addEventListener('click',()=>{
- if(!window.confirm('Nur eine eigene Druckplaner-Sicherung importieren. Vorher Etsy synchronisieren und die aktuelle Planung sichern. Fortfahren?'))return;
- $('import-file').click();
-});
-$('import-file').addEventListener('change',async(e)=>{
- const file=e.target.files?.[0]; if(!file)return;
- try{
-  if(file.size>2097152)throw new Error('Sicherungsdatei ist zu groß.');
-  const obj=JSON.parse(await file.text());
-  if(obj.version!==1||!Array.isArray(obj.orders)||!Array.isArray(obj.progress)||!Array.isArray(obj.products))throw new Error('Kein gültiges Produktionsdaten-Backup.');
-  const result=await api('import',obj);
-  await reload();
-  showAlert(`Wiederherstellung abgeschlossen: ${result.applied.orders} Fristen, ${result.applied.progress} Druckpositionen, ${result.applied.products} Produktzuordnungen übernommen. Bitte mit Etsy abgleichen.`);
- }catch(err){showAlert('Wiederherstellung fehlgeschlagen: '+err.message,true)}
- finally{e.target.value=''}
-});
-
-// Views and combinable production filters.
-for(const id of ['filter-due','filter-qty','filter-stage','filter-printer','sort-order','filter-new'])$(id).addEventListener('change',render);
-document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{view=b.dataset.view;try{localStorage.setItem('pp-view-v09',view);}catch{}render();}));
-$('reset-filters').addEventListener('click',()=>{for(const id of ['filter-due','filter-qty','filter-stage','filter-printer'])$(id).value='';$('filter-new').checked=false;$('search').value='';$('sort-order').value='priority';render();});
-$('print-plan').addEventListener('change',async e=>{if(!e.target.dataset.stage)return;e.target.disabled=true;try{await api('stage',{key:e.target.dataset.stage,stage:e.target.value});await reload();}catch(err){showAlert(err.message,true);await reload();}});
-async function loadCatalog(){try{catalog=await api('catalog');if(mode==='products')renderCatalog();return true;}catch(err){showAlert('Produktkatalog: '+err.message,true);return false;}}
-function renderCatalog(){
- const term=$('search').value.toLocaleLowerCase('de');
- const items=catalog.products.filter(p=>`${p.title} ${p.listing_id||''} ${p.notes}`.toLocaleLowerCase('de').includes(term));
- $('catalog-sync').disabled=!!catalog.sync.running;
- $('catalog-status').textContent=catalog.sync.running?'Etsy-Katalog und Produktbilder werden geladen …':catalog.sync.error?'Abgleich fehlgeschlagen: '+catalog.sync.error:`${catalog.products.length} Produkte · ${catalog.products.reduce((n,p)=>n+p.files.length,0)} Druckdateien. Produkte aus Bestellungen werden automatisch übernommen.`;
- $('catalog-grid').innerHTML=items.map(p=>`<button class="catalog-card" data-catalog-id="${esc(p.id)}">${p.image_url?`<img src="${esc(safeEtsyThumbnail(p.image_url))}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'<span class="catalog-image-placeholder">'+printerIcon+'</span>'}<span class="catalog-card-body"><strong>${esc(p.title)}</strong><span class="muted">${p.listing_id?'Etsy · '+esc(p.listing_id):'Eigenes Produkt'}</span><span class="pill ${p.files.length?'':'amber'}">${p.files.length} / ${catalog.printers.length} Drucker mit 3MF</span></span></button>`).join('')||'<div class="empty"><h2>Noch keine passenden Produkte</h2><p>Lade deinen aktiven Etsy-Katalog oder lege ein eigenes Produkt an.</p></div>';
- $('catalog-grid').querySelectorAll('img').forEach(img=>img.addEventListener('error',()=>{img.hidden=true;},{once:true}));
-}
-function openCatalog(p=null){
- $('catalog-id').value=p?.id||'';$('catalog-title').value=p?.title||'';$('catalog-listing').value=p?.listing_id||'';$('catalog-notes').value=p?.notes||'';
- $('catalog-detail-title').textContent=p?'Produktdetails':'Neues Produkt';$('catalog-feedback').textContent='';renderFiles(p);$('catalog-modal').showModal();
-}
-function renderFiles(p){
- if(!p){$('printer-files').innerHTML='<p class="muted">Speichere zuerst das Produkt, danach kannst du Druckdateien hochladen.</p>';return;}
- $('printer-files').innerHTML=catalog.printers.map(printer=>{const f=p.files.find(f=>f.printer===printer);const profile=(p.profiles||[]).find(x=>x.printer===printer)||{capacity:1,minutes:0,slicer:printer==='Prusa MK4'?'PrusaSlicer':printer==='Snapmaker U1'?'Snapmaker Orca':'Bambu Studio'};const query=new URLSearchParams({product_id:p.id,printer});return `<div class="printer-file" data-profile-printer="${esc(printer)}"><div><strong>${esc(printer)}</strong><small>${f?esc(f.filename)+' · '+(f.size/1024/1024).toFixed(1)+' MB':'Noch keine 3MF hinterlegt'}</small></div><div class="file-actions">${f?`<button class="btn secondary" data-slicer-download="${esc(printer)}">Für ${esc(profile.slicer)} laden</button><a class="btn secondary" href="api/file?${esc(query)}" download>Herunterladen</a>`:''}<label class="btn secondary file-upload">${f?'Ersetzen':'3MF hochladen'}<input type="file" accept=".3mf" data-upload-printer="${esc(printer)}" aria-label="3MF für ${esc(printer)} ${f?'ersetzen':'hochladen'}"></label>${f?`<button class="btn secondary" data-delete-printer="${esc(printer)}" aria-label="Datei für ${esc(printer)} entfernen">Entfernen</button>`:''}</div><div class="profile-fields"><label>Stück pro Platte<input data-capacity type="number" min="1" max="5000" value="${profile.capacity}"></label><label>Minuten pro Platte<input data-minutes type="number" min="0" max="43200" value="${profile.minutes}"></label><label>Slicer<select data-slicer>${['Bambu Studio','OrcaSlicer','Snapmaker Orca','PrusaSlicer'].map(name=>`<option ${profile.slicer===name?'selected':''}>${name}</option>`).join('')}</select></label><button class="btn secondary" data-profile-save="${esc(printer)}">Druckprofil speichern</button><small>0 Minuten = unbekannt. Kapazität und Zeit gelten für dieses Produkt auf diesem Drucker; Farben und Plattenbelegung im Slicer prüfen.</small></div></div>`;}).join('');
-}
-$('catalog-add').addEventListener('click',()=>openCatalog());
-$('catalog-grid').addEventListener('click',e=>{const t=e.target.closest('[data-catalog-id]');if(t)openCatalog(catalog.products.find(p=>p.id===t.dataset.catalogId));});
-$('catalog-sync').addEventListener('click',async()=>{try{$('catalog-sync').disabled=true;await api('catalog/sync',{});await loadCatalog();}catch(e){showAlert(e.message,true);$('catalog-sync').disabled=false;}});
-$('catalog-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.target.querySelector('[type=submit]');b.disabled=true;try{const r=await api('catalog/save',{id:$('catalog-id').value,title:$('catalog-title').value,listing_id:$('catalog-listing').value,notes:$('catalog-notes').value});$('catalog-id').value=r.id;$('catalog-detail-title').textContent='Produktdetails';await loadCatalog();renderFiles(catalog.products.find(p=>p.id===r.id));$('catalog-feedback').textContent='Produkt gespeichert.';}catch(err){$('catalog-feedback').textContent=err.message;}finally{b.disabled=false;}});
-let fileBusy=false;
-$('printer-files').addEventListener('change',async e=>{
- const printer=e.target.dataset.uploadPrinter,file=e.target.files?.[0];if(!printer||!file)return;
- if(fileBusy){e.target.value='';return;}fileBusy=true;
- const pid=$('catalog-id').value;
- const controls=[...$('catalog-modal').querySelectorAll('input,button,textarea')];controls.forEach(el=>el.disabled=true);
- try{
-  if(!file.name.toLowerCase().endsWith('.3mf')||file.size>100*1024*1024)throw new Error('Bitte eine 3MF-Datei bis 100 MB auswählen.');
-  $('catalog-feedback').textContent=`${file.name} wird für ${printer} hochgeladen …`;
-  const query=new URLSearchParams({product_id:pid,printer,filename:file.name});
-  const res=await fetch('api/file?'+query,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/octet-stream'},body:file});
-  const data=await res.json().catch(()=>({error:'Upload fehlgeschlagen. Größe oder Verbindung prüfen.'}));if(!res.ok)throw new Error(data.error);
-  await loadCatalog();renderFiles(catalog.products.find(p=>p.id===pid));$('catalog-feedback').textContent=`3MF für ${printer} gespeichert.`;
- }catch(err){$('catalog-feedback').textContent=err.message;}
- finally{controls.forEach(el=>el.disabled=false);fileBusy=false;e.target.value='';}
-});
-$('printer-files').addEventListener('click',async e=>{const t=e.target.closest('[data-delete-printer]');if(!t||fileBusy)return;if(!confirm('Diese Druckdatei entfernen?'))return;fileBusy=true;t.disabled=true;try{const pid=$('catalog-id').value;await api('file/delete',{product_id:pid,printer:t.dataset.deletePrinter});await loadCatalog();renderFiles(catalog.products.find(p=>p.id===pid));$('catalog-feedback').textContent='Datei entfernt.';}catch(err){$('catalog-feedback').textContent=err.message;}finally{fileBusy=false;t.disabled=false;}});
-
-$('catalog-modal').addEventListener('cancel',e=>{if(fileBusy)e.preventDefault();});
-
-// The recommendation is calculated from demand, not from the current UI filter.
-function renderSuggestions(){
- const items=(model.suggestions||[]).slice(0,3);
- $('recommendation').hidden=mode!=='pending'||!items.length;
- $('recommendation').innerHTML=`<div class="suggestion-heading"><span class="eyebrow">DEIN NÄCHSTER DRUCK</span><p>Nach Versandfrist und offener Menge · gleiche Varianten gebündelt · bereits eingeplante Mengen berücksichtigt</p></div>`+items.map(s=>`<article class="suggestion"><div><strong>${s.amount} × ${esc(s.title)}</strong><p>${esc(s.variants.map(v=>v.name+': '+v.value).join(' · '))}</p><p>${esc(priority(s.due,s.missing_due).label)} · ${s.available} Stück noch nicht eingeplant</p><small>${s.printer?esc(s.printer):'Bitte zuerst einen Drucker zuordnen'}${s.busy?' · bereits belegt / eingeplant':''} · ${s.has_file?'3MF hinterlegt':'3MF noch ergänzen'}${s.minutes?' · ca. '+s.minutes+' Min. pro Platte':''}${!s.has_profile?' · zunächst 1 Stück, Plattenkapazität unter Produkte eintragen':''}${s.missing_due?' · fehlende Versandtermine prüfen':''}</small></div><button class="btn primary" data-reserve="${s.key}" ${!s.printer||s.busy?'disabled':''}>${s.busy?'Drucker belegt':'Vorschlag übernehmen'}</button></article>`).join('')+'<small>Nachvollziehbare Planung ohne externen KI-Dienst. Eine Übernahme reserviert die Menge; sie startet keinen Drucker.</small>';
-}
-$('recommendation').addEventListener('click',async e=>{
- const b=e.target.closest('[data-reserve]');if(!b)return;
- const s=model.suggestions.find(s=>s.key===b.dataset.reserve);if(!s)return;b.disabled=true;
- try{await api('reserve',{key:s.key,printer:s.printer,amount:s.amount});await reload();showAlert(`${s.amount} Stück auf ${s.printer} eingeplant.`);}catch(err){await reload();showAlert(err.message,true);}finally{b.disabled=false;}
-});
-$('new-orders').addEventListener('click',e=>{
- const b=e.target.closest('[data-orders]');if(!b)return;
- const flag=b.dataset.orders==='today'?'new_today':'unseen';const orders=new Map();
- for(const g of [...model.groups,...model.done_groups])for(const l of g.lines){if(!l[flag])continue;if(!orders.has(l.receipt_id))orders.set(l.receipt_id,[]);orders.get(l.receipt_id).push({g,l});}
- $('new-orders-title').textContent=flag==='new_today'?'Heute eingegangene Bestellungen':'Neue Bestellungen seit letzter Bestätigung';
- $('new-orders-list').innerHTML=[...orders].map(([id,items])=>`<article class="order-detail"><h3>Bestellung #${esc(id)}</h3>${items.map(({g,l})=>`<p><b>${l.qty} × ${esc(g.title)}</b><br>${esc(g.variants.map(v=>v.value).join(' · '))}<br><small>${esc(fmtDate(l.due))} · ${l.produced} gedruckt</small></p>`).join('')}</article>`).join('')||'<p>Keine Bestellungen in dieser Auswahl.</p>';
- $('new-orders-modal').showModal();
-});
-$('printer-files').addEventListener('click',async e=>{
- const save=e.target.closest('[data-profile-save]'),download=e.target.closest('[data-slicer-download]');if((!save&&!download)||fileBusy)return;
- if(download){const row=download.closest('.printer-file');const slicer=row.querySelector('[data-slicer]').value;const a=row.querySelector('a[download]');a.click();$('catalog-feedback').textContent=`Download gestartet. Die 3MF anschließend in ${slicer} über „Datei öffnen“ auswählen (auf dem Mac alternativ Rechtsklick → Öffnen mit → ${slicer}). Direktes Öffnen aus Home Assistant benötigt eine lokale Brücke und ist noch nicht eingerichtet.`;return;}
- const row=save.closest('.printer-file');save.disabled=true;
- try{await api('profile',{product_id:$('catalog-id').value,printer:save.dataset.profileSave,capacity:Number(row.querySelector('[data-capacity]').value),minutes:Number(row.querySelector('[data-minutes]').value),slicer:row.querySelector('[data-slicer]').value});await loadCatalog();renderFiles(catalog.products.find(p=>p.id===$('catalog-id').value));$('catalog-feedback').textContent='Druckprofil gespeichert. Vorschläge berücksichtigen diese Plattenkapazität.';await reload();}catch(err){$('catalog-feedback').textContent=err.message;}finally{save.disabled=false;}
-});
-
-// v0.9: product-first overview and order-level information
-
-const previousRender = render;
-const originalPriority = priority;
-priority = function(iso,missing){
- const d=daysUntil(iso);
- if(d===2)return {label:'Noch 2 Tage',cls:'red',card:'urgent'};
- if(d===3)return {label:'Noch 3 Tage',cls:'amber',card:'warning'};
- const p=originalPriority(iso,missing);
- if(d!==null && d>=4)return {...p,cls:'green',card:'normal'};
- return p;
-};
-function productOverview(groups){
- const products=new Map();
- for(const g of groups){
-  const key=g.listing_id&&g.listing_id!=='0'?'listing-'+g.listing_id:'variant-'+g.key;
-  if(!products.has(key))products.set(key,{key,title:g.title,image_url:g.image_url,groups:[],orders:new Map(),remaining:0,due:null,missing_due:false});
-  const p=products.get(key);p.groups.push(g);p.remaining+=g.remaining;
-  for(const l of g.lines){
-   if(mode==='pending'&&l.remaining<=0)continue;
-   if(!p.orders.has(l.receipt_id))p.orders.set(l.receipt_id,{id:l.receipt_id,name:l.buyer_name||'',provider:l.shipping_provider||'',paid:l.shipping_paid||'',method:l.order_shipping_method||l.line_shipping_method||'',due:null,items:[]});
-   const o=p.orders.get(l.receipt_id);o.items.push({g,l});
-   if(l.due&&(!o.due||l.due<o.due))o.due=l.due;
-   if(l.due&&(!p.due||l.due<p.due))p.due=l.due;
-   if(!l.due)p.missing_due=true;
-  }
- }
- return [...products.values()].map(p=>({...p,orders:[...p.orders.values()].sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999'))}));
-}
-function overviewCard(p){
- const level=priority(p.due,p.missing_due),open=expandedGroups.has(p.key),url=safeEtsyThumbnail(p.image_url);
- const photo=url?`<img class="listing-thumb" src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'<span class="thumb-placeholder">▧</span>';
- const details=p.orders.map(o=>`<article class="suborder"><div class="suborder-head"><b>${esc(o.name||'Kundenname nicht übermittelt')}</b><span>${esc(fmtDate(o.due))}</span></div><small>Bestellung #${esc(o.id)}</small>
- <p>Versanddienstleister: <b>${esc(o.provider||'Nicht hinterlegt')}</b><br>Versandkosten (Etsy): <b>${esc(o.paid||'Nicht übermittelt')}</b>${o.method?`<br>Versandart: ${esc(o.method)}`:''}</p>
- <div class="carrier-edit"><input data-carrier-for="${esc(o.id)}" maxlength="80" value="${esc(o.provider)}" placeholder="Hermes / DHL" aria-label="Versanddienstleister"><button class="btn secondary" data-carrier-save="${esc(o.id)}">Speichern</button></div>
- ${o.items.map(({g,l})=>`<div class="suborder-item"><div><strong>${esc(g.title)}</strong><small>${g.variants.map(v=>esc(v.name)+': '+esc(v.value)).join(' · ')||'Standardvariante'} · ${l.qty} Stück</small>${l.shipping_upgrade?`<small class="upgrade-label">Versand-Upgrade: ${esc(l.shipping_upgrade)}</small>`:''}</div><div class="line-actions"><button class="qty-button" data-txn="${esc(l.transaction_id)}" data-qty="${l.produced-1}" ${l.produced<=0?'disabled':''}>−</button><span>${l.produced}/${l.qty}</span><button class="qty-button" data-txn="${esc(l.transaction_id)}" data-qty="${l.produced+1}" ${l.produced>=l.qty?'disabled':''}>+</button></div></div>`).join('')}
- <div class="deadline-editor"><input type="date" value="${esc(o.due||'')}" data-date-for="${esc(o.id)}"><button type="button" data-due-save="${esc(o.id)}">Versanddatum speichern</button></div></article>`).join('');
- return `<article class="work compact-work ${level.card}"><div class="compact-image">${photo}<b class="quantity-badge">${p.remaining}×</b></div><h3>${esc(p.title)}</h3><span class="pill ${level.cls}">${esc(level.label)}</span>
- <div class="compact-summary">${p.orders.length} Bestellungen · ${p.remaining} noch drucken</div>
- <div class="compact-actions">${p.groups.length===1&&p.remaining?`<button class="btn printed-action" data-print-one="${esc(p.groups[0].key)}">${printerIcon} +1 gedruckt</button>`:''}<button type="button" class="btn secondary" data-expand="${esc(p.key)}" aria-expanded="${open}">${open?'Schließen ▲':'Bestellungen öffnen ▼'}</button></div>
- <div class="suborders" data-list="${esc(p.key)}" ${open?'':'hidden'}>${details}<div class="variant-tools">${p.groups.map(g=>`<div class="variant-tool"><small>${esc(g.variants.map(v=>v.value).join(' / ')||'Standard')} · ${g.remaining} offen</small><button class="btn secondary" data-product="${esc(g.key)}">Produkt / Drucker</button><button class="btn secondary" data-catalog-listing="${esc(g.listing_id)}">3MF</button>${g.reserved?`<button class="btn secondary" data-release="${esc(g.key)}">Reservierung freigeben</button>`:''}${g.remaining?`<select data-stage="${esc(g.key)}"><option value="planned" ${g.stage==='planned'?'selected':''}>Geplant</option><option value="printing" ${g.stage==='printing'?'selected':''}>Im Druck</option></select>`:''}</div>`).join('')}</div></div></article>`;
-}
-render = function(){
- previousRender();
- if(!model||mode==='products')return;
- const source=mode==='done'?model.done_groups:model.groups;
- const term=$('search').value.toLocaleLowerCase('de');
- const products=productOverview(source).filter(p=>{
-  if(![p.title,p.key,...p.orders.flatMap(o=>[o.id,o.name,...o.items.flatMap(({g})=>g.variants.map(v=>v.value))])].join(' ').toLocaleLowerCase('de').includes(term))return false;
-  const due=$('filter-due').value,days=daysUntil(p.due),qty=$('filter-qty').value,stage=$('filter-stage').value,printer=$('filter-printer').value;
-  if(due==='late'&&(days===null||days>=0)||due==='today'&&(days===null||days>0)||due==='week'&&(days===null||days<0||days>7)||due==='missing'&&!p.missing_due)return false;
-  if(qty==='single'&&p.remaining!==1||qty==='batch'&&p.remaining<=1)return false;
-  if(stage&&!p.groups.some(g=>g.stage===stage))return false;
-  if(printer==='unassigned'&&p.groups.every(g=>g.printer)||printer&&printer!=='unassigned'&&!p.groups.some(g=>g.printer===printer))return false;
-  return !$('filter-new').checked||p.groups.some(g=>g.new_today);
- });
- products.sort((a,b)=>$('sort-order').value==='quantity'?b.remaining-a.remaining:$('sort-order').value==='name'?a.title.localeCompare(b.title,'de'):(a.due||'9999').localeCompare(b.due||'9999'));
- $('stat-groups').textContent=productOverview(model.groups).length;
- const list=$('print-plan');list.className='plan '+view;
- if(!products.length){list.innerHTML=$('empty-template').innerHTML;return;}
- if(view==='board'){
-  const stagesFor=p=>p.remaining===0?'done':p.groups.some(g=>g.stage==='printing')?'printing':'planned';
-  list.innerHTML=Object.entries(stages).map(([stage,label])=>`<section class="lane"><h2>${label}</h2><div class="lane-cards">${products.filter(p=>stagesFor(p)===stage).map(overviewCard).join('')||'<p class="lane-empty">Keine Produkte</p>'}</div></section>`).join('');
- }else list.innerHTML=products.map(overviewCard).join('');
-};
-try{if(!localStorage.getItem('pp-view-v09')){view='tiles';localStorage.setItem('pp-view-v09','tiles')}else{view=localStorage.getItem('pp-view-v09')}}catch{view='tiles'}
-$('print-plan').addEventListener('click',async e=>{
- const b=e.target.closest('[data-carrier-save]');if(!b)return;
- e.stopImmediatePropagation();
- const id=b.dataset.carrierSave,input=[...document.querySelectorAll('[data-carrier-for]')].find(x=>x.dataset.carrierFor===id);
- try{await api('shipping-provider',{receipt_id:id,provider:input?.value||''});await reload();}catch(err){showAlert(err.message,true)}
-},true);
+async function load(resort=false){if(polling||busy)return;polling=true;try{const data=await api('status');if(!busy&&!$('quantity').open&&!$('settings').open)setModel(data,resort);}catch(err){$('alert').textContent='Verbindung zum Lager unterbrochen: '+err.message;$('alert').hidden=false;}finally{polling=false;}}
+async function mutate(path,data){if(busy)return;busy=true;document.querySelectorAll('#products button,#products input,#undo').forEach(b=>b.disabled=true);try{setModel(await api(path,data));scheduleSort();flash('Gespeichert.');}catch(err){flash(err.message,true);try{setModel(await api('status'));}catch{}}finally{busy=false;render();}}
+function findItem(id){for(const p of model.products){const i=p.items.find(i=>i.id===id);if(i)return {p,i};}return null;}
+function quantityDialog(id,action){const found=findItem(id);if(!found)return;const {p,i}=found;quantityContext={id,action,revision:i.revision};const labels={set:'Bestand erfassen',printing:'Druck gestartet',finish:'Fertige Stücke einlagern',cancel:'Druckmenge zurücknehmen',minimum:'Mindestbestand'};$('quantity-title').textContent=labels[action];$('quantity-label').textContent=p.title+' · '+i.label;const input=$('quantity-value');input.min=['set','minimum'].includes(action)?0:1;input.max=['finish','cancel'].includes(action)?i.in_print:100000;input.value=action==='set'?(i.on_hand??0):action==='minimum'?i.minimum:action==='printing'?Math.max(1,i.need||1):i.in_print;$('quantity-help').textContent=action==='set'?'Alle fertigen Stücke zählen, einschließlich reservierter und gepackter Ware.':action==='finish'?'Nur erfolgreich gedruckte Stücke buchen. Fehlgeschlagene Stücke über „Abbruch“ zurücknehmen.':action==='printing'?'Merkt die Menge vor. Startet keinen Drucker.':action==='minimum'?'Wird bei Lagerartikeln mindestens als freier Vorrat empfohlen.':'Entfernt die Menge aus „Im Druck“, ohne den Lagerbestand zu erhöhen.';$('quantity').showModal();input.focus();input.select();}
+$('products').addEventListener('click',async event=>{const expand=event.target.closest('[data-expand]');if(expand){const id=expand.dataset.expand;expanded.has(id)?expanded.delete(id):expanded.add(id);render();scheduleSort();return;}const b=event.target.closest('[data-action]');if(!b||busy)return;const {id,action}=b.dataset;if(action==='adjust'){await mutate('stock',{id,action,delta:Number(b.dataset.delta)});}else quantityDialog(id,action);});
+$('products').addEventListener('change',event=>{const b=event.target.closest('[data-mode]');if(b)mutate('mode',{id:b.dataset.mode,enabled:b.checked});});
+$('quantity-form').addEventListener('submit',async event=>{event.preventDefault();const data={...quantityContext,quantity:Number($('quantity-value').value)};$('quantity').close();await mutate('stock',data);});
+$('search').addEventListener('input',()=>{render();scheduleSort();});
+for(const b of document.querySelectorAll('[data-filter]'))b.addEventListener('click',()=>{filter=b.dataset.filter;order=model.products.map(p=>p.id);render();});
+for(const b of document.querySelectorAll('[data-close]'))b.addEventListener('click',() => $(b.dataset.close).close());
+$('undo').addEventListener('click',()=>mutate('undo',{id:model.undo}));
+$('sync').addEventListener('click',async()=>{try{await api('sync',{});await load();}catch(err){flash(err.message,true);}});
+$('settings-open').addEventListener('click',()=>{if(!model)return;$('days').value=model.days;$('settings').showModal();});
+$('settings-form').addEventListener('submit',async event=>{event.preventDefault();try{setModel(await api('settings',{days:Number($('days').value)}),true);$('settings').close();flash('Vorratsziel gespeichert.');}catch(err){flash(err.message,true);}});
+$('config-form').addEventListener('submit',async event=>{event.preventDefault();try{await api('config',Object.fromEntries(new FormData(event.target)));event.target.reset();flash('Zugangsdaten gespeichert. Jetzt Etsy-Freigabe öffnen.');}catch(err){flash(err.message,true);}});
+$('authorize').addEventListener('click',async()=>{try{const {url}=await api('oauth/start',{});const link=$('oauth-link');link.href=url;link.hidden=false;link.focus();}catch(err){flash(err.message,true);}});
+$('finish-form').addEventListener('submit',async event=>{event.preventDefault();const button=event.target.querySelector('button');button.disabled=true;try{await api('oauth/finish',Object.fromEntries(new FormData(event.target)));event.target.reset();$('settings').close();await load();flash('Etsy verbunden. Produkte werden geladen.');}catch(err){flash(err.message,true);}finally{button.disabled=false;}});
+load(true);setInterval(()=>load(false),5000);
