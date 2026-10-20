@@ -5,6 +5,49 @@ let model=null,filter='all',busy=false,polling=false,sortTimer=null,quantityCont
 let order=[];
 const expanded=new Set();
 const selectedVariants=new Map();
+// Patch existing nodes so polling never recreates unchanged cards or images.
+function nodeKey(node){
+ if(node.nodeType!==1)return null;
+ for(const name of ['data-product','data-variant','data-notice-key','data-expand','data-mode']){
+  if(node.hasAttribute(name))return node.tagName+':'+name+':'+node.getAttribute(name);
+ }
+ if(node.hasAttribute('data-action'))return 'action:'+node.dataset.action+':'+node.dataset.id+':'+(node.dataset.delta||'');
+ if(node.hasAttribute('data-picker'))return 'picker:'+node.dataset.picker+':'+(node.dataset.dimension||'item');
+ return node.tagName+':'+(node.getAttribute('class')||'');
+}
+function patchNode(current,next){
+ if(current.nodeType===3||current.nodeType===8){
+  if(current.nodeValue!==next.nodeValue)current.nodeValue=next.nodeValue;
+  return;
+ }
+ for(const attr of [...current.attributes])if(!next.hasAttribute(attr.name))current.removeAttribute(attr.name);
+ for(const attr of next.attributes)if(current.getAttribute(attr.name)!==attr.value)current.setAttribute(attr.name,attr.value);
+ if(current.tagName==='INPUT'&&current.type==='checkbox')current.checked=next.checked;
+ patchChildren(current,next);
+ if(current.tagName==='SELECT'&&current.value!==next.value)current.value=next.value;
+}
+function patchChildren(current,next){
+ const available=[...current.childNodes];
+ let cursor=current.firstChild;
+ for(const wanted of [...next.childNodes]){
+  const key=nodeKey(wanted);
+  const found=available.find(node=>node.nodeType===wanted.nodeType&&node.nodeName===wanted.nodeName&&nodeKey(node)===key);
+  if(found){
+   available.splice(available.indexOf(found),1);
+   if(found!==cursor)current.insertBefore(found,cursor);
+   patchNode(found,wanted);
+   cursor=found.nextSibling;
+  }else{
+   const added=wanted.cloneNode(true);current.insertBefore(added,cursor);
+  }
+ }
+ for(const node of available)node.remove();
+}
+function updateHTML(element,html){
+ const template=document.createElement('template');template.innerHTML=html;
+ patchChildren(element,template.content);
+}
+
 function variantPicker(p){
  let item=p.items.find(i=>i.id===selectedVariants.get(p.id))||p.items[0];
  selectedVariants.set(p.id,item.id);
@@ -30,7 +73,7 @@ function notices(messages,key){
  const unique=[...new Set(messages.filter(Boolean))];
  return unique.length?`<details class="notices" data-notice-key="${esc(key)}" ${openNotices.has(key)?'open':''}><summary>Hinweise (${unique.length})</summary>${unique.map(message=>`<p class="warning">${esc(message)}</p>`).join('')}</details>`:'';
 }
-function showAlert(messages){const html=notices(messages,'global');$('alert').innerHTML=html;$('alert').hidden=!html;}
+function showAlert(messages){const html=notices(messages,'global');updateHTML($('alert'),html);$('alert').hidden=!html;}
 const stateNames={active:'Aktiv',sold_out:'Bei Etsy ausverkauft',inactive:'Inaktiv',draft:'Entwurf',expired:'Abgelaufen'};
 function flash(message,error=false){$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;clearTimeout(flash.timer);flash.timer=setTimeout(()=>$('toast').hidden=true,error?9000:3500);}
 async function api(path,body){const response=await fetch('api/'+path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw Error(data.error||'Aktion fehlgeschlagen.');return data;}
@@ -66,12 +109,12 @@ function render(){if(!model)return;
  $('sync-state').textContent=model.sync.running?model.sync.message:`Letzter erfolgreicher Etsy-Abgleich: ${date} · automatisch alle 15 Minuten`;
  const stale=model.last_sync&&Date.now()/1000-model.last_sync>3600;
  showAlert([model.sync.error,model.warning,!model.authorized?'Bitte Etsy unter Einstellungen verbinden.':stale?'Etsy-Daten sind älter als eine Stunde. Verbindung prüfen.':'']);
- $('summary').innerHTML=[['Produkte',products.length],['Nachdrucken',products.reduce((n,p)=>n+p.need,0)+' Stk.'],['Im Druck',products.flatMap(p=>p.items).reduce((n,i)=>n+i.in_print,0)+' Stk.'],['Noch zählen',products.reduce((n,p)=>n+p.uninitialized,0)+' Varianten']].map(([label,value])=>`<div><span>${label}</span><b>${value}</b></div>`).join('');
+ updateHTML($('summary'),[['Produkte',products.length],['Nachdrucken',products.reduce((n,p)=>n+p.need,0)+' Stk.'],['Im Druck',products.flatMap(p=>p.items).reduce((n,i)=>n+i.in_print,0)+' Stk.'],['Noch zählen',products.reduce((n,p)=>n+p.uninitialized,0)+' Varianten']].map(([label,value])=>`<div><span>${label}</span><b>${value}</b></div>`).join(''));
  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('selected',b.dataset.filter===filter));
  const search=$('search').value.trim().toLocaleLowerCase('de');
  const selected=order.map(id=>products.find(p=>p.id===id)).filter(Boolean).filter(p=>(filter!=='need'||p.need>0||p.unmatched>0)&&(filter!=='printing'||p.items.some(i=>i.in_print>0))&&(filter!=='uncounted'||p.uninitialized>0)).filter(p=>(p.title+' '+p.items.map(i=>i.label).join(' ')).toLocaleLowerCase('de').includes(search));
  const focus=document.activeElement,focusId=focus?.dataset.id,focusAction=focus?.dataset.action,delta=focus?.dataset.delta;
- $('products').innerHTML=selected.length?selected.map(card).join(''):`<div class="empty"><h2>${products.length?'Hier ist alles erledigt.':'Dein Lager startet hier.'}</h2><p>${products.length?'Kein Produkt passt zu dieser Auswahl.':'Etsy verbinden, Produkte laden und einmal deine echten Bestände zählen.'}</p></div>`;
+ updateHTML($('products'),selected.length?selected.map(card).join(''):`<div class="empty"><h2>${products.length?'Hier ist alles erledigt.':'Dein Lager startet hier.'}</h2><p>${products.length?'Kein Produkt passt zu dieser Auswahl.':'Etsy verbinden, Produkte laden und einmal deine echten Bestände zählen.'}</p></div>`);
  if(focusId){const next=[...document.querySelectorAll('[data-action]')].find(b=>b.dataset.id===focusId&&b.dataset.action===focusAction&&b.dataset.delta===delta);next?.focus({preventScroll:true});}
 }
 async function load(resort=false){if(polling||busy)return;polling=true;try{const data=await api('status');if(!busy&&!$('quantity').open&&!$('settings').open)setModel(data,resort);}catch(err){showAlert(['Verbindung zum Lager unterbrochen: '+err.message]);}finally{polling=false;}}

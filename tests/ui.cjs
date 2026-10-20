@@ -2,12 +2,14 @@ const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 (async()=>{const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1440,height:1100}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('**/api/status',async route=>{
  const response=await route.fetch();const data=await response.json();
+ data.products.find(p=>p.id==='101').image='https://test.etsystatic.com/product.svg';
  data.products.push({...data.products[0],id:'inactive-cat',title:'Inaktive Katze',state:'inactive',need:999,uninitialized:999});
  const many=data.products.find(p=>p.id==='102');
 many.inventory_error='Varianten bitte prüfen.';
 many.items=Array.from({length:784},(_,n)=>({...many.items[0],id:'combination-'+n,label:'Katzenfarbe: Farbe '+Math.floor(n/28)+' · Laternenfarbe: Farbe '+(n%28),on_hand:n}));
  await route.fulfill({response,json:data});
 });
+await page.route('https://test.etsystatic.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="green"/></svg>'}));
 await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().waitFor();assert.equal(await page.locator('.product').count(),4);
 
 assert.equal(await page.locator('[data-product="inactive-cat"]').count(),0);
@@ -23,7 +25,23 @@ await equalRows();
 const note=page.locator('[data-product="102"] details.notices');
 assert.equal(await note.getAttribute('open'),null);
 await note.locator('summary').click();
+await page.evaluate(()=>{
+ window.stableCard=document.querySelector('[data-product="101"]');
+ window.stableImage=window.stableCard.querySelector('img');
+ window.stableStock=window.stableCard.querySelector('.stock-number');
+ window.removedCards=0;
+ window.cardObserver=new MutationObserver(records=>{for(const record of records)for(const node of record.removedNodes)if(node===window.stableCard||node===window.stableImage)window.removedCards++;});
+ window.cardObserver.observe(document.querySelector('#products'),{childList:true,subtree:true});
+});
 await page.waitForTimeout(5500);
+assert(await page.evaluate(()=>window.stableCard===document.querySelector('[data-product="101"]')&&window.stableImage===window.stableCard.querySelector('img')&&window.removedCards===0));
+const stockResponse=await page.request.post('http://127.0.0.1:8099/api/stock',{data:{id:'101-default',action:'adjust',delta:1}});
+assert(stockResponse.ok());
+await page.waitForFunction(()=>document.querySelector('[data-product="101"] .stock-number').textContent==='2');
+assert(await page.evaluate(()=>window.stableStock===document.querySelector('[data-product="101"] .stock-number')&&window.stableImage===document.querySelector('[data-product="101"] img')&&window.removedCards===0));
+await page.request.post('http://127.0.0.1:8099/api/stock',{data:{id:'101-default',action:'adjust',delta:-1}});
+await page.waitForFunction(()=>document.querySelector('[data-product="101"] .stock-number').textContent==='1');
+await page.evaluate(()=>window.cardObserver.disconnect());
 assert.notEqual(await note.getAttribute('open'),null);
 await note.locator('summary').click();
 await equalRows();
