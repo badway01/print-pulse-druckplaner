@@ -4,11 +4,19 @@ Eine bewusst kleine Home-Assistant-App für deinen echten Lagervorrat: Etsy-Prod
 
 ## Update in Home Assistant
 
-Der Neustart heißt in der Oberfläche **Lager v0.1**. Die aktuelle technische App-Version ist **0.11.6**. Home Assistant erkennt sie als Update der bisherigen 0.11.5. Repository, Ordner und App-Slug bleiben identisch. In der HA-App-Verwaltung nach Updates suchen, sichern und aktualisieren. Nicht deinstallieren oder eine zweite App anlegen.
+Der Neustart heißt in der Oberfläche **Lager v0.1**. Die aktuelle technische App-Version ist **0.11.9**. Home Assistant erkennt sie als Update der bisherigen 0.11.8. Repository, Ordner und App-Slug bleiben identisch. In der HA-App-Verwaltung nach Updates suchen, sichern und aktualisieren. Nicht deinstallieren oder eine zweite App anlegen.
 
 Die alte Oberfläche (Dashboard, Bestellverwaltung, Drucker, 3MF-Dateien und Produktionslinien) ist vollständig ersetzt. Bestehende Etsy-Zugangsdaten bleiben lokal erhalten. Alte Tabellen werden aus Rücksichtsgründen nicht gelöscht, aber nicht mehr verwendet. Frühere Produktionsstände sind **keine Lagerzählung** und werden nicht übernommen.
 
 **Einmalige Etsy-Freigabe:** Die bisherige Verbindung las nur Bestellungen (`transactions_r`). Für Varianten benötigt Etsy zusätzlich `listings_r`. Bei entsprechendem Hinweis unter **Einstellungen → Etsy-Freigabe öffnen** erneut erlauben und die vollständige Rückleitungsadresse einfügen. Schlüssel müssen bei gleicher Installation nicht neu eingegeben werden. Etsy erhält ausschließlich Lesezugriffe; die angebotenen Mengen werden nie überschrieben.
+
+## Neu in 0.11.9: Auftragsdruck direkt aus Etsy-Bestellungen
+
+Auf einer offenen Etsy-Bestellkarte **Drucken** wählen. Bei einer Bestellposition wird direkt die Stückzahl bestätigt; bei mehreren Positionen die richtige Position öffnen. Damit wird die Menge atomar einer konkreten Etsy-Transaktion zugeordnet und unter **Im Druck** mitgezählt. Die Nachdruckempfehlung sinkt entsprechend, dein physischer Lagerbestand bleibt bis zum separaten **Fertig** unverändert. Über **Details** oder die Produktkarte lassen sich auftragsbezogene Drucke fertigmelden oder abbrechen.
+
+Fertige Drucke gelangen ins Lager und werden beim Etsy-Versand automatisch einmalig abgezogen. Wird der Auftrag bereits während eines laufenden, zugeordneten Drucks als versendet erkannt, wird dieser Druck nicht nachträglich fälschlich eingebucht. Nicht zugeordnete Etsy-Varianten werden nicht automatisch geraten. Nach dem Update einmal den Bestellabgleich ausführen, damit ältere Bestellkarten die benötigten Positions-IDs erhalten. **Die App markiert nur den Druckstart und steuert keinen 3D-Drucker.**
+
+Vorhandene Lagerzahlen, laufende Drucke, Bestellungen und Zugangsdaten bleiben bestehen; neue Auftragszuordnungen werden in einer zusätzlichen SQLite-Tabelle unter `/data` gespeichert.
 
 ## Neu in 0.11.6: API-Limit-Schutz
 
