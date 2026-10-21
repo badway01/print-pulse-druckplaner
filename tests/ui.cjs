@@ -108,7 +108,7 @@ assert.equal(await manyCard.locator('[data-action="set"]').getAttribute('data-id
 await page.waitForTimeout(5500);
 assert.equal(await manyCard.locator('.stock-number').textContent(),'782');
 assert.equal(await manyCard.locator('.variant').count(),1);
-assert((await manyCard.boundingBox()).height<1500);
+assert((await manyCard.boundingBox()).height<1750);
 await equalRows();
 await page.locator('#search').fill('Wunschfarbe');assert.equal(await page.locator('.product').count(),1);await page.locator('[data-action="set"]').click();await page.locator('#quantity-value').fill('8');await page.locator('#quantity-form [type="submit"]').click();await page.waitForFunction(()=>document.querySelector('.stock-number').textContent==='8');
 await page.reload();await page.locator('.product').first().waitFor();assert.equal(await page.locator('[data-product="104"] .stock-number').textContent(),'8');
@@ -122,6 +122,12 @@ await page.setViewportSize({width:390,height:844});await page.screenshot({path:'
 await page.unroute('**/api/status');
 await page.reload();await page.locator('[data-product="102"]').waitFor();
 const realCard=page.locator('[data-product="102"]');
+assert.equal(await realCard.locator('.stock-variant').count(),2);
+assert((await realCard.locator('.stock-overview').textContent()).includes('0 ×Weiß'));
+assert((await realCard.locator('.stock-overview').textContent()).includes('Schwarz · noch nicht gezählt'));
+await realCard.locator('.stock-variant[data-show-variant="102-black"]').click();
+assert.equal(await realCard.locator('.variant').getAttribute('data-variant'),'102-black');
+await realCard.locator('[data-expand]').click();
 await realCard.locator('[data-print-action="printing"]').click();
 await page.locator('#quantity-variants select').selectOption('102-black');
 await page.locator('#quantity-value').fill('4');

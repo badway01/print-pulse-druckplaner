@@ -200,3 +200,10 @@ footer{color:#84786a}
 #quantity-value{min-height:48px;font-size:20px}
 #quantity-variants select{min-height:48px;font-size:16px}
 #quantity-label{overflow-wrap:anywhere}
+
+.stock-overview{margin-top:14px;padding:12px;background:#f4f6f2;border-radius:9px;font-size:12px}
+.stock-variants{display:grid;gap:6px;max-height:160px;overflow:auto;margin-top:8px}
+.stock-variant{display:flex;gap:10px;align-items:baseline;text-align:left;min-height:44px;padding:8px 10px;font-size:12px;background:#fff}
+.stock-variant strong{flex-shrink:0;color:var(--green);min-width:28px}
+.stock-variant span{overflow-wrap:anywhere;min-width:0}
+.stock-overview small{display:block;margin-top:6px;color:var(--muted)}

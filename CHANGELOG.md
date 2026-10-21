@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.8 – Lagerbestand je Variante direkt sichtbar
+
+- Produktkarten zeigen die vorhandenen Stückzahlen mit Variantennamen direkt unter „In Druck“, ohne Aufklappen.
+- Kleine Variantenlisten zeigen auch Nullbestände und ausdrücklich noch ungezählte Varianten. Bei großen Listen werden vorhandene Varianten einzeln und leere/ungezählte Varianten als Anzahl angezeigt.
+- Antippen einer Bestandszeile öffnet genau diese Variante zum Bearbeiten.
+- Lagerbestand und Nachdruckbedarf bleiben getrennt erkennbar; gespeicherte Mengen unverändert.
+
 ## 0.11.7 – Druckaktionen direkt auf der Produktkarte
 
 - Gut antippbarer „In Druck“-Button direkt auf jeder Produktkarte, auch bei eingeklappten Varianten.
