@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.9 – Etsy-Auftragsdruck
+
+- Direkt in offenen Etsy-Bestellkarten auf „Drucken“ tippen, Position und Stückzahl bestätigen.
+- Auftragsdruck je Etsy-Transaktion starten, fertigmelden oder abbrechen; direkte Rückwirkung auf „Im Druck“, die Nachdruckempfehlung und den Lagerbestand.
+- Schutz vor doppelten Fertigbuchungen und saubere einmalige Versand-Abbuchung.
+- Bereits laufende Auftragsdrucke bleiben nach Versand/Stornierung über die Produktkarte bearbeitbar.
+- Bestehende Bestände und Etsy-Zugangsdaten bleiben erhalten. Keine Druckerfernsteuerung, keine Etsy-Schreibzugriffe.
+
+
 ## 0.11.8 – Lagerbestand je Variante direkt sichtbar
 
 - Produktkarten zeigen die vorhandenen Stückzahlen mit Variantennamen direkt unter „In Druck“, ohne Aufklappen.
