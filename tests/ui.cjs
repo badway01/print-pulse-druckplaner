@@ -18,7 +18,7 @@ many.items=Array.from({length:784},(_,n)=>({...many.items[0],id:'combination-'+n
  await route.fulfill({response,json:data});
 });
 await page.route('https://test.etsystatic.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="green"/></svg>'}));
-await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().waitFor();assert.equal(await page.locator('.brand-logo').count(),1);assert(await page.locator('.brand-logo').evaluate(el=>el.complete&&el.naturalWidth>0));assert.equal(await page.locator('.product').count(),4);
+await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().waitFor();assert.equal(await page.locator('.brand-logo').count(),1);await page.waitForFunction(()=>{const image=document.querySelector('.brand-logo');return image&&image.complete&&image.naturalWidth>0;},{timeout:10000});assert.equal(await page.locator('.product').count(),4);
 
 
 assert.equal((await page.locator('#order-count').textContent()).trim(),'3 offen');
