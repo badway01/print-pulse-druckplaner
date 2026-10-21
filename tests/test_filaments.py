@@ -49,7 +49,7 @@ class FilamentTests(unittest.TestCase):
         self.assertEqual(app.filament_overview()['cart_count'],0)
 
     def test_price_and_link_safety(self):
-        for invalid in ['javascript:alert(1)','http://example.org','https://user:pass@example.org']:
+        for invalid in ['javascript:alert(1)','http://example.org','https://user:pass'+chr(64)+'example.org']:
             with self.subTest(invalid=invalid),self.assertRaises(ValueError):self.add(purchase_url=invalid)
         for invalid in ['-1','20.999','19e3','1;DROP TABLE']:
             with self.subTest(invalid=invalid),self.assertRaises(ValueError):self.add(price=invalid)

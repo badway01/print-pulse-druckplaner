@@ -744,14 +744,14 @@ def filament_mutate(data):
                    VALUES (?,?,?,?,?,?,?,?,?)""",
                    (fields['brand'],fields['color'],fields['material'],color_hex,price_cents,url,stock_qty,now,now))
             else:
-                rowid=integer(rowid,1,2147483647)
+                rowid=integer(rowid,1,999999999)
                 changed=db.execute("""UPDATE filament_spools
                    SET brand=?,color=?,material=?,color_hex=?,price_cents=?,purchase_url=?,stock_qty=?,updated=?
                    WHERE id=?""",(fields['brand'],fields['color'],fields['material'],color_hex,
                    price_cents,url,stock_qty,now,rowid))
                 if not changed.rowcount: raise ValueError('Filament nicht gefunden.')
         return
-    rowid=integer(data.get('id'),1,2147483647)
+    rowid=integer(data.get('id'),1,999999999)
     with connect() as db:
         if action=='cart':
             delta=integer(data.get('delta'),-1,1)
