@@ -627,20 +627,21 @@ def mutate_order_print(data):
         db.execute('BEGIN IMMEDIATE')
         tx=db.execute('SELECT * FROM stock_transactions WHERE id=? AND receipt_id=?',(tid,receipt_id)).fetchone()
         if not tx: raise ValueError('Etsy-Bestellposition nicht gefunden. Bitte Bestellungen aktualisieren.')
-        row=db.execute('SELECT * FROM stock_items WHERE id=?',(tx['item_id'],)).fetchone() if tx['item_id'] else None
+        previous=db.execute('SELECT * FROM stock_order_prints WHERE transaction_id=?',(tid,)).fetchone()
+        # An already-started job keeps its original item even if a subsequent
+        # Etsy catalog refresh can no longer resolve that older variation.
+        item_id=(previous['item_id'] if previous else tx['item_id'])
+        row=db.execute('SELECT * FROM stock_items WHERE id=?',(item_id,)).fetchone() if item_id else None
         if not row: raise ValueError('Variante nicht eindeutig zugeordnet. Bitte in Etsy prüfen.')
         if data.get('revision')!=row['revision']:
             raise ValueError('Der Bestand wurde inzwischen geändert. Bitte erneut öffnen.')
-        previous=db.execute('SELECT * FROM stock_order_prints WHERE transaction_id=?',(tid,)).fetchone()
-        if previous and (previous['item_id']!=row['id'] or previous['receipt_id']!=receipt_id):
+        if previous and (previous['receipt_id']!=receipt_id or (tx['item_id'] and tx['item_id']!=previous['item_id'])):
             raise ValueError('Die Zuordnung dieser Bestellvariante hat sich geändert. Bitte prüfen.')
         printing=previous['printing'] if previous else 0
         finished=previous['finished'] if previous else 0
         if action=='printing':
             if tx['status']!='open':
                 raise ValueError('Nur offene bezahlte Etsy-Bestellungen können neue Auftragsdrucke erhalten.')
-            if not row['enabled']:
-                raise ValueError('Diese Etsy-Variante ist nicht mehr aktiv.')
             qty=integer(data.get('quantity'),1,tx['qty']-printing-finished)
             new_stock=row['on_hand']
             new_print=integer(row['in_print']+qty)
