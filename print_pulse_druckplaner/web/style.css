@@ -27,3 +27,43 @@
 .print-need span{overflow-wrap:anywhere;min-width:0}
 .print-overview p{margin:0;font-size:12px;color:var(--muted)}
 .print-overview small{display:block;margin-top:8px;font-size:10px;color:var(--muted)}
+
+
+/* Swipeable Etsy order dashboard, sized for landscape workshop tablets. */
+.orders-shell{margin:0 0 28px;min-width:0}
+.orders-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+.orders-heading h2{font-size:21px;letter-spacing:-.6px;line-height:1.3;margin:3px 0 0}
+.orders-count{display:inline-block;font-size:11px;font-weight:650;letter-spacing:0;color:var(--green);background:#e4eee7;padding:4px 9px;border-radius:20px;vertical-align:middle;margin-left:7px}
+.orders-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.orders-tools button{font-size:12px;padding:8px 11px;border-radius:8px;white-space:nowrap}
+.orders-tools [data-order-sort].selected{background:var(--green);border-color:var(--green);color:white}
+.orders-tools .orders-arrow{width:35px;height:35px;padding:0;font-size:24px;line-height:1}
+.orders-carousel{display:flex;gap:12px;min-width:0;width:100%;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-padding-inline:2px;padding:2px 2px 12px;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.orders-carousel::-webkit-scrollbar{height:5px}
+.orders-carousel::-webkit-scrollbar-thumb{background:#c6d0c7;border-radius:10px}
+.order-card{flex:0 0 275px;width:275px;scroll-snap-align:start;min-width:0;min-height:205px;display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-top:4px solid #c6d0c7;border-radius:12px;padding:12px 13px;box-shadow:0 2px 7px #263d2d08}
+.order-card.red{border-top-color:var(--red)}
+.order-card.yellow{border-top-color:#d2aa4d}
+.order-card.green{border-top-color:#4f8a63}
+.order-card-top,.order-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.order-card-top>b{font-size:13px;color:var(--ink)}
+.order-card-top small{font-size:11px;color:var(--muted)}
+.order-card-main{display:flex;align-items:center;gap:10px;margin:10px 0;min-height:46px}
+.order-card-main>img{width:45px;height:45px;border-radius:6px;object-fit:cover;flex-shrink:0;background:#f4f3ef}
+.order-card-main>div{min-width:0}
+.order-card-main strong{display:block;font-size:13px;line-height:1.35;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.order-card-main small{display:block;font-size:11px;color:var(--muted)}
+.order-lines{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--ink);margin:0 0 10px}
+.order-lines>span{line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.order-lines small{color:var(--muted);font-size:10px}
+.order-card-foot{margin-top:auto;align-items:flex-end}
+.order-deadline{font-size:10px;color:var(--muted);font-weight:650;overflow-wrap:anywhere}
+.order-deadline.red{color:#a64035}
+.order-deadline.yellow{color:#896c24}
+.order-deadline.green{color:var(--green)}
+.order-open{background:#f2f5f0;color:var(--green);padding:5px 8px;font-size:11px;border-color:transparent;white-space:nowrap}
+.orders-empty{border:1px dashed #cbd5c9;border-radius:10px;background:#fff;padding:20px;color:var(--muted);font-size:13px;flex:1;text-align:center}
+.order-modal-lines{display:grid;gap:9px;margin-top:18px}
+.order-modal-lines>div{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px;font-size:13px}
+.order-modal-lines small{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+@media(max-width:600px){.orders-heading h2{font-size:19px}.orders-tools{width:100%}.orders-tools [data-order-sort]{flex:1}.orders-tools .orders-arrow{display:none}.order-card{flex-basis:min(275px,88vw);width:min(275px,88vw)}}
