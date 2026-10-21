@@ -67,3 +67,69 @@
 .order-modal-lines>div{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px;font-size:13px}
 .order-modal-lines small{display:block;color:var(--muted);font-size:12px;margin-top:4px}
 @media(max-width:600px){.orders-heading h2{font-size:19px}.orders-tools{width:100%}.orders-tools [data-order-sort]{flex:1}.orders-tools .orders-arrow{display:none}.order-card{flex-basis:min(275px,88vw);width:min(275px,88vw)}}
+
+
+/* TECLAST P50T 11-inch landscape production station (1280 x 800 or scaled browser). */
+@media (min-width:760px) and (max-width:1365px) and (orientation:landscape){
+ header{max-width:1480px;padding:9px 18px;gap:12px;min-height:56px}
+ header .brand-mark{padding:8px 7px;font-size:16px}
+ header .brand{gap:9px;font-size:13px}
+ header .brand small{font-size:9px}
+ header .version{font-size:10px}
+ header button{padding:8px 12px}
+ main{padding:14px 18px}
+ .heading{margin:0 0 6px;gap:12px}
+ .heading h1{font-size:27px;letter-spacing:-.8px;margin:3px 0}
+ .heading p{font-size:12px;margin:2px 0}
+ .heading>.primary{padding:9px 12px}
+ .eyebrow{font-size:9px;letter-spacing:1.4px}
+ .sync-state{font-size:10px;margin-bottom:9px}
+ .summary{margin-bottom:15px}
+ .summary>div{padding:8px 14px}
+ .summary span{font-size:11px}
+ .summary b{font-size:19px}
+ .orders-shell{margin-bottom:17px}
+ .orders-heading{margin-bottom:8px}
+ .orders-heading h2{font-size:18px}
+ .orders-tools button{min-height:40px;padding:8px 11px}
+ .orders-carousel{gap:10px;padding-bottom:7px}
+ .order-card{width:244px;flex-basis:244px;min-height:170px;padding:8px 10px}
+ .order-card-main{margin:5px 0;min-height:39px}
+ .order-card-main>img{width:38px;height:38px}
+ .order-card-main strong{font-size:12px}
+ .order-card-top>b{font-size:12px}
+ .order-lines{margin-bottom:6px;gap:2px;font-size:10px}
+ .order-lines>span{-webkit-line-clamp:1}
+ .order-card-foot{gap:5px}
+ .order-open{min-height:38px;min-width:67px}
+ .toolbar{margin-bottom:6px;gap:10px;flex-wrap:nowrap}
+ .search{max-width:265px;min-width:175px}
+ .search input{padding:9px 0}
+ .filters{order:unset;width:auto}
+ .filters button{min-height:40px;padding:7px 9px}
+ #undo{font-size:11px}
+ .sort-note{margin:5px 0 9px}
+ .grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+ .product-photo{height:160px}
+ .product-body{padding:13px}
+ .product h2{font-size:14px;min-height:2.7em;margin-bottom:7px}
+ .sales{padding-bottom:9px;font-size:10px}
+ .variant{padding:8px 0}
+ .stock-row{gap:11px}
+ .stock-label{margin-top:10px}
+ .step{width:44px;height:44px}
+ .stock-number{font-size:25px;min-width:58px}
+ .card-bottom{padding-top:9px;min-height:42px}
+ .print-row button{min-height:40px}
+ .variant-toggle{min-height:40px}
+ .print-overview{padding:9px;margin-top:9px}
+ .print-needs{max-height:130px}
+ .print-need{min-height:35px}
+}
+@media(max-width:759px) and (orientation:landscape){
+ .orders-shell{margin-bottom:15px}
+ .orders-heading h2{font-size:17px}
+ .orders-carousel .order-card{flex-basis:225px;width:225px}
+ .heading{margin-top:4px}
+ .summary{margin-bottom:16px}
+}
