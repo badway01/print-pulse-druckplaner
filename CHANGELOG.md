@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.12 – Filament-Autovervollständigung und Farbcodes
+
+- Hersteller, Material und Farben erhalten gut antippbare Vorschläge beim Eintippen, inklusive bereits gespeicherter eigener Filamente.
+- Offizielle Farbwerte für Bambu Lab PLA Basic/PLA Matte sowie SUNLU PLA, PLA+ und einige Silk-Farben als lokaler Katalog: Farbmuster und HEX-Code werden bei Auswahl automatisch übernommen. Manuelle Farbcodes bleiben änderbar; für andere Hersteller werden keine erfundenen Farbcodes ausgegeben.
+- Bambu / Bambu Lab sowie Schreibweisen wie Jadeweiß / Jade-Weiß / Jade White werden als dieselbe Filamentvariante erkannt.
+- Duplikate werden im Formular mit Hinweis auf vorhandenen Eintrag abgefangen und zusätzlich in der SQLite-Speicherung atomar verhindert. Bestehende Daten werden nicht überschrieben oder zusammengeführt.
+- Kein externer Dienst oder zusätzliche Etsy-Anfrage; Quellen und Einschränkungen stehen in der README.
+
 ## 0.11.11 – Filamentlager und Einkaufsliste
 
 - Neuer Bereich „Filament & Einkauf“ im Tablet-Druckplaner. Manuelles Verzeichnis mit Hersteller, Farbname, Material, Farbmuster, voller Spulenzahl, Preis und HTTPS-Einkaufslink.

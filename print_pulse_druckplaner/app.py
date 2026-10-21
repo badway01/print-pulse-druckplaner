@@ -17,6 +17,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import unicodedata
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -701,6 +702,53 @@ def filament_overview():
             'cart_missing_prices':sum(row['cart_qty'] for row in selected if row['price_cents'] is None)}
 
 
+
+def filament_key(value):
+    """Normalize names for duplicate safety while retaining PLA vs PLA+."""
+    source=str(value).strip().casefold().replace('ß','ss')
+    for original,converted in (('ä','ae'),('ö','oe'),('ü','ue')):
+        source=source.replace(original,converted)
+    source=unicodedata.normalize('NFKD',source)
+    source=''.join(c for c in source if not unicodedata.combining(c))
+    return ''.join(c for c in source.replace('+','plus') if c.isalnum())
+
+
+def filament_brand(value):
+    aliases={
+      'bambu':'Bambu Lab','bambulab':'Bambu Lab',
+      'sunlu':'SUNLU','esun':'eSUN',
+      'polymaker':'Polymaker','prusament':'Prusament',
+      'eryone':'ERYONE','elegoo':'ELEGOO','creality':'Creality',
+      'overture':'OVERTURE','extrudr':'extrudr'
+    }
+    return aliases.get(filament_key(value),value.strip())
+
+
+def filament_material_key(value):
+    key=filament_key(value)
+    return {'basicpla':'plabasic','mattepla':'plamatte',
+            'silkpla':'plasilk','silkplaplus':'plasilkplus',
+            'plaplus':'plaplus','plaplus20':'plaplus20'}.get(key,key)
+
+
+def filament_color_key(brand,material,color):
+    key=filament_key(color)
+    # Official English/German variants of known manufacturer's color names.
+    if filament_key(brand)=='bambulab':
+        synonyms={'jadewhite':'jadeweiss','ivorywhite':'elfenbeinweiss',
+                  'bonewhite':'knochenweiss','cocoabrown':'kakaobraun',
+                  'sunfloweryellow':'sonnenblumengelb'}
+        if filament_material_key(material)=='plabasic' and key in ('white','weiss'):
+            return 'jadeweiss'
+        return synonyms.get(key,key)
+    return key
+
+
+def filament_identity(brand,material,color):
+    return (filament_key(filament_brand(brand)),filament_material_key(material),
+            filament_color_key(brand,material,color))
+
+
 def filament_mutate(data):
     """Validated atomic CRUD, quantity change and received-goods booking."""
     action=data.get('action')
@@ -712,6 +760,7 @@ def filament_mutate(data):
             if not isinstance(val,str) or not (1<=len(val.strip())<=limit):
                 raise ValueError('Hersteller, Farbe und Material müssen ausgefüllt sein.')
             fields[key]=val.strip()
+        fields['brand']=filament_brand(fields['brand'])
         stock_qty=integer(data.get('stock_qty'),0,100000)
         color_hex=str(data.get('color_hex') or '#c1c9c1')
         if not re.fullmatch(r'#[0-9A-Fa-f]{6}',color_hex):
@@ -737,14 +786,21 @@ def filament_mutate(data):
             except (ValueError,TypeError):
                 raise ValueError('Bitte einen gültigen HTTPS-Einkaufslink eingeben.')
         with connect() as db:
+            # Serialize checking and writing to prevent duplicate variants on tablets.
+            db.execute('BEGIN IMMEDIATE')
             rowid=data.get('id')
+            if rowid is not None: rowid=integer(rowid,1,999999999)
+            identity=filament_identity(fields['brand'],fields['material'],fields['color'])
+            for existing in db.execute('SELECT id,brand,material,color FROM filament_spools'):
+                if existing['id']==rowid: continue
+                if filament_identity(existing['brand'],existing['material'],existing['color'])==identity:
+                    raise ValueError('Filament bereits vorhanden: '+existing['brand']+' · '+existing['material']+' · '+existing['color']+'. Bitte vorhandenen Eintrag bearbeiten.')
             if rowid is None:
                 db.execute("""INSERT INTO filament_spools
                    (brand,color,material,color_hex,price_cents,purchase_url,stock_qty,created,updated)
                    VALUES (?,?,?,?,?,?,?,?,?)""",
                    (fields['brand'],fields['color'],fields['material'],color_hex,price_cents,url,stock_qty,now,now))
             else:
-                rowid=integer(rowid,1,999999999)
                 changed=db.execute("""UPDATE filament_spools
                    SET brand=?,color=?,material=?,color_hex=?,price_cents=?,purchase_url=?,stock_qty=?,updated=?
                    WHERE id=?""",(fields['brand'],fields['color'],fields['material'],color_hex,

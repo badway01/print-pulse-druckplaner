@@ -283,6 +283,179 @@ function render(){if(!model)return;
  if(focusId){const next=[...document.querySelectorAll('[data-action]')].find(b=>b.dataset.id===focusId&&b.dataset.action===focusAction&&b.dataset.delta===delta);next?.focus({preventScroll:true});}
 }
 
+
+// Offline swatches from manufacturer publications, not live price or stock data.
+// Bambu Lab PLA Basic: https://store.bblcdn.eu/s8/default/903b60b06ac142e9b1b49ad53cfa4c82/Bambu_PLA_Basic_Hex_Code.pdf
+// Bambu Lab PLA Matte: https://store.bblcdn.com/s1/default/699cd85d9a194edea3423dc34e164579/Bambu_PLA_Matte_10_rolls_Hex_Code.pdf
+// SUNLU PLA / PLA+: https://www.sunlu.com/de/products/pla-3d-printing-filament
+// SUNLU Silk: https://www.sunlu.com/products/Silk%20PLA%2B2.0
+const filamentCatalog={
+ 'Bambu Lab':{
+  'PLA Basic':[
+   ['Jade-Weiß','#FFFFFF',['Jadeweiß','Jade White','Weiß','White']],
+   ['Beige','#F7E6DE'],['Hellgrau','#D1D3D5',['Light Gray']],['Silber','#A6A9AA'],
+   ['Grau','#8E9089',['Gray']],['Dunkelgrau','#545454',['Dark Gray']],
+   ['Schwarz','#000000',['Black']],['Magenta','#EC008C'],['Pink','#F55A74'],
+   ['Hot Pink','#F5547C'],['Orange','#FF6A13'],['Kürbisorange','#FF9016',['Pumpkin Orange']],
+   ['Gold','#E4BD68'],['Sonnenblumengelb','#FEC600',['Sunflower Yellow']],
+   ['Gelb','#F4EE2A',['Yellow']],['Bambu-Grün','#00AE42',['Bambu Green']],
+   ['Mistelgrün','#3F8E43',['Mistletoe Green']],['Türkis','#00B1B7',['Turquoise']],
+   ['Cyan','#0086D6'],['Blau','#0A2989',['Blue']],['Kobaltblau','#0056B8',['Cobalt Blue']],
+   ['Lila','#5E43B7',['Purple']],['Indigoviolett','#482960',['Indigo Purple']],
+   ['Bronze','#847D48'],['Kakaobraun','#6F5034',['Cocoa Brown']],
+   ['Braun','#9D432C',['Brown']],['Rot','#C12E1F',['Red']]
+  ],
+  'PLA Matte':[
+   ['Elfenbeinweiß','#FFFFFF',['Ivory White']],['Wüstenbeige','#E8DBB7',['Desert Tan']],
+   ['Flieder','#AE96D4',['Lilac Purple']],['Mandarinenorange','#F99963',['Mandarin Orange']],
+   ['Scharlachrot','#DE4343',['Scarlet Red']],['Grasgrün','#61C680',['Grass Green']],
+   ['Marineblau','#0078BF',['Marine Blue']],['Zitronengelb','#F7D959',['Lemon Yellow']],
+   ['Kohleschwarz','#000000',['Charcoal']],['Aschgrau','#9B9EA0',['Ash Gray']]
+  ]
+ },
+ 'SUNLU':{
+  'PLA':[
+   ['Weiß','#FFFFFF',['White']],['Schwarz','#000000',['Black']],['Grau','#75787B',['Grey']],
+   ['Rot','#BC2726',['Red']],['Gelb','#FFF13F',['Yellow']],['Grün','#1DAA27',['Green']],
+   ['Cyan','#00A3E0'],['Beige','#F0E0D6'],['Keramik','#F4F9FF',['Ceramic']],
+   ['Knochenweiß','#EEE7D4',['Bone White']],['Olivgrün','#5A6D3D',['Olive Green']],
+   ['Sonniges Orange','#ED7334',['Sunny Orange']],['Klein-Blau','#1729AB',['Klein Blue']],
+   ['Lavendelviolett','#685BC7',['Lavender Purple']]
+  ],
+  'PLA+':[
+   ['Weiß','#FFFFFF',['White']],['Schwarz','#000000',['Black']],['Grau','#75787B',['Grey']],
+   ['Rot','#BC2726',['Red']],['Gelb','#FFF13F',['Yellow']],['Grün','#1DAA27',['Green']],
+   ['Cyan','#00A3E0'],['Beige','#F0E0D6'],['Keramik','#F4F9FF',['Ceramic']],
+   ['Knochenweiß','#EEE7D4',['Bone White']],['Olivgrün','#5A6D3D',['Olive Green']],
+   ['Sonniges Orange','#ED7334',['Sunny Orange']],['Klein-Blau','#1729AB',['Klein Blue']]
+  ],
+  'PLA Silk':[
+   ['Gold','#F1BE48'],['Silber','#919CAC'],['Kupferrot','#A55F49',['Copper Red']],
+   ['Schwarz','#000000'],['Weiß','#FFFFFF'],['Titanstahl','#8C8B89',['Titanium Steel']]
+  ]
+ }
+};
+const filamentBrands=['Bambu Lab','SUNLU','eSUN','Polymaker','Prusament','ERYONE','ELEGOO','Creality','OVERTURE','extrudr'];
+const filamentMaterials=['PLA','PLA Basic','PLA Matte','PLA Silk','PLA+','PLA Silk+','PETG','TPU','ABS','ASA','PA-CF'];
+const normFilament=s=>String(s||'').trim().toLocaleLowerCase('de')
+ .replace(/ß/g,'ss').replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue')
+ .normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\+/g,'plus').replace(/[^a-z0-9]/g,'');
+function canonicalFilamentBrand(s){
+ const key=normFilament(s);
+ if(key==='bambu'||key==='bambulab')return 'Bambu Lab';
+ return filamentBrands.find(name=>normFilament(name)===key)||String(s||'').trim();
+}
+function normFilamentMaterial(s){
+ const k=normFilament(s);
+ return ({basicpla:'plabasic',mattepla:'plamatte',silkpla:'plasilk'}[k]||k);
+}
+function filamentUniqueIdentity(brand,material,color){
+ const b=normFilament(canonicalFilamentBrand(brand)),m=normFilamentMaterial(material);
+ let c=normFilament(color);
+ if(b==='bambulab'){
+  c=({jadewhite:'jadeweiss',ivorywhite:'elfenbeinweiss',bonewhite:'knochenweiss',
+    cocoabrown:'kakaobraun',sunfloweryellow:'sonnenblumengelb'}[c]||c);
+  if(m==='plabasic'&&(c==='white'||c==='weiss'))c='jadeweiss';
+ }
+ return [b,m,c].join('|');
+}
+function filamentSuggestions(field){
+ const form=$('filament-form');
+ const brand=canonicalFilamentBrand(form.elements.brand.value);
+ const material=form.elements.material.value;
+ const records=filamentData?.filaments||[];
+ const result=[],seen=new Set();
+ function add(name,hex='',source='',family='',aliases=[]){
+  const key=normFilament(name)+'|'+normFilamentMaterial(family);
+  if(!name||seen.has(key))return;
+  seen.add(key);result.push({name,hex,source,family,aliases});
+ }
+ if(field==='brand'){
+  filamentBrands.forEach(name=>add(name));
+  records.forEach(f=>add(f.brand));
+ }else if(field==='material'){
+  const bkey=normFilament(brand);
+  Object.keys(filamentCatalog[brand]||{}).forEach(name=>add(name));
+  records.filter(f=>normFilament(canonicalFilamentBrand(f.brand))===bkey).forEach(f=>add(f.material));
+  filamentMaterials.forEach(name=>add(name));
+ }else{
+  const catalog=filamentCatalog[brand]||{};
+  const materialId=normFilamentMaterial(material);
+  const families=Object.entries(catalog);
+  for(const [family,values] of families){
+   if(!families.some(([name])=>normFilamentMaterial(name)===materialId)||normFilamentMaterial(family)===materialId)
+    values.forEach(([name,hex,aliases])=>add(name,hex,'Herstellerfarbcode',family,aliases||[]));
+  }
+  records.filter(f=>normFilament(canonicalFilamentBrand(f.brand))===normFilament(brand)&&
+    (!families.some(([name])=>normFilamentMaterial(name)===materialId)||
+      normFilamentMaterial(f.material)===materialId))
+    .forEach(f=>add(f.color,f.color_hex,'Bereits angelegt',f.material));
+ }
+ return result;
+}
+function matchingFilamentSuggestion(field,query){
+ const key=normFilament(query);
+ return filamentSuggestions(field).filter(o=>!key||[o.name,...o.aliases].some(x=>normFilament(x).includes(key))).slice(0,12);
+}
+let filamentSuggestOptions={brand:[],material:[],color:[]},filamentAutoHex=false;
+function showFilamentSuggestions(field){
+ const fieldEl=$('filament-'+field),menu=$('filament-'+field+'-options');
+ const options=matchingFilamentSuggestion(field,fieldEl.value);
+ filamentSuggestOptions[field]=options;
+ menu.innerHTML=options.map((o,i)=>`<button type="button" class="filament-suggest-item" role="option" data-suggest-field="${field}" data-suggest-index="${i}">
+ ${o.hex?`<span class="filament-swatch" style="background:${esc(o.hex)}" aria-hidden="true"></span>`:''}
+ <span><strong>${esc(o.name)}</strong>${o.family?`<small>${esc(o.family)} · ${esc(o.source)}</small>`:''}</span>
+ ${o.hex?`<code>${esc(o.hex.toUpperCase())}</code>`:''}</button>`).join('');
+ menu.hidden=!options.length;
+ fieldEl.setAttribute('aria-expanded',String(!!options.length));
+}
+function closeFilamentSuggestions(except=''){
+ for(const field of ['brand','material','color']){
+  if(field===except)continue;
+  $('filament-'+field+'-options').hidden=true;
+  $('filament-'+field).setAttribute('aria-expanded','false');
+ }
+}
+function filamentHexPreview(source=''){
+ const value=$('filament-color-hex').value.toUpperCase();
+ $('filament-hex-code').textContent=value;
+ $('filament-hex-status').textContent=source||(filamentAutoHex?'Herstellerfarbcode übernommen':'Farbcode selbst gewählt oder später anpassbar');
+}
+function applyFilamentSuggestion(field,item){
+ const form=$('filament-form');
+ form.elements[field].value=item.name;
+ if(field==='brand'){
+  form.elements.brand.value=canonicalFilamentBrand(item.name);
+ }else if(field==='color'&&item.hex){
+  form.elements.material.value=item.family;
+  form.elements.color_hex.value=item.hex;
+  filamentAutoHex=item.source==='Herstellerfarbcode';
+  filamentHexPreview(item.source==='Bereits angelegt'?'Farbcode aus deinem Lager übernommen':'Herstellerfarbcode automatisch übernommen');
+ }
+ closeFilamentSuggestions();
+ if(field!=='color')matchExactFilamentColor();
+ updateFilamentDuplicate();
+}
+function matchExactFilamentColor(){
+ const query=$('filament-color').value.trim();
+ if(!query)return;
+ const key=normFilament(query);
+ const matches=filamentSuggestions('color').filter(o=>[o.name,...o.aliases].some(name=>normFilament(name)===key));
+ if(matches.length!==1)return;
+ applyFilamentSuggestion('color',matches[0]);
+}
+function updateFilamentDuplicate(){
+ const form=$('filament-form'),brand=form.elements.brand.value,color=form.elements.color.value,material=form.elements.material.value;
+ const currentId=Number(form.elements.id.value||0);
+ const item=brand&&color&&material?(filamentData?.filaments||[]).find(f=>f.id!==currentId&&
+  filamentUniqueIdentity(f.brand,f.material,f.color)===filamentUniqueIdentity(brand,material,color)):null;
+ $('filament-duplicate').hidden=!item;
+ $('filament-existing').hidden=!item;
+ $('filament-save').disabled=!!item;
+ if(item)$('filament-duplicate').textContent='Bereits vorhanden: '+item.brand+' · '+item.material+' · '+item.color+'. Diesen Eintrag bearbeiten statt doppelt anlegen.';
+ $('filament-existing').dataset.existingId=item?.id||'';
+}
+
 const filamentMoney=cents=>cents===null||cents===undefined?'Preis offen':(cents/100).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
 const filamentSpoolCart='<svg class="spool-cart" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h3l3 16h18l3-11H8"/><circle cx="13" cy="27" r="2"/><circle cx="25" cy="27" r="2"/><circle cx="18" cy="13" r="5"/><circle cx="18" cy="13" r="2"/></svg>';
 function filamentLine(f,inCart){
@@ -351,6 +524,10 @@ function openFilamentEditor(id){
  form.elements.price.value=f&&f.price_cents!==null?(f.price_cents/100).toFixed(2).replace('.',','):'';
  $('filament-title').textContent=f?'Filament bearbeiten':'Filament anlegen';
  $('filament-delete').hidden=!f;
+ filamentAutoHex=false;
+ filamentHexPreview();
+ closeFilamentSuggestions();
+ updateFilamentDuplicate();
  $('filament-editor').showModal();
  $('filament-brand').focus();
 }
@@ -443,9 +620,51 @@ $('filament-rows').addEventListener('click',event=>{
   if(spool&&confirm(`Sind ${spool.cart_qty} Spulen von ${spool.brand} · ${spool.color} tatsächlich angekommen? Dann werden sie ins Filamentlager gebucht.`))filamentAction({action:'receive',id:spool.id});
  }
 });
+for(const field of ['brand','material','color']){
+ const input=$('filament-'+field);
+ input.addEventListener('focus',()=>{closeFilamentSuggestions(field);showFilamentSuggestions(field);});
+ input.addEventListener('input',()=>{
+  closeFilamentSuggestions(field);showFilamentSuggestions(field);
+  if(field==='brand'||field==='material')matchExactFilamentColor();
+  updateFilamentDuplicate();
+ });
+ input.addEventListener('change',()=>{
+  if(field==='brand'){
+   const found=filamentSuggestions('brand').find(o=>normFilament(o.name)===normFilament(input.value));
+   if(found)input.value=found.name;
+  }
+  if(field==='color')matchExactFilamentColor();
+  updateFilamentDuplicate();
+ });
+ input.addEventListener('keydown',event=>{
+  if(event.key==='Escape'){closeFilamentSuggestions();return;}
+  if(event.key==='ArrowDown'&&!$('filament-'+field+'-options').hidden){
+   event.preventDefault();$('filament-'+field+'-options').querySelector('button')?.focus();
+  }
+ });
+}
+$('filament-form').addEventListener('click',event=>{
+ const option=event.target.closest('[data-suggest-field]');
+ if(!option)return;
+ const field=option.dataset.suggestField;
+ const item=filamentSuggestOptions[field]?.[Number(option.dataset.suggestIndex)];
+ if(item){applyFilamentSuggestion(field,item);$('filament-'+field).focus();closeFilamentSuggestions();}
+});
+$('filament-existing').addEventListener('click',()=>{
+ const id=Number($('filament-existing').dataset.existingId);
+ if(id){$('filament-editor').close();openFilamentEditor(id);}
+});
+$('filament-color-hex').addEventListener('input',()=>{filamentAutoHex=false;filamentHexPreview('Manuell gewählter Farbcode');});
+document.addEventListener('click',event=>{
+ if(!event.target.closest('.filament-autocomplete'))closeFilamentSuggestions();
+});
 $('filament-form').addEventListener('submit',async event=>{
  event.preventDefault();
  if(filamentBusy)return;
+ if($('filament-save').disabled)return;
+ matchExactFilamentColor();
+ updateFilamentDuplicate();
+ if($('filament-save').disabled)return;
  const values=Object.fromEntries(new FormData(event.target).entries());
  const payload={action:'save',id:values.id?Number(values.id):null,brand:values.brand,color:values.color,material:values.material,color_hex:values.color_hex,stock_qty:Number(values.stock_qty),price:values.price.trim(),purchase_url:values.purchase_url};
  $('filament-editor').close();

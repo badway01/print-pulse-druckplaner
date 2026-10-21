@@ -52,6 +52,35 @@ class FilamentTests(unittest.TestCase):
         with self.assertRaises(ValueError):app.filament_mutate({'action':'receive','id':id})
         self.assertEqual(app.filament_overview()['cart_count'],0)
 
+
+    def test_duplicate_names_normalized_and_brands(self):
+        self.add(brand='Bambu',material='PLA Basic',color='Jade-Weiß')
+        rows=app.filament_overview()['filaments']
+        self.assertEqual(rows[0]['brand'],'Bambu Lab')
+        for near in ['jadeweiß','JADE - WEISS','Jade White']:
+            with self.subTest(name=near),self.assertRaisesRegex(ValueError,'bereits vorhanden'):
+                self.add(brand='bambu lab',material='PLA Basic',color=near)
+        self.assertEqual(len(app.filament_overview()['filaments']),1)
+        # Different manufacturer or material remains a distinct stock item.
+        self.add(brand='SUNLU',material='PLA Basic',color='Jadeweiß')
+        self.add(brand='Bambu Lab',material='PLA Matte',color='Jadeweiß')
+        self.assertEqual(len(app.filament_overview()['filaments']),3)
+
+    def test_duplicate_edit_protection(self):
+        first=self.add(brand='Bambu',material='PLA Basic',color='Jadeweiß')
+        self.add(brand='Bambu',material='PLA Basic',color='Schwarz')
+        second=next(row['id'] for row in app.filament_overview()['filaments'] if row['color']=='Schwarz')
+        request={'action':'save','id':second,'brand':'Bambu Lab','material':'PLA Basic',
+                 'color':'Jade-Weiß','color_hex':'#ffffff','stock_qty':3,
+                 'price':'19,00','purchase_url':''}
+        with self.assertRaisesRegex(ValueError,'bereits vorhanden'):
+            app.filament_mutate(request)
+        self.assertEqual(len(app.filament_overview()['filaments']),2)
+        # Same entry can still be updated without triggering a false positive.
+        request['id']=first
+        app.filament_mutate(request)
+        self.assertEqual(len(app.filament_overview()['filaments']),2)
+
     def test_price_and_link_safety(self):
         for invalid in ['javascript:alert(1)','http://example.org','https://user:pass'+chr(64)+'example.org']:
             with self.subTest(invalid=invalid),self.assertRaises(ValueError):self.add(purchase_url=invalid)

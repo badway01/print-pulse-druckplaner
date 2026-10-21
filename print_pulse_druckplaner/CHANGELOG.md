@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.12 – Filamentvorschläge und HEX-Farben
+
+- Hersteller-, Material- und Farbvorschläge bei der Eingabe, mit Farbmuster und automatisch eingetragenem HEX-Farbcode.
+- Vorhandene Farben und eigene Hersteller werden für spätere Eingaben wieder vorgeschlagen.
+- Duplikatsperre für unterschiedliche Schreibweisen; Farbwerte manuell korrigierbar.
+
 ## 0.11.11 – Filament & Einkauf
 
 - Neuer eigener Filament-Reiter mit kompakter Farbliste, Preise, Links, Regalspulen und Einkaufsliste.
