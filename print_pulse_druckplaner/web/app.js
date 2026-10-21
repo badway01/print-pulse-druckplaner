@@ -3,12 +3,14 @@ const $=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let model=null,filter='all',busy=false,polling=false,sortTimer=null,quantityContext=null;
 let order=[];
+let orderSort='ship';
+try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
 const expanded=new Set();
 const selectedVariants=new Map();
 // Patch existing nodes so polling never recreates unchanged cards or images.
 function nodeKey(node){
  if(node.nodeType!==1)return null;
- for(const name of ['data-product','data-variant','data-notice-key','data-expand','data-mode']){
+ for(const name of ['data-product','data-order-card','data-variant','data-notice-key','data-expand','data-mode']){
   if(node.hasAttribute(name))return node.tagName+':'+name+':'+node.getAttribute(name);
  }
  if(node.hasAttribute('data-action'))return 'action:'+node.dataset.action+':'+node.dataset.id+':'+(node.dataset.delta||'');
@@ -109,6 +111,51 @@ function card(p){
  ${open?(p.items.length>1?variantPicker(p):variant(p,p.items[0])):''}
  <div class="card-bottom"><label class="order-mode"><input type="checkbox" data-mode="${esc(p.id)}" ${p.made_to_order?'checked':''}><span>Auf Bestellung</span></label><div class="badges">${p.made_to_order?'<span class="badge made">Nur auf Bestellung</span>':''}${p.bestseller?'<span class="badge best">Bestseller</span>':''}</div></div></div></article>`;
 }
+
+const berlinParts=new Intl.DateTimeFormat('de-DE',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit'});
+function berlinDay(value){
+ const fields=Object.fromEntries(berlinParts.formatToParts(new Date(value)).filter(x=>x.type!=='literal').map(x=>[x.type,Number(x.value)]));
+ return Date.UTC(fields.year,fields.month-1,fields.day)/86400000;
+}
+function calendarDaysUntil(timestamp){return timestamp?berlinDay(timestamp*1000)-berlinDay(Date.now()):null;}
+function shortDate(timestamp){return timestamp?new Date(timestamp*1000).toLocaleDateString('de-DE',{timeZone:'Europe/Berlin',day:'2-digit',month:'2-digit',year:'numeric'}):'Nicht angegeben';}
+function shipInfo(o){
+ const days=calendarDaysUntil(o.ship_by);
+ if(days===null)return {label:'Versandfrist unbekannt',level:'unknown'};
+ return {label:days<0?'Versand überfällig · '+shortDate(o.ship_by):days===0?'Versand heute':days===1?'Versand morgen':'Versand bis '+shortDate(o.ship_by),level:days<=2?'red':days===3?'yellow':'green'};
+}
+function orderCard(o){
+ const shipping=shipInfo(o);
+ const lines=o.items||[];
+ const image=thumbnail(lines[0]?.image||'');
+ const summary=lines.slice(0,2).map(i=>`<span><b>${i.quantity} ×</b> ${esc(i.title)}${i.variant?' · '+esc(i.variant):''}</span>`).join('');
+ return `<article class="order-card ${shipping.level}" data-order-card="${esc(o.id)}">
+  <div class="order-card-top"><b>#${esc(o.id)}</b><small>${esc(shortDate(o.created))}</small></div>
+  <div class="order-card-main">${image?`<img src="${esc(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}
+   <div><strong>${esc(o.customer)}</strong><small>${o.quantity} Stück · ${lines.length} Position${lines.length===1?'':'en'}</small></div></div>
+  <div class="order-lines">${summary}${lines.length>2?`<small>+ ${lines.length-2} weitere Position${lines.length===3?'':'en'}</small>`:''}</div>
+  <div class="order-card-foot"><span class="order-deadline ${shipping.level}">${esc(shipping.label)}</span><button class="order-open" data-order-open="${esc(o.id)}" aria-label="Bestellung ${esc(o.id)} öffnen">Details ›</button></div>
+ </article>`;
+}
+function renderOrders(){
+ const orders=model.orders||[];
+ const sorted=[...orders].sort((a,b)=>orderSort==='new'?(b.created-a.created||b.id.localeCompare(a.id)):( (a.ship_by||Infinity)-(b.ship_by||Infinity)||b.created-a.created));
+ $('order-count').textContent=orders.length+' offen';
+ document.querySelectorAll('[data-order-sort]').forEach(b=>{b.classList.toggle('selected',b.dataset.orderSort===orderSort);b.setAttribute('aria-pressed',String(b.dataset.orderSort===orderSort));});
+ updateHTML($('orders'),sorted.length?sorted.map(orderCard).join(''):'<p class="orders-empty">Keine offenen, bezahlten Bestellungen vorhanden.</p>');
+ $('orders-prev').disabled=!orders.length;
+ $('orders-next').disabled=!orders.length;
+}
+function showOrder(id){
+ const o=(model.orders||[]).find(order=>order.id===id);
+ if(!o)return;
+ const shipping=shipInfo(o);
+ $('order-details-title').textContent='Etsy-Bestellung #'+o.id;
+ updateHTML($('order-details-content'),`<p><b>${esc(o.customer)}</b><br>Bestellt: ${esc(shortDate(o.created))}<br><strong>${esc(shipping.label)}</strong></p>
+ <div class="order-modal-lines">${o.items.map(i=>`<div><b>${i.quantity} × ${esc(i.title)}</b>${i.variant?`<small>${esc(i.variant)}</small>`:''}</div>`).join('')}</div><p class="hint">Anzeige aus dem letzten Etsy-Abgleich. Versand und Stornierung erfolgen weiterhin direkt in Etsy.</p>`);
+ $('order-details').showModal();
+}
+
 function render(){if(!model)return;
  openNotices=new Set([...document.querySelectorAll('[data-notice-key][open]')].map(el=>el.dataset.noticeKey));
  const products=model.products.filter(p=>p.state==='active');
@@ -119,6 +166,7 @@ function render(){if(!model)return;
  const stale=model.last_sync&&Date.now()/1000-model.last_sync>3600;
  showAlert([model.sync.error,model.warning,!model.authorized?'Bitte Etsy unter Einstellungen verbinden.':stale?'Etsy-Daten sind älter als eine Stunde. Verbindung prüfen.':'']);
  updateHTML($('summary'),[['Produkte',products.length],['Nachdrucken',products.reduce((n,p)=>n+p.need,0)+' Stk.'],['Im Druck',products.flatMap(p=>p.items).reduce((n,i)=>n+i.in_print,0)+' Stk.'],['Noch zählen',products.reduce((n,p)=>n+p.uninitialized,0)+' Varianten']].map(([label,value])=>`<div><span>${label}</span><b>${value}</b></div>`).join(''));
+ renderOrders();
  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('selected',b.dataset.filter===filter));
  const search=$('search').value.trim().toLocaleLowerCase('de');
  const selected=order.map(id=>products.find(p=>p.id===id)).filter(Boolean).filter(p=>(filter!=='need'||p.need>0||p.unmatched>0)&&(filter!=='printing'||p.items.some(i=>i.in_print>0))&&(filter!=='uncounted'||p.uninitialized>0)).filter(p=>(p.title+' '+p.items.map(i=>i.label).join(' ')).toLocaleLowerCase('de').includes(search));
@@ -130,6 +178,18 @@ async function load(resort=false){if(polling||busy)return;polling=true;try{const
 async function mutate(path,data){if(busy)return;busy=true;document.querySelectorAll('#products button,#products input,#products select,#undo').forEach(b=>b.disabled=true);try{setModel(await api(path,data));scheduleSort();flash('Gespeichert.');}catch(err){flash(err.message,true);try{setModel(await api('status'));}catch{}}finally{busy=false;render();}}
 function findItem(id){for(const p of model.products){const i=p.items.find(i=>i.id===id);if(i)return {p,i};}return null;}
 function quantityDialog(id,action){const found=findItem(id);if(!found)return;const {p,i}=found;quantityContext={id,action,revision:i.revision};const labels={set:'Bestand erfassen',printing:'Druck gestartet',finish:'Fertige Stücke einlagern',cancel:'Druckmenge zurücknehmen',minimum:'Mindestbestand'};$('quantity-title').textContent=labels[action];$('quantity-label').textContent=p.title+' · '+i.label;const input=$('quantity-value');input.min=['set','minimum'].includes(action)?0:1;input.max=['finish','cancel'].includes(action)?i.in_print:100000;input.value=action==='set'?(i.on_hand??0):action==='minimum'?i.minimum:action==='printing'?Math.max(1,i.need||1):i.in_print;$('quantity-help').textContent=action==='set'?'Alle fertigen Stücke zählen, einschließlich reservierter und gepackter Ware.':action==='finish'?'Nur erfolgreich gedruckte Stücke buchen. Fehlgeschlagene Stücke über „Abbruch“ zurücknehmen.':action==='printing'?'Merkt die Menge vor. Startet keinen Drucker.':action==='minimum'?'Wird bei Lagerartikeln mindestens als freier Vorrat empfohlen.':'Entfernt die Menge aus „Im Druck“, ohne den Lagerbestand zu erhöhen.';$('quantity').showModal();input.focus();input.select();}
+$('orders').addEventListener('click',event=>{
+ const button=event.target.closest('[data-order-open]');
+ if(button)showOrder(button.dataset.orderOpen);
+});
+for(const button of document.querySelectorAll('[data-order-sort]'))button.addEventListener('click',()=>{
+ if(orderSort===button.dataset.orderSort)return;
+ orderSort=button.dataset.orderSort;
+ try{localStorage.setItem('pp-order-sort',orderSort);}catch{}
+ renderOrders();
+ $('orders').scrollLeft=0;
+});
+for(const dir of ['prev','next'])$('orders-'+dir).addEventListener('click',()=>$('orders').scrollBy({left:(dir==='prev'?-1:1)*Math.max(260,$('orders').clientWidth*.75),behavior:'smooth'}));
 $('products').addEventListener('click',async event=>{
  const shortcut=event.target.closest('[data-show-variant]');
  if(shortcut&&!busy){

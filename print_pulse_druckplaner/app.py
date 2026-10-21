@@ -149,6 +149,10 @@ def init_db():
           id TEXT PRIMARY KEY,receipt_id TEXT NOT NULL,listing_id TEXT NOT NULL,item_id TEXT,
           qty INTEGER NOT NULL,created INTEGER NOT NULL,status TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS stock_tx_listing ON stock_transactions(listing_id);
+        CREATE TABLE IF NOT EXISTS stock_receipts(
+          id TEXT PRIMARY KEY,created INTEGER NOT NULL,
+          ship_by INTEGER NOT NULL DEFAULT 0,customer TEXT NOT NULL DEFAULT '',
+          lines_json TEXT NOT NULL DEFAULT '[]');
         CREATE TABLE IF NOT EXISTS stock_actions(
           id TEXT PRIMARY KEY,item_id TEXT NOT NULL,before_json TEXT NOT NULL,
           after_revision INTEGER NOT NULL,created INTEGER NOT NULL,undone INTEGER NOT NULL DEFAULT 0);
@@ -267,7 +271,7 @@ def fetch_catalog(shop):
     return result,warning
 
 
-def fetch_receipts(shop):
+def fetch_receipts(shop, include_orders=False):
     since=int(time.time())-30*86400
     base=f'/application/shops/{shop}/receipts'
     recent=pages(base,{'min_created':since,'was_paid':'true'})
@@ -276,10 +280,12 @@ def fetch_receipts(shop):
     # An absent open receipt may have shipped OR been canceled. Verify explicitly.
     with connect() as db:
         tracked={r[0] for r in db.execute("SELECT DISTINCT receipt_id FROM stock_transactions WHERE status='open'")}
+        tracked.update(r[0] for r in db.execute("SELECT id FROM stock_receipts"))
     for rid in tracked-receipts.keys():
         receipts[rid]=api_request(base+'/'+rid)
         time.sleep(.3)
     result=[]
+    orders=[]
     for rid,r in receipts.items():
         status=receipt_status(r)
         txs=r.get('transactions')
@@ -287,6 +293,10 @@ def fetch_receipts(shop):
             txs=pages(base+'/'+rid+'/transactions')
         if status in ('open','shipped') and not txs:
             raise ValueError('Eine bezahlte Bestellung enthält keine Positionen. Abgleich abgebrochen.')
+        lines=[]
+        ship_dates=[value for value in [r.get('expected_ship_date'),r.get('ship_by_date')]
+                    + [t.get('expected_ship_date') for t in txs]
+                    if type(value) is int and value>0]
         for tx in txs:
             tid=str(tx.get('transaction_id') or '')
             lid=str(tx.get('listing_id') or '')
@@ -295,10 +305,23 @@ def fetch_receipts(shop):
             qty=integer(tx.get('quantity'),1)
             created=int(r.get('create_timestamp') or r.get('created_timestamp') or 0)
             result.append((tid,rid,lid,str(tx.get('product_id') or ''),signature(tx.get('variations'),True),qty,created,status))
-    return result,set(receipts)
+            variations=[]
+            for prop in tx.get('variations') or []:
+                name=html.unescape(str(prop.get('formatted_name') or prop.get('property_name') or 'Variante'))
+                value=html.unescape(str(prop.get('formatted_value') or prop.get('value') or ''))
+                if value: variations.append(f'{name}: {value}')
+            lines.append({'listing_id':lid,'quantity':qty,
+                          'title':html.unescape(str(tx.get('title') or 'Artikel')),
+                          'variant':' · '.join(variations)})
+        if status=='open':
+            customer=html.unescape(str(r.get('name') or 'Kunde nicht angegeben')).strip()[:120]
+            orders.append((rid,int(r.get('create_timestamp') or r.get('created_timestamp') or 0),
+                           min(ship_dates) if ship_dates else 0,customer,
+                           json.dumps(lines,ensure_ascii=False)))
+    return (result,set(receipts),orders) if include_orders else (result,set(receipts))
 
 
-def apply_snapshot(catalog, transactions, receipt_ids, warning=''):
+def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
     now=int(time.time())
     with connect() as db:
         db.execute('BEGIN IMMEDIATE')
@@ -348,6 +371,13 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning=''):
         for tid,previous in old.items():
             if previous['receipt_id'] in receipt_ids and tid not in observed:
                 db.execute("UPDATE stock_transactions SET status='excluded' WHERE id=?",(tid,))
+        if orders is not None:
+            # Replace only receipts confirmed in this complete Etsy snapshot.
+            # Canceled, refunded and shipped orders disappear without touching stock.
+            for rid in receipt_ids:
+                db.execute('DELETE FROM stock_receipts WHERE id=?',(rid,))
+            for row in orders:
+                db.execute('INSERT INTO stock_receipts(id,created,ship_by,customer,lines_json) VALUES(?,?,?,?,?)',row)
         db.execute("DELETE FROM stock_transactions WHERE status!='open' AND created<?",(now-31*86400,))
         db.execute('DELETE FROM stock_actions WHERE created<?',(now-7*86400,))
         put_cfg(db,'stock_last_sync',now)
@@ -360,8 +390,8 @@ def synchronize():
     if not shop.isdigit(): raise ValueError('Bitte Etsy unter Einstellungen verbinden.')
     catalog,warning=fetch_catalog(shop)
     with STATUS_LOCK: STATUS['message']='Verkäufe und offene Bestellungen abgleichen …'
-    transactions,receipts=fetch_receipts(shop)
-    apply_snapshot(catalog,transactions,receipts,warning)
+    transactions,receipts,orders=fetch_receipts(shop,include_orders=True)
+    apply_snapshot(catalog,transactions,receipts,warning,orders)
 
 
 def run_sync():
@@ -397,6 +427,7 @@ def overview():
         listings=[dict(r) for r in db.execute('SELECT * FROM stock_listings')]
         items=[dict(r) for r in db.execute('SELECT * FROM stock_items')]
         txs=[dict(r) for r in db.execute('SELECT * FROM stock_transactions')]
+        receipt_rows=[dict(r) for r in db.execute('SELECT * FROM stock_receipts')]
         days=int(cfg(db,'stock_days','7'))
         sync_at=int(cfg(db,'stock_last_sync','0'))
         configured=bool(cfg(db,'keystring') and cfg(db,'callback'))
@@ -433,8 +464,17 @@ def overview():
     top={p['id'] for p in eligible[:max(1,math.ceil(len(listings)*.2))]}
     for p in listings: p['bestseller']=p['id'] in top
     listings.sort(key=lambda p:({'red':0,'yellow':1,'unknown':2,'green':3}[p['level']],-p['need'],-p['sold7'],p['title'].casefold()))
+    images={p['id']:safe_etsy_image_url(p['image']) for p in listings}
+    orders=[]
+    for receipt in receipt_rows:
+        lines=json.loads(receipt['lines_json'])
+        for line in lines:
+            line['image']=images.get(line['listing_id'],'')
+        orders.append({'id':receipt['id'],'customer':receipt['customer'],
+                       'created':receipt['created'],'ship_by':receipt['ship_by'],
+                       'items':lines,'quantity':sum(line['quantity'] for line in lines)})
     with STATUS_LOCK: status=dict(STATUS)
-    return {'products':listings,'days':days,'last_sync':sync_at,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'version':'0.1'}
+    return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'version':'0.1'}
 
 
 def mutate_stock(data):
@@ -506,7 +546,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
         path=urllib.parse.urlsplit(self.path).path
         if path=='/api/status': return self.send(200,overview())
-        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/style.css':('style.css','text/css')}
+        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
