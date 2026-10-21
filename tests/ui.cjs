@@ -22,6 +22,7 @@ await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().
 
 
 assert.equal((await page.locator('#order-count').textContent()).trim(),'3 offen');
+assert.equal((await page.locator('.summary-urgent b').textContent()).trim(),'2 Aufträge');
 assert.equal(await page.locator('.order-card').count(),3);
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'501');
 assert((await page.locator('[data-order-card="501"] .order-ship-date').textContent()).includes('Versand bis '));
@@ -51,6 +52,28 @@ const dayChange=await page.evaluate(()=>{
  }
 });
 assert.notEqual(dayChange.before,dayChange.after);
+await page.locator('[data-workspace="filament"]').click();
+await page.locator('#filament-add').click();
+await page.locator('#filament-form [name="brand"]').fill('Bambu Lab');
+await page.locator('#filament-form [name="color"]').fill('Weiß');
+await page.locator('#filament-form [name="stock_qty"]').fill('1');
+await page.locator('#filament-form [name="price"]').fill('19,90');
+await page.locator('#filament-form [name="purchase_url"]').fill('https://example.org/shop/filament');
+await page.locator('#filament-form [type="submit"]').click();
+await page.locator('.filament-line').first().waitFor();
+assert.equal(await page.locator('.filament-line').count(),1);
+assert((await page.locator('.filament-line').textContent()).includes('1 Spule'));
+await page.locator('[data-filament-cart]').click();
+await page.waitForFunction(()=>document.querySelector('#filament-cart-count').textContent==='1');
+await page.locator('[data-filament-view="cart"]').click();
+assert.equal(await page.locator('.filament-line').count(),1);
+assert((await page.locator('#filament-cart-summary').textContent()).includes('19,90'));
+await page.locator('[data-filament-delta="1"]').click();
+await page.waitForFunction(()=>document.querySelector('#filament-cart-count').textContent==='2');
+await page.locator('[data-filament-delta="-1"]').click();
+await page.waitForFunction(()=>document.querySelector('#filament-cart-count').textContent==='1');
+await page.locator('[data-workspace="production"]').click();
+assert.equal(await page.locator('.product').count(),4);
 await page.locator('[data-order-sort="new"]').click();
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'503');
 await page.locator('[data-order-card="503"] [data-order-open]').click();

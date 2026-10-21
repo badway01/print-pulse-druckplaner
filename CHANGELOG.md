@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.11 – Filamentlager und Einkaufsliste
+
+- Neuer Bereich „Filament & Einkauf“ im Tablet-Druckplaner. Manuelles Verzeichnis mit Hersteller, Farbname, Material, Farbmuster, voller Spulenzahl, Preis und HTTPS-Einkaufslink.
+- Kompakte Spulen-Zeilen statt großer Produktkarten, mit Spulen-Warenkorb pro Farbe und eigener Einkaufsliste. Mengen +/- ändern und direkt zum hinterlegten Shop öffnen.
+- „Erhalten“ übernimmt ausschließlich tatsächlich eingetroffene Spulen von der Einkaufsliste in den physischen Filamentbestand. Anlegen, Bearbeiten und Löschen möglich; keine automatische Bestellung.
+- „Noch zählen“ in den vier Kennzahlen durch „Versandkritisch“ ersetzt: offene Etsy-Bestellungen mit höchstens zwei Kalendertagen bis zur Versandfrist oder überfällig. Variantenfilter „Noch zählen“ bleibt erhalten.
+- Filamentdaten in separater lokaler SQLite-Tabelle; bestehende Bestände, Etsy-Zugangsdaten und Druckaufträge unverändert. Keine zusätzliche Etsy-API-Nutzung.
+
 ## 0.11.10 – Versand-Countdown auf aktuellen Bestellungen
 
 - Jede offene Bestellkarte zeigt das Etsy-Versanddatum und daneben die verbleibenden Kalendertage („Noch 1 Tag“, „Noch 2 Tage“ usw.).

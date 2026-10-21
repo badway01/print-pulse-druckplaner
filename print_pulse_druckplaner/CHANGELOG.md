@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.11 – Filament & Einkauf
+
+- Neuer eigener Filament-Reiter mit kompakter Farbliste, Preise, Links, Regalspulen und Einkaufsliste.
+- Warenkorb mit Spule als Icon, Mengenänderung und Eingangsbuchung erst nach tatsächlicher Lieferung.
+- Vierte Kennzahl „Versandkritisch“ statt 9.738 ungeprüfter Varianten.
+- Lokale getrennte Speicherung ohne Etsy-Änderungen.
+
 ## 0.11.10 – Versand-Countdown
 
 - Versanddatum plus Countdown auf jeder aktuellen Etsy-Bestellkarte und in den Details.
