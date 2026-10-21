@@ -546,7 +546,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
         path=urllib.parse.urlsplit(self.path).path
         if path=='/api/status': return self.send(200,overview())
-        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/style.css':('style.css','text/css')}
+        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
