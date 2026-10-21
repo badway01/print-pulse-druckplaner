@@ -123,7 +123,7 @@ await page.unroute('**/api/status');
 await page.reload();await page.locator('[data-product="102"]').waitFor();
 const realCard=page.locator('[data-product="102"]');
 assert.equal(await realCard.locator('.stock-variant').count(),2);
-assert((await realCard.locator('.stock-overview').textContent()).includes('0 ×Weiß'));
+assert((await realCard.locator('.stock-overview').textContent()).includes('0 ×Beige'));
 assert((await realCard.locator('.stock-overview').textContent()).includes('Schwarz · noch nicht gezählt'));
 await realCard.locator('.stock-variant[data-show-variant="102-black"]').click();
 assert.equal(await realCard.locator('.variant').getAttribute('data-variant'),'102-black');
