@@ -32,9 +32,11 @@ assert((await page.locator('#order-details-content').textContent()).includes('Fa
 await page.locator('[data-close="order-details"]').click();
 await page.locator('[data-order-sort="ship"]').click();
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'501');
+await page.setViewportSize({width:700,height:844});
 await page.locator('#orders-next').click();
 await page.waitForTimeout(600);
 assert(await page.locator('#orders').evaluate(el=>el.scrollLeft>0));
+await page.setViewportSize({width:1440,height:1100});
 
 assert.equal(await page.locator('[data-product="inactive-cat"]').count(),0);
 assert.equal(await page.locator('#summary b').first().textContent(),'4');
