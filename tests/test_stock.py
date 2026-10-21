@@ -313,6 +313,16 @@ class StockTests(unittest.TestCase):
         self.assertEqual(app.receipt_status({'status':'completed','refunds':[{}]}),'review')
         self.assertEqual(app.receipt_status({'status':'payment processing'}),'review')
 
+    def test_brand_logo_svg_is_well_formed(self):
+        import base64
+        import xml.etree.ElementTree as ET
+        svg=(Path(__file__).resolve().parents[1]/
+             'print_pulse_druckplaner/web/brand.svg').read_text(encoding='utf-8')
+        element=ET.fromstring(svg)
+        self.assertEqual(element.tag,'{http://www.w3.org/2000/svg}svg')
+        data=svg.split('data:image/webp;base64,',1)[1].split('"',1)[0]
+        self.assertTrue(base64.b64decode(data).startswith(b'RIFF'))
+
     def test_no_etsy_write_api(self):
         with self.assertRaises(ValueError):app.api_request('/application/listings/101',method='PUT')
 
