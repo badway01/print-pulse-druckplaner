@@ -270,6 +270,18 @@ class StockTests(unittest.TestCase):
         self.assertEqual(self.item()['on_hand'],6)
         self.assertEqual(self.item()['reserved'],0)
 
+    def test_orders_use_cached_german_titles_without_etsy_calls(self):
+        lines=[{'listing_id':'101','title':'English buyer title','quantity':1},
+               {'listing_id':'999','title':'Unknown English title','quantity':1}]
+        app.apply_snapshot(None,[],set(),orders=[('401',1,2,'Musterkunde',json.dumps(lines))])
+        with patch.object(app,'api_request',side_effect=AssertionError('No extra API calls')):
+            displayed=app.overview()['orders'][0]['items']
+        self.assertEqual(displayed[0]['title'],'Testprodukt')
+        self.assertEqual(displayed[1]['title'],'Artikel 999')
+        with app.connect() as db:
+            stored=json.loads(db.execute('SELECT lines_json FROM stock_receipts').fetchone()[0])
+        self.assertEqual(stored[0]['title'],'English buyer title')
+
     def test_order_carousel_migration_keeps_existing_stock(self):
         self.act('set', 4)
         app.init_db()

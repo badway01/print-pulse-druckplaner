@@ -50,7 +50,7 @@ function updateHTML(element,html){
  patchChildren(element,template.content);
 }
 
-function variantPicker(p){
+function variantPicker(p,controlsOnly=false){
  let item=p.items.find(i=>i.id===selectedVariants.get(p.id))||p.items[0];
  selectedVariants.set(p.id,item.id);
  const parts=p.items.map(i=>i.label.split(' · '));
@@ -67,7 +67,7 @@ function variantPicker(p){
  }else{
   controls=`<label>Variante auswählen<select data-picker="${esc(p.id)}" data-item-picker aria-label="Variante auswählen">${p.items.map(i=>`<option value="${esc(i.id)}" ${i.id===item.id?'selected':''}>${esc(i.label)}</option>`).join('')}</select></label>`;
  }
- return `<div class="variant-picker">${controls}<small>Bestand gilt für die ausgewählte Kombination.</small></div>${variant(p,item)}`;
+ return `<div class="variant-picker">${controls}<small>${controlsOnly?'Wähle die Variante für diesen Druck.':'Bestand gilt für die ausgewählte Kombination.'}</small></div>${controlsOnly?'':variant(p,item)}`;
 }
 
 let openNotices=new Set();
@@ -107,9 +107,44 @@ function card(p){
  return `<article class="product ${p.level}" data-product="${esc(p.id)}"><div class="product-photo">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:'<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}<span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span></div><div class="product-body"><h2 title="${esc(p.title)}">${esc(p.title)}</h2><div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span><span><b>${p.sold30}</b> / 30 Tage</span>${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}</div>
  ${notices([p.inventory_error,p.unmatched?`${p.unmatched} bestellte Stück noch keiner Variante zugeordnet. Bedarf zusätzlich in Etsy prüfen.`:'',p.review?`${p.review} Stück mit Erstattung oder unklarem Zahlungsstatus: in Etsy prüfen.`:''],'product-'+p.id)}
  ${p.items.length>1?printOverview(p):''}
+ ${productPrintActions(p)}
  ${p.items.length>1?`<button class="variant-toggle" data-expand="${esc(p.id)}" aria-expanded="${open}"><span>${p.items.length} Varianten · ${total===null?'Bestände erfassen':total+' im Lager'}</span><b>${open?'−':'+'}</b></button>`:''}
  ${open?(p.items.length>1?variantPicker(p):variant(p,p.items[0])):''}
  <div class="card-bottom"><label class="order-mode"><input type="checkbox" data-mode="${esc(p.id)}" ${p.made_to_order?'checked':''}><span>Auf Bestellung</span></label><div class="badges">${p.made_to_order?'<span class="badge made">Nur auf Bestellung</span>':''}${p.bestseller?'<span class="badge best">Bestseller</span>':''}</div></div></div></article>`;
+}
+
+
+function productPrintActions(p){
+ const running=p.items.filter(i=>i.in_print>0);
+ return `<div class="product-print-actions"><button class="primary print-start" data-product-print="${esc(p.id)}" data-print-action="printing" ${p.items.length?'':'disabled'}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 17H3V9h18v8h-3M6 14h12v7H6z"/><path d="M17 11h1"/></svg>In Druck</button>
+ ${running.length?`<div class="running-print"><b>Im Druck</b><ul>${running.map(i=>`<li><strong>${i.in_print} ×</strong> ${esc(i.label)}</li>`).join('')}</ul><div><button class="secondary" data-product-print="${esc(p.id)}" data-print-action="finish">Fertig</button><button class="text-button" data-product-print="${esc(p.id)}" data-print-action="cancel">Abbruch</button></div></div>`:''}</div>`;
+}
+function printCandidates(p,action){return p.items.filter(i=>action==='printing'?i.enabled:i.in_print>0);}
+function productPrintDialog(id,action){
+ const original=model.products.find(p=>p.id===id);if(!original)return;
+ const items=printCandidates(original,action);
+ if(!items.length){flash('Keine passende Variante vorhanden.',true);return;}
+ const p={...original,items};
+ const i=items.find(i=>i.id===selectedVariants.get(id))||items.find(i=>i.on_hand!==null&&i.need>0)||items[0];
+ selectedVariants.set(id,i.id);
+ quantityDialog(i.id,action);
+ quantityContext.productId=id;
+ renderPrintPicker(p);
+}
+function renderPrintPicker(p){
+ $('quantity-variants').hidden=p.items.length<2;
+ updateHTML($('quantity-variants'),p.items.length>1?variantPicker(p,true):'');
+}
+function chooseVariant(p,picker){
+ if(picker.hasAttribute('data-item-picker'))selectedVariants.set(p.id,picker.value);
+ else{
+  const n=Number(picker.dataset.dimension);
+  const old=p.items.find(i=>i.id===selectedVariants.get(p.id))||p.items[0];
+  const parts=old.label.split(' · ');
+  const matches=p.items.filter(i=>{const row=i.label.split(' · ');return row[n]===picker.value&&row.slice(0,n).every((part,k)=>part===parts[k]);});
+  const next=matches.find(i=>i.label.split(' · ').slice(n+1).every((part,k)=>part===parts[n+1+k]))||matches[0];
+  if(next)selectedVariants.set(p.id,next.id);
+ }
 }
 
 const berlinParts=new Intl.DateTimeFormat('de-DE',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit'});
@@ -180,7 +215,7 @@ function render(){if(!model)return;
 async function load(resort=false){if(polling||busy)return;polling=true;try{const data=await api('status');if(!busy&&!$('quantity').open&&!$('settings').open)setModel(data,resort);}catch(err){showAlert(['Verbindung zum Lager unterbrochen: '+err.message]);}finally{polling=false;}}
 async function mutate(path,data){if(busy)return;busy=true;document.querySelectorAll('#products button,#products input,#products select,#undo').forEach(b=>b.disabled=true);try{setModel(await api(path,data));scheduleSort();flash('Gespeichert.');}catch(err){flash(err.message,true);try{setModel(await api('status'));}catch{}}finally{busy=false;render();}}
 function findItem(id){for(const p of model.products){const i=p.items.find(i=>i.id===id);if(i)return {p,i};}return null;}
-function quantityDialog(id,action){const found=findItem(id);if(!found)return;const {p,i}=found;quantityContext={id,action,revision:i.revision};const labels={set:'Bestand erfassen',printing:'Druck gestartet',finish:'Fertige Stücke einlagern',cancel:'Druckmenge zurücknehmen',minimum:'Mindestbestand'};$('quantity-title').textContent=labels[action];$('quantity-label').textContent=p.title+' · '+i.label;const input=$('quantity-value');input.min=['set','minimum'].includes(action)?0:1;input.max=['finish','cancel'].includes(action)?i.in_print:100000;input.value=action==='set'?(i.on_hand??0):action==='minimum'?i.minimum:action==='printing'?Math.max(1,i.need||1):i.in_print;$('quantity-help').textContent=action==='set'?'Alle fertigen Stücke zählen, einschließlich reservierter und gepackter Ware.':action==='finish'?'Nur erfolgreich gedruckte Stücke buchen. Fehlgeschlagene Stücke über „Abbruch“ zurücknehmen.':action==='printing'?'Merkt die Menge vor. Startet keinen Drucker.':action==='minimum'?'Wird bei Lagerartikeln mindestens als freier Vorrat empfohlen.':'Entfernt die Menge aus „Im Druck“, ohne den Lagerbestand zu erhöhen.';$('quantity').showModal();input.focus();input.select();}
+function quantityDialog(id,action){const found=findItem(id);if(!found)return;const {p,i}=found;quantityContext={id,action,revision:i.revision};$('quantity-variants').hidden=true;$('quantity-confirm').disabled=action==='finish'&&i.on_hand===null;$('quantity-confirm').textContent=['printing','finish','cancel'].includes(action)?'Bestätigen':'Speichern';const labels={set:'Bestand erfassen',printing:'In Druck nehmen',finish:'Fertige Stücke einlagern',cancel:'Druckmenge zurücknehmen',minimum:'Mindestbestand'};$('quantity-title').textContent=labels[action];$('quantity-label').textContent=p.title+' · '+i.label;const input=$('quantity-value');input.min=['set','minimum'].includes(action)?0:1;input.max=['finish','cancel'].includes(action)?i.in_print:100000;input.value=action==='set'?(i.on_hand??0):action==='minimum'?i.minimum:action==='printing'?Math.max(1,i.need||1):i.in_print;$('quantity-help').textContent=action==='set'?'Alle fertigen Stücke zählen, einschließlich reservierter und gepackter Ware.':action==='finish'&&i.on_hand===null?'Bitte zuerst den Lagerbestand dieser Variante erfassen.':action==='finish'?'Nur erfolgreich gedruckte Stücke buchen. Fehlgeschlagene Stücke über „Abbruch“ zurücknehmen.':action==='printing'?'Merkt die Menge vor. Startet keinen Drucker.':action==='minimum'?'Wird bei Lagerartikeln mindestens als freier Vorrat empfohlen.':'Entfernt die Menge aus „Im Druck“, ohne den Lagerbestand zu erhöhen.';if(!$('quantity').open){$('quantity').showModal();input.focus();input.select();}}
 $('orders').addEventListener('click',event=>{
  const button=event.target.closest('[data-order-open]');
  if(button)showOrder(button.dataset.orderOpen);
@@ -194,6 +229,8 @@ for(const button of document.querySelectorAll('[data-order-sort]'))button.addEve
 });
 for(const dir of ['prev','next'])$('orders-'+dir).addEventListener('click',()=>$('orders').scrollBy({left:(dir==='prev'?-1:1)*Math.max(260,$('orders').clientWidth*.75),behavior:'smooth'}));
 $('products').addEventListener('click',async event=>{
+ const printButton=event.target.closest('[data-product-print]');
+ if(printButton&&!busy){productPrintDialog(printButton.dataset.productPrint,printButton.dataset.printAction);return;}
  const shortcut=event.target.closest('[data-show-variant]');
  if(shortcut&&!busy){
   selectedVariants.set(shortcut.dataset.listing,shortcut.dataset.showVariant);
@@ -204,20 +241,21 @@ $('products').addEventListener('change',event=>{
  const picker=event.target.closest('[data-picker]');
  if(picker){
   const p=model.products.find(p=>p.id===picker.dataset.picker);
-  if(picker.hasAttribute('data-item-picker'))selectedVariants.set(p.id,picker.value);
-  else{
-   const n=Number(picker.dataset.dimension);
-   const old=p.items.find(i=>i.id===selectedVariants.get(p.id))||p.items[0];
-   const parts=old.label.split(' · ');
-   const matches=p.items.filter(i=>{const row=i.label.split(' · ');return row[n]===picker.value&&row.slice(0,n).every((part,k)=>part===parts[k]);});
-   const next=matches.find(i=>i.label.split(' · ').slice(n+1).every((part,k)=>part===parts[n+1+k]))||matches[0];
-   if(next)selectedVariants.set(p.id,next.id);
-  }
+  chooseVariant(p,picker);
   render();
   const next=[...document.querySelectorAll('[data-picker]')].find(el=>el.dataset.picker===picker.dataset.picker&&el.dataset.dimension===picker.dataset.dimension);
   next?.focus({preventScroll:true});return;
  }
  const b=event.target.closest('[data-mode]');if(b)mutate('mode',{id:b.dataset.mode,enabled:b.checked});});
+$('quantity-variants').addEventListener('change',event=>{
+ const picker=event.target.closest('[data-picker]');if(!picker)return;
+ const {productId,action}=quantityContext;
+ const original=model.products.find(p=>p.id===productId);
+ const p={...original,items:printCandidates(original,action)};
+ chooseVariant(p,picker);
+ quantityDialog(selectedVariants.get(productId),action);
+ quantityContext.productId=productId;renderPrintPicker(p);
+});
 $('quantity-form').addEventListener('submit',async event=>{event.preventDefault();const data={...quantityContext,quantity:Number($('quantity-value').value)};$('quantity').close();await mutate('stock',data);});
 $('search').addEventListener('input',()=>{render();scheduleSort();});
 for(const b of document.querySelectorAll('[data-filter]'))b.addEventListener('click',()=>{filter=b.dataset.filter;order=model.products.map(p=>p.id);render();});

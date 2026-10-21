@@ -533,11 +533,14 @@ def overview():
     for p in listings: p['bestseller']=p['id'] in top
     listings.sort(key=lambda p:({'red':0,'yellow':1,'unknown':2,'green':3}[p['level']],-p['need'],-p['sold7'],p['title'].casefold()))
     images={p['id']:safe_etsy_image_url(p['image']) for p in listings}
+    titles={p['id']:p['title'] for p in listings}
     orders=[]
     for receipt in receipt_rows:
         lines=json.loads(receipt['lines_json'])
         for line in lines:
             line['image']=images.get(line['listing_id'],'')
+            # Receipt titles follow the buyer's language. Use our cached shop title.
+            line['title']=titles.get(line['listing_id']) or 'Artikel '+line['listing_id']
         orders.append({'id':receipt['id'],'customer':receipt['customer'],
                        'created':receipt['created'],'ship_by':receipt['ship_by'],
                        'items':lines,'quantity':sum(line['quantity'] for line in lines)})

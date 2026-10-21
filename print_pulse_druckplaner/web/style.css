@@ -186,3 +186,17 @@ footer{color:#84786a}
  .orders-shell{padding:12px 9px 4px}
  header .version{font-size:9px;padding:4px 6px}
 }
+
+/* Direct tablet print controls remain visible on collapsed product cards. */
+.product-print-actions{margin-top:14px}
+.print-start{width:100%;min-height:48px;display:flex;justify-content:center;align-items:center;gap:9px;font-size:15px}
+.print-start svg{width:21px;height:21px}
+.running-print{margin-top:10px;padding:12px;background:#edf4f1;border-radius:9px;font-size:12px}
+.running-print ul{padding:0;margin:7px 0;list-style:none;max-height:110px;overflow:auto;overflow-wrap:anywhere}
+.running-print li+li{margin-top:5px}
+.running-print>div{display:flex;gap:12px}
+.running-print button{min-height:44px}
+#quantity-confirm{width:100%;min-height:48px}
+#quantity-value{min-height:48px;font-size:20px}
+#quantity-variants select{min-height:48px;font-size:16px}
+#quantity-label{overflow-wrap:anywhere}
