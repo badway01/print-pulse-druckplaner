@@ -34,11 +34,28 @@
 <dialog id="quantity"><form id="quantity-form"><div class="dialog-heading"><h2 id="quantity-title">Bestand erfassen</h2><button type="button" data-close="quantity" class="icon-button" aria-label="Schließen">×</button></div><p id="quantity-label"></p><div id="quantity-variants" hidden></div><label id="quantity-caption">Stückzahl<input id="quantity-value" type="number" min="0" max="100000" required></label><p id="quantity-help" class="hint"></p><button id="quantity-confirm" type="submit" class="primary">Speichern</button></form></dialog>
 <dialog id="filament-editor"><form id="filament-form"><div class="dialog-heading"><h2 id="filament-title">Filament anlegen</h2><button type="button" data-close="filament-editor" class="icon-button" aria-label="Schließen">×</button></div>
  <input type="hidden" name="id" id="filament-id">
- <div class="filament-form-grid"><label>Hersteller<input name="brand" id="filament-brand" maxlength="70" placeholder="z. B. Bambu Lab" required></label><label>Farbe / Bezeichnung<input name="color" maxlength="70" placeholder="z. B. Weiß" required></label><label>Material<input name="material" maxlength="45" list="filament-materials" value="PLA" required></label><label>Farbmuster<input name="color_hex" type="color" value="#ffffff"></label><label>Volle Spulen im Regal<input name="stock_qty" type="number" min="0" max="100000" step="1" value="0" required></label><label>Preis pro Spule (€)<input name="price" inputmode="decimal" placeholder="z. B. 19,90"></label></div>
- <datalist id="filament-materials"><option value="PLA"><option value="PLA Matte"><option value="PLA Silk"><option value="PETG"><option value="TPU"><option value="ABS"><option value="ASA"></datalist>
+ <div class="filament-form-grid">
+ <label class="filament-autocomplete">Hersteller
+ <input name="brand" id="filament-brand" maxlength="70" placeholder="Bambu eingeben …" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="filament-brand-options" aria-expanded="false" required>
+ <span id="filament-brand-options" class="filament-suggest-list" role="listbox" hidden></span></label>
+ <label class="filament-autocomplete">Material
+ <input name="material" id="filament-material" maxlength="45" placeholder="z. B. PLA Basic" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="filament-material-options" aria-expanded="false" value="PLA" required>
+ <span id="filament-material-options" class="filament-suggest-list" role="listbox" hidden></span></label>
+ <label class="filament-autocomplete">Farbe / Bezeichnung
+ <input name="color" id="filament-color" maxlength="70" placeholder="Jade eingeben …" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="filament-color-options" aria-expanded="false" required>
+ <span id="filament-color-options" class="filament-suggest-list" role="listbox" hidden></span></label>
+ <label>Farbcode &amp; Farbmuster
+ <span class="filament-hex-preview"><input name="color_hex" id="filament-color-hex" type="color" value="#ffffff" aria-label="Farbmuster manuell ändern"><output id="filament-hex-code">#FFFFFF</output></span>
+ <small id="filament-hex-status">Farbcode wird bei bekannten Farben übernommen.</small></label>
+ <label>Volle Spulen im Regal<input name="stock_qty" type="number" min="0" max="100000" step="1" value="0" required></label>
+ <label>Preis pro Spule (€)<input name="price" inputmode="decimal" placeholder="z. B. 19,90"></label>
+ </div>
+ <p id="filament-duplicate" class="filament-duplicate" role="alert" hidden></p>
+ <button type="button" id="filament-existing" class="secondary filament-existing" hidden>Vorhandenen Eintrag bearbeiten</button>
+ 
  <label>Einkaufslink (https://)<input name="purchase_url" type="url" maxlength="1000" placeholder="https://…" autocomplete="off"></label>
  <p class="hint">Die Einkaufsliste ist eine Merkliste. Es wird nichts automatisch gekauft.</p>
- <div class="filament-form-actions"><button type="button" id="filament-delete" class="text-button" hidden>Filament löschen</button><button type="submit" class="primary">Filament speichern</button></div>
+ <div class="filament-form-actions"><button type="button" id="filament-delete" class="text-button" hidden>Filament löschen</button><button type="submit" id="filament-save" class="primary">Filament speichern</button></div>
  </form></dialog>
 <div id="toast" class="toast" role="status" hidden></div>
 </body></html>

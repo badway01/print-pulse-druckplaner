@@ -4,11 +4,19 @@ Eine bewusst kleine Home-Assistant-App für deinen echten Lagervorrat: Etsy-Prod
 
 ## Update in Home Assistant
 
-Der Neustart heißt in der Oberfläche **Lager v0.1**. Die aktuelle technische App-Version ist **0.11.11**. Home Assistant erkennt sie als Update der bisherigen 0.11.10. Repository, Ordner und App-Slug bleiben identisch. In der HA-App-Verwaltung nach Updates suchen, sichern und aktualisieren. Nicht deinstallieren oder eine zweite App anlegen.
+Der Neustart heißt in der Oberfläche **Lager v0.1**. Die aktuelle technische App-Version ist **0.11.12**. Home Assistant erkennt sie als Update der bisherigen 0.11.11. Repository, Ordner und App-Slug bleiben identisch. In der HA-App-Verwaltung nach Updates suchen, sichern und aktualisieren. Nicht deinstallieren oder eine zweite App anlegen.
 
 Die alte Oberfläche (Dashboard, Bestellverwaltung, Drucker, 3MF-Dateien und Produktionslinien) ist vollständig ersetzt. Bestehende Etsy-Zugangsdaten bleiben lokal erhalten. Alte Tabellen werden aus Rücksichtsgründen nicht gelöscht, aber nicht mehr verwendet. Frühere Produktionsstände sind **keine Lagerzählung** und werden nicht übernommen.
 
 **Einmalige Etsy-Freigabe:** Die bisherige Verbindung las nur Bestellungen (`transactions_r`). Für Varianten benötigt Etsy zusätzlich `listings_r`. Bei entsprechendem Hinweis unter **Einstellungen → Etsy-Freigabe öffnen** erneut erlauben und die vollständige Rückleitungsadresse einfügen. Schlüssel müssen bei gleicher Installation nicht neu eingegeben werden. Etsy erhält ausschließlich Lesezugriffe; die angebotenen Mengen werden nie überschrieben.
+
+## Neu in 0.11.12: Vorschläge mit Hersteller-Farbcode
+
+Beim Anlegen eines Filaments schlägt der Druckplaner **Hersteller, Material und Farbname** vor. „Bambu“ führt zu **Bambu Lab**; nach Eingabe von „Jade“ erscheint beispielsweise **Jade-Weiß (PLA Basic)** mit dem Hersteller-HEX-Code **#FFFFFF** und einem Farbmuster, die per Auswahl in das Formular übernommen werden. Die Farbvorschläge sind abhängig vom Hersteller und, sofern eindeutig gewählt, vom Material. Schon erfasste eigene Farben und Hersteller stehen ebenfalls zur Auswahl. Der HEX-Code ist auch manuell änderbar, etwa bei Sonderfarben. Eine Vorschau zeigt den gespeicherten Farbcode jederzeit.
+
+Der lokale Startkatalog enthält offiziell veröffentlichte Farbcodes für ausgewählte **Bambu Lab PLA Basic/Matte**- und **SUNLU PLA/PLA+/Silk**-Farben. Für andere Hersteller wie eSUN, Polymaker oder Prusament stehen die Herstellernamen und bereits selbst erfasste Filamente zur Auswahl; unbekannte Farbcodes werden **nicht automatisch geraten**. Ein Farbwert ist eine digitale Annäherung und kein Nachweis für die exakte Druckfarbe. Quellen: [Bambu Lab PLA Basic](https://store.bblcdn.eu/s8/default/903b60b06ac142e9b1b49ad53cfa4c82/Bambu_PLA_Basic_Hex_Code.pdf), [Bambu Lab PLA Matte](https://store.bblcdn.com/s1/default/699cd85d9a194edea3423dc34e164579/Bambu_PLA_Matte_10_rolls_Hex_Code.pdf), [SUNLU PLA](https://www.sunlu.com/de/products/pla-3d-printing-filament), [SUNLU Silk](https://www.sunlu.com/products/Silk%20PLA%2B2.0).
+
+Ein bereits vorhandener Eintrag mit demselben Hersteller, Material und derselben Farbe wird im Formular hervorgehoben und serverseitig blockiert, auch bei abweichenden Schreibweisen wie „Jadeweiß“ und „Jade-Weiß“. Der bestehende Eintrag kann dann direkt bearbeitet werden. Schon vorhandene Filamente, Preise und Einkaufsmengen bleiben unangetastet.
 
 ## Neu in 0.11.11: Filament & Einkauf
 
