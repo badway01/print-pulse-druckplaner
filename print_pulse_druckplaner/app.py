@@ -201,6 +201,13 @@ def init_db():
         CREATE TABLE IF NOT EXISTS stock_actions(
           id TEXT PRIMARY KEY,item_id TEXT NOT NULL,before_json TEXT NOT NULL,
           after_revision INTEGER NOT NULL,created INTEGER NOT NULL,undone INTEGER NOT NULL DEFAULT 0);
+        CREATE TABLE IF NOT EXISTS stock_order_prints(
+          transaction_id TEXT PRIMARY KEY,receipt_id TEXT NOT NULL,
+          item_id TEXT NOT NULL REFERENCES stock_items(id),
+          printing INTEGER NOT NULL DEFAULT 0 CHECK(printing>=0),
+          finished INTEGER NOT NULL DEFAULT 0 CHECK(finished>=0),
+          updated INTEGER NOT NULL);
+        CREATE INDEX IF NOT EXISTS stock_order_prints_item ON stock_order_prints(item_id);
         """)
         os.chmod(DB_PATH, 0o600)
 
@@ -359,7 +366,7 @@ def fetch_receipts(shop, include_orders=False):
                 name=html.unescape(str(prop.get('formatted_name') or prop.get('property_name') or 'Variante'))
                 value=html.unescape(str(prop.get('formatted_value') or prop.get('value') or ''))
                 if value: variations.append(f'{name}: {value}')
-            lines.append({'listing_id':lid,'quantity':qty,
+            lines.append({'transaction_id':tid,'listing_id':lid,'quantity':qty,
                           'title':html.unescape(str(tx.get('title') or 'Artikel')),
                           'variant':' · '.join(variations)})
         if status=='open':
@@ -407,12 +414,16 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
             prior=old.get(tid)
             newly_shipped=status=='shipped' and ((prior and prior['status']=='open') or (not prior and previous_sync and created>previous_sync))
             if newly_shipped:
-                target=(prior['item_id'] if prior else None) or iid
-                if target:
+                # Assigned pieces still being printed have never entered physical
+                # stock. Deduct only the shipped pieces that were booked into it.
+                linked=db.execute('SELECT item_id,printing FROM stock_order_prints WHERE transaction_id=?',(tid,)).fetchone()
+                target=(prior['item_id'] if prior else None) or (linked['item_id'] if linked else None) or iid
+                stock_debit=max(0,qty-(linked['printing'] if linked else 0))
+                if target and stock_debit:
                     stock=db.execute('SELECT on_hand FROM stock_items WHERE id=?',(target,)).fetchone()
                     if stock and stock['on_hand'] is not None:
-                        notice='Versandmenge größer als Lagerbestand: bitte nachzählen.' if stock['on_hand']<qty else ''
-                        db.execute('UPDATE stock_items SET on_hand=MAX(0,on_hand-?),revision=revision+1,notice=? WHERE id=?',(qty,notice,target))
+                        notice='Versandmenge größer als Lagerbestand: bitte nachzählen.' if stock['on_hand']<stock_debit else ''
+                        db.execute('UPDATE stock_items SET on_hand=MAX(0,on_hand-?),revision=revision+1,notice=? WHERE id=?',(stock_debit,notice,target))
             db.execute('''INSERT INTO stock_transactions VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
               receipt_id=excluded.receipt_id,listing_id=excluded.listing_id,item_id=excluded.item_id,
               qty=excluded.qty,created=excluded.created,status=excluded.status''',(tid,rid,lid,iid,qty,created,status))
@@ -428,6 +439,9 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
             for row in orders:
                 db.execute('INSERT INTO stock_receipts(id,created,ship_by,customer,lines_json) VALUES(?,?,?,?,?)',row)
         db.execute("DELETE FROM stock_transactions WHERE status!='open' AND created<?",(now-31*86400,))
+        # Retain running jobs even when their orders disappear from the open list.
+        db.execute("""DELETE FROM stock_order_prints WHERE printing=0 AND updated<?
+          AND transaction_id NOT IN (SELECT id FROM stock_transactions)""",(now-90*86400,))
         db.execute('DELETE FROM stock_actions WHERE created<?',(now-7*86400,))
         put_cfg(db,'stock_last_sync',now)
         if catalog is not None:
@@ -494,6 +508,7 @@ def overview():
         items=[dict(r) for r in db.execute('SELECT * FROM stock_items')]
         txs=[dict(r) for r in db.execute('SELECT * FROM stock_transactions')]
         receipt_rows=[dict(r) for r in db.execute('SELECT * FROM stock_receipts')]
+        print_rows=[dict(r) for r in db.execute('SELECT * FROM stock_order_prints')]
         days=int(cfg(db,'stock_days','7'))
         sync_at=int(cfg(db,'stock_last_sync','0'))
         configured=bool(cfg(db,'keystring') and cfg(db,'callback'))
@@ -507,6 +522,8 @@ def overview():
             item=db.execute('SELECT revision FROM stock_items WHERE id=?',(action['item_id'],)).fetchone()
             if item and item['revision']==action['after_revision']:
                 undo=action['id']
+    tx_by_id={t['id']:t for t in txs}
+    prints_by_tx={p['transaction_id']:p for p in print_rows}
     for listing in listings:
         sales=[t for t in txs if t['listing_id']==listing['id'] and t['status'] in ('open','shipped')]
         listing['sold30']=sum(t['qty'] for t in sales if t['created']>=now-30*86400)
@@ -519,6 +536,11 @@ def overview():
             item['sold7']=sum(t['qty'] for t in lines if t['created']>=now-7*86400)
             item['sold30']=sum(t['qty'] for t in lines if t['created']>=now-30*86400)
             item['reserved']=sum(t['qty'] for t in lines if t['status']=='open')
+            item['order_jobs']=[{'transaction_id':j['transaction_id'],'receipt_id':j['receipt_id'],
+                                 'printing':j['printing'],'finished':j['finished'],
+                                 'status':tx_by_id.get(j['transaction_id'],{}).get('status','unknown')}
+                                for j in print_rows if j['item_id']==item['id'] and j['printing']>0]
+            item['order_printing']=sum(j['printing'] for j in item['order_jobs'])
             item['free']=None if item['on_hand'] is None else max(0,item['on_hand']-item['reserved'])
             active=listing['state'] in ('active','sold_out') and bool(item['enabled'])
             item.update(recommendation(item['on_hand'],item['in_print'],item['reserved'],item['sold7'],item['sold30'],item['minimum'],days,bool(listing['made_to_order']),active))
@@ -538,6 +560,18 @@ def overview():
     for receipt in receipt_rows:
         lines=json.loads(receipt['lines_json'])
         for line in lines:
+            tx=tx_by_id.get(str(line.get('transaction_id') or ''))
+            if tx and tx['receipt_id']==receipt['id'] and tx['status']=='open':
+                line['item_id']=tx['item_id']
+                job=prints_by_tx.get(tx['id'])
+                line['printing']=job['printing'] if job else 0
+                line['finished']=job['finished'] if job else 0
+                line['remaining']=max(0,tx['qty']-line['printing']-line['finished'])
+            else:
+                line['item_id']=None
+                line['printing']=0
+                line['finished']=0
+                line['remaining']=0
             line['image']=images.get(line['listing_id'],'')
             # Receipt titles follow the buyer's language. Use our cached shop title.
             line['title']=titles.get(line['listing_id']) or 'Artikel '+line['listing_id']
@@ -568,16 +602,70 @@ def mutate_stock(data):
             after['in_print']=integer(row['in_print']+integer(data.get('quantity'),1))
         elif action=='finish':
             if row['on_hand'] is None: raise ValueError('Bitte zuerst den Lagerbestand erfassen.')
-            qty=integer(data.get('quantity'),1,row['in_print'])
+            linked=db.execute('SELECT COALESCE(SUM(printing),0) FROM stock_order_prints WHERE item_id=?',(iid,)).fetchone()[0]
+            qty=integer(data.get('quantity'),1,row['in_print']-linked)
             after['in_print']-=qty
             after['on_hand']=integer(row['on_hand']+qty)
         elif action=='cancel':
-            after['in_print']-=integer(data.get('quantity'),1,row['in_print'])
+            linked=db.execute('SELECT COALESCE(SUM(printing),0) FROM stock_order_prints WHERE item_id=?',(iid,)).fetchone()[0]
+            after['in_print']-=integer(data.get('quantity'),1,row['in_print']-linked)
         elif action=='minimum': after['minimum']=integer(data.get('quantity'))
         else: raise ValueError('Unbekannte Lageraktion.')
         revision=row['revision']+1
         db.execute('UPDATE stock_items SET on_hand=?,in_print=?,minimum=?,notice=?,revision=? WHERE id=?',(*after.values(),revision,iid))
         db.execute('INSERT INTO stock_actions VALUES(?,?,?,?,?,0)',(secrets.token_hex(12),iid,json.dumps(before),revision,int(time.time())))
+
+
+
+def mutate_order_print(data):
+    """Atomic order-linked print job. Etsy itself is never modified."""
+    tid=str(data.get('transaction_id') or '')
+    receipt_id=str(data.get('receipt_id') or '')
+    action=data.get('action')
+    with connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        tx=db.execute('SELECT * FROM stock_transactions WHERE id=? AND receipt_id=?',(tid,receipt_id)).fetchone()
+        if not tx: raise ValueError('Etsy-Bestellposition nicht gefunden. Bitte Bestellungen aktualisieren.')
+        row=db.execute('SELECT * FROM stock_items WHERE id=?',(tx['item_id'],)).fetchone() if tx['item_id'] else None
+        if not row: raise ValueError('Variante nicht eindeutig zugeordnet. Bitte in Etsy prüfen.')
+        if data.get('revision')!=row['revision']:
+            raise ValueError('Der Bestand wurde inzwischen geändert. Bitte erneut öffnen.')
+        previous=db.execute('SELECT * FROM stock_order_prints WHERE transaction_id=?',(tid,)).fetchone()
+        if previous and (previous['item_id']!=row['id'] or previous['receipt_id']!=receipt_id):
+            raise ValueError('Die Zuordnung dieser Bestellvariante hat sich geändert. Bitte prüfen.')
+        printing=previous['printing'] if previous else 0
+        finished=previous['finished'] if previous else 0
+        if action=='printing':
+            if tx['status']!='open':
+                raise ValueError('Nur offene bezahlte Etsy-Bestellungen können neue Auftragsdrucke erhalten.')
+            if not row['enabled']:
+                raise ValueError('Diese Etsy-Variante ist nicht mehr aktiv.')
+            qty=integer(data.get('quantity'),1,tx['qty']-printing-finished)
+            new_stock=row['on_hand']
+            new_print=integer(row['in_print']+qty)
+            printing+=qty
+        elif action in ('finish','cancel'):
+            qty=integer(data.get('quantity'),1,printing)
+            if action=='finish' and row['on_hand'] is None and tx['status']!='shipped':
+                raise ValueError('Vor dem Fertigmelden bitte den tatsächlichen Lagerbestand zählen.')
+            printing-=qty
+            new_print=row['in_print']-qty
+            if new_print<0: raise ValueError('Druckbestand nicht mehr konsistent. Bitte Lager prüfen.')
+            if action=='finish':
+                finished+=qty
+                # If Etsy shipment was already recorded, the assigned pieces
+                # were excluded from its stock debit; do not add them now.
+                new_stock=row['on_hand'] if tx['status']=='shipped' else row['on_hand']+qty
+            else:
+                new_stock=row['on_hand']
+        else:
+            raise ValueError('Unbekannte Auftragsdruck-Aktion.')
+        db.execute('UPDATE stock_items SET on_hand=?,in_print=?,revision=revision+1 WHERE id=?',
+                   (new_stock,new_print,row['id']))
+        db.execute("""INSERT INTO stock_order_prints(transaction_id,receipt_id,item_id,printing,finished,updated)
+          VALUES(?,?,?,?,?,?) ON CONFLICT(transaction_id) DO UPDATE SET
+          printing=excluded.printing,finished=excluded.finished,updated=excluded.updated""",
+          (tid,receipt_id,row['id'],printing,finished,int(time.time())))
 
 
 def undo_action(action_id):
@@ -638,6 +726,9 @@ class Handler(BaseHTTPRequestHandler):
             path=urllib.parse.urlsplit(self.path).path
             if path=='/api/stock':
                 mutate_stock(data)
+                return self.send(200,overview())
+            if path=='/api/order-print':
+                mutate_order_print(data)
                 return self.send(200,overview())
             if path=='/api/undo':
                 undo_action(str(data.get('id') or ''))
