@@ -380,15 +380,15 @@ function filamentSuggestions(field){
   filamentMaterials.forEach(name=>add(name));
  }else{
   const catalog=filamentCatalog[brand]||{};
-  const materialKey=normFilamentMaterial(material);
+  const materialId=normFilamentMaterial(material);
   const families=Object.entries(catalog);
   for(const [family,values] of families){
-   if(!families.some(([name])=>normFilamentMaterial(name)===materialKey)||normFilamentMaterial(family)===materialKey)
+   if(!families.some(([name])=>normFilamentMaterial(name)===materialId)||normFilamentMaterial(family)===materialId)
     values.forEach(([name,hex,aliases])=>add(name,hex,'Herstellerfarbcode',family,aliases||[]));
   }
   records.filter(f=>normFilament(canonicalFilamentBrand(f.brand))===normFilament(brand)&&
-    (!families.some(([name])=>normFilamentMaterial(name)===materialKey)||
-      normFilamentMaterial(f.material)===materialKey))
+    (!families.some(([name])=>normFilamentMaterial(name)===materialId)||
+      normFilamentMaterial(f.material)===materialId))
     .forEach(f=>add(f.color,f.color_hex,'Bereits angelegt',f.material));
  }
  return result;
