@@ -738,6 +738,8 @@ def filament_color_key(brand,material,color):
         synonyms={'jadewhite':'jadeweiss','ivorywhite':'elfenbeinweiss',
                   'bonewhite':'knochenweiss','cocoabrown':'kakaobraun',
                   'sunfloweryellow':'sonnenblumengelb'}
+        if filament_material_key(material)=='plabasic' and key in ('white','weiss'):
+            return 'jadeweiss'
         return synonyms.get(key,key)
     return key
 
