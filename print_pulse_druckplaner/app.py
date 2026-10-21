@@ -9,6 +9,7 @@ import json
 import logging
 import math
 import os
+import re
 import secrets
 import sqlite3
 import threading
@@ -208,6 +209,14 @@ def init_db():
           finished INTEGER NOT NULL DEFAULT 0 CHECK(finished>=0),
           updated INTEGER NOT NULL);
         CREATE INDEX IF NOT EXISTS stock_order_prints_item ON stock_order_prints(item_id);
+        CREATE TABLE IF NOT EXISTS filament_spools(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          brand TEXT NOT NULL, color TEXT NOT NULL, material TEXT NOT NULL,
+          color_hex TEXT NOT NULL DEFAULT '#c1c9c1',
+          price_cents INTEGER CHECK(price_cents>=0), purchase_url TEXT NOT NULL DEFAULT '',
+          stock_qty INTEGER NOT NULL DEFAULT 0 CHECK(stock_qty>=0),
+          cart_qty INTEGER NOT NULL DEFAULT 0 CHECK(cart_qty>=0),
+          created INTEGER NOT NULL, updated INTEGER NOT NULL);
         """)
         os.chmod(DB_PATH, 0o600)
 
@@ -680,6 +689,87 @@ def undo_action(action_id):
         if not result.rowcount: raise ValueError('Zwischenzeitlich geändert oder versendet. Bitte Bestand prüfen.')
         db.execute('UPDATE stock_actions SET undone=1 WHERE id=?',(action_id,))
 
+
+def filament_overview():
+    """Manual filament register and local shopping list, independent of Etsy."""
+    with connect() as db:
+        rows=[dict(row) for row in db.execute(
+            "SELECT * FROM filament_spools ORDER BY brand COLLATE NOCASE, color COLLATE NOCASE, material COLLATE NOCASE, id")]
+    selected=[row for row in rows if row['cart_qty']>0]
+    return {'filaments':rows,'cart_count':sum(row['cart_qty'] for row in selected),
+            'cart_known_total_cents':sum(row['cart_qty']*row['price_cents'] for row in selected if row['price_cents'] is not None),
+            'cart_missing_prices':sum(row['cart_qty'] for row in selected if row['price_cents'] is None)}
+
+
+def filament_mutate(data):
+    """Validated atomic CRUD, quantity change and received-goods booking."""
+    action=data.get('action')
+    now=int(time.time())
+    if action=='save':
+        fields={}
+        for key,limit in (('brand',70),('color',70),('material',45)):
+            val=data.get(key)
+            if not isinstance(val,str) or not (1<=len(val.strip())<=limit):
+                raise ValueError('Hersteller, Farbe und Material müssen ausgefüllt sein.')
+            fields[key]=val.strip()
+        stock_qty=integer(data.get('stock_qty'),0,100000)
+        color_hex=str(data.get('color_hex') or '#c1c9c1')
+        if not re.fullmatch(r'#[0-9A-Fa-f]{6}',color_hex):
+            raise ValueError('Ungültiger Farbwert.')
+        raw_price=data.get('price')
+        if raw_price is None or raw_price=='':
+            price_cents=None
+        else:
+            if not isinstance(raw_price,str) or not re.fullmatch(r'\d{1,4}(?:[,.]\d{1,2})?',raw_price.strip()):
+                raise ValueError('Preis bitte in Euro eingeben, z. B. 19,90.')
+            parts=raw_price.strip().replace(',','.').split('.')
+            price_cents=int(parts[0])*100+(int(parts[1].ljust(2,'0')) if len(parts)==2 else 0)
+        url=data.get('purchase_url') or ''
+        if not isinstance(url,str) or len(url)>1000:
+            raise ValueError('Einkaufslink ist zu lang.')
+        url=url.strip()
+        if url:
+            try:
+                parsed=urllib.parse.urlsplit(url)
+                if (parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password
+                        or parsed.port is not None or any(ord(c)<33 for c in url)):
+                    raise ValueError('Bitte einen gültigen HTTPS-Einkaufslink eingeben.')
+            except (ValueError,TypeError):
+                raise ValueError('Bitte einen gültigen HTTPS-Einkaufslink eingeben.')
+        with connect() as db:
+            rowid=data.get('id')
+            if rowid is None:
+                db.execute("""INSERT INTO filament_spools
+                   (brand,color,material,color_hex,price_cents,purchase_url,stock_qty,created,updated)
+                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                   (fields['brand'],fields['color'],fields['material'],color_hex,price_cents,url,stock_qty,now,now))
+            else:
+                rowid=integer(rowid,1,2147483647)
+                changed=db.execute("""UPDATE filament_spools
+                   SET brand=?,color=?,material=?,color_hex=?,price_cents=?,purchase_url=?,stock_qty=?,updated=?
+                   WHERE id=?""",(fields['brand'],fields['color'],fields['material'],color_hex,
+                   price_cents,url,stock_qty,now,rowid))
+                if not changed.rowcount: raise ValueError('Filament nicht gefunden.')
+        return
+    rowid=integer(data.get('id'),1,2147483647)
+    with connect() as db:
+        if action=='cart':
+            delta=integer(data.get('delta'),-1,1)
+            if delta not in (-1,1): raise ValueError('Ungültige Einkaufsmenge.')
+            changed=db.execute("""UPDATE filament_spools SET cart_qty=cart_qty+?,updated=?
+               WHERE id=? AND cart_qty+? BETWEEN 0 AND 999""",(delta,now,rowid,delta))
+            if not changed.rowcount: raise ValueError('Einkaufsmenge nicht verfügbar.')
+        elif action=='receive':
+            changed=db.execute("""UPDATE filament_spools SET stock_qty=stock_qty+cart_qty,cart_qty=0,updated=?
+               WHERE id=? AND cart_qty>0 AND stock_qty+cart_qty<=100000""",(now,rowid))
+            if not changed.rowcount: raise ValueError('Keine Spulen auf der Einkaufsliste oder Bestand zu hoch.')
+        elif action=='delete':
+            changed=db.execute('DELETE FROM filament_spools WHERE id=?',(rowid,))
+            if not changed.rowcount: raise ValueError('Filament nicht gefunden.')
+        else:
+            raise ValueError('Unbekannte Filamentaktion.')
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version='PrintPulseLager/0.1'
 
@@ -707,6 +797,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
         path=urllib.parse.urlsplit(self.path).path
         if path=='/api/status': return self.send(200,overview())
+        if path=='/api/filaments': return self.send(200,filament_overview())
         assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
         if path in assets:
             name,mime=assets[path]
@@ -726,6 +817,9 @@ class Handler(BaseHTTPRequestHandler):
             data=json.loads(self.rfile.read(length))
             if not isinstance(data,dict): raise ValueError('JSON-Objekt erforderlich.')
             path=urllib.parse.urlsplit(self.path).path
+            if path=='/api/filament':
+                filament_mutate(data)
+                return self.send(200,filament_overview())
             if path=='/api/stock':
                 mutate_stock(data)
                 return self.send(200,overview())

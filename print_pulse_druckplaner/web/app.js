@@ -4,13 +4,14 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 let model=null,filter='all',busy=false,polling=false,sortTimer=null,quantityContext=null;
 let order=[];
 let orderSort='ship';
+let workspace='production',filamentView='colors',filamentData=null,filamentBusy=false,filamentLoading=false;
 try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
 const expanded=new Set();
 const selectedVariants=new Map();
 // Patch existing nodes so polling never recreates unchanged cards or images.
 function nodeKey(node){
  if(node.nodeType!==1)return null;
- for(const name of ['data-product','data-order-card','data-variant','data-notice-key','data-expand','data-mode']){
+ for(const name of ['data-product','data-order-card','data-variant','data-notice-key','data-expand','data-mode','data-filament-line']){
   if(node.hasAttribute(name))return node.tagName+':'+name+':'+node.getAttribute(name);
  }
  if(node.hasAttribute('data-action'))return 'action:'+node.dataset.action+':'+node.dataset.id+':'+(node.dataset.delta||'');
@@ -271,7 +272,8 @@ function render(){if(!model)return;
  $('sync-state').textContent=model.sync.running?model.sync.message:cooldownActive?`Etsy-Anfragelimit erreicht · Pause bis ${cooldownDate} · gespeicherte Bestände bleiben sichtbar`:`Bestellungen: ${date} (alle 15 Minuten) · Produktkatalog: ${catalogDate} (täglich)`;
  const stale=model.last_sync&&Date.now()/1000-model.last_sync>3600;
  showAlert([model.sync.error,model.warning,!model.authorized?'Bitte Etsy unter Einstellungen verbinden.':cooldownActive?`Etsy hat zu viele Anfragen gemeldet. Bis ${cooldownDate} pausiert unser Druckplaner automatisch.`:stale?'Bestelldaten sind älter als eine Stunde. Etsy-Abgleich prüfen.':'']);
- updateHTML($('summary'),[['Produkte',products.length],['Nachdrucken',products.reduce((n,p)=>n+p.need,0)+' Stk.'],['Im Druck',products.flatMap(p=>p.items).reduce((n,i)=>n+i.in_print,0)+' Stk.'],['Noch zählen',products.reduce((n,p)=>n+p.uninitialized,0)+' Varianten']].map(([label,value])=>`<div><span>${label}</span><b>${value}</b></div>`).join(''));
+ const critical=(model.orders||[]).filter(o=>{const days=calendarDaysUntil(o.ship_by);return days!==null&&days<=2;}).length;
+ updateHTML($('summary'),[['Produkte',products.length],['Nachdrucken',products.reduce((n,p)=>n+p.need,0)+' Stk.'],['Im Druck',products.flatMap(p=>p.items).reduce((n,i)=>n+i.in_print,0)+' Stk.'],['Versandkritisch',critical+' Aufträge']].map(([label,value],index)=>`<div ${index===3&&critical?'class="summary-urgent"':''}><span>${label}</span><b>${value}</b></div>`).join(''));
  renderOrders();
  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('selected',b.dataset.filter===filter));
  const search=$('search').value.trim().toLocaleLowerCase('de');
@@ -280,6 +282,79 @@ function render(){if(!model)return;
  updateHTML($('products'),selected.length?selected.map(card).join(''):`<div class="empty"><h2>${products.length?'Hier ist alles erledigt.':'Dein Lager startet hier.'}</h2><p>${products.length?'Kein Produkt passt zu dieser Auswahl.':'Etsy verbinden, Produkte laden und einmal deine echten Bestände zählen.'}</p></div>`);
  if(focusId){const next=[...document.querySelectorAll('[data-action]')].find(b=>b.dataset.id===focusId&&b.dataset.action===focusAction&&b.dataset.delta===delta);next?.focus({preventScroll:true});}
 }
+
+const filamentMoney=cents=>cents===null||cents===undefined?'Preis offen':(cents/100).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+const filamentSpoolCart='<svg class="spool-cart" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h3l3 16h18l3-11H8"/><circle cx="13" cy="27" r="2"/><circle cx="25" cy="27" r="2"/><circle cx="18" cy="13" r="5"/><circle cx="18" cy="13" r="2"/></svg>';
+function filamentLine(f,inCart){
+ const name=esc(f.brand)+' · '+esc(f.color);
+ const swatch=`<span class="filament-swatch" style="background:${esc(f.color_hex)}" aria-hidden="true"></span>`;
+ const intro=`<div class="filament-identity">${swatch}<div><strong>${esc(f.color)}</strong><small>${esc(f.brand)} · ${esc(f.material)}</small></div></div>`;
+ const shop=f.purchase_url?`<a class="filament-shop" href="${esc(f.purchase_url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Shop ↗</a>`:'';
+ return `<article class="filament-line" data-filament-line="${f.id}">
+   ${intro}<div class="filament-meta"><span>${inCart?`<b>${f.cart_qty} Sp.</b> auf Liste`:`<b>${f.stock_qty}</b> ${f.stock_qty===1?'Spule':'Spulen'} vorrätig`}</span><span>${filamentMoney(f.price_cents)}</span></div>
+   <div class="filament-line-actions">${inCart?
+     `<button type="button" class="filament-step" data-filament-delta="-1" data-filament-id="${f.id}" aria-label="Eine Spule von der Einkaufsliste nehmen">−</button><b class="filament-cart-qty">${f.cart_qty}</b><button type="button" class="filament-step" data-filament-delta="1" data-filament-id="${f.id}" aria-label="Eine weitere Spule vormerken">+</button>${shop}<button type="button" class="secondary filament-receive" data-filament-receive="${f.id}">Erhalten</button>`:
+     `<button type="button" class="filament-cart-button" data-filament-cart="${f.id}" aria-label="${name} zur Einkaufsliste hinzufügen">${filamentSpoolCart}<span>Auf Liste ${f.cart_qty? `(${f.cart_qty})`:''}</span></button>${shop}<button type="button" class="filament-edit" data-filament-edit="${f.id}">Bearbeiten</button>`}
+   </div></article>`;
+}
+function renderFilaments(){
+ if(!filamentData)return;
+ const rows=filamentData.filaments||[];
+ const cart=rows.filter(f=>f.cart_qty>0);
+ $('filament-color-count').textContent=rows.length;
+ $('filament-cart-count').textContent=filamentData.cart_count;
+ $('filament-tab-count').textContent=filamentData.cart_count;
+ $('filament-tab-count').hidden=!filamentData.cart_count;
+ document.querySelectorAll('[data-filament-view]').forEach(b=>{const selected=b.dataset.filamentView===filamentView;b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));});
+ $('filament-search-wrap').hidden=filamentView==='cart';
+ const query=$('filament-search').value.trim().toLocaleLowerCase('de');
+ const visible=filamentView==='cart'?cart:rows.filter(f=>(f.brand+' '+f.color+' '+f.material).toLocaleLowerCase('de').includes(query));
+ $('filament-message').textContent=filamentView==='cart'?
+  'Spulen für deinen nächsten Einkauf. „Erhalten“ bucht gelieferte Spulen ins Regal.':
+  'Jede Zeile ist ein Filament. Einkaufswagen antippen, wenn du eine Spule nachbestellen möchtest.';
+ updateHTML($('filament-rows'),visible.length?visible.map(f=>filamentLine(f,filamentView==='cart')).join(''):
+  `<div class="filament-empty">${filamentView==='cart'?'Deine Einkaufsliste ist leer. Füge bei „Meine Farben“ eine Spule hinzu.':query?'Kein Filament passt zur Suche.':'Noch keine Farben angelegt. Starte mit „+ Filament anlegen“.'}</div>`);
+ const summary=$('filament-cart-summary');
+ summary.hidden=filamentView!=='cart'||!cart.length;
+ if(!summary.hidden)updateHTML(summary,`<span><b>${filamentData.cart_count} ${filamentData.cart_count===1?'Spule':'Spulen'}</b> auf der Einkaufsliste</span><strong>${filamentMoney(filamentData.cart_known_total_cents)}${filamentData.cart_missing_prices?' + Preise offen':''}</strong>`);
+}
+async function loadFilaments(){
+ if(filamentLoading||filamentBusy||$('filament-editor').open)return;
+ filamentLoading=true;
+ try{filamentData=await api('filaments');renderFilaments();}
+ catch(err){$('filament-message').textContent='Filamente konnten nicht geladen werden: '+err.message;}
+ finally{filamentLoading=false;}
+}
+async function filamentAction(data){
+ if(filamentBusy)return;
+ filamentBusy=true;
+ document.querySelectorAll('#filament-shell button,#filament-form button').forEach(b=>b.disabled=true);
+ try{filamentData=await api('filament',data);renderFilaments();flash('Filamentliste gespeichert.');}
+ catch(err){flash(err.message,true);}
+ finally{filamentBusy=false;document.querySelectorAll('#filament-shell button,#filament-form button').forEach(b=>b.disabled=false);}
+}
+function showWorkspace(value){
+ workspace=value;
+ for(const b of document.querySelectorAll('[data-workspace]')){const chosen=b.dataset.workspace===value;b.classList.toggle('selected',chosen);b.setAttribute('aria-pressed',String(chosen));}
+ const production=value==='production';
+ for(const id of ['orders-shell','product-toolbar','product-sort-note','products'])$(id).hidden=!production;
+ $('filament-shell').hidden=production;
+ if(!production)loadFilaments();
+}
+function openFilamentEditor(id){
+ const f=(filamentData?.filaments||[]).find(x=>x.id===id);
+ const form=$('filament-form');form.reset();
+ form.elements.id.value=f?.id||'';
+ for(const name of ['brand','color','material','color_hex','stock_qty','purchase_url']){
+  form.elements[name].value=f?f[name]:(name==='color_hex'?'#ffffff':name==='material'?'PLA':name==='stock_qty'?0:'');
+ }
+ form.elements.price.value=f&&f.price_cents!==null?(f.price_cents/100).toFixed(2).replace('.',','):'';
+ $('filament-title').textContent=f?'Filament bearbeiten':'Filament anlegen';
+ $('filament-delete').hidden=!f;
+ $('filament-editor').showModal();
+ $('filament-brand').focus();
+}
+
 async function load(resort=false){if(polling||busy)return;polling=true;try{const data=await api('status');if(!busy&&!$('quantity').open&&!$('settings').open&&!$('order-details').open)setModel(data,resort);}catch(err){showAlert(['Verbindung zum Lager unterbrochen: '+err.message]);}finally{polling=false;}}
 async function mutate(path,data){if(busy)return;busy=true;document.querySelectorAll('#products button,#products input,#products select,#orders button,#order-details button,#undo').forEach(b=>b.disabled=true);try{setModel(await api(path,data));scheduleSort();flash('Gespeichert.');}catch(err){flash(err.message,true);try{setModel(await api('status'));}catch{}}finally{busy=false;render();}}
 function findItem(id){for(const p of model.products){const i=p.items.find(i=>i.id===id);if(i)return {p,i};}return null;}
@@ -349,6 +424,42 @@ $('settings-form').addEventListener('submit',async event=>{event.preventDefault(
 $('config-form').addEventListener('submit',async event=>{event.preventDefault();try{await api('config',Object.fromEntries(new FormData(event.target)));event.target.reset();flash('Zugangsdaten gespeichert. Jetzt Etsy-Freigabe öffnen.');}catch(err){flash(err.message,true);}});
 $('authorize').addEventListener('click',async()=>{try{const {url}=await api('oauth/start',{});const link=$('oauth-link');link.href=url;link.hidden=false;link.focus();}catch(err){flash(err.message,true);}});
 $('finish-form').addEventListener('submit',async event=>{event.preventDefault();const button=event.target.querySelector('button');button.disabled=true;try{await api('oauth/finish',Object.fromEntries(new FormData(event.target)));event.target.reset();$('settings').close();await load();flash('Etsy verbunden. Produkte werden geladen.');}catch(err){flash(err.message,true);}finally{button.disabled=false;}});
+
+for(const b of document.querySelectorAll('[data-workspace]'))b.addEventListener('click',()=>showWorkspace(b.dataset.workspace));
+for(const b of document.querySelectorAll('[data-filament-view]'))b.addEventListener('click',()=>{filamentView=b.dataset.filamentView;renderFilaments();});
+$('filament-add').addEventListener('click',()=>openFilamentEditor(null));
+$('filament-search').addEventListener('input',renderFilaments);
+$('filament-rows').addEventListener('click',event=>{
+ if(filamentBusy)return;
+ const edit=event.target.closest('[data-filament-edit]');
+ if(edit){openFilamentEditor(Number(edit.dataset.filamentEdit));return;}
+ const add=event.target.closest('[data-filament-cart]');
+ if(add){filamentAction({action:'cart',id:Number(add.dataset.filamentCart),delta:1});return;}
+ const delta=event.target.closest('[data-filament-delta]');
+ if(delta){filamentAction({action:'cart',id:Number(delta.dataset.filamentId),delta:Number(delta.dataset.filamentDelta)});return;}
+ const receive=event.target.closest('[data-filament-receive]');
+ if(receive){
+  const spool=filamentData.filaments.find(f=>f.id===Number(receive.dataset.filamentReceive));
+  if(spool&&confirm(`Sind ${spool.cart_qty} Spulen von ${spool.brand} · ${spool.color} tatsächlich angekommen? Dann werden sie ins Filamentlager gebucht.`))filamentAction({action:'receive',id:spool.id});
+ }
+});
+$('filament-form').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(filamentBusy)return;
+ const values=Object.fromEntries(new FormData(event.target).entries());
+ const payload={action:'save',id:values.id?Number(values.id):null,brand:values.brand,color:values.color,material:values.material,color_hex:values.color_hex,stock_qty:Number(values.stock_qty),price:values.price.trim(),purchase_url:values.purchase_url};
+ $('filament-editor').close();
+ await filamentAction(payload);
+});
+$('filament-delete').addEventListener('click',async()=>{
+ const id=Number($('filament-id').value);
+ const f=filamentData?.filaments.find(x=>x.id===id);
+ if(!f||!confirm(`Filament „${f.brand} · ${f.color}“ und alle vorgemerkten Einkaufsmengen wirklich löschen?`))return;
+ $('filament-editor').close();
+ await filamentAction({action:'delete',id});
+});
+setInterval(()=>{if(workspace==='filament'&&!document.hidden)loadFilaments();},30000);
+
 load(true);setInterval(()=>load(false),5000);
 setInterval(refreshShippingDay,30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshShippingDay();});
