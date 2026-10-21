@@ -438,7 +438,8 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
                 db.execute('DELETE FROM stock_receipts WHERE id=?',(rid,))
             for row in orders:
                 db.execute('INSERT INTO stock_receipts(id,created,ship_by,customer,lines_json) VALUES(?,?,?,?,?)',row)
-        db.execute("DELETE FROM stock_transactions WHERE status!='open' AND created<?",(now-31*86400,))
+        db.execute("""DELETE FROM stock_transactions WHERE status!='open' AND created<?
+          AND id NOT IN (SELECT transaction_id FROM stock_order_prints WHERE printing>0)""",(now-31*86400,))
         # Retain running jobs even when their orders disappear from the open list.
         db.execute("""DELETE FROM stock_order_prints WHERE printing=0 AND updated<?
           AND transaction_id NOT IN (SELECT id FROM stock_transactions)""",(now-90*86400,))
