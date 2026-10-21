@@ -249,6 +249,64 @@ class StockTests(unittest.TestCase):
         self.assertEqual(self.item()['on_hand'],4)
         self.assertEqual(self.item()['reserved'],0)
 
+
+    def test_order_carousel_stores_only_open_receipts_and_preserves_stock(self):
+        self.act('set', 6)
+        orders=[
+            ('401',int(time.time())-120, int(time.time())+86400,
+             'Musterkunde',json.dumps([{'listing_id':'101','title':'Testprodukt',
+             'quantity':2,'variant':'Farbe: Weiß'}])),
+        ]
+        tx=transaction()
+        app.apply_snapshot(catalog(),[tx],{'401'},orders=orders)
+        state=app.overview()
+        self.assertEqual(len(state['orders']),1)
+        self.assertEqual(state['orders'][0]['customer'],'Musterkunde')
+        self.assertEqual(state['orders'][0]['quantity'],2)
+        self.assertEqual(state['orders'][0]['items'][0]['variant'],'Farbe: Weiß')
+        self.assertEqual(self.item()['on_hand'],6)
+        app.apply_snapshot(catalog(),[transaction('excluded')],{'401'},orders=[])
+        self.assertEqual(app.overview()['orders'],[])
+        self.assertEqual(self.item()['on_hand'],6)
+        self.assertEqual(self.item()['reserved'],0)
+
+    def test_order_carousel_migration_keeps_existing_stock(self):
+        self.act('set', 4)
+        app.init_db()
+        with app.connect() as db:
+            self.assertIsNotNone(db.execute(
+                "SELECT name FROM sqlite_master WHERE name='stock_receipts'"
+            ).fetchone())
+        self.assertEqual(self.item()['on_hand'],4)
+        self.assertEqual(app.overview()['orders'],[])
+
+    def test_receipt_carousel_metadata_from_etsy(self):
+        order={
+            'receipt_id':401,'status':'paid','is_paid':True,
+            'name':'Anna Beispiel','create_timestamp':1700000000,
+            'expected_ship_date':1700200000,
+            'transactions':[{
+                'transaction_id':301,'listing_id':101,'product_id':201,
+                'title':'Katze mit Laterne','quantity':2,
+                'variations':[{'formatted_name':'Katzenfarbe','formatted_value':'Schwarz'}]
+            }]
+        }
+        with patch.object(app,'pages',side_effect=[
+            [order],[order]
+        ]),patch.object(app.time,'sleep'):
+            transactions,ids,orders=app.fetch_receipts('501',include_orders=True)
+        self.assertEqual(len(transactions),1)
+        self.assertEqual(ids,{'401'})
+        self.assertEqual(orders[0][2],1700200000)
+        self.assertEqual(orders[0][3],'Anna Beispiel')
+        self.assertEqual(json.loads(orders[0][4])[0]['variant'],'Katzenfarbe: Schwarz')
+        order['status']='canceled'
+        with patch.object(app,'pages',side_effect=[
+            [order],[order]
+        ]),patch.object(app.time,'sleep'):
+            _transactions,_ids,orders=app.fetch_receipts('501',include_orders=True)
+        self.assertEqual(orders,[])
+
     def test_refunds_and_payment_status(self):
         self.assertEqual(app.receipt_status({'status':'paid','is_paid':True}),'open')
         self.assertEqual(app.receipt_status({'status':'paid','is_shipped':True}),'shipped')
