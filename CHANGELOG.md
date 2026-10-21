@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.10 – Versand-Countdown auf aktuellen Bestellungen
+
+- Jede offene Bestellkarte zeigt das Etsy-Versanddatum und daneben die verbleibenden Kalendertage („Noch 1 Tag“, „Noch 2 Tage“ usw.).
+- Am Versandtag erscheint „Heute versenden“, nach Fristüberschreitung „1 Tag überfällig“ bzw. „N Tage überfällig“. Unbekannte Fristen werden nicht geschätzt.
+- Farbkennzeichnung bleibt bestehen: rot bei 0–2 Tagen bzw. überfällig, gelb bei 3 Tagen, grün ab 4 Tagen.
+- Countdown verwendet Berliner Kalendertage und aktualisiert sich automatisch bei Tageswechsel, auch ohne Etsy-Synchronisierung; Anzeige auch in den Bestelldetails.
+- Reine Oberflächenänderung: Lagerbestände, zugeordnete Drucke, Etsy-Zugangsdaten und Datenbankschema bleiben unverändert.
+
 ## 0.11.9 – Etsy-Auftragsdruck direkt auf Bestellkarten
 
 - Neuer „Drucken“-Button auf Etsy-Bestellkarten: bei einem Artikel öffnet sich direkt die Stückzahlbestätigung, bei mehreren Positionen die positionsgenaue Auswahl.

@@ -24,11 +24,39 @@ await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().
 assert.equal((await page.locator('#order-count').textContent()).trim(),'3 offen');
 assert.equal(await page.locator('.order-card').count(),3);
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'501');
+assert((await page.locator('[data-order-card="501"] .order-ship-date').textContent()).includes('Versand bis '));
+assert(await page.locator('[data-order-card="501"] .order-countdown').count()===1);
+// Check countdown colors, singular/plural, today and overdue using Berlin calendar days.
+const countdownCases=await page.evaluate(()=>{
+ const today=berlinDay(Date.now());
+ return [-2,-1,0,1,2,3,4].map(offset=>shipInfo({ship_by:(today+offset)*86400+12*3600}));
+});
+assert.deepEqual(countdownCases.map(c=>c.countdown),['2 Tage überfällig','1 Tag überfällig','Heute versenden','Noch 1 Tag','Noch 2 Tage','Noch 3 Tage','Noch 4 Tage']);
+assert.deepEqual(countdownCases.map(c=>c.level),['red','red','red','red','red','yellow','green']);
+const unknownShipping=await page.evaluate(()=>shipInfo({ship_by:null}));
+assert.equal(unknownShipping.countdown,'');
+assert.equal(unknownShipping.date,'Versandfrist unbekannt');
+// Simulate a Berlin day change: badges refresh even without an Etsy API call.
+const dayChange=await page.evaluate(()=>{
+ const selector='[data-order-card="501"] .order-countdown';
+ const before=document.querySelector(selector).textContent;
+ const realNow=Date.now;
+ try {
+  Date.now=()=>realNow()+2*86400000;
+  refreshShippingDay();
+  return {before,after:document.querySelector(selector).textContent};
+ } finally {
+  Date.now=realNow;
+  refreshShippingDay();
+ }
+});
+assert.notEqual(dayChange.before,dayChange.after);
 await page.locator('[data-order-sort="new"]').click();
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'503');
 await page.locator('[data-order-card="503"] [data-order-open]').click();
 assert((await page.locator('#order-details-title').textContent()).includes('#503'));
 assert((await page.locator('#order-details-content').textContent()).includes('Farbe: Schwarz'));
+assert.equal(await page.locator('#order-details-content .order-countdown').count(),1);
 await page.locator('[data-close="order-details"]').click();
 await page.locator('[data-order-sort="ship"]').click();
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'501');

@@ -4,11 +4,15 @@ Eine bewusst kleine Home-Assistant-App für deinen echten Lagervorrat: Etsy-Prod
 
 ## Update in Home Assistant
 
-Der Neustart heißt in der Oberfläche **Lager v0.1**. Die aktuelle technische App-Version ist **0.11.9**. Home Assistant erkennt sie als Update der bisherigen 0.11.8. Repository, Ordner und App-Slug bleiben identisch. In der HA-App-Verwaltung nach Updates suchen, sichern und aktualisieren. Nicht deinstallieren oder eine zweite App anlegen.
+Der Neustart heißt in der Oberfläche **Lager v0.1**. Die aktuelle technische App-Version ist **0.11.10**. Home Assistant erkennt sie als Update der bisherigen 0.11.9. Repository, Ordner und App-Slug bleiben identisch. In der HA-App-Verwaltung nach Updates suchen, sichern und aktualisieren. Nicht deinstallieren oder eine zweite App anlegen.
 
 Die alte Oberfläche (Dashboard, Bestellverwaltung, Drucker, 3MF-Dateien und Produktionslinien) ist vollständig ersetzt. Bestehende Etsy-Zugangsdaten bleiben lokal erhalten. Alte Tabellen werden aus Rücksichtsgründen nicht gelöscht, aber nicht mehr verwendet. Frühere Produktionsstände sind **keine Lagerzählung** und werden nicht übernommen.
 
 **Einmalige Etsy-Freigabe:** Die bisherige Verbindung las nur Bestellungen (`transactions_r`). Für Varianten benötigt Etsy zusätzlich `listings_r`. Bei entsprechendem Hinweis unter **Einstellungen → Etsy-Freigabe öffnen** erneut erlauben und die vollständige Rückleitungsadresse einfügen. Schlüssel müssen bei gleicher Installation nicht neu eingegeben werden. Etsy erhält ausschließlich Lesezugriffe; die angebotenen Mengen werden nie überschrieben.
+
+## Neu in 0.11.10: Versand-Countdown
+
+Auf jeder offenen Etsy-Bestellkarte steht neben dem genauen Versanddatum jetzt die Restzeit: **„Noch 1 Tag“, „Noch 2 Tage“, „Heute versenden“** oder bei überfälligen Aufträgen **„1 Tag überfällig“** / **„N Tage überfällig“**. Die Farben bleiben wie bisher rot (0–2 Tage oder überfällig), gelb (3 Tage) und grün (ab 4 Tagen). Die Berechnung basiert auf dem Kalendertag in Europa/Berlin und wechselt automatisch zum Tageswechsel – auch ohne erneute Etsy-Abfrage. Bei unbekannter Versandfrist wird keine Zeit geschätzt. Die Anzeige erscheint auch in den Bestelldetails. Daten und Lagerbestände bleiben unverändert.
 
 ## Neu in 0.11.9: Auftragsdruck direkt aus Etsy-Bestellungen
 

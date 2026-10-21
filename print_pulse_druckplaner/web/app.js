@@ -167,8 +167,13 @@ function calendarDaysUntil(timestamp){return timestamp?berlinDay(timestamp*1000)
 function shortDate(timestamp){return timestamp?new Date(timestamp*1000).toLocaleDateString('de-DE',{timeZone:'Europe/Berlin',day:'2-digit',month:'2-digit',year:'numeric'}):'Nicht angegeben';}
 function shipInfo(o){
  const days=calendarDaysUntil(o.ship_by);
- if(days===null)return {label:'Versandfrist unbekannt',level:'unknown'};
- return {label:days<0?'Versand überfällig · '+shortDate(o.ship_by):days===0?'Versand heute':days===1?'Versand morgen':'Versand bis '+shortDate(o.ship_by),level:days<=2?'red':days===3?'yellow':'green'};
+ if(days===null)return {date:'Versandfrist unbekannt',countdown:'',level:'unknown'};
+ const date='Versand bis '+shortDate(o.ship_by);
+ const countdown=days<0?`${Math.abs(days)} ${Math.abs(days)===1?'Tag':'Tage'} überfällig`:days===0?'Heute versenden':`Noch ${days} ${days===1?'Tag':'Tage'}`;
+ return {date,countdown,level:days<=2?'red':days===3?'yellow':'green'};
+}
+function shippingMarkup(shipping){
+ return `<span class="order-ship-date">${esc(shipping.date)}</span>${shipping.countdown?`<strong class="order-countdown ${shipping.level}">${esc(shipping.countdown)}</strong>`:''}`;
 }
 function orderCard(o){
  const shipping=shipInfo(o);
@@ -180,7 +185,7 @@ function orderCard(o){
   <div class="order-card-main">${image?`<img src="${esc(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}
    <div><strong>${esc(o.customer)}</strong><small>${o.quantity} Stück · ${lines.length} Position${lines.length===1?'':'en'}</small></div></div>
   <div class="order-lines">${summary}${lines.length>2?`<small>+ ${lines.length-2} weitere Position${lines.length===3?'':'en'}</small>`:''}</div>
-  <div class="order-card-foot"><span class="order-deadline ${shipping.level}">${esc(shipping.label)}</span><div class="order-card-actions"><button class="primary order-print" data-order-print="${esc(o.id)}" ${lines.some(i=>i.item_id&&i.remaining>0)?'':'disabled'} aria-label="Auftrag ${esc(o.id)} in Druck nehmen">Drucken</button><button class="order-open" data-order-open="${esc(o.id)}" aria-label="Bestellung ${esc(o.id)} öffnen">Details ›</button></div>${lines.some(i=>i.printing>0)?`<small class="order-print-state">${lines.reduce((n,i)=>n+i.printing,0)} Stück für diesen Auftrag im Druck</small>`:''}</div>
+  <div class="order-card-foot"><span class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</span><div class="order-card-actions"><button class="primary order-print" data-order-print="${esc(o.id)}" ${lines.some(i=>i.item_id&&i.remaining>0)?'':'disabled'} aria-label="Auftrag ${esc(o.id)} in Druck nehmen">Drucken</button><button class="order-open" data-order-open="${esc(o.id)}" aria-label="Bestellung ${esc(o.id)} öffnen">Details ›</button></div>${lines.some(i=>i.printing>0)?`<small class="order-print-state">${lines.reduce((n,i)=>n+i.printing,0)} Stück für diesen Auftrag im Druck</small>`:''}</div>
  </article>`;
 }
 function renderOrders(){
@@ -196,15 +201,25 @@ function showOrder(id){
  const o=(model.orders||[]).find(order=>order.id===id);
  if(!o)return;
  const shipping=shipInfo(o);
+ $('order-details').dataset.orderId=o.id;
  $('order-details-title').textContent='Etsy-Bestellung #'+o.id;
- updateHTML($('order-details-content'),`<p><b>${esc(o.customer)}</b> · ${esc(shortDate(o.created))}<br><strong>${esc(shipping.label)}</strong></p>
+ updateHTML($('order-details-content'),`<p><b>${esc(o.customer)}</b> · ${esc(shortDate(o.created))}</p><div class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</div>
  <div class="order-modal-lines">${o.items.map(i=>`<div class="order-line"><b>${i.quantity} × ${esc(i.title)}</b>${i.variant?`<small>${esc(i.variant)}</small>`:''}
  ${i.item_id?`<small>${i.printing} im Druck · ${i.finished} fertig gemeldet · ${i.remaining} noch nicht zum Druck eingeplant</small>
  <div class="order-line-actions">${i.remaining?`<button class="primary" data-order-line="${esc(i.transaction_id)}" data-job-action="printing">Drucken</button>`:''}
  ${i.printing?`<button class="secondary" data-order-line="${esc(i.transaction_id)}" data-job-action="finish">Fertig</button><button class="text-button" data-order-line="${esc(i.transaction_id)}" data-job-action="cancel">Abbruch</button>`:''}
  </div>`:'<small>Variante nicht eindeutig zugeordnet. Etsy-Abgleich und Varianten prüfen.</small>'}</div>`).join('')}</div>
  <p class="hint">„Drucken“ erfasst nur den Produktionsstart, startet keinen 3D-Drucker. „Fertig“ bucht Stücke ins Lager. Versand und Stornierung weiterhin in Etsy.</p>`);
- $('order-details').showModal();
+ if(!$('order-details').open)$('order-details').showModal();
+}
+let lastShippingDay=berlinDay(Date.now());
+function refreshShippingDay(){
+ const current=berlinDay(Date.now());
+ if(current===lastShippingDay)return;
+ lastShippingDay=current;
+ if(!model)return;
+ renderOrders();
+ if($('order-details').open&&$('order-details').dataset.orderId)showOrder($('order-details').dataset.orderId);
 }
 function findOrderJob(tid){
  for(const o of model.orders||[]){
@@ -335,3 +350,5 @@ $('config-form').addEventListener('submit',async event=>{event.preventDefault();
 $('authorize').addEventListener('click',async()=>{try{const {url}=await api('oauth/start',{});const link=$('oauth-link');link.href=url;link.hidden=false;link.focus();}catch(err){flash(err.message,true);}});
 $('finish-form').addEventListener('submit',async event=>{event.preventDefault();const button=event.target.querySelector('button');button.disabled=true;try{await api('oauth/finish',Object.fromEntries(new FormData(event.target)));event.target.reset();$('settings').close();await load();flash('Etsy verbunden. Produkte werden geladen.');}catch(err){flash(err.message,true);}finally{button.disabled=false;}});
 load(true);setInterval(()=>load(false),5000);
+setInterval(refreshShippingDay,30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshShippingDay();});

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.10 – Versand-Countdown
+
+- Versanddatum plus Countdown auf jeder aktuellen Etsy-Bestellkarte und in den Details.
+- „Noch N Tage“, „Heute versenden“ oder „N Tage überfällig“; Ampelfarben unverändert.
+- Aktualisierung zum Berliner Tageswechsel ohne neuen Etsy-Aufruf; keine Änderung von Beständen oder Datenbanken.
+
 ## 0.11.9 – Etsy-Auftragsdruck
 
 - Direkt in offenen Etsy-Bestellkarten auf „Drucken“ tippen, Position und Stückzahl bestätigen.

@@ -227,3 +227,12 @@ footer{color:#84786a}
  .order-card{min-height:195px}
  .order-card-actions button{min-height:42px}
 }
+
+/* Versand-Countdown: Datum und Dringlichkeit zusammen, auf Tablet gut lesbar. */
+.order-deadline{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:5px 8px;width:100%}
+.order-ship-date{font-size:10px;font-weight:650;white-space:nowrap}
+.order-countdown{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 9px;font-size:11px;line-height:1.2;font-weight:750;white-space:nowrap;background:#ecf5ef;color:#34684e}
+.order-countdown.red{background:#fae7e4;color:#a64035}
+.order-countdown.yellow{background:#fff3d5;color:#846126}
+.order-countdown.green{background:#e7f2eb;color:#3b6a53}
+#order-details-content>.order-deadline{margin:0 0 12px}
