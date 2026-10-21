@@ -635,7 +635,7 @@ def mutate_order_print(data):
         if not row: raise ValueError('Variante nicht eindeutig zugeordnet. Bitte in Etsy prüfen.')
         if data.get('revision')!=row['revision']:
             raise ValueError('Der Bestand wurde inzwischen geändert. Bitte erneut öffnen.')
-        if previous and (previous['receipt_id']!=receipt_id or (tx['item_id'] and tx['item_id']!=previous['item_id'])):
+        if previous and (previous['receipt_id']!=receipt_id or (action=='printing' and tx['item_id'] and tx['item_id']!=previous['item_id'])):
             raise ValueError('Die Zuordnung dieser Bestellvariante hat sich geändert. Bitte prüfen.')
         printing=previous['printing'] if previous else 0
         finished=previous['finished'] if previous else 0
