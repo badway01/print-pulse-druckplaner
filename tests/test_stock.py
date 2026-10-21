@@ -323,6 +323,75 @@ class StockTests(unittest.TestCase):
         data=svg.split('data:image/webp;base64,',1)[1].split('"',1)[0]
         self.assertTrue(base64.b64decode(data).startswith(b'RIFF'))
 
+
+    def test_receipt_only_sync_keeps_listings_and_physical_stock(self):
+        self.act('set',5)
+        before=app.overview()
+        app.apply_snapshot(None,[transaction()],{'401'},orders=[])
+        after=app.overview()
+        self.assertEqual(after['products'][0]['state'],'active')
+        self.assertEqual(after['products'][0]['items'][0]['on_hand'],5)
+        self.assertEqual(after['products'][0]['items'][0]['reserved'],2)
+        self.assertEqual(before['last_catalog_sync'],after['last_catalog_sync'])
+
+    def test_cached_catalog_is_skipped_for_fifteen_minute_order_sync(self):
+        self.act('set',6)
+        with app.connect() as db:
+            app.put_cfg(db,'shop_id','501')
+            app.put_cfg(db,'stock_last_catalog_sync',int(time.time()))
+        with patch.object(app,'fetch_catalog',side_effect=AssertionError('Catalog should be cached')) as cat,\
+             patch.object(app,'fetch_receipts',return_value=([transaction()],{'401'},[])) as sales:
+            app.synchronize()
+        cat.assert_not_called()
+        sales.assert_called_once_with('501',include_orders=True)
+        self.assertEqual(self.item()['on_hand'],6)
+        self.assertEqual(self.item()['reserved'],2)
+
+    def test_catalog_failure_still_keeps_confirmed_orders_and_counted_stock(self):
+        self.act('set',8)
+        with app.connect() as db:
+            app.put_cfg(db,'shop_id','501')
+            app.put_cfg(db,'stock_last_catalog_sync',int(time.time())-app.CATALOG_INTERVAL-5)
+        with patch.object(app,'fetch_receipts',return_value=([transaction()],{'401'},[])),\
+             patch.object(app,'fetch_catalog',side_effect=app.EtsyRateLimited('Retry later')):
+            with self.assertRaises(app.EtsyRateLimited):
+                app.synchronize()
+        self.assertEqual(self.item()['on_hand'],8)
+        self.assertEqual(self.item()['reserved'],2)
+        self.assertEqual(app.overview()['products'][0]['state'],'active')
+
+    def test_http_429_retry_after_persists_cooldown_and_prevents_retries(self):
+        with app.connect() as db:
+            app.put_cfg(db,'keystring','synthetic')
+            app.put_cfg(db,'shared_secret','synthetic')
+            app.put_cfg(db,'access_token','synthetic')
+            app.put_cfg(db,'expires_at',int(time.time())+3600)
+        error=urllib.error.HTTPError('https://api.etsy.com/',429,'Too many requests',
+                                     {'retry-after':'1800'},None)
+        with patch.object(app.urllib.request,'urlopen',side_effect=error) as request,\
+             patch.object(app.time,'sleep'):
+            with self.assertRaisesRegex(app.EtsyRateLimited,'pausiert'):
+                app.api_request('/application/test')
+            until=app.rate_limit_until()
+            self.assertGreaterEqual(until,int(time.time())+1750)
+            with self.assertRaises(app.EtsyRateLimited):
+                app.api_request('/application/test')
+            with self.assertRaises(app.EtsyRateLimited):
+                app.run_sync()
+            request.assert_called_once()
+        with app.connect() as db:
+            self.assertEqual(int(app.cfg(db,'etsy_rate_limit_until')),until)
+        self.assertEqual(app.overview()['cooldown_until'],until)
+
+    def test_image_lookup_does_not_swallow_rate_limit(self):
+        listing={'listing_id':101,'title':'Test','quantity':50,'state':'active'}
+        def request(path,params=None):
+            raise app.EtsyRateLimited('Wait for Etsy')
+        with patch.object(app,'pages',side_effect=lambda path,params:[listing] if params['state']=='active' else []),\
+             patch.object(app,'api_request',side_effect=request):
+            with self.assertRaises(app.EtsyRateLimited):
+                app.fetch_catalog('501')
+
     def test_no_etsy_write_api(self):
         with self.assertRaises(ValueError):app.api_request('/application/listings/101',method='PUT')
 

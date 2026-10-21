@@ -19,6 +19,7 @@ import urllib.request
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
@@ -31,6 +32,39 @@ SYNC_LOCK = threading.Lock()
 IMPORT_LOCK = threading.Lock()
 STATUS_LOCK = threading.Lock()
 STATUS = {"running": False, "error": None, "message": ""}
+CATALOG_INTERVAL = 24 * 3600
+RECEIPT_INTERVAL = 15 * 60
+
+class EtsyRateLimited(RuntimeError):
+    """An Etsy quota response or local cooldown, never silently ignored."""
+
+def cooldown_notice(until):
+    when=dt.datetime.fromtimestamp(until,ZoneInfo('Europe/Berlin')).strftime('%d.%m. um %H:%M')
+    return f'Etsy-Anfragelimit erreicht. Abgleich pausiert bis {when} Uhr. Bestände bleiben erhalten.'
+
+def rate_limit_until():
+    with connect() as db:
+        return int(cfg(db,'etsy_rate_limit_until','0'))
+
+def check_cooldown():
+    until=rate_limit_until()
+    if until>time.time():
+        raise EtsyRateLimited(cooldown_notice(until))
+
+def record_rate_limit(headers):
+    try:
+        seconds=int(float(headers.get('retry-after','900')))
+    except (ValueError,TypeError):
+        seconds=900
+    seconds=max(1,min(86400,seconds))
+    with connect() as db:
+        failures=min(6,int(cfg(db,'etsy_rate_limit_failures','0'))+1)
+        delay=max(seconds,min(6*3600,15*60*2**(failures-1)))
+        until=max(int(time.time())+delay,int(cfg(db,'etsy_rate_limit_until','0')))
+        put_cfg(db,'etsy_rate_limit_failures',failures)
+        put_cfg(db,'etsy_rate_limit_until',until)
+    return until
+
 INGRESS_PEER = "172.30.32.2"
 log = logging.getLogger("print-pulse-lager")
 logging.basicConfig(level=logging.INFO)
@@ -78,8 +112,11 @@ def api_request(endpoint, params=None, method="GET", body=None, retry=True):
         secret = cfg(db, "shared_secret")
         token = cfg(db, "access_token")
         expires = int(cfg(db, "expires_at", "0"))
+        cooldown = int(cfg(db, "etsy_rate_limit_until", "0"))
     if not key or not secret or not token:
         raise RuntimeError("Etsy ist noch nicht vollständig verbunden.")
+    if cooldown > time.time():
+        raise EtsyRateLimited(cooldown_notice(cooldown))
     if expires < time.time() + 120:
         refresh_token()
         with connect() as db:
@@ -92,8 +129,16 @@ def api_request(endpoint, params=None, method="GET", body=None, retry=True):
     time.sleep(.26)  # Stay below Etsy's default request rate.
     try:
         with urllib.request.urlopen(req, timeout=35) as res:
-            return json.load(res)
+            data=json.load(res)
+            # Reset exponential backoff only after a successful API read.
+            with connect() as db:
+                if cfg(db,'etsy_rate_limit_failures','0')!='0':
+                    put_cfg(db,'etsy_rate_limit_failures',0)
+                    put_cfg(db,'etsy_rate_limit_until',0)
+            return data
     except urllib.error.HTTPError as e:
+        if e.code == 429:
+            raise EtsyRateLimited(cooldown_notice(record_rate_limit(e.headers))) from None
         if e.code == 401 and retry:
             refresh_token()
             return api_request(endpoint, params=params, method=method, body=body, retry=False)
@@ -234,6 +279,8 @@ def fetch_catalog(shop):
             imgs=api_request(f'/application/listings/{lid}/images').get('results',[])
             if imgs:
                 image=safe_etsy_image_url(imgs[0].get('url_570xN') or imgs[0].get('url_fullxfull') or '')
+        except EtsyRateLimited:
+            raise
         except RuntimeError:
             pass
         if not inventory_forbidden:
@@ -243,6 +290,8 @@ def fetch_catalog(shop):
                 if not isinstance(products,list) or not products:
                     error='Keine Varianten von Etsy geliefert. Bestand bleibt erhalten.'
                     products=None
+            except EtsyRateLimited:
+                raise
             except RuntimeError as exc:
                 inventory_forbidden='HTTP 403' in str(exc)
                 error='Varianten nicht abrufbar. '+('Bitte Etsy erneut verbinden.' if inventory_forbidden else str(exc))
@@ -327,13 +376,13 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
         db.execute('BEGIN IMMEDIATE')
         previous_sync=int(cfg(db,'stock_last_sync','0'))
         # Only a complete catalog may retire missing listings. Keep stocks for recovery.
-        if not warning:
+        if catalog is not None and not warning:
             returned={str(entry[0]['listing_id']) for entry in catalog}
             for existing in db.execute('SELECT id FROM stock_listings').fetchall():
                 if existing['id'] not in returned:
                     db.execute("UPDATE stock_listings SET state='removed' WHERE id=?",(existing['id'],))
         # All stock/print fields survive sync. Never derive physical stock from Etsy.
-        for listing,image,error,rows,valid in catalog:
+        for listing,image,error,rows,valid in (catalog or []):
             lid=str(listing['listing_id'])
             qty=listing.get('quantity')
             if type(qty) is not int: qty=None
@@ -381,20 +430,37 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
         db.execute("DELETE FROM stock_transactions WHERE status!='open' AND created<?",(now-31*86400,))
         db.execute('DELETE FROM stock_actions WHERE created<?',(now-7*86400,))
         put_cfg(db,'stock_last_sync',now)
-        put_cfg(db,'stock_warning',warning)
+        if catalog is not None:
+            put_cfg(db,'stock_last_catalog_sync',now)
+            put_cfg(db,'stock_warning',warning)
 
 
 def synchronize():
     with connect() as db:
         shop=cfg(db,'shop_id')
+        existing=db.execute('SELECT COUNT(*) FROM stock_listings').fetchone()[0]
+        catalog_at=int(cfg(db,'stock_last_catalog_sync',cfg(db,'stock_last_sync','0')))
     if not shop.isdigit(): raise ValueError('Bitte Etsy unter Einstellungen verbinden.')
-    catalog,warning=fetch_catalog(shop)
-    with STATUS_LOCK: STATUS['message']='Verkäufe und offene Bestellungen abgleichen …'
+    # Orders first: changes arrive frequently, without a large catalog import.
+    with STATUS_LOCK: STATUS['message']='Offene Bestellungen abrufen …'
     transactions,receipts,orders=fetch_receipts(shop,include_orders=True)
+    due=not existing or not catalog_at or time.time()-catalog_at>=CATALOG_INTERVAL
+    if not due:
+        apply_snapshot(None,transactions,receipts,orders=orders)
+        return
+    with STATUS_LOCK: STATUS['message']='Täglichen Produktkatalog abrufen …'
+    try:
+        catalog,warning=fetch_catalog(shop)
+    except Exception:
+        # Commit fully verified orders even if the costly catalog refresh fails.
+        # No listing is disabled or any counted stock overwritten.
+        apply_snapshot(None,transactions,receipts,orders=orders)
+        raise
     apply_snapshot(catalog,transactions,receipts,warning,orders)
 
 
 def run_sync():
+    check_cooldown()
     if not IMPORT_LOCK.acquire(blocking=False): return False
     with STATUS_LOCK: STATUS.update(running=True,error=None,message='Etsy wird abgeglichen …')
     def job():
@@ -433,6 +499,8 @@ def overview():
         configured=bool(cfg(db,'keystring') and cfg(db,'callback'))
         authorized=bool(cfg(db,'access_token'))
         warning=cfg(db,'stock_warning')
+        catalog_at=int(cfg(db,'stock_last_catalog_sync',cfg(db,'stock_last_sync','0')))
+        cooldown=int(cfg(db,'etsy_rate_limit_until','0'))
         action=db.execute('SELECT * FROM stock_actions WHERE undone=0 ORDER BY created DESC,rowid DESC LIMIT 1').fetchone()
         undo=None
         if action:
@@ -474,7 +542,7 @@ def overview():
                        'created':receipt['created'],'ship_by':receipt['ship_by'],
                        'items':lines,'quantity':sum(line['quantity'] for line in lines)})
     with STATUS_LOCK: status=dict(STATUS)
-    return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'version':'0.1'}
+    return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'version':'0.1'}
 
 
 def mutate_stock(data):
@@ -645,6 +713,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.respond(200, {"ok": True,"running":True})
                 return self.respond(202, {"ok": True, "running":True})
             return self.send(404,{'error':'Nicht gefunden.'})
+        except EtsyRateLimited as exc:
+            return self.send(429,{'error':str(exc)[:300]})
         except RuntimeError as exc:
             return self.send(502,{'error':str(exc)[:300]})
         except (ValueError, TypeError) as exc:
@@ -658,8 +728,12 @@ def periodic_sync():
     while True:
         with connect() as db:
             authorized=bool(cfg(db,'access_token'))
-        if authorized: run_sync()
-        time.sleep(15*60)
+        if authorized:
+            try:
+                run_sync()
+            except EtsyRateLimited:
+                pass
+        time.sleep(RECEIPT_INTERVAL)
 
 
 if __name__=='__main__':
