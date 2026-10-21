@@ -1,8 +1,12 @@
 """Local manual filament inventory and shopping list regression tests."""
 import importlib.util
+import os
 from pathlib import Path
 import tempfile
 import unittest
+
+BOOT=tempfile.TemporaryDirectory()
+os.environ['PP_DATA_DIR']=BOOT.name
 
 spec=importlib.util.spec_from_file_location('filament_app',Path(__file__).resolve().parents[1]/'print_pulse_druckplaner/app.py')
 app=importlib.util.module_from_spec(spec)
