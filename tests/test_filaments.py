@@ -68,7 +68,8 @@ class FilamentTests(unittest.TestCase):
 
     def test_duplicate_edit_protection(self):
         first=self.add(brand='Bambu',material='PLA Basic',color='Jadeweiß')
-        second=self.add(brand='Bambu',material='PLA Basic',color='Schwarz')
+        self.add(brand='Bambu',material='PLA Basic',color='Schwarz')
+        second=next(row['id'] for row in app.filament_overview()['filaments'] if row['color']=='Schwarz')
         request={'action':'save','id':second,'brand':'Bambu Lab','material':'PLA Basic',
                  'color':'Jade-Weiß','color_hex':'#ffffff','stock_qty':3,
                  'price':'19,00','purchase_url':''}
