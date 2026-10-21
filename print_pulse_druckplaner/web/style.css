@@ -207,3 +207,23 @@ footer{color:#84786a}
 .stock-variant strong{flex-shrink:0;color:var(--green);min-width:28px}
 .stock-variant span{overflow-wrap:anywhere;min-width:0}
 .stock-overview small{display:block;margin-top:6px;color:var(--muted)}
+
+
+/* Direct order-linked print controls: compact cards, 44px tablet touch targets. */
+.order-card-foot{display:flex;flex-direction:column;align-items:stretch;gap:6px}
+.order-card-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.order-card-actions button{min-height:41px;min-width:0;font-size:12px;padding:7px 6px;white-space:nowrap}
+.order-card-actions .order-print{background:var(--green);color:#fff;border-color:var(--green)}
+.order-card-actions .order-print:disabled{background:#e9ebe5;color:#6a716e;border-color:var(--line)}
+.order-print-state{font-size:10px;color:var(--green);font-weight:650}
+.order-modal-lines .order-line{padding:12px}
+.order-line-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.order-line-actions button{min-height:44px;padding:8px 11px;font-size:12px}
+.order-job{border-top:1px solid #dbe7df;padding:8px 0 2px}
+.order-job small{display:block;color:var(--ink);overflow-wrap:anywhere}
+.order-job>div{display:flex;gap:9px;margin-top:5px}
+.order-job button{font-size:11px;min-height:44px;padding:7px 13px}
+@media (min-width:760px) and (max-width:1365px) and (orientation:landscape){
+ .order-card{min-height:195px}
+ .order-card-actions button{min-height:42px}
+}
