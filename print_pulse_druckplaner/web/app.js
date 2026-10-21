@@ -101,11 +101,12 @@ function printOverview(p){
  ${needed.length?`<div class="print-needs">${needed.map(i=>`<button class="print-need" data-show-variant="${esc(i.id)}" data-listing="${esc(p.id)}" title="${esc(i.label)}"><strong>${i.need} ×</strong><span>${esc(shortLabel(i.label))}</span></button>`).join('')}</div>`:`<p>${unknown?'Bestände noch erfassen.':'Bedarf gedeckt.'}</p>`}
  ${unknown&&needed.length?`<small>Zusätzlich ${unknown} Variante${unknown===1?'':'n'} noch nicht gezählt.</small>`:''}</section>`;
 }
+function shortVariant(label){return label.includes(' · ')?label:label.includes(': ')?label.slice(label.indexOf(': ')+2):label;}
 function stockOverview(p){
  const visible=p.items.length<=8?p.items:p.items.filter(i=>i.on_hand>0);
  const empty=p.items.filter(i=>i.on_hand===0).length;
  const unknown=p.items.filter(i=>i.on_hand===null).length;
- return `<section class="stock-overview" aria-label="Lagerbestand nach Variante"><b>Im Lager</b><div class="stock-variants">${visible.map(i=>`<button class="stock-variant" data-show-variant="${esc(i.id)}" data-listing="${esc(p.id)}"><strong>${i.on_hand===null?'?':i.on_hand+' ×'}</strong><span>${esc(i.label)}${i.on_hand===null?' · noch nicht gezählt':''}</span></button>`).join('')}</div>${p.items.length>8?`<small>${[empty?empty+' Varianten ohne Bestand':'',unknown?unknown+' Varianten noch nicht gezählt':''].filter(Boolean).join(' · ')}</small>`:''}</section>`;
+ return `<section class="stock-overview" aria-label="Lagerbestand nach Variante"><b>Im Lager</b><div class="stock-variants">${visible.map(i=>`<button class="stock-variant" data-show-variant="${esc(i.id)}" data-listing="${esc(p.id)}"><strong>${i.on_hand===null?'?':i.on_hand+' ×'}</strong><span>${esc(shortVariant(i.label))}${i.on_hand===null?' · noch nicht gezählt':''}</span></button>`).join('')}</div>${p.items.length>8?`<small>${[empty?empty+' Varianten ohne Bestand':'',unknown?unknown+' Varianten noch nicht gezählt':''].filter(Boolean).join(' · ')}</small>`:''}</section>`;
 }
 function card(p){
  const image=thumbnail(p.image),open=expanded.has(p.id)||p.items.length===1;
@@ -125,7 +126,7 @@ function productPrintActions(p){
  const own=running.some(i=>i.in_print>(i.order_printing||0));
  const jobs=running.flatMap(i=>(i.order_jobs||[]).map(j=>({...j,label:i.label})));
  return `<div class="product-print-actions"><button class="primary print-start" data-product-print="${esc(p.id)}" data-print-action="printing" ${p.items.length?'':'disabled'}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 17H3V9h18v8h-3M6 14h12v7H6z"/><path d="M17 11h1"/></svg>In Druck</button>
- ${running.length?`<div class="running-print"><b>Im Druck</b><ul>${running.map(i=>`<li><strong>${i.in_print} ×</strong> ${esc(i.label)}${i.order_printing?` · ${i.order_printing} auftragsbezogen`:''}</li>`).join('')}</ul>
+ ${running.length?`<div class="running-print"><b>Im Druck</b><ul>${running.map(i=>`<li><strong>${i.in_print} ×</strong> ${esc(shortVariant(i.label))}${i.order_printing?` · ${i.order_printing} auftragsbezogen`:''}</li>`).join('')}</ul>
  ${own?`<div><button class="secondary" data-product-print="${esc(p.id)}" data-print-action="finish">Fertig (frei)</button><button class="text-button" data-product-print="${esc(p.id)}" data-print-action="cancel">Abbruch (frei)</button></div>`:''}
  ${jobs.map(j=>`<div class="order-job"><small>Auftrag #${esc(j.receipt_id)} · ${j.printing} × ${esc(j.label)}${j.status==='shipped'?' · bereits versendet':''}</small><div><button class="secondary" data-order-job="${esc(j.transaction_id)}" data-job-action="finish">Fertig</button><button class="text-button" data-order-job="${esc(j.transaction_id)}" data-job-action="cancel">Abbruch</button></div></div>`).join('')}</div>`:''}</div>`;
 }
