@@ -283,8 +283,8 @@ class StockTests(unittest.TestCase):
     def test_receipt_carousel_metadata_from_etsy(self):
         order={
             'receipt_id':401,'status':'paid','is_paid':True,
-            'name':'Anna Beispiel','create_timestamp':1700000000,
-            'expected_ship_date':1700200000,
+            'name':'Anna Beispiel','create_timestamp':(1700000*1000),
+            'expected_ship_date':(1700200*1000),
             'transactions':[{
                 'transaction_id':301,'listing_id':101,'product_id':201,
                 'title':'Katze mit Laterne','quantity':2,
@@ -297,7 +297,7 @@ class StockTests(unittest.TestCase):
             transactions,ids,orders=app.fetch_receipts('501',include_orders=True)
         self.assertEqual(len(transactions),1)
         self.assertEqual(ids,{'401'})
-        self.assertEqual(orders[0][2],1700200000)
+        self.assertEqual(orders[0][2],(1700200*1000))
         self.assertEqual(orders[0][3],'Anna Beispiel')
         self.assertEqual(json.loads(orders[0][4])[0]['variant'],'Katzenfarbe: Schwarz')
         order['status']='canceled'
