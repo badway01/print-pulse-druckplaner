@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.11.9 – Etsy-Auftragsdruck direkt auf Bestellkarten
+
+- Neuer „Drucken“-Button auf Etsy-Bestellkarten: bei einem Artikel öffnet sich direkt die Stückzahlbestätigung, bei mehreren Positionen die positionsgenaue Auswahl.
+- Jeder Auftragsdruck ist mit der originalen Etsy-Transaktions-ID und exakt einer Lager-Variante verknüpft. Laufende Drucke direkt bei der Bestellung oder in der Produktkarte fertigmelden/abbrechen.
+- Start setzt nur „Im Druck“ hoch und reduziert dadurch den Nachdruckbedarf; der echte Bestand wächst erst bei „Fertig“. Nach Etsy-Versand wird bereits zugeordneter, noch laufender Druck nicht irrtümlich doppelt eingebucht.
+- Auftragsgebundene Mengen sind gegen allgemeine Fertig-/Abbruchbuchungen geschützt; begrenzte Restmengen und Versionsprüfungen verhindern versehentliche Doppelbuchungen.
+- Bereits gespeicherte Etsy-Aufträge ohne Transaktions-ID brauchen einen erneuten Bestellabgleich; unklare Varianten können nicht ungeprüft gedruckt werden.
+- Eigene SQLite-Tabelle nur für Auftragsdruck-Zuordnung, ohne Änderungen oder Zurücksetzen bestehender Bestandsdaten. Keine Etsy-Schreibberechtigung, keine Druckerfernsteuerung.
+- Neue Regressionstests für Teilmengen, Mehrfachbuchungen, Versand vor/nach Fertigmeldung, Abbruch und Update-Migration.
+
+
 ## 0.11.8 – Lagerbestand je Variante direkt sichtbar
 
 - Produktkarten zeigen die vorhandenen Stückzahlen mit Variantennamen direkt unter „In Druck“, ohne Aufklappen.
