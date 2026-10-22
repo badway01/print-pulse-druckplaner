@@ -75,6 +75,38 @@ class MasterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             app.store_master_file({'listing_id':'123','printer':'bad','filename':'Master.3mf'},io.BytesIO(b'junk'),4)
 
+    def test_corrupted_profile_is_readable_without_rewriting_database(self):
+        with app.connect() as db:
+            db.execute("""INSERT INTO print_profiles(listing_id,variant_id,printer,sources_json,updated)
+                          VALUES('123','','H2D','{broken-json',0)""")
+        summary=app.print_tools_overview()
+        self.assertEqual(len(summary['profiles']),1)
+        self.assertEqual(summary['profiles'][0]['sources'],[])
+        with app.connect() as db:
+            raw=db.execute("SELECT sources_json FROM print_profiles WHERE listing_id='123'").fetchone()[0]
+        self.assertEqual(raw,'{broken-json')
+
+    def test_malformed_slots_cannot_break_all_saved_profiles(self):
+        with app.connect() as db:
+            db.execute("""INSERT INTO print_profiles(listing_id,variant_id,printer,sources_json,updated)
+                        VALUES('123','','H2D',?,0)""",
+                       ('[{"label":"AMS", "slots":"oops"},{"label":"Extern","slots":[null]}]',))
+        result=app.print_tools_overview('123')
+        self.assertEqual(len(result['profiles']),1)
+        self.assertEqual(result['profiles'][0]['sources'],[{'label':'Extern','slots':[None]}])
+
+    def test_pre_migration_spool_columns_can_still_be_read(self):
+        with app.connect() as db:
+            db.execute("ALTER TABLE filament_spools RENAME TO filament_spools_new")
+            db.execute("""CREATE TABLE filament_spools(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              brand TEXT NOT NULL,color TEXT NOT NULL,material TEXT NOT NULL,
+              color_hex TEXT NOT NULL DEFAULT '#c1c9c1',price_cents INTEGER,
+              purchase_url TEXT NOT NULL DEFAULT '',stock_qty INTEGER NOT NULL DEFAULT 0,
+              cart_qty INTEGER NOT NULL DEFAULT 0,created INTEGER NOT NULL,updated INTEGER NOT NULL)""")
+            db.execute("DROP TABLE filament_spools_new")
+        self.assertEqual(app.print_tools_overview(),{'profiles':[],'files':[]})
+
     def test_existing_filament_schema_is_migrated(self):
         with app.connect() as db:
             db.execute("ALTER TABLE filament_spools RENAME TO filament_spools_new")
