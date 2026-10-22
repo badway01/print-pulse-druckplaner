@@ -1,3 +1,7 @@
+## Version 0.11.16
+
+Wenn das Laden von 3MF-Druckprofilen in Safari scheitert, zeigt die App jetzt konkrete Fehler für HTML-/Proxy-Antworten, HTTP-Status und Datenbanklesefehler, statt der generischen WebKit-Ausnahme. Bestehende Masterdateien, Druckprofile und Lagerbestände werden nicht verändert. Die CI testet diesen Ablauf mit WebKit.
+
 ## Korrektur 0.11.15
 
 S6-Container starten Python mit /command/with-contenv, damit SUPERVISOR_TOKEN aus Home Assistant vorhanden ist. Das behebt den fehlenden Zugriff auf die Sensoren. Der Zuordnungsdialog schlägt bei eindeutigen IDs passende HA-Entitäten vor und versteckt optionale Felder unter „Weitere Sensoren“. Bestehende Konfiguration bleibt erhalten.
