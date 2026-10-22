@@ -1,3 +1,9 @@
+# 0.11.14 · Druckerstatus im Dashboard
+
+- Fünf kompakte Bambu/Snapmaker-Tachos mit Fortschritt, Restzeit und Status.
+- Detailansicht mit Sensorzuordnung, Temperaturen und optionalen Filamentfachdaten.
+- Lokale Home-Assistant-API, Lesemodus und sicherer Offline-Zustand.
+
 # 0.11.13 · Masterdateien & Filamentbelegung
 
 - 3MF-Masterdateien drucker- und variantenbezogen ablegen und als Versionen sichern.
