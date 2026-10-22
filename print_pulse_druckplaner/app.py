@@ -996,9 +996,9 @@ def homeassistant_states(force=False):
         if not force and HA_CACHE["at"] and now-HA_CACHE["at"] < HA_CACHE_SECONDS:
             if HA_CACHE["error"]: raise RuntimeError(HA_CACHE["error"])
             return HA_CACHE["data"]
-        token=os.environ.get('SUPERVISOR_TOKEN','')
+        token=os.environ.get('SUPERVISOR_TOKEN') or os.environ.get('HASSIO_TOKEN','')
         if not token:
-            message='Home-Assistant-Zugriff in dieser Umgebung nicht verfügbar.'
+            message='Home-Assistant-Zugang fehlt. Bitte den Druckplaner 0.11.15 installieren und neu starten.'
             HA_CACHE.update(at=now,data=None,error=message)
             raise RuntimeError(message)
         req=urllib.request.Request('http://supervisor/core/api/states',headers={
