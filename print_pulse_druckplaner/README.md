@@ -1,3 +1,7 @@
+## Version 0.11.19
+
+Monitor: vier Drucker (H2D, P1S Old, P1S New, Snapmaker U1). H2D/P1S Old/U1 sind mit verifizierten HA-Sensoren vorbelegt. P1S New enthält derzeit ausschließlich übermittelte Shelly-Entitäten, deshalb keine erfundenen Druckzustände. A1 mini bleibt bei Master-3MF auswählbar. 3MF-Profil-Lesevorgang ist fehlertoleranter und verändert beschädigte ältere Daten nicht.
+
 ## Drucker-Erkennung ab 0.11.18
 
 Über `/api/printers` erkennt die App automatisch und lesend Druckergruppen aus tatsächlich vorhandenen Home-Assistant-Druckstatussensoren. Eindeutige H2D/A1 mini/U1 Zuordnungen werden updatefest gespeichert. P1S Old/New werden nur bei eindeutigem Namen automatisch getrennt, sonst mittels einmaligem Gerätedialog. AMS-Schalter gelten nicht als Druckerstatus. Ohne Bambu-/Snapmaker-HA-Integration ist zunächst diese Integration in Home Assistant erforderlich. Die Manuelle Sensorzuordnung bleibt optional. Größere grüne Fertig-Tasten an aktiven Druckaufträgen.
