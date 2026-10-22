@@ -1,3 +1,12 @@
+# 0.11.20 · P1S New aus deutscher Bambu-Integration lesen
+
+- Bambu Lab ist für P1S New bereits aktiv: die Druckerzuordnung erkennt deshalb nun echte deutsch benannte HA-Entitäten (`druckstatus`, `druckfortschritt`, `verbleibende_zeit`, `gcode_dateiname`, Temperatur, Schichten, AMS).
+- Erst wenn ein echter Druckstatus-Sensor in Home Assistant vorhanden ist, wird die passende P1S-New-Zuordnung gespeichert. Kein Ersatz durch Shelly-Leistung, IP-Adresse oder Geräte-Seriennummer.
+- Deutsche Zustandswerte `Fertig`, `Druckt`, `Bereit`, `Leerlauf`, `Pausiert` und `Nicht verbunden` werden korrekt interpretiert; „Unbekannt“ gilt bei Dateinamen als fehlender Wert.
+- Verfügbare alternative Entitätspräfixe werden anhand echter Druckstatus-Sensoren erkannt; P1S Old/New bleiben getrennt.
+- Regressionstest mit dem realen P1S-New-Gerätezustand: 100 % fertig, 0 h Restzeit, 24 °C Heizbett, 28 °C Düse.
+- Sonstige Funktionen (Etsy, Lager, 3MF, H2D, Snapmaker, großer Fertig-Button) unverändert.
+
 # 0.11.19 · Bestätigte Druckersensoren und fehlertolerante Druckprofile
 
 - Aus den tatsächlichen Home-Assistant-Entitäten vom 22.10.2026 sind H2D, P1S Old und Snapmaker U1 direkt zugeordnet; keine manuelle Sensor-Eingabe nötig. Bambu-Statusdaten und Snapmaker-Temperaturen/Schichten werden nur bei vorhandenen HA-Entitäten verwendet.

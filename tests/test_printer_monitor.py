@@ -107,6 +107,65 @@ class PrinterMonitorTests(unittest.TestCase):
         self.assertEqual(u1['temps']['head0'],25)
         self.assertIsNone(u1['progress'])
 
+
+    def test_p1s_new_detected_from_real_german_bambu_sensors(self):
+        rows=[
+            entity('sensor.keller_p1s_new_druckstatus','Fertig'),
+            entity('sensor.keller_p1s_new_druckfortschritt','100','%'),
+            entity('sensor.keller_p1s_new_verbleibende_zeit','0','h'),
+            entity('sensor.keller_p1s_new_druckbetttemperatur','24','°C'),
+            entity('sensor.keller_p1s_new_temperatur_der_duse','28','°C'),
+            entity('sensor.keller_p1s_new_gcode_dateiname','Unbekannt'),
+            entity('sensor.keller_p1s_new_aktuelle_schicht','0'),
+            entity('sensor.keller_p1s_new_gesamtzahl_der_schichten','0'),
+            entity('sensor.keller_p1s_new_aktueller_arbeitsschritt','Leerlauf'),
+            entity('sensor.keller_p1s_new_ams_1_slot_1','PLA'),
+            # Shelly plug is present but must never be interpreted as a printer.
+            entity('sensor.keller_p1s_new_leistung','32.1','W')
+        ]
+        states={row['entity_id']:row for row in rows}
+        with patch.object(app,'homeassistant_states',return_value=states):
+            result=app.printer_dashboard()
+        p=result['printers'][2]
+        self.assertEqual(result['auto_assigned'],['P1S New'])
+        self.assertTrue(p['configured'])
+        self.assertEqual((p['state'],p['progress']),('finished',100))
+        self.assertIsNone(p['remaining_seconds'])
+        self.assertIsNone(p['filename'])
+        self.assertEqual(p['temps']['bed'],24)
+        self.assertEqual(p['temps']['nozzle'],28)
+        self.assertEqual(p['ams'][0]['name'],'PLA')
+        self.assertEqual(result['bindings']['P1S New']['status'],'sensor.keller_p1s_new_druckstatus')
+        self.assertNotIn('sensor.keller_p1s_new_leistung',
+                         result['bindings']['P1S New'].values())
+        with patch.object(app,'homeassistant_states',return_value=states):
+            unchanged=app.printer_dashboard()
+        self.assertEqual(unchanged['auto_assigned'],[])
+
+    def test_alternative_german_bambu_ids_auto_match_without_false_positives(self):
+        states={row['entity_id']:row for row in (
+            entity('sensor.werkstatt_p1s_new_druckstatus','Druckt'),
+            entity('sensor.werkstatt_p1s_new_druckfortschritt',58,'%'),
+            entity('sensor.werkstatt_p1s_new_verbleibende_zeit',1.25,'h'),
+            entity('sensor.werkstatt_p1s_new_gcode_dateiname','vase.gcode'),
+            entity('sensor.werkstatt_p1s_new_temperatur_der_duse','220','°C'),
+            entity('sensor.werkstatt_p1s_new_druckbetttemperatur','65','°C'),
+            entity('sensor.keller_p1s_new_leistung',165,'W'))}
+        with patch.object(app,'homeassistant_states',return_value=states):
+            p=app.printer_dashboard()['printers'][2]
+        self.assertEqual(p['state'],'printing')
+        self.assertEqual(p['progress'],58)
+        self.assertEqual(p['remaining_seconds'],4500)
+        self.assertEqual(p['filename'],'vase.gcode')
+        self.assertEqual(p['temps']['nozzle'],220)
+        self.assertEqual(p['temps']['bed'],65)
+
+    def test_german_status_values_are_handled(self):
+        expected={'Druckt':'printing','Fertig':'finished','Bereit':'idle',
+                  'Leerlauf':'idle','Pausiert':'paused','Nicht verbunden':'offline'}
+        for value,status in expected.items():
+            self.assertEqual(app.printer_state(entity('sensor.some_print_status',value),True),status)
+
     def test_only_shelly_power_sensors_do_not_make_p1s_new_printable(self):
         states={x['entity_id']:x for x in (
             entity('sensor.keller_p1s_new_leistung',32.1,'W'),
