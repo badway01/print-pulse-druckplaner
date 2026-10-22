@@ -1,3 +1,13 @@
+# 0.11.18 · Drucker automatisch erkennen, „Fertig“ größer
+
+- Erkennt Bambu H2D, A1 mini und Snapmaker U1 anhand echter Druckstatus-Entitäten aus Home Assistant und speichert eindeutige Verknüpfungen updatefest.
+- Die P1S Old/New werden nicht per Reihenfolge oder angenommener Seriennummer verwechselt: eindeutig benannte Geräte werden automatisch zugeordnet, sonst nur einmal per Auswahlmenü.
+- Sensoren eines Druckers werden anhand desselben Entitätsnamens-Präfixes gruppiert (Druckstatus, Fortschritt, Restzeit, Datei, Temperatur); AMS-, Strom- und Raumhilfssensoren sind kein Druckstatus-Ersatz.
+- Einrichtungsdialog mit übersichtlicher Geräteauswahl und verständlicher Meldung bei fehlender Druckerintegration; einzelne HA-IDs nur noch im eingeklappten Expertenbereich.
+- Größerer grüner „Fertig“-Button bei laufenden Auftrags- und Varianten-Drucken, touchfreundlich für das Werkstatt-Tablet.
+- Automatische Tests für eindeutige H2D/U1-Erkennung, zwei identische P1S, falsche AMS-Treffer und den neuen Dialog.
+- Keine automatische Druckersteuerung; vorhandene Lager-, Etsy- und 3MF-Daten bleiben unverändert.
+
 # 0.11.17 · Etsy-Bestandswarnung im Produktionsdashboard
 
 - Schmaler, zunächst eingeklappter Warnbanner unter den Kennzahlen: rot für 0/vergriffene Etsy-Mengen, gelb bei 1 bis 2 Stück (Schwelle veränderbar).
