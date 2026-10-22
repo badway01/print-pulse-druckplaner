@@ -506,3 +506,8 @@ footer{color:#84786a}
  .print-finish-large,.order-job .print-finish-large{min-height:64px;min-width:170px;font-size:18px}
 }
 @media(max-width:570px){.printer-config-quick{grid-template-columns:1fr}.print-finish-large,.order-job .print-finish-large{min-width:142px}}
+
+/* Stronger specificity than the legacy .running-print button rule. */
+.running-print button.print-finish-large,
+.order-job button.print-finish-large,
+.print-row button.print-finish-large{min-height:64px;min-width:170px;padding:12px 19px;font-size:18px;font-weight:750;background:var(--green);color:#fff;border-color:var(--green)}
