@@ -1,3 +1,7 @@
+## Version 0.11.16 · Fehler beim Laden von Druckprofilen in Safari
+
+Der Ausdruck „The string did not match the expected pattern“ ist eine allgemeine Safari-Fehlermeldung und kann auch bei einer HTML-Fehlantwort von Home Assistant auftreten. Die neue Version erklärt bei nicht lesbaren API-Antworten die Ursache verständlicher, erhält die letzte gültige Druckprofilliste und behandelt serverseitige Leseprobleme ohne Datenveränderung. Zusätzlich prüft die CI nun den Druckprofilabruf mit dem Safari-Browsermotor WebKit.
+
 ## Update 0.11.15: Home-Assistant-Sensoren
 
 In Version 0.11.14 startete die App ohne with-contenv; dadurch war der Supervisor-Token in Python nicht sichtbar und die Meldung „Home-Assistant-Zugriff in dieser Umgebung nicht verfügbar“ erschien. **Version 0.11.15 korrigiert den Start**. Nach Installation die App neu starten.

@@ -1,3 +1,9 @@
+# 0.11.16 · Safari-Fehlermeldung beim Laden der Druckprofile
+
+- API-Fehler und HTML-Fehlantworten werden als verständliche Meldung angezeigt.
+- Fehlender Abruf löscht keine gespeicherten Druckprofile, 3MF-Dateien oder Lagerdaten.
+- Neue automatische Browserprüfung mit Safari/WebKit.
+
 # 0.11.15 · Home-Assistant-Sensoren repariert
 
 - Home-Assistant-API-Token wird beim Start korrekt aus der S6-Containerumgebung übernommen.

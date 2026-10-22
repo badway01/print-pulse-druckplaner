@@ -38,7 +38,7 @@ jobs:
       - name: Browser für Bedienprüfung installieren
         run: |
           npm install --no-save --package-lock=false playwright@1.61.1
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium webkit
 
       - name: Oberfläche auf Desktop und Handy prüfen
         run: |
@@ -48,6 +48,7 @@ jobs:
             sleep 1
           done
           node tests/ui.cjs
+          node tests/ui_safari.cjs
 
       - name: Ansichten der Bedienprüfung
         if: always()
