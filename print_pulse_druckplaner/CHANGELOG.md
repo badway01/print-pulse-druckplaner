@@ -1,3 +1,10 @@
+# 0.11.19 · Drucker direkt verbinden, 3MF-Daten vorsichtig laden
+
+- Echte Sensor-IDs für H2D, P1S Old und Snapmaker U1 voreingestellt, ausschließlich bei vorhandenen HA-Entitäten.
+- P1S New ohne Druckdaten bleibt unverbunden; Shelly-Werte werden nicht als Druckstatus verwendet.
+- A1 mini aus Dashboard und Drucker-Reiter entfernt, 3MF-Profile weiterhin verfügbar.
+- Vorhandene beschädigte JSON-Zuordnungen oder ältere Spulen-Spalten blockieren nicht mehr alle Druckprofile.
+
 # 0.11.18 · Druckerautomatik + großer Fertig-Button
 
 - Echte HA-Druckstatus-Sensoren werden je Drucker erkannt und eindeutig zugeordnet.
