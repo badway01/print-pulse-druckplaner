@@ -1168,16 +1168,19 @@ def printer_dashboard(force=False):
         def n(field):
             value=numeric_sensor(sensor_value(states,selected,field))
             return round(value,1) if value is not None else None
-        extras={field:n(field) for field in ('nozzle','nozzle_left','nozzle_right','bed','chamber',
-                                              'head0','head1','head2','head3')}
-        layers={field:n(field) for field in ('layer','total_layers')}
+        extras={field:(n(field) if status not in ('offline','setup') else None)
+                for field in ('nozzle','nozzle_left','nozzle_right','bed','chamber',
+                              'head0','head1','head2','head3')}
+        layers={field:(n(field) if status not in ('offline','setup') else None)
+                for field in ('layer','total_layers')}
         file=sensor_text(sensor_value(states,selected,'filename')) if status not in ('setup','offline') else None
         remaining=printer_remaining(sensor_value(states,selected,'remaining'),printer) if status in ('printing','paused','preparing') else None
-        slots=[printer_ams_slot(sensor_value(states,selected,'ams'+str(i))) for i in range(1,5)]
+        slots=[printer_ams_slot(sensor_value(states,selected,'ams'+str(i)))
+               if status not in ('offline','setup') else None for i in range(1,5)]
         rows.append({'id':printer,'name':('Bambu '+printer if printer!='Snapmaker U1' else printer),
                      'configured':configured,'state':status,'raw_status':sensor_text(sensor_value(states,selected,'status')) if connected else None,
-                     'progress':progress,'remaining_seconds':remaining,'filename':file,'stage':sensor_text(sensor_value(states,selected,'stage')),
-                     'active_tray':sensor_text(sensor_value(states,selected,'active_tray')),
+                     'progress':progress,'remaining_seconds':remaining,'filename':file,'stage':sensor_text(sensor_value(states,selected,'stage')) if status not in ('offline','setup') else None,
+                     'active_tray':sensor_text(sensor_value(states,selected,'active_tray')) if status not in ('offline','setup') else None,
                      'temps':extras,'layers':layers,'ams':slots})
     return {'connected':connected,'error':error,'printers':rows,'bindings':bindings,
             'updated':int(time.time()) if connected else None}
