@@ -6,6 +6,7 @@ let order=[];
 let orderSort='ship';
 let workspace='production',filamentView='colors',filamentData=null,filamentBusy=false,filamentLoading=false;
 let printTools={profiles:[],files:[]}, masterContext=null,masterSources=[],masterBusy=false;
+let printerLive=null,printerLoading=false,printerEntities=[],printerConfigId=null,printerConfigBusy=false;
 try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
 const expanded=new Set();
 const selectedVariants=new Map();
@@ -514,10 +515,13 @@ function showWorkspace(value){
  for(const b of document.querySelectorAll('[data-workspace]')){const chosen=b.dataset.workspace===value;b.classList.toggle('selected',chosen);b.setAttribute('aria-pressed',String(chosen));}
  const production=value==='production';
  for(const id of ['orders-shell','product-toolbar','product-sort-note','products'])$(id).hidden=!production;
+ $('printer-strip').hidden=!production;
  $('filament-shell').hidden=value!=='filament';
  $('catalog-shell').hidden=value!=='catalog';
+ $('printers-shell').hidden=value!=='printers';
  if(value==='catalog'){renderCatalog();loadPrintTools();}
  if(value==='filament')loadFilaments();
+ if(value==='printers'){renderPrinterMonitor();loadPrinters();}
 }
 function openFilamentEditor(id){
  const f=(filamentData?.filaments||[]).find(x=>x.id===id);
@@ -816,6 +820,175 @@ $('master-save').addEventListener('click',saveMaster);
 $('master-upload').addEventListener('click',uploadMaster);
 $('master-copy-path').addEventListener('click',copyMasterPath);
 
-load(true);loadPrintTools();setInterval(()=>load(false),5000);
+
+
+// Separate read-only printer monitor: five compact gauges in production,
+// full status details and persistent HA entity selection in the Drucker tab.
+const monitorPrinters=['H2D','P1S Old','P1S New','A1 mini','Snapmaker U1'];
+const monitorFields=[
+ ['status','Druckstatus (erforderlich)'],['progress','Fortschritt (%)'],['remaining','Restzeit'],
+ ['filename','Aktuelle Druckdatei'],['bed','Heizbett (°C)'],['nozzle','Düse (°C)'],
+ ['nozzle_left','Düse links (H2D)'],['nozzle_right','Düse rechts (H2D)'],
+ ['chamber','Bauraum (°C)'],['layer','Aktuelle Schicht'],['total_layers','Gesamtschichten'],
+ ['stage','Druckphase'],['active_tray','Aktives AMS-Fach'],
+ ['head0','Snapmaker Kopf T0'],['head1','Snapmaker Kopf T1'],
+ ['head2','Snapmaker Kopf T2'],['head3','Snapmaker Kopf T3'],
+ ['ams1','AMS Platz 1'],['ams2','AMS Platz 2'],['ams3','AMS Platz 3'],['ams4','AMS Platz 4']
+];
+const printerStateLabels={
+ setup:'Einrichten',offline:'Offline',printing:'Druckt',paused:'Pausiert',
+ finished:'Fertig',idle:'Bereit',error:'Störung',preparing:'Vorbereitung',unknown:'Status unklar'
+};
+const printerFallback=()=>monitorPrinters.map(id=>({
+ id,name:id==='Snapmaker U1'?id:'Bambu '+id,configured:false,state:'setup',
+ progress:null,remaining_seconds:null,temps:{},layers:{},ams:[],filename:null
+}));
+function printerRows(){return printerLive?.printers?.length===5?printerLive.printers:printerFallback();}
+function printerRemaining(seconds){
+ if(seconds===null||seconds===undefined||!Number.isFinite(Number(seconds)))return 'Restzeit offen';
+ const mins=Math.round(Number(seconds)/60);
+ if(mins<60)return mins+' min';
+ return Math.floor(mins/60)+' h '+String(mins%60).padStart(2,'0')+' min';
+}
+function printerGauge(p,compact=false){
+ const progress=Number.isFinite(p.progress)?Math.max(0,Math.min(100,p.progress)):null;
+ const tone=p.state==='error'?'var(--red)':p.state==='finished'?'var(--gold)':p.state==='printing'?'var(--green)':p.state==='paused'?'#bb914f':'#b6bcb6';
+ const display=progress===null?'–':progress+'%';
+ const fill=progress===null?0:progress;
+ const klass=compact?'printer-gauge compact':'printer-gauge';
+ return '<div class="'+klass+'" role="img" aria-label="'+esc(p.name+': '+(printerStateLabels[p.state]||'Unbekannt')+', '+(progress===null?'kein Fortschritt verfügbar':display))+'" style="--printer-progress:'+fill+'%;--printer-tone:'+tone+'"><span>'+esc(display)+'</span></div>';
+}
+function printerLine(label,value){
+ return '<div class="printer-metric"><span>'+esc(label)+'</span><strong>'+esc(value===null||value===undefined||value===''?'–':String(value))+'</strong></div>';
+}
+function printerTemp(t){return Number.isFinite(t)?t.toLocaleString('de-DE',{maximumFractionDigits:1})+' °C':'–';}
+function renderPrinterMonitor(){
+ const rows=printerRows();
+ updateHTML($('printer-strip-row'),rows.map(p=>{
+  const status=printerStateLabels[p.state]||'Unbekannt';
+  const subtitle=p.state==='printing'||p.state==='paused'?printerRemaining(p.remaining_seconds):status;
+  return '<button type="button" class="printer-mini '+esc(p.state)+'" data-printer-focus="'+esc(p.id)+'" aria-label="'+esc(p.name+', '+status)+
+   '"><b class="printer-mini-name">'+esc(p.id)+'</b>'+printerGauge(p,true)+'<span class="printer-mini-state">'+esc(status)+'</span><small>'+esc(subtitle)+'</small></button>';
+ }).join(''));
+ const issue=printerLive?.error;
+ $('printer-connection').textContent=printerLive?
+  (printerLive.connected?'Verbindung zu Home Assistant aktiv · Statusabfrage alle 20 Sekunden':
+   'Home Assistant nicht erreichbar: '+(issue||'Status unbekannt')+' · Es werden keine alten Werte angezeigt.') :
+  'Druckerstatus wird geladen …';
+ updateHTML($('printer-detail-grid'),rows.map(p=>{
+  const state=printerStateLabels[p.state]||'Unbekannt';
+  const active=p.state==='printing'||p.state==='paused'||p.state==='preparing';
+  const temps=p.temps||{},layers=p.layers||{};
+  const t=p.id==='Snapmaker U1'?
+     [['Kopf T0',temps.head0],['Kopf T1',temps.head1],['Kopf T2',temps.head2],['Kopf T3',temps.head3],['Heizbett',temps.bed]]:
+     [['Düse',temps.nozzle],['Düse links',temps.nozzle_left],['Düse rechts',temps.nozzle_right],['Heizbett',temps.bed],['Bauraum',temps.chamber]];
+  const visible=t.filter(([key,v])=>v!==null&&v!==undefined||(p.id==='Snapmaker U1'&&key.includes('Kopf')));
+  const slots=(p.ams||[]).filter(Boolean);
+  return '<article class="printer-panel '+esc(p.state)+'" data-printer-panel="'+esc(p.id)+'">'+
+   '<div class="printer-panel-head"><div><span class="eyebrow">'+(p.id==='Snapmaker U1'?'SNAPMAKER':'BAMBU LAB')+'</span><h3>'+esc(p.id)+'</h3></div>'+
+   '<span class="printer-status-pill '+esc(p.state)+'">'+esc(state)+'</span></div>'+
+   '<div class="printer-panel-top">'+printerGauge(p)+'<div class="printer-panel-main">'+
+   '<b>'+esc(active?printerRemaining(p.remaining_seconds):p.state==='finished'?'Druck abgeschlossen':state)+'</b>'+
+   '<span>'+esc(p.filename&&p.state!=='offline'?p.filename:p.configured?'Keine aktuelle Druckdatei':'Bitte Sensoren zuordnen')+'</span>'+
+   (p.stage?'<small>Phase: '+esc(p.stage)+'</small>':'')+
+   (p.active_tray?'<small>Aktives AMS: '+esc(p.active_tray)+'</small>':'')+'</div></div>'+
+   '<div class="printer-metrics">'+
+   printerLine('Schichten',layers.layer!=null&&layers.total_layers!=null?layers.layer+' / '+layers.total_layers:layers.layer!=null?layers.layer:'–')+
+   visible.map(([label,value])=>printerLine(label,printerTemp(value))).join('')+
+   '</div>'+
+   (slots.length?'<div class="printer-trays"><b>AMS-Belegung</b><div class="printer-tray-grid">'+slots.map((slot,i)=>
+    '<span class="printer-tray">'+(slot.color?'<i class="printer-tray-swatch" style="background:'+esc(slot.color)+'"></i>':'')+
+    '<small>'+(i+1)+' · '+esc(slot.name)+(slot.material?' · '+esc(slot.material):'')+'</small></span>').join('')+'</div></div>':'')+
+   '<div class="printer-panel-footer"><button type="button" class="secondary small" data-printer-config="'+esc(p.id)+'">'+
+   (p.configured?'Sensorzuordnung bearbeiten':'Sensoren zuordnen')+'</button>'+
+   (p.state==='setup'?'<small>Einmalige Einrichtung erforderlich</small>':'')+'</div></article>';
+ }).join(''));
+}
+async function loadPrinters(force=false){
+ if(printerLoading||document.hidden)return;
+ printerLoading=true;
+ try{printerLive=await api('printers'+(force?'?refresh=1':''));renderPrinterMonitor();}
+ catch(err){printerLive={connected:false,error:err.message,printers:printerRows().map(p=>({...p,state:p.configured?'offline':'setup',progress:null,remaining_seconds:null}))};renderPrinterMonitor();}
+ finally{printerLoading=false;}
+}
+function printerAutofill(){
+ if(!printerConfigId)return;
+ let count=0;
+ const fields=[...document.querySelectorAll('#printer-config-fields input[data-printer-field]')];
+ const prefix=printerConfigId==='H2D'?/(?:h2d)/i:printerConfigId==='A1 mini'?/(?:a1_mini|a1mini|a1 mini)/i:
+  printerConfigId==='Snapmaker U1'?/(?:snapmaker|(?:^|_)u1(?:_|$))/i:
+  printerConfigId==='P1S Old'?/(?:p1s.*old|p1s old)/i:/(?:p1s.*new|p1s new)/i;
+ const aliases={
+  status:['print_status','print_state'],progress:['print_progress','progress'],
+  remaining:['remaining_time','time_remaining'],filename:['gcode_file','gcode_filename','filename','task_name'],
+  nozzle:['nozzle_temperature','nozzle_temp'],nozzle_left:['left_nozzle_temperature','left_nozzle_temp'],
+  nozzle_right:['right_nozzle_temperature','right_nozzle_temp'],bed:['bed_temperature','bed_temp'],
+  chamber:['chamber_temperature','chamber_temp'],layer:['current_layer'],total_layers:['total_layer'],
+  stage:['current_stage'],active_tray:['active_tray'],
+  head0:['tool0_temperature','extruder_temperature','toolhead_0_temp'],
+  head1:['tool1_temperature','extruder1_temperature','toolhead_1_temp'],
+  head2:['tool2_temperature','extruder2_temperature','toolhead_2_temp'],
+  head3:['tool3_temperature','extruder3_temperature','toolhead_3_temp'],
+  ams1:['tray_1'],ams2:['tray_2'],ams3:['tray_3'],ams4:['tray_4']
+ };
+ for(const input of fields){
+  if(input.value)continue;
+  const endings=aliases[input.dataset.printerField]||[];
+  const matches=printerEntities.filter(e=>prefix.test(e.id+' '+e.name) &&
+    endings.some(term=>e.id.includes(term)||e.name.toLowerCase().replace(/\s+/g,'_').includes(term)));
+  if(matches.length===1){input.value=matches[0].id;count++;}
+ }
+ $('printer-config-info').textContent=count?count+' passende Sensoren vorgeschlagen. Bitte Zuordnung prüfen.':
+  'Keine eindeutigen Vorschläge. Bei zwei P1S bitte jeden Sensor manuell dem richtigen Gerät zuweisen.';
+}
+async function openPrinterConfig(id){
+ if(!monitorPrinters.includes(id))return;
+ printerConfigId=id;
+ $('printer-config-title').textContent=id+' · HA-Sensoren';
+ $('printer-config-dialog').showModal();
+ const saved=printerLive?.bindings?.[id]||{};
+ updateHTML($('printer-config-fields'),monitorFields.filter(([field])=>id==='Snapmaker U1'?
+  !['nozzle_left','nozzle_right','chamber'].includes(field):
+  !['head0','head1','head2','head3'].includes(field)).map(([field,label])=>
+  '<label>'+esc(label)+'<input type="text" spellcheck="false" autocomplete="off" maxlength="170" data-printer-field="'+esc(field)+'" list="printer-entity-options" placeholder="sensor.…" value="'+esc(saved[field]||'')+'"></label>').join(''));
+ document.querySelectorAll('#printer-config-fields [data-printer-field]').forEach(input=>{input.value=saved[input.dataset.printerField]||'';});
+ $('printer-config-info').textContent='HA-Sensoren werden geladen …';
+ try{
+  const response=await api('printer-entities');
+  printerEntities=response.entities||[];
+  updateHTML($('printer-entity-options'),printerEntities.map(e=>
+   '<option value="'+esc(e.id)+'" label="'+esc(e.name)+'"></option>').join(''));
+  $('printer-config-info').textContent=response.connected?printerEntities.length+
+   ' Druckersensoren gefunden. Nach ID suchen oder Vorschläge verwenden.':
+   response.error||'Home-Assistant-Sensoren nicht erreichbar. Entitäts-IDs können trotzdem eingetragen werden.';
+ }catch(err){$('printer-config-info').textContent='Sensorliste nicht erreichbar: '+err.message;}
+}
+$('printer-strip-more').addEventListener('click',()=>showWorkspace('printers'));
+$('printer-strip-row').addEventListener('click',event=>{
+ const b=event.target.closest('[data-printer-focus]');
+ if(b){showWorkspace('printers');const panel=[...document.querySelectorAll('[data-printer-panel]')].find(x=>x.dataset.printerPanel===b.dataset.printerFocus);panel?.scrollIntoView({behavior:'smooth',block:'nearest'});}
+});
+$('printer-detail-grid').addEventListener('click',event=>{
+ const b=event.target.closest('[data-printer-config]');if(b)openPrinterConfig(b.dataset.printerConfig);
+});
+$('printer-refresh').addEventListener('click',()=>loadPrinters(true));
+$('printer-suggest').addEventListener('click',printerAutofill);
+$('printer-config-form').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(printerConfigBusy||!printerConfigId)return;
+ printerConfigBusy=true;$('printer-config-save').disabled=true;
+ const entities={};
+ document.querySelectorAll('#printer-config-fields [data-printer-field]').forEach(input=>{entities[input.dataset.printerField]=input.value.trim();});
+ try{
+  await api('printer-config',{printer:printerConfigId,entities});
+  $('printer-config-dialog').close();
+  await loadPrinters(true);
+  flash('Sensorzuordnung für '+printerConfigId+' gespeichert.');
+ }catch(err){flash(err.message,true);}
+ finally{printerConfigBusy=false;$('printer-config-save').disabled=false;}
+});
+
+load(true);loadPrintTools();loadPrinters();setInterval(()=>load(false),5000);
+setInterval(()=>loadPrinters(),20000);
 setInterval(refreshShippingDay,30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshShippingDay();});
