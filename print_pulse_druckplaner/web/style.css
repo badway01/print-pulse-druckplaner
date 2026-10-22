@@ -483,3 +483,26 @@ footer{color:#84786a}
  .etsy-alert-item{flex-direction:column;align-items:stretch;gap:5px}
  .etsy-alert-item>button{align-self:flex-end}
 }
+
+
+/* 0.11.18 · One-click printer matching and larger touch completion controls. */
+.printer-match{margin:14px 0 12px;min-height:40px}
+.printer-match-ok,.printer-match-warning{display:flex;flex-direction:column;gap:5px;padding:14px;border:1px solid #c6dbca;border-radius:10px;background:#eaf4ec;color:#3b5b49;font-size:13px}
+.printer-match-warning{border-color:#e2ccaa;background:#fcf5e9;color:#715326}
+.printer-match strong{font-size:14px}
+.printer-match small,.printer-match-warning span{font-size:12px;line-height:1.5}
+.printer-match-choice{display:flex;flex-direction:column;gap:7px;background:#f1f5ef;border:1px solid #d2ded0;border-radius:10px;padding:13px}
+.printer-match-choice select{width:100%;padding:12px;border:1px solid #b9cabb;border-radius:8px;background:#fff;min-height:48px;font-size:13px;color:#394c42}
+.printer-manual-fields{grid-column:1/-1;border:1px solid #e5dfd4;border-radius:10px;background:#faf9f4;padding:9px 12px;margin:5px 0}
+.printer-manual-fields>summary{font-size:12px;font-weight:650;color:#607064;cursor:pointer;min-height:38px;padding:8px 0}
+.printer-config-quick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}
+.printer-config-fields>.printer-manual-fields{grid-column:1/-1}
+.printer-config-fields>.printer-manual-fields>details{margin:10px 0;padding:8px;border:1px solid #e5dfd4;border-radius:8px}
+.print-finish-large,.order-job .print-finish-large{min-width:155px;min-height:60px;padding:12px 19px;font-size:17px;font-weight:750;background:var(--green);color:#fff;border:1px solid var(--green);border-radius:11px}
+.print-finish-large:hover,.order-job .print-finish-large:hover{background:#315a4c;color:white}
+.order-job>div{align-items:center;flex-wrap:wrap}
+.order-job button[data-job-action="cancel"]{min-height:48px}
+@media (min-width:760px) and (max-width:1365px) and (orientation:landscape){
+ .print-finish-large,.order-job .print-finish-large{min-height:64px;min-width:170px;font-size:18px}
+}
+@media(max-width:570px){.printer-config-quick{grid-template-columns:1fr}.print-finish-large,.order-job .print-finish-large{min-width:142px}}
