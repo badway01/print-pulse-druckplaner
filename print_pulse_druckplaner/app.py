@@ -1149,10 +1149,10 @@ def printer_ams_slot(item):
     return {'name':name,'color':color,'material':material}
 
 
-def printer_dashboard():
+def printer_dashboard(force=False):
     bindings=saved_printer_bindings()
     try:
-        states=homeassistant_states()
+        states=homeassistant_states(force=force)
         connected=True;error=''
     except RuntimeError as exc:
         states={}
@@ -1210,7 +1210,9 @@ class Handler(BaseHTTPRequestHandler):
         path=urllib.parse.urlsplit(self.path).path
         if path=='/api/status': return self.send(200,overview())
         if path=='/api/filaments': return self.send(200,filament_overview())
-        if path=='/api/printers': return self.send(200,printer_dashboard())
+        if path=='/api/printers':
+            params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            return self.send(200,printer_dashboard(force=params.get('refresh')==['1']))
         if path=='/api/printer-entities': return self.send(200,ha_entity_choices())
         if path=='/api/print-tools':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
