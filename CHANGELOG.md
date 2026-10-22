@@ -1,3 +1,12 @@
+# 0.11.17 · Etsy-Bestandswarnung im Produktionsdashboard
+
+- Schmaler, zunächst eingeklappter Warnbanner unter den Kennzahlen: rot für 0/vergriffene Etsy-Mengen, gelb bei 1 bis 2 Stück (Schwelle veränderbar).
+- Berücksichtigt sowohl Etsy-Gesamtmengen als auch aktivierte Varianten; inaktive/Entwurf/abgelaufene Listings ausgeschlossen, ausverkaufte Listings erfasst.
+- Betroffene Varianten werden je Listing gruppiert, bei vielen Kombinationen zunächst nur drei Namen; Klick springt zur Produktkarte.
+- Schwellenwert in Einstellungen von 1 bis 99, Vorgabe 3; nur Anzeige und keine schreibenden Änderungen an Etsy, Bestand oder Druckprofilen.
+- Etsy-Katalog-Aktualisierungszeit wird sichtbar genannt: Bestandsdaten basieren auf dem zuletzt erfolgreichen Katalogabgleich, nicht auf Live-Etsy-Updates.
+- Regressionen für 0/1/2/3 Grenzen, ausverkaufte/inaktive Produkte, 784 Varianten und stabile Bestände.
+
 # 0.11.16 · Druckprofile und Master-3MF in Safari
 
 - Robuster Datenabruf: Nach einem HTML-Fehler des Home-Assistant-Ingress wird eine konkrete Meldung mit HTTP-Status angezeigt statt der unverständlichen Safari-Ausnahme „The string did not match the expected pattern“.
