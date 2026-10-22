@@ -31,8 +31,10 @@ const assert=require('node:assert/strict');
 
   await page.unroute('**/api/print-tools');
   await page.locator('[data-workspace="production"]').click();
-  await page.locator('[data-workspace="catalog"]').click();
-  await page.waitForResponse(res=>res.url().includes('/api/print-tools') && res.ok());
+  await Promise.all([
+   page.waitForResponse(res=>res.url().includes('/api/print-tools') && res.ok()),
+   page.locator('[data-workspace="catalog"]').click()
+  ]);
   assert((await first.textContent()).includes('1 Druckprofil(e)'));
   assert.deepEqual(errors,[],'Safari must not report JS errors');
   console.log('SAFARI PASS: real printer profiles, informative HTML proxy errors and recovery without losing saved profile.');
