@@ -31,6 +31,13 @@ DB_PATH = DATA / "production.sqlite3"
 MASTER_ROOT = Path(os.environ.get("PP_MASTER_DIR", "/share/print-pulse/masterdateien"))
 MAX_MASTER_SIZE = 100 * 1024 * 1024
 PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","A1 mini","Prusa MK4")
+MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","A1 mini","Snapmaker U1")
+MONITOR_FIELDS = ("status","progress","remaining","filename","nozzle","nozzle_left","nozzle_right",
+                  "bed","chamber","layer","total_layers","stage","active_tray",
+                  "head0","head1","head2","head3","ams1","ams2","ams3","ams4")
+HA_CACHE_LOCK = threading.Lock()
+HA_CACHE = {"at": 0, "data": None, "error": None}
+HA_CACHE_SECONDS = 12
 API_BASE = "https://api.etsy.com/v3"
 OAUTH_AUTH = "https://www.etsy.com/oauth/connect"
 OAUTH_TOKEN = "https://api.etsy.com/v3/public/oauth/token"
@@ -981,6 +988,200 @@ def master_download_record(file_id):
         raise ValueError('Ungültiger Dateipfad.')
     return dict(row),path
 
+
+def homeassistant_states(force=False):
+    """Read-only Supervisor proxy, never expose the authentication token to a browser."""
+    now=time.monotonic()
+    with HA_CACHE_LOCK:
+        if not force and HA_CACHE["at"] and now-HA_CACHE["at"] < HA_CACHE_SECONDS:
+            if HA_CACHE["error"]: raise RuntimeError(HA_CACHE["error"])
+            return HA_CACHE["data"]
+        token=os.environ.get('SUPERVISOR_TOKEN','')
+        if not token:
+            message='Home-Assistant-Zugriff in dieser Umgebung nicht verfügbar.'
+            HA_CACHE.update(at=now,data=None,error=message)
+            raise RuntimeError(message)
+        req=urllib.request.Request('http://supervisor/core/api/states',headers={
+            'Authorization':'Bearer '+token,'Accept':'application/json'})
+        try:
+            with urllib.request.urlopen(req,timeout=6) as response:
+                data=json.load(response)
+            if not isinstance(data,list) or len(data)>50000:
+                raise ValueError('Ungültige Sensorantwort.')
+            # Keep only entity states; avoid exposing arbitrary HA attributes.
+            result={str(item['entity_id']):item for item in data
+                    if isinstance(item,dict) and isinstance(item.get('entity_id'),str)}
+            HA_CACHE.update(at=time.monotonic(),data=result,error=None)
+            return result
+        except (urllib.error.URLError,TimeoutError,ValueError,KeyError,OSError) as exc:
+            message='Home Assistant liefert aktuell keine Druckersensordaten.'
+            HA_CACHE.update(at=time.monotonic(),data=None,error=message)
+            raise RuntimeError(message) from None
+
+
+def saved_printer_bindings():
+    with connect() as db:
+        try: raw=json.loads(cfg(db,'printer_monitor_bindings','{}'))
+        except (ValueError,TypeError): raw={}
+    if not isinstance(raw,dict): return {}
+    return {name:{field:raw[name].get(field,'') for field in MONITOR_FIELDS
+                   if isinstance(raw.get(name),dict) and isinstance(raw[name].get(field,''),str)}
+            for name in MONITOR_PRINTERS}
+
+
+def save_printer_bindings(payload):
+    name=payload.get('printer')
+    fields=payload.get('entities')
+    if name not in MONITOR_PRINTERS or not isinstance(fields,dict):
+        raise ValueError('Druckerzuordnung ungültig.')
+    if set(fields)-set(MONITOR_FIELDS):
+        raise ValueError('Unbekannter Sensortyp.')
+    # Only support state domains with no control functionality.
+    clean={}
+    for field in MONITOR_FIELDS:
+        value=fields.get(field,'')
+        if not isinstance(value,str) or len(value)>170:
+            raise ValueError('Ungültige Sensor-ID.')
+        if value and not re.fullmatch(r'(?:sensor|binary_sensor|number|text|select)\.[a-z0-9_]+',value):
+            raise ValueError('Sensor-ID muss eine gültige Home-Assistant-Entität sein.')
+        clean[field]=value
+    with connect() as db:
+        try: all_bindings=json.loads(cfg(db,'printer_monitor_bindings','{}'))
+        except (ValueError,TypeError): all_bindings={}
+        if not isinstance(all_bindings,dict): all_bindings={}
+        all_bindings[name]=clean
+        put_cfg(db,'printer_monitor_bindings',json.dumps(all_bindings,ensure_ascii=False))
+    # Force a subsequent refresh to show new values (only local cache).
+    return {'ok':True,'bindings':saved_printer_bindings()}
+
+
+def ha_entity_choices():
+    try:
+        states=homeassistant_states()
+    except RuntimeError as exc:
+        return {'connected':False,'error':str(exc),'entities':[]}
+    choices=[]
+    for entity_id,item in states.items():
+        if not entity_id.startswith(('sensor.','binary_sensor.','number.','text.','select.')):
+            continue
+        attrs=item.get('attributes') or {}
+        if not isinstance(attrs,dict): attrs={}
+        friendly=str(attrs.get('friendly_name') or '')[:120]
+        # Restrict the picker to printer-related sensors; all existing mappings
+        # can still be entered manually as an entity ID.
+        haystack=(entity_id+' '+friendly).casefold()
+        if not any(term in haystack for term in (
+            'bambu','snapmaker','h2d','p1s','a1_mini','a1 mini','u1',
+            'nozzle','druck','printer','print_progress','print_status',
+            'remaining_time','filament','ams_','toolhead')):
+            continue
+        choices.append({'id':entity_id,'name':friendly,'state':str(item.get('state',''))[:70],
+                        'unit':str(attrs.get('unit_of_measurement') or '')[:16]})
+    choices.sort(key=lambda item:item['id'])
+    return {'connected':True,'error':'','entities':choices[:1000]}
+
+
+def sensor_value(states,bindings,field):
+    entity_id=bindings.get(field,'')
+    if not entity_id:return None
+    return states.get(entity_id)
+
+
+def numeric_sensor(item):
+    if not isinstance(item,dict): return None
+    value=str(item.get('state','')).strip().replace(',','.').rstrip('%').strip()
+    try:
+        n=float(value)
+        return n if math.isfinite(n) else None
+    except (ValueError,TypeError): return None
+
+
+def sensor_text(item):
+    if not isinstance(item,dict): return None
+    value=str(item.get('state','')).strip()
+    return None if not value or value.lower() in ('unknown','unavailable','none','null') else value[:180]
+
+
+def printer_remaining(item,printer):
+    if not isinstance(item,dict):return None
+    value=sensor_text(item)
+    if value is None:return None
+    unit=str((item.get('attributes') or {}).get('unit_of_measurement') or '').casefold().strip()
+    if ':' in value:
+        try:
+            parts=[int(n) for n in value.split(':')]
+            if len(parts)==3:return max(0,min(parts[0]*3600+parts[1]*60+parts[2],604800))
+            if len(parts)==2:return max(0,min(parts[0]*3600+parts[1]*60,604800))
+        except ValueError: return None
+    amount=numeric_sensor(item)
+    if amount is None or amount<0:return None
+    # U1 integration exposes remaining seconds; Bambu sensors use minutes.
+    factor=3600 if unit in ('h','hr','hour','hours','std') else 1 if unit in ('s','sec','second','seconds','sek') else 60
+    if not unit and printer=='Snapmaker U1': factor=1
+    return round(min(amount*factor,604800))
+
+
+def printer_state(item,configured):
+    if not configured:return 'setup'
+    value=sensor_text(item)
+    if value is None:return 'offline'
+    key=value.casefold().replace(' ','_')
+    if key in ('running','printing','print','working','in_progress','busy'):return 'printing'
+    if key in ('finish','finished','complete','completed','success','done'):return 'finished'
+    if key in ('pause','paused','pausing','suspended'):return 'paused'
+    if key in ('failed','failure','error','cancelled','canceled','aborted'):return 'error'
+    if key in ('idle','ready','standby','stopped','offline_idle'):return 'idle'
+    if key in ('prepare','preparing','heating','calibrating','slicing'):return 'preparing'
+    return 'unknown'
+
+
+def printer_ams_slot(item):
+    if not isinstance(item,dict) or sensor_text(item) is None:return None
+    attrs=item.get('attributes') or {}
+    if not isinstance(attrs,dict):attrs={}
+    name=sensor_text(item)
+    raw_color=attrs.get('color') or attrs.get('color_hex') or attrs.get('tray_color')
+    color=None
+    if isinstance(raw_color,str):
+        test=raw_color.strip().lstrip('#')[:6]
+        if re.fullmatch(r'[0-9A-Fa-f]{6}',test):color='#'+test.upper()
+    material=str(attrs.get('type') or attrs.get('filament_type') or attrs.get('tray_type') or '')[:35]
+    return {'name':name,'color':color,'material':material}
+
+
+def printer_dashboard():
+    bindings=saved_printer_bindings()
+    try:
+        states=homeassistant_states()
+        connected=True;error=''
+    except RuntimeError as exc:
+        states={}
+        connected=False;error=str(exc)
+    rows=[]
+    for printer in MONITOR_PRINTERS:
+        selected=bindings.get(printer,{})
+        configured=bool(selected.get('status'))
+        status=printer_state(sensor_value(states,selected,'status'),configured) if connected else ('offline' if configured else 'setup')
+        progress=numeric_sensor(sensor_value(states,selected,'progress'))
+        if progress is not None: progress=round(max(0,min(100,progress)))
+        if status not in ('printing','paused','finished','preparing'):progress=None
+        def n(field):
+            value=numeric_sensor(sensor_value(states,selected,field))
+            return round(value,1) if value is not None else None
+        extras={field:n(field) for field in ('nozzle','nozzle_left','nozzle_right','bed','chamber',
+                                              'head0','head1','head2','head3')}
+        layers={field:n(field) for field in ('layer','total_layers')}
+        file=sensor_text(sensor_value(states,selected,'filename')) if status not in ('setup','offline') else None
+        remaining=printer_remaining(sensor_value(states,selected,'remaining'),printer) if status in ('printing','paused','preparing') else None
+        slots=[printer_ams_slot(sensor_value(states,selected,'ams'+str(i))) for i in range(1,5)]
+        rows.append({'id':printer,'name':('Bambu '+printer if printer!='Snapmaker U1' else printer),
+                     'configured':configured,'state':status,'raw_status':sensor_text(sensor_value(states,selected,'status')) if connected else None,
+                     'progress':progress,'remaining_seconds':remaining,'filename':file,'stage':sensor_text(sensor_value(states,selected,'stage')),
+                     'active_tray':sensor_text(sensor_value(states,selected,'active_tray')),
+                     'temps':extras,'layers':layers,'ams':slots})
+    return {'connected':connected,'error':error,'printers':rows,'bindings':bindings,
+            'updated':int(time.time()) if connected else None}
+
 class Handler(BaseHTTPRequestHandler):
     server_version='PrintPulseLager/0.1'
 
@@ -1009,6 +1210,8 @@ class Handler(BaseHTTPRequestHandler):
         path=urllib.parse.urlsplit(self.path).path
         if path=='/api/status': return self.send(200,overview())
         if path=='/api/filaments': return self.send(200,filament_overview())
+        if path=='/api/printers': return self.send(200,printer_dashboard())
+        if path=='/api/printer-entities': return self.send(200,ha_entity_choices())
         if path=='/api/print-tools':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             lid=(params.get('listing_id') or [''])[0]
@@ -1068,6 +1271,8 @@ class Handler(BaseHTTPRequestHandler):
             data=json.loads(self.rfile.read(length))
             if not isinstance(data,dict): raise ValueError('JSON-Objekt erforderlich.')
             path=urllib.parse.urlsplit(self.path).path
+            if path=='/api/printer-config':
+                return self.send(200,save_printer_bindings(data))
             if path=='/api/print-profile':
                 return self.send(200,save_print_profile(data))
             if path=='/api/filament':
