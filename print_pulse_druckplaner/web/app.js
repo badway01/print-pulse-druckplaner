@@ -1053,6 +1053,45 @@ function printerAutofill(){
  $('printer-config-info').textContent=count?count+' passende Sensoren vorgeschlagen. Bitte Zuordnung prüfen.':
   'Keine eindeutigen Vorschläge. Bei zwei P1S bitte jeden Sensor manuell dem richtigen Gerät zuweisen.';
 }
+
+function availablePrinterCandidates(id){
+ const model=id.startsWith('P1S')?'P1S':id;
+ const used=new Set(Object.entries(printerLive?.bindings||{}).filter(([name,b])=>name!==id&&b?.status).map(([name,b])=>b.status));
+ const configured=printerLive?.bindings?.[id]?.status;
+ return (printerLive?.candidates||[]).filter(c=>c.model===model&&(!used.has(c.id)||c.id===configured));
+}
+function fillPrinterCandidate(candidate){
+ if(!candidate)return;
+ document.querySelectorAll('#printer-config-fields [data-printer-field]').forEach(input=>{
+  input.value=candidate.entities?.[input.dataset.printerField]||'';
+ });
+ $('printer-config-info').textContent='Sensoren dieses Druckers übernommen. Jetzt auf „Zuordnung speichern“ klicken.';
+}
+function showPrinterCandidates(id,saved){
+ const candidates=availablePrinterCandidates(id);
+ const found=candidates.find(c=>c.id===saved.status);
+ if(found){
+  updateHTML($('printer-match'),'<div class="printer-match-ok"><strong>✓ Drucker erkannt</strong><span>'+esc(found.label)+'</span><small>Die Zuordnung ist gespeichert. Keine Sensoreingabe nötig.</small></div>');
+  return;
+ }
+ if(!candidates.length){
+  updateHTML($('printer-match'),'<div class="printer-match-warning"><strong>Kein Druckstatus-Sensor gefunden</strong><span>Home Assistant hat für '+esc(id)+' derzeit keinen erkennbaren Druckstatus. AMS-, Strom- oder Temperatur-Sensoren allein reichen nicht. Bitte die eigentliche Bambu-Lab- bzw. Snapmaker-U1-Integration in Home Assistant prüfen.</span></div>');
+  return;
+ }
+ const isP1s=id.startsWith('P1S');
+ const single=candidates.length===1&&!isP1s;
+ updateHTML($('printer-match'),'<label class="printer-match-choice"><strong>'+(single?'Drucker gefunden':'Welches Gerät ist '+esc(id)+'?')+'</strong><select id="printer-device-choice"><option value="">Bitte auswählen …</option>'+
+ candidates.map(c=>'<option value="'+esc(c.id)+'" '+(single?'selected':'')+'>'+esc(c.label+' · '+c.id)+'</option>').join('')+'</select><small>'+
+ (isP1s?'Beide P1S müssen einmal anhand ihrer Gerätekennung Old/New zugeordnet werden.':'Die Sensoren dieses Druckers werden automatisch übernommen.')+
+ '</small></label>');
+ if(single)fillPrinterCandidate(candidates[0]);
+}
+$('printer-match').addEventListener('change',event=>{
+ if(event.target.id!=='printer-device-choice')return;
+ const c=availablePrinterCandidates(printerConfigId).find(c=>c.id===event.target.value);
+ if(c)fillPrinterCandidate(c);
+});
+
 async function openPrinterConfig(id){
  if(!monitorPrinters.includes(id))return;
  printerConfigId=id;
@@ -1066,20 +1105,20 @@ async function openPrinterConfig(id){
  const fieldInput=([field,label])=>
   '<label>'+esc(label)+'<input type="text" spellcheck="false" autocomplete="off" maxlength="170" data-printer-field="'+esc(field)+'" list="printer-entity-options" placeholder="sensor.…" value="'+esc(saved[field]||'')+'"></label>';
  updateHTML($('printer-config-fields'),
+  '<details class="printer-manual-fields"><summary>Manuelle Sensorzuordnung (nur bei Bedarf)</summary><div class="printer-config-quick">'+
   relevant.filter(([field])=>quickFields.includes(field)).map(fieldInput).join('')+
-  '<details><summary>Weitere Sensoren (Temperaturen, AMS und Druckköpfe) – optional</summary>'+
-  '<div class="printer-advanced-fields">'+relevant.filter(([field])=>!quickFields.includes(field)).map(fieldInput).join('')+'</div></details>');
+  '</div><details><summary>Weitere Sensoren (Temperaturen, AMS und Druckköpfe) – optional</summary>'+
+  '<div class="printer-advanced-fields">'+relevant.filter(([field])=>!quickFields.includes(field)).map(fieldInput).join('')+'</div></details></details>');
  document.querySelectorAll('#printer-config-fields [data-printer-field]').forEach(input=>{input.value=saved[input.dataset.printerField]||'';});
- $('printer-config-info').textContent='HA-Sensoren werden geladen …';
+ showPrinterCandidates(id,saved);
+ $('printer-config-info').textContent='Die einzelnen Sensoren lassen sich bei Bedarf unter „Manuelle Sensorzuordnung“ anzeigen.';
  try{
   const response=await api('printer-entities');
   printerEntities=response.entities||[];
   updateHTML($('printer-entity-options'),printerEntities.map(e=>
    '<option value="'+esc(e.id)+'" label="'+esc(e.name)+'"></option>').join(''));
-  if(response.connected && !saved.status) printerAutofill();
-  else $('printer-config-info').textContent=response.connected?printerEntities.length+
-   ' Druckersensoren gefunden. Vorschläge prüfen oder manuell wählen.':
-   response.error||'Home-Assistant-Sensoren nicht erreichbar. Entitäts-IDs können trotzdem eingetragen werden.';
+  if(!response.connected)$('printer-config-info').textContent=response.error||'Home Assistant ist nicht erreichbar.';
+  else if(!saved.status&&!availablePrinterCandidates(id).length)$('printer-config-info').textContent='Kein passender Druckstatus gefunden. Prüfe die HA-Druckerintegration.';
  }catch(err){$('printer-config-info').textContent='Sensorliste nicht erreichbar: '+err.message;}
 }
 $('printer-strip-more').addEventListener('click',()=>showWorkspace('printers'));
@@ -1098,6 +1137,7 @@ $('printer-config-form').addEventListener('submit',async event=>{
  printerConfigBusy=true;$('printer-config-save').disabled=true;
  const entities={};
  document.querySelectorAll('#printer-config-fields [data-printer-field]').forEach(input=>{entities[input.dataset.printerField]=input.value.trim();});
+ if(!entities.status){flash('Kein Druckstatus-Sensor erkannt. Bitte zuerst die Druckerintegration in Home Assistant prüfen.',true);printerConfigBusy=false;$('printer-config-save').disabled=false;return;}
  try{
   await api('printer-config',{printer:printerConfigId,entities});
   $('printer-config-dialog').close();
