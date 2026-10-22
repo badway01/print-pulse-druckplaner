@@ -7,6 +7,7 @@ let orderSort='ship';
 let workspace='production',filamentView='colors',filamentData=null,filamentBusy=false,filamentLoading=false;
 let printTools={profiles:[],files:[]}, masterContext=null,masterSources=[],masterBusy=false;
 let printerLive=null,printerLoading=false,printerEntities=[],printerConfigId=null,printerConfigBusy=false;
+let etsyAlertExpanded=false,etsyAlertFocused=null;
 try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
 const expanded=new Set();
 const selectedVariants=new Map();
@@ -283,9 +284,76 @@ function orderPrintDialog(tid,action){
  field.focus();field.select();
 }
 
+
+
+function renderEtsyStockBanner(){
+ const alerts=Array.isArray(model?.etsy_stock_alerts)?model.etsy_stock_alerts:[];
+ const wrapper=$('etsy-stock-banner');
+ if(!alerts.length||workspace!=='production'){
+  wrapper.hidden=true;
+  return;
+ }
+ wrapper.hidden=false;
+ const empty=alerts.filter(item=>item.severity==='empty').length;
+ const low=alerts.length-empty;
+ wrapper.classList.toggle('etsy-alert-critical',empty>0);
+ $('etsy-alert-title').textContent=empty?
+  empty+' Artikel ausverkauft oder mit 0 Stück in einer Variante':
+  low+' Artikel mit niedrigem Etsy-Bestand';
+ $('etsy-alert-subtitle').textContent=empty?
+  (low?low+' weitere Artikel knapp · ':'')+'Etsy-Verfügbarkeit jetzt prüfen':
+  'Bei diesen Artikeln liegt die verfügbare Etsy-Menge unter '+model.etsy_alert_threshold+' Stück';
+ $('etsy-alert-updated').textContent=model.last_catalog_sync?
+  'Stand: '+new Date(model.last_catalog_sync*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Berlin'})+' · Katalogabgleich täglich':
+  'Etsy-Katalogdaten noch nicht geladen';
+ $('etsy-alert-toggle').textContent=etsyAlertExpanded?'Schließen':'Alle '+alerts.length+' ansehen';
+ $('etsy-alert-toggle').setAttribute('aria-expanded',String(etsyAlertExpanded));
+ $('etsy-alert-list').hidden=!etsyAlertExpanded;
+ if(!etsyAlertExpanded)return;
+ updateHTML($('etsy-alert-list'),alerts.map(item=>{
+  const empty=item.severity==='empty',amount=item.etsy_qty;
+  const qty=Number.isInteger(amount)?amount+' Stk. bei Etsy':item.state==='sold_out'?'Bei Etsy ausverkauft':'Etsy-Gesamtmenge unbekannt';
+  const variants=item.variants||[];
+  return '<article class="etsy-alert-item '+(empty?'empty':'low')+'">'+
+   '<div class="etsy-alert-item-text"><b title="'+esc(item.title)+'">'+esc(item.title)+'</b>'+
+   '<span class="etsy-alert-qty">'+esc(qty)+'</span>'+
+   (item.state==='sold_out'?'<small>Dieses Listing ist bei Etsy als ausverkauft markiert.</small>':'')+
+   (variants.length?'<div class="etsy-alert-variants">'+variants.map(v=>
+    '<span><strong>'+esc(v.etsy_qty)+' ×</strong> '+esc(v.label)+'</span>').join('')+
+    (item.more_variants?'<small>+ '+item.more_variants+' weitere betroffene Variante'+(item.more_variants===1?'':'n')+'</small>':'')+
+    '</div>':'')+
+   '</div><button type="button" class="secondary small" data-etsy-alert-to="'+esc(item.listing_id)+'" data-etsy-alert-variant="'+esc(variants[0]?.id||'')+'">Zur Produktkarte ↗</button>'+
+   '</article>';
+ }).join(''));
+}
+function goToEtsyAlertListing(listingId,variantId){
+ const product=model?.products.find(p=>p.id===listingId);
+ if(!product)return;
+ etsyAlertFocused=listingId;
+ filter='all';
+ $('search').value='';
+ if(variantId)selectedVariants.set(listingId,variantId);
+ if(product.items.length>1)expanded.add(listingId);
+ render();
+ const card=[...document.querySelectorAll('[data-product]')].find(el=>el.dataset.product===listingId);
+ if(!card)return;
+ card.scrollIntoView({behavior:'smooth',block:'center'});
+ card.classList.add('etsy-alert-highlight');
+ setTimeout(()=>card.classList.remove('etsy-alert-highlight'),3500);
+}
+$('etsy-alert-toggle').addEventListener('click',()=>{
+ etsyAlertExpanded=!etsyAlertExpanded;renderEtsyStockBanner();
+});
+$('etsy-alert-list').addEventListener('click',event=>{
+ const b=event.target.closest('[data-etsy-alert-to]');
+ if(b)goToEtsyAlertListing(b.dataset.etsyAlertTo,b.dataset.etsyAlertVariant);
+});
+
 function render(){if(!model)return;
  openNotices=new Set([...document.querySelectorAll('[data-notice-key][open]')].map(el=>el.dataset.noticeKey));
  const products=model.products.filter(p=>p.state==='active');
+ const visibleProducts=model.products.filter(p=>p.state==='active'||(p.id===etsyAlertFocused&&p.state==='sold_out'));
+ renderEtsyStockBanner();
  const cooldownActive=Number(model.cooldown_until||0)*1000>Date.now();
  $('sync').disabled=!!model.sync.running||!model.authorized||cooldownActive;
  $('undo').disabled=!model.undo||busy;
@@ -301,7 +369,7 @@ function render(){if(!model)return;
  renderCatalog();
  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('selected',b.dataset.filter===filter));
  const search=$('search').value.trim().toLocaleLowerCase('de');
- const selected=order.map(id=>products.find(p=>p.id===id)).filter(Boolean).filter(p=>(filter!=='need'||p.need>0||p.unmatched>0)&&(filter!=='printing'||p.items.some(i=>i.in_print>0))&&(filter!=='uncounted'||p.uninitialized>0)).filter(p=>(p.title+' '+p.items.map(i=>i.label).join(' ')).toLocaleLowerCase('de').includes(search));
+ const selected=order.map(id=>visibleProducts.find(p=>p.id===id)).filter(Boolean).filter(p=>(filter!=='need'||p.need>0||p.unmatched>0)&&(filter!=='printing'||p.items.some(i=>i.in_print>0))&&(filter!=='uncounted'||p.uninitialized>0)).filter(p=>(p.title+' '+p.items.map(i=>i.label).join(' ')).toLocaleLowerCase('de').includes(search));
  const focus=document.activeElement,focusId=focus?.dataset.id,focusAction=focus?.dataset.action,delta=focus?.dataset.delta;
  updateHTML($('products'),selected.length?selected.map(card).join(''):`<div class="empty"><h2>${products.length?'Hier ist alles erledigt.':'Dein Lager startet hier.'}</h2><p>${products.length?'Kein Produkt passt zu dieser Auswahl.':'Etsy verbinden, Produkte laden und einmal deine echten Bestände zählen.'}</p></div>`);
  if(focusId){const next=[...document.querySelectorAll('[data-action]')].find(b=>b.dataset.id===focusId&&b.dataset.action===focusAction&&b.dataset.delta===delta);next?.focus({preventScroll:true});}
@@ -535,6 +603,7 @@ function showWorkspace(value){
  for(const b of document.querySelectorAll('[data-workspace]')){const chosen=b.dataset.workspace===value;b.classList.toggle('selected',chosen);b.setAttribute('aria-pressed',String(chosen));}
  const production=value==='production';
  for(const id of ['orders-shell','product-toolbar','product-sort-note','products'])$(id).hidden=!production;
+ renderEtsyStockBanner();
  $('printer-strip').hidden=!production;
  $('filament-shell').hidden=value!=='filament';
  $('catalog-shell').hidden=value!=='catalog';
@@ -625,8 +694,8 @@ for(const b of document.querySelectorAll('[data-filter]'))b.addEventListener('cl
 for(const b of document.querySelectorAll('[data-close]'))b.addEventListener('click',() => $(b.dataset.close).close());
 $('undo').addEventListener('click',()=>mutate('undo',{id:model.undo}));
 $('sync').addEventListener('click',async()=>{try{await api('sync',{});await load();}catch(err){flash(err.message,true);await load();}});
-$('settings-open').addEventListener('click',()=>{if(!model)return;$('days').value=model.days;$('settings').showModal();});
-$('settings-form').addEventListener('submit',async event=>{event.preventDefault();try{setModel(await api('settings',{days:Number($('days').value)}),true);$('settings').close();flash('Vorratsziel gespeichert.');}catch(err){flash(err.message,true);}});
+$('settings-open').addEventListener('click',()=>{if(!model)return;$('days').value=model.days;$('etsy-alert-threshold').value=model.etsy_alert_threshold??3;$('settings').showModal();});
+$('settings-form').addEventListener('submit',async event=>{event.preventDefault();try{setModel(await api('settings',{days:Number($('days').value),etsy_alert_threshold:Number($('etsy-alert-threshold').value)}),true);$('settings').close();flash('Vorratsziel gespeichert.');}catch(err){flash(err.message,true);}});
 $('config-form').addEventListener('submit',async event=>{event.preventDefault();try{await api('config',Object.fromEntries(new FormData(event.target)));event.target.reset();flash('Zugangsdaten gespeichert. Jetzt Etsy-Freigabe öffnen.');}catch(err){flash(err.message,true);}});
 $('authorize').addEventListener('click',async()=>{try{const {url}=await api('oauth/start',{});const link=$('oauth-link');link.href=url;link.hidden=false;link.focus();}catch(err){flash(err.message,true);}});
 $('finish-form').addEventListener('submit',async event=>{event.preventDefault();const button=event.target.querySelector('button');button.disabled=true;try{await api('oauth/finish',Object.fromEntries(new FormData(event.target)));event.target.reset();$('settings').close();await load();flash('Etsy verbunden. Produkte werden geladen.');}catch(err){flash(err.message,true);}finally{button.disabled=false;}});
