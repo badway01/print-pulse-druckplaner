@@ -907,7 +907,7 @@ function renderPrinterMonitor(){
 async function loadPrinters(force=false){
  if(printerLoading||document.hidden)return;
  printerLoading=true;
- try{printerLive=await api('printers');renderPrinterMonitor();}
+ try{printerLive=await api('printers'+(force?'?refresh=1':''));renderPrinterMonitor();}
  catch(err){printerLive={connected:false,error:err.message,printers:printerRows().map(p=>({...p,state:p.configured?'offline':'setup',progress:null,remaining_seconds:null}))};renderPrinterMonitor();}
  finally{printerLoading=false;}
 }
@@ -951,6 +951,7 @@ async function openPrinterConfig(id){
   !['nozzle_left','nozzle_right','chamber'].includes(field):
   !['head0','head1','head2','head3'].includes(field)).map(([field,label])=>
   '<label>'+esc(label)+'<input type="text" spellcheck="false" autocomplete="off" maxlength="170" data-printer-field="'+esc(field)+'" list="printer-entity-options" placeholder="sensor.…" value="'+esc(saved[field]||'')+'"></label>').join(''));
+ document.querySelectorAll('#printer-config-fields [data-printer-field]').forEach(input=>{input.value=saved[input.dataset.printerField]||'';});
  $('printer-config-info').textContent='HA-Sensoren werden geladen …';
  try{
   const response=await api('printer-entities');
