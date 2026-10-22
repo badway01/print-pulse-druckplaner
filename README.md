@@ -1,3 +1,9 @@
+## Version 0.11.19 · Druckermonitor direkt aus bestätigten HA-Sensoren
+
+Der H2D, P1S Old und Snapmaker U1 verwenden jetzt die am 22.10.2026 bereitgestellten **tatsächlich vorhandenen** Home-Assistant-Entitäten. Die Zuordnung wird automatisch gesetzt, wenn der Druckstatus-Sensor in HA tatsächlich vorhanden ist. H2D/P1S Old verwenden die deutschen Druckstatus-/Fortschritts- und Restzeit-Sensoren; die Bambu-Restzeit liegt in **Stunden**, der Snapmaker U1 liefert Sekunden. Temperaturen, Schichtzahlen, Druckdatei und AMS werden nur dargestellt, wenn die passenden Entitäten verfügbar sind. Der P1S New wurde nur mit Shelly-Stromsensoren geliefert; daraus wird **kein Druckstatus erfunden**. Er bleibt sichtbar mit Hinweis zur fehlenden Bambu-Einbindung.
+
+Der A1 mini ist vorerst **aus der Live-Druckerübersicht** entfernt, nicht aus der Liste der Drucker für Master-3MF-Dateien. Die Funktion „Druckprofile“ toleriert fehlerhafte alte `sources_json`-Daten und fehlende neuere Filamentspalten lesend, ohne Bestände/Dateien zu löschen. Für weitere serverseitige Ursachen kann weiterhin das Add-on-Protokoll nötig sein.
+
 ## Version 0.11.18 · Druckersensoren ohne manuelle Einzelzuordnung
 
 Die App erkennt aus Home Assistants vorhandenen **Druckstatus-Sensoren** die Druckergruppen und übernimmt bei **eindeutigem** H2D, A1 mini oder Snapmaker U1 automatisch alle zugehörigen Sensoren. Zwei P1S mit Seriennummern lassen sich nicht ohne weiteres als Old/New unterscheiden. Daher wird pro Gerät einmal eine einfache Auswahl angeboten; wenn die echten HA-Bezeichnungen Old/New eindeutig enthalten, funktioniert auch diese Zuordnung automatisch. Die Anwendung darf niemals einen P1S anhand seiner Reihenfolge raten.
