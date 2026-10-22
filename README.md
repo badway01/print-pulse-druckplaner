@@ -4,11 +4,19 @@ Eine bewusst kleine Home-Assistant-App für deinen echten Lagervorrat: Etsy-Prod
 
 ## Update in Home Assistant
 
-Der Neustart heißt in der Oberfläche **Lager v0.1**. Die aktuelle technische App-Version ist **0.11.12**. Home Assistant erkennt sie als Update der bisherigen 0.11.11. Repository, Ordner und App-Slug bleiben identisch. In der HA-App-Verwaltung nach Updates suchen, sichern und aktualisieren. Nicht deinstallieren oder eine zweite App anlegen.
+Der Neustart heißt in der Oberfläche **Lager v0.1**. Die aktuelle technische App-Version ist **0.11.13**. Home Assistant erkennt sie als Update der bisherigen 0.11.12. Repository, Ordner und App-Slug bleiben identisch. In der HA-App-Verwaltung nach Updates suchen, sichern und aktualisieren. Nicht deinstallieren oder eine zweite App anlegen.
 
 Die alte Oberfläche (Dashboard, Bestellverwaltung, Drucker, 3MF-Dateien und Produktionslinien) ist vollständig ersetzt. Bestehende Etsy-Zugangsdaten bleiben lokal erhalten. Alte Tabellen werden aus Rücksichtsgründen nicht gelöscht, aber nicht mehr verwendet. Frühere Produktionsstände sind **keine Lagerzählung** und werden nicht übernommen.
 
 **Einmalige Etsy-Freigabe:** Die bisherige Verbindung las nur Bestellungen (`transactions_r`). Für Varianten benötigt Etsy zusätzlich `listings_r`. Bei entsprechendem Hinweis unter **Einstellungen → Etsy-Freigabe öffnen** erneut erlauben und die vollständige Rückleitungsadresse einfügen. Schlüssel müssen bei gleicher Installation nicht neu eingegeben werden. Etsy erhält ausschließlich Lesezugriffe; die angebotenen Mengen werden nie überschrieben.
+
+## Neu in 0.11.13: Master-3MF, Druckprofile und interne Filamentcodes
+
+Im Tab **Produktkatalog & 3MF** oder direkt über **3MF & Farben** auf einer Produktionskarte lässt sich pro Etsy-Produkt und Drucker (optional pro Variante) eine eigene AMS-/AMS-HT-/Externe-Spule-Belegung aus dem Filamentlager hinterlegen. Auf Produktionskarten erscheinen die zugehörigen Farbmuster und internen Codes. Der Code und ein frei nutzbares Notizfeld werden in der Filamentverwaltung gepflegt.
+
+**3MF-Masterdateien** können über denselben Dialog hochgeladen werden (maximal 100 MB, gültiges 3MF-/ZIP-Archiv); frühere Uploads werden nicht überschrieben und sind einzeln herunterladbar. Die Dateien liegen getrennt von App-Updates unter `/share/print-pulse/masterdateien/<Etsy-Produkt-ID>/<Drucker>/`. Dafür ist in der Add-on-Konfiguration `share:rw` freigegeben. Zum direkten Öffnen im Windows-Explorer die Home-Assistant-App **Samba share** aktivieren und `\\homeassistant\share\print-pulse\masterdateien` als Netzwerkordner verwenden. Über **Ordnerpfad kopieren** lässt sich der passende Unterordner in den Explorer einfügen. Je nach lokalem Hostnamen `homeassistant` durch deine HA-IP ersetzen. Der Browser kann aus Sicherheitsgründen nicht zuverlässig den Explorer direkt starten.
+
+**Backup:** Die Dateiablage unter `/share` muss in Home-Assistant-Sicherungen einbezogen und idealerweise zusätzlich extern gesichert werden. Die SQLite-Zuordnungen unter `/data` überstehen normale Updates. Vor Installation ein Backup erstellen. Die Samba-Freigabe ist nur für den Windows-Explorer nötig – Upload und Download funktionieren direkt im Dashboard.
 
 ## Neu in 0.11.12: Vorschläge mit Hersteller-Farbcode
 
