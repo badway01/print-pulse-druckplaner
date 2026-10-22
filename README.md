@@ -1,3 +1,11 @@
+## Version 0.11.18 · Druckersensoren ohne manuelle Einzelzuordnung
+
+Die App erkennt aus Home Assistants vorhandenen **Druckstatus-Sensoren** die Druckergruppen und übernimmt bei **eindeutigem** H2D, A1 mini oder Snapmaker U1 automatisch alle zugehörigen Sensoren. Zwei P1S mit Seriennummern lassen sich nicht ohne weiteres als Old/New unterscheiden. Daher wird pro Gerät einmal eine einfache Auswahl angeboten; wenn die echten HA-Bezeichnungen Old/New eindeutig enthalten, funktioniert auch diese Zuordnung automatisch. Die Anwendung darf niemals einen P1S anhand seiner Reihenfolge raten.
+
+**Voraussetzung:** Die Drucker müssen tatsächlich als Drucker in Home Assistant eingebunden sein (z. B. Bambu Lab über HA-BambuLab und Snapmaker U1 über passende HA-Integration). Die bisher im Screenshot gezeigten `binary_sensor.keller_h2d_ams_*`-Sensoren belegen nur die vorhandene AMS-Überwachung, nicht die Integration des Druckers selbst. Die App kann keine fehlenden Druckstatus-Sensoren erfinden oder Geräte ohne HA-Integration selbst verbinden.
+
+Das Formular zeigt primär die Geräteauswahl. Sensor-IDs sind unter *Manuelle Sensorzuordnung* verborgen. Zusätzlich sind die grünen **Fertig**-Tasten an laufenden Auftrags-/Varianten-Drucken für das 11-Zoll-Wandtablet deutlich größer. Die Änderung verändert keine Etsy-, Lager- oder 3MF-Daten.
+
 ## Version 0.11.17 · Etsy-Verfügbarkeit frühzeitig erkennen
 
 Im Produktionsdashboard unter den Kennzahlen erscheint jetzt bei niedriger **Etsy-Verfügbarkeit** ein schmaler Hinweisbanner. Sobald mindestens ein aktiver Etsy-Artikel bzw. eine bestellbare Variante 0, 1 oder 2 verfügbare Stücke meldet, wird er angezeigt: rot bei Null oder Etsy-Status `sold_out`, ansonsten goldgelb. Die Standard-Warnschwelle ist 3, kann in den Einstellungen zwischen 1 und 99 geändert werden. Artikel und bis zu drei betroffene Varianten je Produkt sind aufklappbar; **Zur Produktkarte** springt zur entsprechenden Variante. Deaktivierte Listings und deaktivierte Varianten werden nicht gemeldet; `sold_out` wird gerade zum Aufdecken stiller Umsatzlücken berücksichtigt.
