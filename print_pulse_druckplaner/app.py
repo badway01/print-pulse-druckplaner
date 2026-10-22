@@ -1064,6 +1064,96 @@ def homeassistant_states(force=False):
             raise RuntimeError(message) from None
 
 
+
+PRINTER_ENTITY_SUFFIXES = {
+ 'status': ('print_status','print_state','printer_status','print_stats_state'),
+ 'progress': ('print_progress','print_percent','progress'),
+ 'remaining': ('remaining_time','time_remaining','print_time_remaining'),
+ 'filename': ('gcode_filename','gcode_file','current_file','print_filename','task_name','filename'),
+ 'nozzle_left': ('left_nozzle_temperature','left_nozzle_temp','nozzle_left_temperature'),
+ 'nozzle_right': ('right_nozzle_temperature','right_nozzle_temp','nozzle_right_temperature'),
+ 'nozzle': ('nozzle_temperature','nozzle_temp'),
+ 'bed': ('bed_temperature','bed_temp'),
+ 'chamber': ('chamber_temperature','chamber_temp'),
+ 'layer': ('current_layer','print_layer'),
+ 'total_layers': ('total_layer_count','total_layers','total_layer'),
+ 'stage': ('current_stage','print_stage'),
+ 'active_tray': ('active_tray','active_ams_tray'),
+ 'head0': ('head_0_nozzle_temperature','head0_nozzle_temperature','tool0_temperature','toolhead_0_temp','extruder_temperature'),
+ 'head1': ('head_1_nozzle_temperature','head1_nozzle_temperature','tool1_temperature','toolhead_1_temp','extruder1_temperature'),
+ 'head2': ('head_2_nozzle_temperature','head2_nozzle_temperature','tool2_temperature','toolhead_2_temp','extruder2_temperature'),
+ 'head3': ('head_3_nozzle_temperature','head3_nozzle_temperature','tool3_temperature','toolhead_3_temp','extruder3_temperature'),
+ 'ams1': ('tray_1','ams_tray_1'),
+ 'ams2': ('tray_2','ams_tray_2'),
+ 'ams3': ('tray_3','ams_tray_3'),
+ 'ams4': ('tray_4','ams_tray_4'),
+}
+
+def printer_model_for_slug(slug):
+    if re.search(r'(?:^|_)h2d(?:_|$)',slug): return 'H2D'
+    if re.search(r'(?:^|_)p1s(?:_|$)',slug): return 'P1S'
+    if re.search(r'(?:^|_)a1_?mini(?:_|$)',slug): return 'A1 mini'
+    if re.search(r'(?:^|_)snapmaker(?:_|$)',slug) or re.search(r'(?:^|_)u1(?:_|$)',slug):
+        return 'Snapmaker U1'
+    return None
+
+def discover_printer_candidates(states):
+    """Group printer sensors by status entity and exact prefix, never by AMS switches."""
+    candidates=[]
+    for status_id in sorted(states):
+        if not status_id.startswith('sensor.'):continue
+        slug=status_id.split('.',1)[1]
+        base=next((slug[:-(len(suffix)+1)] for suffix in PRINTER_ENTITY_SUFFIXES['status']
+                   if slug.endswith('_'+suffix)),None)
+        if not base:continue
+        model=printer_model_for_slug(base)
+        if not model:continue
+        fields={'status':status_id}
+        for field,aliases in PRINTER_ENTITY_SUFFIXES.items():
+            if field=='status':continue
+            found=next((domain+'.'+base+'_'+suffix
+                        for suffix in aliases for domain in ('sensor','number')
+                        if domain+'.'+base+'_'+suffix in states),None)
+            if found:fields[field]=found
+        attrs=states[status_id].get('attributes') or {}
+        friendly=str(attrs.get('friendly_name') or '') if isinstance(attrs,dict) else ''
+        suffix=base.split('_')[-1][:10]
+        label=model+' · '+suffix
+        if re.search(r'(?:^|[\s_])old(?:[\s_]|$)',base+' '+friendly,re.I):
+            label+=' (Old)'
+        elif re.search(r'(?:^|[\s_])new(?:[\s_]|$)',base+' '+friendly,re.I):
+            label+=' (New)'
+        candidates.append({'id':status_id,'model':model,'label':label,'entities':fields})
+    return candidates
+
+def automatic_printer_bindings(bindings,candidates):
+    """Persist only unique matches; P1S Old/New must be disambiguated."""
+    remaining={name:dict(fields) for name,fields in bindings.items()}
+    used={fields.get('status') for fields in remaining.values() if fields.get('status')}
+    changes={}
+    for name in MONITOR_PRINTERS:
+        if remaining.get(name,{}).get('status'):continue
+        model='P1S' if name.startswith('P1S') else name
+        options=[c for c in candidates if c['model']==model and c['id'] not in used]
+        if name.startswith('P1S'):
+            discriminator='Old' if name.endswith('Old') else 'New'
+            options=[c for c in options if c['label'].endswith('('+discriminator+')')]
+        if len(options)!=1:continue
+        changes[name]=options[0]['entities']
+        used.add(options[0]['id'])
+    if not changes:return remaining,[]
+    with connect() as db:
+        try: raw=json.loads(cfg(db,'printer_monitor_bindings','{}'))
+        except (ValueError,TypeError):raw={}
+        if not isinstance(raw,dict):raw={}
+        saved=[]
+        for name,fields in changes.items():
+            if isinstance(raw.get(name),dict) and raw[name].get('status'):continue
+            raw[name]={field:fields.get(field,'') for field in MONITOR_FIELDS}
+            saved.append(name)
+        put_cfg(db,'printer_monitor_bindings',json.dumps(raw,ensure_ascii=False))
+    return saved_printer_bindings(),saved
+
 def saved_printer_bindings():
     with connect() as db:
         try: raw=json.loads(cfg(db,'printer_monitor_bindings','{}'))
@@ -1202,6 +1292,10 @@ def printer_dashboard(force=False):
     except RuntimeError as exc:
         states={}
         connected=False;error=str(exc)
+    candidates=discover_printer_candidates(states) if connected else []
+    assigned=[]
+    if connected:
+        bindings,assigned=automatic_printer_bindings(bindings,candidates)
     rows=[]
     for printer in MONITOR_PRINTERS:
         selected=bindings.get(printer,{})
@@ -1228,6 +1322,7 @@ def printer_dashboard(force=False):
                      'active_tray':sensor_text(sensor_value(states,selected,'active_tray')) if status not in ('offline','setup') else None,
                      'temps':extras,'layers':layers,'ams':slots})
     return {'connected':connected,'error':error,'printers':rows,'bindings':bindings,
+            'candidates':candidates,'auto_assigned':assigned,
             'updated':int(time.time()) if connected else None}
 
 class Handler(BaseHTTPRequestHandler):

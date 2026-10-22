@@ -1,3 +1,10 @@
+# 0.11.18 · Druckerautomatik + großer Fertig-Button
+
+- Echte HA-Druckstatus-Sensoren werden je Drucker erkannt und eindeutig zugeordnet.
+- P1S Old/New werden nicht automatisch vertauscht; bei fehlender Namenszuordnung eine einmalige Auswahl.
+- Ohne Druckerintegration klarer Hinweis statt zahlreicher ungeeigneter AMS-Sensoreinträge.
+- „Fertig“ in Produktionskarten deutlich größer und grün für das Wandtablet.
+
 # 0.11.17 · Frühwarnung für Etsy-Verfügbarkeit
 
 - Übersichtlicher Warnbanner bei niedrigen Etsy-Mengen (rot 0, gelb 1–2, Standardwarnschwelle 3).

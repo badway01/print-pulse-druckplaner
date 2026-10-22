@@ -92,6 +92,85 @@ class PrinterMonitorTests(unittest.TestCase):
         self.assertFalse(lost['connected'])
         self.assertTrue(all(p['progress'] is None for p in lost['printers']))
 
+
+    def test_unambiguous_h2d_and_u1_auto_bind_and_remain_persistent(self):
+        state_rows=[
+            entity('sensor.keller_h2d_01a_print_status','running'),
+            entity('sensor.keller_h2d_01a_print_progress',65,'%'),
+            entity('sensor.keller_h2d_01a_remaining_time',40,'min'),
+            entity('sensor.keller_h2d_01a_gcode_file','sample.3mf'),
+            entity('sensor.snapmaker_u1_print_state','printing'),
+            entity('sensor.snapmaker_u1_print_progress',11,'%'),
+            entity('sensor.snapmaker_u1_time_remaining',600,'s')
+        ]
+        states={x['entity_id']:x for x in state_rows}
+        with patch.object(app,'homeassistant_states',return_value=states):
+            response=app.printer_dashboard()
+        h2d=response['printers'][0]
+        u1=response['printers'][4]
+        self.assertEqual(response['auto_assigned'],['H2D','Snapmaker U1'])
+        self.assertEqual((h2d['state'],h2d['progress'],h2d['remaining_seconds']),('printing',65,2400))
+        self.assertEqual((u1['state'],u1['progress'],u1['remaining_seconds']),('printing',11,600))
+        self.assertEqual(response['bindings']['H2D']['filename'],'sensor.keller_h2d_01a_gcode_file')
+        self.assertEqual(response['bindings']['Snapmaker U1']['progress'],'sensor.snapmaker_u1_print_progress')
+        with patch.object(app,'homeassistant_states',return_value=states):
+            again=app.printer_dashboard()
+        self.assertEqual(again['auto_assigned'],[])
+        self.assertEqual(again['bindings']['H2D']['status'],response['bindings']['H2D']['status'])
+
+    def test_two_identical_p1s_are_not_guessed_from_serial_or_order(self):
+        states={x['entity_id']:x for x in (
+            entity('sensor.p1s_01p012_print_status','idle'),
+            entity('sensor.p1s_01p012_print_progress',0,'%'),
+            entity('sensor.p1s_01p999_print_status','running'),
+            entity('sensor.p1s_01p999_print_progress',80,'%'))}
+        with patch.object(app,'homeassistant_states',return_value=states):
+            result=app.printer_dashboard()
+        self.assertEqual(len([c for c in result['candidates'] if c['model']=='P1S']),2)
+        self.assertIsNone(result['printers'][1]['progress'])
+        self.assertEqual(result['printers'][1]['state'],'setup')
+        self.assertEqual(result['printers'][2]['state'],'setup')
+        self.assertEqual(result['auto_assigned'],[])
+        chosen=next(c for c in result['candidates'] if '01p012' in c['id'])
+        app.save_printer_bindings({'printer':'P1S Old','entities':chosen['entities']})
+        with patch.object(app,'homeassistant_states',return_value=states):
+            result=app.printer_dashboard()
+        self.assertEqual(result['printers'][1]['state'],'idle')
+        self.assertEqual(result['printers'][2]['state'],'setup')
+
+
+    def test_named_p1s_old_and_new_are_autoconfigured_without_crossing(self):
+        states={x['entity_id']:x for x in (
+            entity('sensor.keller_p1s_old_print_status','running'),
+            entity('sensor.keller_p1s_old_print_progress',32,'%'),
+            entity('sensor.keller_p1s_new_print_status','idle'),
+            entity('sensor.keller_p1s_new_print_progress',99,'%'))}
+        with patch.object(app,'homeassistant_states',return_value=states):
+            result=app.printer_dashboard()
+        self.assertEqual(result['bindings']['P1S Old']['status'],'sensor.keller_p1s_old_print_status')
+        self.assertEqual(result['bindings']['P1S New']['status'],'sensor.keller_p1s_new_print_status')
+        self.assertEqual(result['printers'][1]['progress'],32)
+        self.assertIsNone(result['printers'][2]['progress'])
+
+    def test_ams_helpers_without_printer_integration_are_not_false_positives(self):
+        states={x['entity_id']:x for x in (
+            entity('binary_sensor.keller_h2d_ams_128_aktiv','on'),
+            entity('binary_sensor.keller_h2d_ams_128_trocknen','off'),
+            entity('sensor.keller_h2d_ams_temperatur',32,'°C'))}
+        self.assertEqual(app.discover_printer_candidates(states),[])
+        with patch.object(app,'homeassistant_states',return_value=states):
+            result=app.printer_dashboard()
+        self.assertFalse(any(p['configured'] for p in result['printers']))
+
+    def test_ambiguous_h2d_sources_not_automatically_paired(self):
+        states={x['entity_id']:x for x in (
+            entity('sensor.h2d_abc_print_status','printing'),
+            entity('sensor.h2d_xyz_print_status','running'))}
+        with patch.object(app,'homeassistant_states',return_value=states):
+            result=app.printer_dashboard()
+        self.assertFalse(result['printers'][0]['configured'])
+        self.assertEqual(len(result['candidates']),2)
+
     def test_invalid_mappings_rejected_and_empty_source_safe(self):
         for value in ('http://example.org','sensor.foo/../bar','script.turn_on','sensor.bad id'):
             with self.assertRaises(ValueError):

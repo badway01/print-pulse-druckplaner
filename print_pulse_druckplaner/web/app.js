@@ -114,7 +114,7 @@ function variant(p,i){
  <div class="stock-label">Tatsächlicher Bestand</div><div class="stock-row"><button data-action="adjust" data-id="${esc(i.id)}" data-delta="-1" class="step" ${unknown||i.on_hand===0?'disabled':''} aria-label="Ein Stück weniger, ${esc(i.label)}">−</button><button data-action="set" data-id="${esc(i.id)}" class="stock-number" aria-label="Bestand direkt eingeben, ${esc(i.label)}">${unknown?'Zählen':i.on_hand}</button><button data-action="adjust" data-id="${esc(i.id)}" data-delta="1" class="step" ${unknown?'disabled':''} aria-label="Ein Stück mehr, ${esc(i.label)}">+</button></div>
  <p class="availability">${unknown?'Noch nicht erfasst':`${i.reserved} bestellt · ${i.free} frei${coverage}`}</p>
  <div class="recommend ${i.level}"><span class="dot"></span>${esc(recommendation)}</div>
- <div class="print-row"><button class="secondary small" data-action="printing" data-id="${esc(i.id)}" ${unknown?'disabled':''}>+ Im Druck ${i.in_print?`(${i.in_print})`:''}</button>${i.in_print>(i.order_printing||0)?`<button class="primary small" data-action="finish" data-id="${esc(i.id)}">Fertig</button><button class="text-button small" data-action="cancel" data-id="${esc(i.id)}">Abbruch</button>`:''}<button class="text-button small minimum" data-action="minimum" data-id="${esc(i.id)}">Minimum ${i.minimum}</button></div>${i.order_printing?`<p class="hint">Davon ${i.order_printing} für Etsy-Aufträge · Fertigmelden in der Bestellung.</p>`:''}
+ <div class="print-row"><button class="secondary small" data-action="printing" data-id="${esc(i.id)}" ${unknown?'disabled':''}>+ Im Druck ${i.in_print?`(${i.in_print})`:''}</button>${i.in_print>(i.order_printing||0)?`<button class="primary print-finish-large" data-action="finish" data-id="${esc(i.id)}">✓ Fertig</button><button class="text-button small" data-action="cancel" data-id="${esc(i.id)}">Abbruch</button>`:''}<button class="text-button small minimum" data-action="minimum" data-id="${esc(i.id)}">Minimum ${i.minimum}</button></div>${i.order_printing?`<p class="hint">Davon ${i.order_printing} für Etsy-Aufträge · Fertigmelden in der Bestellung.</p>`:''}
  ${notices([i.notice],'variant-'+i.id)}</div>`;
 }
 function printOverview(p){
@@ -152,8 +152,8 @@ function productPrintActions(p){
  const jobs=running.flatMap(i=>(i.order_jobs||[]).map(j=>({...j,label:i.label})));
  return `<div class="product-print-actions"><button class="primary print-start" data-product-print="${esc(p.id)}" data-print-action="printing" ${p.items.length?'':'disabled'}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 17H3V9h18v8h-3M6 14h12v7H6z"/><path d="M17 11h1"/></svg>In Druck</button>
  ${running.length?`<div class="running-print"><b>Im Druck</b><ul>${running.map(i=>`<li><strong>${i.in_print} ×</strong> ${esc(shortVariant(i.label))}${i.order_printing?` · ${i.order_printing} auftragsbezogen`:''}</li>`).join('')}</ul>
- ${own?`<div><button class="secondary" data-product-print="${esc(p.id)}" data-print-action="finish">Fertig (frei)</button><button class="text-button" data-product-print="${esc(p.id)}" data-print-action="cancel">Abbruch (frei)</button></div>`:''}
- ${jobs.map(j=>`<div class="order-job"><small>Auftrag #${esc(j.receipt_id)} · ${j.printing} × ${esc(j.label)}${j.status==='shipped'?' · bereits versendet':''}</small><div><button class="secondary" data-order-job="${esc(j.transaction_id)}" data-job-action="finish">Fertig</button><button class="text-button" data-order-job="${esc(j.transaction_id)}" data-job-action="cancel">Abbruch</button></div></div>`).join('')}</div>`:''}</div>`;
+ ${own?`<div><button class="primary print-finish-large" data-product-print="${esc(p.id)}" data-print-action="finish">✓ Fertig (frei)</button><button class="text-button" data-product-print="${esc(p.id)}" data-print-action="cancel">Abbruch (frei)</button></div>`:''}
+ ${jobs.map(j=>`<div class="order-job"><small>Auftrag #${esc(j.receipt_id)} · ${j.printing} × ${esc(j.label)}${j.status==='shipped'?' · bereits versendet':''}</small><div><button class="primary print-finish-large" data-order-job="${esc(j.transaction_id)}" data-job-action="finish">✓ Fertig</button><button class="text-button" data-order-job="${esc(j.transaction_id)}" data-job-action="cancel">Abbruch</button></div></div>`).join('')}</div>`:''}</div>`;
 }
 function printCandidates(p,action){return p.items.filter(i=>action==='printing'?i.enabled:i.in_print>(i.order_printing||0));}
 function productPrintDialog(id,action){
@@ -948,7 +948,7 @@ const monitorFields=[
  ['ams1','AMS Platz 1'],['ams2','AMS Platz 2'],['ams3','AMS Platz 3'],['ams4','AMS Platz 4']
 ];
 const printerStateLabels={
- setup:'Einrichten',offline:'Offline',printing:'Druckt',paused:'Pausiert',
+ setup:'Nicht verbunden',offline:'Offline',printing:'Druckt',paused:'Pausiert',
  finished:'Fertig',idle:'Bereit',error:'Störung',preparing:'Vorbereitung',unknown:'Status unklar'
 };
 const printerFallback=()=>monitorPrinters.map(id=>({
@@ -1013,7 +1013,7 @@ function renderPrinterMonitor(){
     '<small>'+(i+1)+' · '+esc(slot.name)+(slot.material?' · '+esc(slot.material):'')+'</small></span>').join('')+'</div></div>':'')+
    '<div class="printer-panel-footer"><button type="button" class="secondary small" data-printer-config="'+esc(p.id)+'">'+
    (p.configured?'Sensorzuordnung bearbeiten':'Sensoren zuordnen')+'</button>'+
-   (p.state==='setup'?'<small>Einmalige Einrichtung erforderlich</small>':'')+'</div></article>';
+   (p.state==='setup'?'<small>'+(p.id.startsWith('P1S')&&(printerLive?.candidates||[]).some(c=>c.model==='P1S')?'P1S einmal zuordnen':'Kein Druckstatus erkannt · HA-Integration prüfen')+'</small>':'')+'</div></article>';
  }).join(''));
 }
 async function loadPrinters(force=false){
@@ -1053,6 +1053,45 @@ function printerAutofill(){
  $('printer-config-info').textContent=count?count+' passende Sensoren vorgeschlagen. Bitte Zuordnung prüfen.':
   'Keine eindeutigen Vorschläge. Bei zwei P1S bitte jeden Sensor manuell dem richtigen Gerät zuweisen.';
 }
+
+function availablePrinterCandidates(id){
+ const model=id.startsWith('P1S')?'P1S':id;
+ const used=new Set(Object.entries(printerLive?.bindings||{}).filter(([name,b])=>name!==id&&b?.status).map(([name,b])=>b.status));
+ const configured=printerLive?.bindings?.[id]?.status;
+ return (printerLive?.candidates||[]).filter(c=>c.model===model&&(!used.has(c.id)||c.id===configured));
+}
+function fillPrinterCandidate(candidate){
+ if(!candidate)return;
+ document.querySelectorAll('#printer-config-fields [data-printer-field]').forEach(input=>{
+  input.value=candidate.entities?.[input.dataset.printerField]||'';
+ });
+ $('printer-config-info').textContent='Sensoren dieses Druckers übernommen. Jetzt auf „Zuordnung speichern“ klicken.';
+}
+function showPrinterCandidates(id,saved){
+ const candidates=availablePrinterCandidates(id);
+ const found=candidates.find(c=>c.id===saved.status);
+ if(found){
+  updateHTML($('printer-match'),'<div class="printer-match-ok"><strong>✓ Drucker erkannt</strong><span>'+esc(found.label)+'</span><small>Die Zuordnung ist gespeichert. Keine Sensoreingabe nötig.</small></div>');
+  return;
+ }
+ if(!candidates.length){
+  updateHTML($('printer-match'),'<div class="printer-match-warning"><strong>Kein Druckstatus-Sensor gefunden</strong><span>Home Assistant hat für '+esc(id)+' derzeit keinen erkennbaren Druckstatus. AMS-, Strom- oder Temperatur-Sensoren allein reichen nicht. Bitte die eigentliche Bambu-Lab- bzw. Snapmaker-U1-Integration in Home Assistant prüfen.</span></div>');
+  return;
+ }
+ const isP1s=id.startsWith('P1S');
+ const single=candidates.length===1&&!isP1s;
+ updateHTML($('printer-match'),'<label class="printer-match-choice"><strong>'+(single?'Drucker gefunden':'Welches Gerät ist '+esc(id)+'?')+'</strong><select id="printer-device-choice"><option value="">Bitte auswählen …</option>'+
+ candidates.map(c=>'<option value="'+esc(c.id)+'" '+(single?'selected':'')+'>'+esc(c.label+' · '+c.id)+'</option>').join('')+'</select><small>'+
+ (isP1s?'Beide P1S müssen einmal anhand ihrer Gerätekennung Old/New zugeordnet werden.':'Die Sensoren dieses Druckers werden automatisch übernommen.')+
+ '</small></label>');
+ if(single)fillPrinterCandidate(candidates[0]);
+}
+$('printer-match').addEventListener('change',event=>{
+ if(event.target.id!=='printer-device-choice')return;
+ const c=availablePrinterCandidates(printerConfigId).find(c=>c.id===event.target.value);
+ if(c)fillPrinterCandidate(c);
+});
+
 async function openPrinterConfig(id){
  if(!monitorPrinters.includes(id))return;
  printerConfigId=id;
@@ -1066,20 +1105,20 @@ async function openPrinterConfig(id){
  const fieldInput=([field,label])=>
   '<label>'+esc(label)+'<input type="text" spellcheck="false" autocomplete="off" maxlength="170" data-printer-field="'+esc(field)+'" list="printer-entity-options" placeholder="sensor.…" value="'+esc(saved[field]||'')+'"></label>';
  updateHTML($('printer-config-fields'),
+  '<details class="printer-manual-fields"><summary>Manuelle Sensorzuordnung (nur bei Bedarf)</summary><div class="printer-config-quick">'+
   relevant.filter(([field])=>quickFields.includes(field)).map(fieldInput).join('')+
-  '<details><summary>Weitere Sensoren (Temperaturen, AMS und Druckköpfe) – optional</summary>'+
-  '<div class="printer-advanced-fields">'+relevant.filter(([field])=>!quickFields.includes(field)).map(fieldInput).join('')+'</div></details>');
+  '</div><details><summary>Weitere Sensoren (Temperaturen, AMS und Druckköpfe) – optional</summary>'+
+  '<div class="printer-advanced-fields">'+relevant.filter(([field])=>!quickFields.includes(field)).map(fieldInput).join('')+'</div></details></details>');
  document.querySelectorAll('#printer-config-fields [data-printer-field]').forEach(input=>{input.value=saved[input.dataset.printerField]||'';});
- $('printer-config-info').textContent='HA-Sensoren werden geladen …';
+ showPrinterCandidates(id,saved);
+ $('printer-config-info').textContent='Die einzelnen Sensoren lassen sich bei Bedarf unter „Manuelle Sensorzuordnung“ anzeigen.';
  try{
   const response=await api('printer-entities');
   printerEntities=response.entities||[];
   updateHTML($('printer-entity-options'),printerEntities.map(e=>
    '<option value="'+esc(e.id)+'" label="'+esc(e.name)+'"></option>').join(''));
-  if(response.connected && !saved.status) printerAutofill();
-  else $('printer-config-info').textContent=response.connected?printerEntities.length+
-   ' Druckersensoren gefunden. Vorschläge prüfen oder manuell wählen.':
-   response.error||'Home-Assistant-Sensoren nicht erreichbar. Entitäts-IDs können trotzdem eingetragen werden.';
+  if(!response.connected)$('printer-config-info').textContent=response.error||'Home Assistant ist nicht erreichbar.';
+  else if(!saved.status&&!availablePrinterCandidates(id).length)$('printer-config-info').textContent='Kein passender Druckstatus gefunden. Prüfe die HA-Druckerintegration.';
  }catch(err){$('printer-config-info').textContent='Sensorliste nicht erreichbar: '+err.message;}
 }
 $('printer-strip-more').addEventListener('click',()=>showWorkspace('printers'));
@@ -1098,6 +1137,7 @@ $('printer-config-form').addEventListener('submit',async event=>{
  printerConfigBusy=true;$('printer-config-save').disabled=true;
  const entities={};
  document.querySelectorAll('#printer-config-fields [data-printer-field]').forEach(input=>{entities[input.dataset.printerField]=input.value.trim();});
+ if(!entities.status){flash('Kein Druckstatus-Sensor erkannt. Bitte zuerst die Druckerintegration in Home Assistant prüfen.',true);printerConfigBusy=false;$('printer-config-save').disabled=false;return;}
  try{
   await api('printer-config',{printer:printerConfigId,entities});
   $('printer-config-dialog').close();

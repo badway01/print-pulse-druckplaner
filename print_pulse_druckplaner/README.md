@@ -1,3 +1,7 @@
+## Drucker-Erkennung ab 0.11.18
+
+Über `/api/printers` erkennt die App automatisch und lesend Druckergruppen aus tatsächlich vorhandenen Home-Assistant-Druckstatussensoren. Eindeutige H2D/A1 mini/U1 Zuordnungen werden updatefest gespeichert. P1S Old/New werden nur bei eindeutigem Namen automatisch getrennt, sonst mittels einmaligem Gerätedialog. AMS-Schalter gelten nicht als Druckerstatus. Ohne Bambu-/Snapmaker-HA-Integration ist zunächst diese Integration in Home Assistant erforderlich. Die Manuelle Sensorzuordnung bleibt optional. Größere grüne Fertig-Tasten an aktiven Druckaufträgen.
+
 ## Etsy-Verfügbarkeitswarnung ab 0.11.17
 
 Das Dashboard zeigt einen kompakten Warnbanner, wenn der zuletzt von Etsy importierte Listing- bzw. aktivierte Variantenbestand unter der eingestellten Schwelle (Standard 3) liegt. Null/ausverkauft rot, 1–2 goldgelb. Aufklappen zeigt betroffene Varianten, und Zur Produktkarte führt zum Listing. Die Daten kommen aus dem Etsy-Katalogabgleich (normalerweise täglich), nicht aus den tatsächlichen gezählten Lagerbeständen. Es erfolgen keine Schreiboperationen bei Etsy.
