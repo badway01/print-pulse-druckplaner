@@ -9,6 +9,7 @@
 <div id="summary" class="summary"></div>
 <nav class="workspace-tabs" aria-label="Druckplaner-Bereiche">
  <button type="button" data-workspace="production" class="selected" aria-pressed="true">Produktion</button>
+ <button type="button" data-workspace="catalog" aria-pressed="false">Produktkatalog &amp; 3MF</button>
  <button type="button" data-workspace="filament" aria-pressed="false">Filament &amp; Einkauf <span id="filament-tab-count" class="workspace-count" hidden></span></button>
 </nav>
 <section id="orders-shell" class="orders-shell" aria-label="Aktuelle Etsy-Bestellungen">
@@ -19,6 +20,7 @@
 <section id="product-toolbar" class="toolbar" aria-label="Produkte filtern"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Produkt oder Variante suchen" aria-label="Produkt oder Variante suchen"></label><div class="filters"><button data-filter="all" class="selected">Alle Produkte</button><button data-filter="need">Nachdrucken</button><button data-filter="printing">Im Druck</button><button data-filter="uncounted">Noch zählen</button></div><button id="undo" class="text-button" disabled>↶ Rückgängig</button></section>
 <div id="product-sort-note" class="sort-note">Dringende Produkte zuerst · Etsy-Mengen werden nicht verändert.</div>
 <section id="products" class="grid" aria-label="Produkte"></section>
+<section id="catalog-shell" class="catalog-shell" hidden><div class="filament-head"><div><span class="eyebrow">MASTERDATEIEN &amp; DRUCKPROFILE</span><h2>Dein Produktkatalog</h2><p>3MF-Dateien je Drucker sichern, Filamentplätze aus deinem Bestand belegen und den Netzwerkordner kopieren.</p></div></div><label class="filament-search"><span>⌕</span><input id="catalog-search" type="search" placeholder="Produkt suchen" aria-label="Produktkatalog suchen"></label><div id="catalog-rows" class="catalog-rows"></div></section>
 <section id="filament-shell" class="filament-shell" hidden aria-label="Filamentlager und Einkaufsliste">
  <div class="filament-head"><div><span class="eyebrow">SPULEN IM BLICK</span><h2>Dein Filamentlager</h2><p>Farben, Preise und Einkaufslinks an einem Ort. Eine Spule leer? Direkt auf die Einkaufsliste setzen.</p></div><button id="filament-add" type="button" class="primary">+ Filament anlegen</button></div>
  <div class="filament-toolbar"><div class="filament-switch" role="group" aria-label="Filamentansicht"><button type="button" data-filament-view="colors" class="selected" aria-pressed="true">Meine Farben <span id="filament-color-count">0</span></button><button type="button" data-filament-view="cart" aria-pressed="false">🛒 Einkaufsliste <span id="filament-cart-count">0</span></button></div><label class="filament-search" id="filament-search-wrap"><span>⌕</span><input id="filament-search" type="search" placeholder="Farbe oder Hersteller suchen" aria-label="Filament suchen"></label></div>
@@ -47,15 +49,29 @@
  <label>Farbcode &amp; Farbmuster
  <span class="filament-hex-preview"><input name="color_hex" id="filament-color-hex" type="color" value="#ffffff" aria-label="Farbmuster manuell ändern"><output id="filament-hex-code">#FFFFFF</output></span>
  <small id="filament-hex-status">Farbcode wird bei bekannten Farben übernommen.</small></label>
+ <label>Interner Farbcode<input name="internal_code" maxlength="24" placeholder="z. B. 1 oder W-01"></label>
  <label>Volle Spulen im Regal<input name="stock_qty" type="number" min="0" max="100000" step="1" value="0" required></label>
  <label>Preis pro Spule (€)<input name="price" inputmode="decimal" placeholder="z. B. 19,90"></label>
  </div>
  <p id="filament-duplicate" class="filament-duplicate" role="alert" hidden></p>
  <button type="button" id="filament-existing" class="secondary filament-existing" hidden>Vorhandenen Eintrag bearbeiten</button>
  
+ <label>Eigene Notizen<textarea name="notes" maxlength="1500" rows="2" placeholder="z. B. interne Hinweise zur Farbe"></textarea></label>
  <label>Einkaufslink (https://)<input name="purchase_url" type="url" maxlength="1000" placeholder="https://…" autocomplete="off"></label>
  <p class="hint">Die Einkaufsliste ist eine Merkliste. Es wird nichts automatisch gekauft.</p>
  <div class="filament-form-actions"><button type="button" id="filament-delete" class="text-button" hidden>Filament löschen</button><button type="submit" id="filament-save" class="primary">Filament speichern</button></div>
  </form></dialog>
+<dialog id="master-editor" class="master-editor"><div class="dialog-heading"><h2 id="master-title">Masterdateien &amp; Farben</h2><button type="button" data-close="master-editor" class="icon-button" aria-label="Schließen">×</button></div>
+<p class="hint">Die Filamentbelegung wird je Produkt, optional je Variante, und Drucker gespeichert.</p>
+<div class="master-context"><label>Variante<select id="master-variant"></select></label><label>Drucker<select id="master-printer"></select></label></div>
+<h3>Filamentbelegung</h3><div id="master-sources"></div>
+<div class="master-add-source"><select id="master-source-type" aria-label="Filamentquelle hinzufügen"><option value="ams">AMS (4 Plätze)</option><option value="ams_ht">AMS HT (1 Platz)</option><option value="external">Externe Spule (1 Platz)</option></select><button type="button" id="master-add" class="secondary">+ Hinzufügen</button></div>
+<button type="button" id="master-save" class="primary">Belegung speichern</button>
+<h3>Master-3MF-Dateien</h3><div id="master-files"></div>
+<label class="master-upload">Neue Masterdatei (.3mf)<input id="master-upload-input" type="file" accept=".3mf" /></label>
+<button type="button" id="master-upload" class="secondary">Datei sicher ablegen</button>
+<button type="button" id="master-copy-path" class="secondary">Ordnerpfad kopieren</button>
+<p class="hint">Jeder Upload bleibt als eigene Version erhalten. Über „Ordnerpfad kopieren“ öffnest du den Speicherort im Windows-Explorer. Die Samba-Freigabe muss separat eingerichtet sein.</p>
+</dialog>
 <div id="toast" class="toast" role="status" hidden></div>
 </body></html>

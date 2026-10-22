@@ -14,6 +14,7 @@ import secrets
 import sqlite3
 import threading
 import time
+import zipfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -27,6 +28,9 @@ ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
+MASTER_ROOT = Path(os.environ.get("PP_MASTER_DIR", "/share/print-pulse/masterdateien"))
+MAX_MASTER_SIZE = 100 * 1024 * 1024
+PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","A1 mini","Prusa MK4")
 API_BASE = "https://api.etsy.com/v3"
 OAUTH_AUTH = "https://www.etsy.com/oauth/connect"
 OAUTH_TOKEN = "https://api.etsy.com/v3/public/oauth/token"
@@ -218,7 +222,21 @@ def init_db():
           stock_qty INTEGER NOT NULL DEFAULT 0 CHECK(stock_qty>=0),
           cart_qty INTEGER NOT NULL DEFAULT 0 CHECK(cart_qty>=0),
           created INTEGER NOT NULL, updated INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS print_profiles(
+          listing_id TEXT NOT NULL,variant_id TEXT NOT NULL DEFAULT '',
+          printer TEXT NOT NULL,sources_json TEXT NOT NULL DEFAULT '[]',
+          updated INTEGER NOT NULL,PRIMARY KEY(listing_id,variant_id,printer));
+        CREATE TABLE IF NOT EXISTS master_files(
+          id TEXT PRIMARY KEY,listing_id TEXT NOT NULL,variant_id TEXT NOT NULL DEFAULT '',
+          printer TEXT NOT NULL,filename TEXT NOT NULL,relative_path TEXT NOT NULL UNIQUE,
+          bytes INTEGER NOT NULL,created INTEGER NOT NULL);
+        CREATE INDEX IF NOT EXISTS master_files_listing ON master_files(listing_id);
         """)
+        columns={col['name'] for col in db.execute("PRAGMA table_info(filament_spools)")}
+        if 'internal_code' not in columns:
+            db.execute("ALTER TABLE filament_spools ADD COLUMN internal_code TEXT NOT NULL DEFAULT ''")
+        if 'notes' not in columns:
+            db.execute("ALTER TABLE filament_spools ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
         os.chmod(DB_PATH, 0o600)
 
 
@@ -761,6 +779,14 @@ def filament_mutate(data):
                 raise ValueError('Hersteller, Farbe und Material müssen ausgefüllt sein.')
             fields[key]=val.strip()
         fields['brand']=filament_brand(fields['brand'])
+        internal_code=data.get('internal_code','')
+        notes=data.get('notes','')
+        if not isinstance(internal_code,str) or len(internal_code.strip())>24:
+            raise ValueError('Interner Farbcode darf maximal 24 Zeichen haben.')
+        if not isinstance(notes,str) or len(notes.strip())>1500:
+            raise ValueError('Filamentnotiz darf maximal 1500 Zeichen haben.')
+        internal_code=internal_code.strip()
+        notes=notes.strip()
         stock_qty=integer(data.get('stock_qty'),0,100000)
         color_hex=str(data.get('color_hex') or '#c1c9c1')
         if not re.fullmatch(r'#[0-9A-Fa-f]{6}',color_hex):
@@ -797,14 +823,14 @@ def filament_mutate(data):
                     raise ValueError('Filament bereits vorhanden: '+existing['brand']+' · '+existing['material']+' · '+existing['color']+'. Bitte vorhandenen Eintrag bearbeiten.')
             if rowid is None:
                 db.execute("""INSERT INTO filament_spools
-                   (brand,color,material,color_hex,price_cents,purchase_url,stock_qty,created,updated)
-                   VALUES (?,?,?,?,?,?,?,?,?)""",
-                   (fields['brand'],fields['color'],fields['material'],color_hex,price_cents,url,stock_qty,now,now))
+                   (brand,color,material,color_hex,price_cents,purchase_url,stock_qty,internal_code,notes,created,updated)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                   (fields['brand'],fields['color'],fields['material'],color_hex,price_cents,url,stock_qty,internal_code,notes,now,now))
             else:
                 changed=db.execute("""UPDATE filament_spools
-                   SET brand=?,color=?,material=?,color_hex=?,price_cents=?,purchase_url=?,stock_qty=?,updated=?
+                   SET brand=?,color=?,material=?,color_hex=?,price_cents=?,purchase_url=?,stock_qty=?,internal_code=?,notes=?,updated=?
                    WHERE id=?""",(fields['brand'],fields['color'],fields['material'],color_hex,
-                   price_cents,url,stock_qty,now,rowid))
+                   price_cents,url,stock_qty,internal_code,notes,now,rowid))
                 if not changed.rowcount: raise ValueError('Filament nicht gefunden.')
         return
     rowid=integer(data.get('id'),1,999999999)
@@ -825,6 +851,135 @@ def filament_mutate(data):
         else:
             raise ValueError('Unbekannte Filamentaktion.')
 
+
+
+
+def print_tools_overview(listing_id=None):
+    """Central printer assignments and immutable 3MF revisions."""
+    with connect() as db:
+        where=' WHERE listing_id=?' if listing_id else ''
+        args=(listing_id,) if listing_id else ()
+        profiles=[dict(r) for r in db.execute(
+            'SELECT * FROM print_profiles'+where+' ORDER BY listing_id,printer,variant_id',args)]
+        files=[dict(r) for r in db.execute(
+            'SELECT id,listing_id,variant_id,printer,filename,bytes,created FROM master_files'
+            +where+' ORDER BY created DESC,id DESC',args)]
+        spools={r['id']:dict(r) for r in db.execute(
+            'SELECT id,brand,color,material,color_hex,internal_code,notes FROM filament_spools')}
+    for row in profiles:
+        row['sources']=json.loads(row.pop('sources_json'))
+        row['colors']=[]
+        for source in row['sources']:
+            for number,fid in enumerate(source['slots'],1):
+                f=spools.get(fid)
+                if f:
+                    row['colors'].append({'id':fid,'code':f['internal_code'],'color':f['color'],
+                        'brand':f['brand'],'material':f['material'],'hex':f['color_hex'],
+                        'slot':source['label']+' · '+str(number)})
+    return {'profiles':profiles,'files':files}
+
+
+def validate_profile_target(db, data):
+    lid=str(data.get('listing_id') or '')
+    variant=str(data.get('variant_id') or '')
+    printer=data.get('printer')
+    if not lid.isdigit() or len(lid)>32 or printer not in PRINTERS:
+        raise ValueError('Produkt oder Drucker ungültig.')
+    if not db.execute('SELECT 1 FROM stock_listings WHERE id=?',(lid,)).fetchone():
+        raise ValueError('Produkt nicht gefunden.')
+    if variant and not db.execute(
+        'SELECT 1 FROM stock_items WHERE id=? AND listing_id=?',(variant,lid)).fetchone():
+        raise ValueError('Variante gehört nicht zum Produkt.')
+    return lid,variant,printer
+
+
+def save_print_profile(data):
+    sources=data.get('sources')
+    if not isinstance(sources,list) or len(sources)>12:
+        raise ValueError('Maximal 12 Filamentquellen erlaubt.')
+    clean=[]
+    for source in sources:
+        if not isinstance(source,dict): raise ValueError('Ungültige Filamentquelle.')
+        typ=source.get('type')
+        if typ not in ('ams','ams_ht','external'): raise ValueError('Unbekannte Filamentquelle.')
+        slots=source.get('slots')
+        expected=4 if typ=='ams' else 1
+        if not isinstance(slots,list) or len(slots)!=expected:
+            raise ValueError('Ungültige Anzahl Filamentplätze.')
+        clean_slots=[]
+        for fid in slots:
+            if fid is None or fid=='': clean_slots.append(None)
+            else: clean_slots.append(integer(fid,1,999999999))
+        label=('AMS '+str(sum(s['type']=='ams' for s in clean)+1) if typ=='ams'
+               else 'AMS HT '+str(sum(s['type']=='ams_ht' for s in clean)+1) if typ=='ams_ht'
+               else 'Externe Spule '+str(sum(s['type']=='external' for s in clean)+1))
+        clean.append({'type':typ,'label':label,'slots':clean_slots})
+    with connect() as db:
+        lid,variant,printer=validate_profile_target(db,data)
+        ids={fid for source in clean for fid in source['slots'] if fid is not None}
+        for fid in ids:
+            if not db.execute('SELECT 1 FROM filament_spools WHERE id=?',(fid,)).fetchone():
+                raise ValueError('Ein ausgewähltes Filament existiert nicht mehr.')
+        db.execute("""INSERT INTO print_profiles(listing_id,variant_id,printer,sources_json,updated)
+          VALUES(?,?,?,?,?) ON CONFLICT(listing_id,variant_id,printer)
+          DO UPDATE SET sources_json=excluded.sources_json,updated=excluded.updated""",
+          (lid,variant,printer,json.dumps(clean,ensure_ascii=False),int(time.time())))
+    return print_tools_overview(lid)
+
+
+def safe_master_basename(filename):
+    if not isinstance(filename,str) or not filename.lower().endswith('.3mf') or len(filename)>160:
+        raise ValueError('Nur .3mf-Dateien bis 160 Zeichen hochladen.')
+    filename=filename.replace('\\','/').split('/')[-1]
+    if len(filename)<5 or filename.startswith('.'):
+        raise ValueError('Ungültiger Dateiname.')
+    return filename
+
+
+def store_master_file(meta, stream, length):
+    """Stream to an immutable master file; never overwrite earlier versions."""
+    if not 4<=length<=MAX_MASTER_SIZE:
+        raise ValueError('3MF-Datei muss zwischen 4 Byte und 100 MB groß sein.')
+    name=safe_master_basename(meta.get('filename'))
+    with connect() as db:
+        lid,variant,printer=validate_profile_target(db,meta)
+    directory=MASTER_ROOT / lid / re.sub(r'[^a-zA-Z0-9_-]', '-', printer)
+    directory.mkdir(parents=True,exist_ok=True)
+    upload_id=secrets.token_hex(12)
+    clean_name=re.sub(r'[^a-zA-Z0-9_.-]', '_',name)
+    relative=f'{lid}/{re.sub(r"[^a-zA-Z0-9_-]", "-", printer)}/{upload_id}-{clean_name}'
+    path=MASTER_ROOT / relative
+    try:
+        remaining=length
+        with path.open('xb') as target:
+            while remaining:
+                chunk=stream.read(min(1024*1024,remaining))
+                if not chunk: raise ValueError('Upload unvollständig.')
+                target.write(chunk)
+                remaining-=len(chunk)
+        if not zipfile.is_zipfile(path):
+            raise ValueError('Die Datei ist kein gültiges 3MF-/ZIP-Archiv.')
+        with connect() as db:
+            validate_profile_target(db,meta)
+            db.execute("""INSERT INTO master_files(id,listing_id,variant_id,printer,filename,
+              relative_path,bytes,created) VALUES(?,?,?,?,?,?,?,?)""",
+              (upload_id,lid,variant,printer,name,relative,length,int(time.time())))
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+    return {'ok':True,'id':upload_id,'bytes':length}
+
+
+def master_download_record(file_id):
+    if not re.fullmatch(r'[a-f0-9]{24}',file_id or ''):
+        raise ValueError('Ungültige Datei-ID.')
+    with connect() as db:
+        row=db.execute('SELECT * FROM master_files WHERE id=?',(file_id,)).fetchone()
+    if not row: raise FileNotFoundError('Masterdatei nicht gefunden.')
+    path=MASTER_ROOT / row['relative_path']
+    if not path.resolve().is_relative_to(MASTER_ROOT.resolve()):
+        raise ValueError('Ungültiger Dateipfad.')
+    return dict(row),path
 
 class Handler(BaseHTTPRequestHandler):
     server_version='PrintPulseLager/0.1'
@@ -854,6 +1009,28 @@ class Handler(BaseHTTPRequestHandler):
         path=urllib.parse.urlsplit(self.path).path
         if path=='/api/status': return self.send(200,overview())
         if path=='/api/filaments': return self.send(200,filament_overview())
+        if path=='/api/print-tools':
+            params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            lid=(params.get('listing_id') or [''])[0]
+            if lid and (not lid.isdigit() or len(lid)>32):
+                return self.send(400,{'error':'Ungültige Produkt-ID.'})
+            return self.send(200,print_tools_overview(lid or None))
+        if path=='/api/master-download':
+            file_id=(urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get('id') or [''])[0]
+            try:
+                row,file=master_download_record(file_id)
+                with file.open('rb') as stream:
+                    self.send_response(200)
+                    self.send_header('Content-Type','model/3mf')
+                    self.send_header('Content-Length',str(row['bytes']))
+                    self.send_header('Content-Disposition',"attachment; filename*=UTF-8''"+urllib.parse.quote(row['filename']))
+                    self.send_header('X-Content-Type-Options','nosniff')
+                    self.send_header('Cache-Control','no-store')
+                    self.end_headers()
+                    while block:=stream.read(1024*1024): self.wfile.write(block)
+                return
+            except (ValueError,FileNotFoundError):
+                return self.send(404,{'error':'Datei nicht verfügbar.'})
         assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
         if path in assets:
             name,mime=assets[path]
@@ -862,6 +1039,24 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
+        if urllib.parse.urlsplit(self.path).path=='/api/master-upload':
+            if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
+                return self.send(403,{'error':'Ungültiger Ursprung.'})
+            if self.headers.get('Content-Type')!='application/octet-stream' or self.headers.get('X-PP-Upload')!='1':
+                return self.send(415,{'error':'3MF-Upload erwartet.'})
+            try:
+                length=int(self.headers.get('Content-Length','0'))
+                if not 4<=length<=MAX_MASTER_SIZE:
+                    return self.send(413,{'error':'Maximal 100 MB pro 3MF-Datei.'})
+                params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query,keep_blank_values=True)
+                meta={key:(params.get(key) or [''])[0] for key in ('listing_id','variant_id','printer','filename')}
+                self.connection.settimeout(120)
+                return self.send(200,store_master_file(meta,self.rfile,length))
+            except (ValueError,OSError) as exc:
+                return self.send(400,{'error':str(exc)[:200]})
+            except Exception:
+                log.exception('Fehler beim lokalen 3MF-Upload')
+                return self.send(500,{'error':'Upload fehlgeschlagen.'})
         if self.headers.get('Content-Type','').split(';')[0]!='application/json':
             return self.send(415,{'error':'JSON erforderlich.'})
         if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
@@ -873,6 +1068,8 @@ class Handler(BaseHTTPRequestHandler):
             data=json.loads(self.rfile.read(length))
             if not isinstance(data,dict): raise ValueError('JSON-Objekt erforderlich.')
             path=urllib.parse.urlsplit(self.path).path
+            if path=='/api/print-profile':
+                return self.send(200,save_print_profile(data))
             if path=='/api/filament':
                 filament_mutate(data)
                 return self.send(200,filament_overview())

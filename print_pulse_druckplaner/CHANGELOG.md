@@ -1,3 +1,11 @@
+# 0.11.13 · Masterdateien & Filamentbelegung
+
+- 3MF-Masterdateien drucker- und variantenbezogen ablegen und als Versionen sichern.
+- AMS-/AMS-HT-/externe Filamentquellen aus dem eigenen Spulenbestand zuweisen.
+- Farbnummern und Filamentnotizen mit rückwärtskompatibler Datenbankmigration.
+- Produktkatalog und kompakte Farbcodes auf Produktionskarten.
+- SMB-Ordnerpfad kopieren, Datei-Download und separates Backup über die HA-share-Freigabe.
+
 # Changelog
 
 ## 0.11.12 – Filamentvorschläge und HEX-Farben
