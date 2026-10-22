@@ -138,6 +138,20 @@ class PrinterMonitorTests(unittest.TestCase):
         self.assertEqual(result['printers'][1]['state'],'idle')
         self.assertEqual(result['printers'][2]['state'],'setup')
 
+
+    def test_named_p1s_old_and_new_are_autoconfigured_without_crossing(self):
+        states={x['entity_id']:x for x in (
+            entity('sensor.keller_p1s_old_print_status','running'),
+            entity('sensor.keller_p1s_old_print_progress',32,'%'),
+            entity('sensor.keller_p1s_new_print_status','idle'),
+            entity('sensor.keller_p1s_new_print_progress',99,'%'))}
+        with patch.object(app,'homeassistant_states',return_value=states):
+            result=app.printer_dashboard()
+        self.assertEqual(result['bindings']['P1S Old']['status'],'sensor.keller_p1s_old_print_status')
+        self.assertEqual(result['bindings']['P1S New']['status'],'sensor.keller_p1s_new_print_status')
+        self.assertEqual(result['printers'][1]['progress'],32)
+        self.assertIsNone(result['printers'][2]['progress'])
+
     def test_ams_helpers_without_printer_integration_are_not_false_positives(self):
         states={x['entity_id']:x for x in (
             entity('binary_sensor.keller_h2d_ams_128_aktiv','on'),
