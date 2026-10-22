@@ -1,3 +1,11 @@
+# 0.11.15 · Home-Assistant-Verbindung repariert
+
+- Startkommando auf S6 with-contenv korrigiert: Python erhält den für Home Assistant benötigten Supervisor-Token.
+- Der Drucker-Einrichtungsdialog zeigt zunächst nur Status, Fortschritt, Restzeit und Druckdatei; weitere Sensoren sind einklappbar.
+- Eindeutige Sensoren werden bei der ersten Einrichtung automatisch vorgeschlagen; bei zwei P1S bleibt die manuelle Zuordnung wichtig.
+- Regressionstests für Token-Start, vereinfachtes Formular und Sensorvorschläge.
+- Vorhandene Bestands-, Filament- und Druckdateien bleiben unverändert.
+
 # 0.11.14 · Live-Drucker-Monitor
 
 - Fünf kompakte Status-Tachos im Produktionsdashboard, abgestimmt auf das 11-Zoll-Tablet.
