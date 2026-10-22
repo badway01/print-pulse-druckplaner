@@ -1,3 +1,8 @@
+## Druckerstatus ab Version 0.11.14
+
+Der Monitor holt fünf Druckerstände lesend aus Home Assistant über den Supervisor-Core-API-Proxy. Eine passende Integration für Bambu und Snapmaker muss in Home Assistant bereits vorhanden sein. Drucker-Reiter öffnen und pro Gerät mindestens den Statussensor auswählen, optional Fortschritt, Restzeit, Temperatur, Dateiname sowie AMS-/Druckkopfsensoren. Zwei P1S niemals automatisch gleich zuordnen. Offline-/fehlende Zustände werden nicht als Druckfortschritt dargestellt. Die Konfiguration wird in der bestehenden SQLite-Datei unter /data gespeichert.
+
+
 # Print & Pulse · Lager v0.1
 
 Eine bewusst kleine Home-Assistant-App für deinen echten Lagervorrat: Etsy-Produkte mit Bild und Titel, separate Etsy-Menge, echte Bestände mit **− / Zahl / +**, laufende Drucke und nachvollziehbare Nachdruckempfehlungen.
