@@ -934,9 +934,9 @@ $('master-copy-path').addEventListener('click',copyMasterPath);
 
 
 
-// Separate read-only printer monitor: five compact gauges in production,
+// Separate read-only printer monitor: four compact gauges in production,
 // full status details and persistent HA entity selection in the Drucker tab.
-const monitorPrinters=['H2D','P1S Old','P1S New','A1 mini','Snapmaker U1'];
+const monitorPrinters=['H2D','P1S Old','P1S New','Snapmaker U1'];
 const monitorFields=[
  ['status','Druckstatus (erforderlich)'],['progress','Fortschritt (%)'],['remaining','Restzeit'],
  ['filename','Aktuelle Druckdatei'],['bed','Heizbett (°C)'],['nozzle','Düse (°C)'],
@@ -955,7 +955,7 @@ const printerFallback=()=>monitorPrinters.map(id=>({
  id,name:id==='Snapmaker U1'?id:'Bambu '+id,configured:false,state:'setup',
  progress:null,remaining_seconds:null,temps:{},layers:{},ams:[],filename:null
 }));
-function printerRows(){return printerLive?.printers?.length===5?printerLive.printers:printerFallback();}
+function printerRows(){return printerLive?.printers?.length===monitorPrinters.length?printerLive.printers:printerFallback();}
 function printerRemaining(seconds){
  if(seconds===null||seconds===undefined||!Number.isFinite(Number(seconds)))return 'Restzeit offen';
  const mins=Math.round(Number(seconds)/60);
