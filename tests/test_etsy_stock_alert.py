@@ -84,8 +84,7 @@ class EtsyAvailabilityTests(unittest.TestCase):
         cat=[({"listing_id":"101","title":"Schlüsselanhänger","quantity":4,
               "state":"active"},"","",[],True)]
         app.apply_snapshot(cat,[],set())
-        self.assertEqual(app.overview()["etsy_alerts"] if "etsy_alerts" in app.overview() else
-                         app.overview()["etsy_stock_alerts"][0]["etsy_qty"],4)
+        self.assertEqual(app.overview()["etsy_stock_alerts"][0]["etsy_qty"],4)
         self.assertEqual(app.overview()["etsy_alert_threshold"],5)
 
 
