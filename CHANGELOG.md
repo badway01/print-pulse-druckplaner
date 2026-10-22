@@ -1,3 +1,12 @@
+# 0.11.14 · Live-Drucker-Monitor
+
+- Fünf kompakte Status-Tachos im Produktionsdashboard, abgestimmt auf das 11-Zoll-Tablet.
+- Neuer Reiter Drucker mit Detailkarten für H2D, P1S Old/New, A1 mini und Snapmaker U1.
+- Sensorzuordnung mit eindeutigen Vorschlägen, bewusst getrennte Konfiguration beider P1S.
+- Lesender Home-Assistant-API-Zugang, Backend-Cache, Offline-/Fehlersignalisierung ohne erfundene Werte.
+- Temperatur-, Datei-, Schicht- und AMS-Details, soweit passende Sensoren existieren.
+- Updatefeste lokale Konfiguration; bestehende Lager- und Filamentdaten unverändert.
+
 # 0.11.13 · Masterdateien & Filamentbelegung
 
 - 3MF-Masterdateien drucker- und variantenbezogen ablegen und als Versionen sichern.
