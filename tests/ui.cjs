@@ -30,6 +30,15 @@ await page.route('**/api/printer-entities',async route=>route.fulfill({json:{con
   {id:'sensor.h2d_remaining_time',name:'H2D remaining time',state:'30',unit:'min'},
   {id:'sensor.h2d_gcode_file',name:'H2D gcode file',state:'test.3mf',unit:''}
 ]}}));
+await page.route('**/api/printers*',async route=>{
+ const response=await route.fetch();const data=await response.json();
+ data.connected=true;
+ data.candidates=[{id:'sensor.h2d_print_status',model:'H2D',label:'H2D · Testdrucker',entities:{
+   status:'sensor.h2d_print_status',progress:'sensor.h2d_print_progress',
+   remaining:'sensor.h2d_remaining_time',filename:'sensor.h2d_gcode_file'
+ }}];
+ await route.fulfill({response,json:data});
+});
 await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().waitFor();assert.equal(await page.locator('.brand-logo').count(),1);await page.waitForFunction(()=>{const image=document.querySelector('.brand-logo');return image&&image.complete&&image.naturalWidth>0;},{timeout:10000});assert.equal(await page.locator('.product').count(),4);
 
 await page.locator('.printer-mini').first().waitFor();
@@ -53,12 +62,15 @@ assert.equal(await page.locator('.printer-panel').count(),5);
 await page.locator('[data-printer-config="H2D"]').click();
 assert.equal(await page.locator('#printer-config-dialog').isVisible(),true);
 assert.equal(await page.locator('[data-printer-field="status"]').count(),1);
+assert.equal(await page.locator('#printer-device-choice').isVisible(),true);
 await page.waitForFunction(()=>document.querySelector('[data-printer-field="status"]').value==='sensor.h2d_print_status');
 assert.equal(await page.locator('[data-printer-field="progress"]').inputValue(),'sensor.h2d_print_progress');
 assert.equal(await page.locator('[data-printer-field="remaining"]').inputValue(),'sensor.h2d_remaining_time');
 assert.equal(await page.locator('.printer-advanced-fields').isVisible(),false);
+assert.equal(await page.locator('#printer-config-fields input:visible').count(),0);
+await page.locator('.printer-manual-fields>summary').click();
 assert.equal(await page.locator('#printer-config-fields input:visible').count(),4);
-await page.locator('#printer-config-fields summary').click();
+await page.locator('.printer-manual-fields>details>summary').click();
 assert.equal(await page.locator('.printer-advanced-fields').isVisible(),true);
 await page.locator('[data-close="printer-config-dialog"]').click();
 await page.locator('[data-workspace="production"]').click();
@@ -256,6 +268,8 @@ await page.locator('#quantity-variants select').selectOption('102-black');
 await page.locator('#quantity-value').fill('4');
 await page.locator('#quantity-confirm').click();
 await realCard.locator('.running-print').waitFor();
+assert.equal(await realCard.locator('.order-job .print-finish-large').count(),1);
+assert((await realCard.locator('.order-job .print-finish-large').boundingBox()).height>=55);
 assert((await realCard.locator('.running-print').textContent()).includes('4 × Schwarz'));
 let realState=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
 let black=realState.products.find(p=>p.id==='102').items.find(i=>i.id==='102-black');
