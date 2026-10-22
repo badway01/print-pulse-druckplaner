@@ -1,3 +1,9 @@
+# 0.11.15 · Home-Assistant-Sensoren repariert
+
+- Home-Assistant-API-Token wird beim Start korrekt aus der S6-Containerumgebung übernommen.
+- Druckersensoren werden bei eindeutigen Treffern vorausgewählt; zunächst nur vier Felder sichtbar.
+- Weitere Temperatur-, AMS- und Druckkopfsensoren bleiben einklappbar.
+
 # 0.11.14 · Druckerstatus im Dashboard
 
 - Fünf kompakte Bambu/Snapmaker-Tachos mit Fortschritt, Restzeit und Status.
