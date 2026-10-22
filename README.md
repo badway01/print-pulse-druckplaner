@@ -1,3 +1,9 @@
+## Version 0.11.17 · Etsy-Verfügbarkeit frühzeitig erkennen
+
+Im Produktionsdashboard unter den Kennzahlen erscheint jetzt bei niedriger **Etsy-Verfügbarkeit** ein schmaler Hinweisbanner. Sobald mindestens ein aktiver Etsy-Artikel bzw. eine bestellbare Variante 0, 1 oder 2 verfügbare Stücke meldet, wird er angezeigt: rot bei Null oder Etsy-Status `sold_out`, ansonsten goldgelb. Die Standard-Warnschwelle ist 3, kann in den Einstellungen zwischen 1 und 99 geändert werden. Artikel und bis zu drei betroffene Varianten je Produkt sind aufklappbar; **Zur Produktkarte** springt zur entsprechenden Variante. Deaktivierte Listings und deaktivierte Varianten werden nicht gemeldet; `sold_out` wird gerade zum Aufdecken stiller Umsatzlücken berücksichtigt.
+
+**Wichtig:** Der Banner liest die von Etsy importierte Verkaufsmenge, nicht den lokal gezählten tatsächlichen Lagerbestand oder die Druckaufträge. Der Etsy-Katalog wird im derzeitigen Druckplaner normalerweise täglich aktualisiert; der Banner zeigt den Stand des letzten Katalogabgleichs ausdrücklich an. Er schreibt nichts an Etsy und deaktiviert keine Listings.
+
 ## Version 0.11.16 · Fehler beim Laden von Druckprofilen in Safari
 
 Der Ausdruck „The string did not match the expected pattern“ ist eine allgemeine Safari-Fehlermeldung und kann auch bei einer HTML-Fehlantwort von Home Assistant auftreten. Die neue Version erklärt bei nicht lesbaren API-Antworten die Ursache verständlicher, erhält die letzte gültige Druckprofilliste und behandelt serverseitige Leseprobleme ohne Datenveränderung. Zusätzlich prüft die CI nun den Druckprofilabruf mit dem Safari-Browsermotor WebKit.
