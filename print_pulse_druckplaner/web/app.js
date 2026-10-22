@@ -5,6 +5,7 @@ let model=null,filter='all',busy=false,polling=false,sortTimer=null,quantityCont
 let order=[];
 let orderSort='ship';
 let workspace='production',filamentView='colors',filamentData=null,filamentBusy=false,filamentLoading=false;
+let printTools={profiles:[],files:[]}, masterContext=null,masterSources=[],masterBusy=false;
 try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
 const expanded=new Set();
 const selectedVariants=new Map();
@@ -114,6 +115,7 @@ function card(p){
  return `<article class="product ${p.level}" data-product="${esc(p.id)}"><div class="product-photo">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:'<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}<span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span></div><div class="product-body"><h2 title="${esc(p.title)}">${esc(p.title)}</h2><div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span><span><b>${p.sold30}</b> / 30 Tage</span>${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}</div>
  ${notices([p.inventory_error,p.unmatched?`${p.unmatched} bestellte Stück noch keiner Variante zugeordnet. Bedarf zusätzlich in Etsy prüfen.`:'',p.review?`${p.review} Stück mit Erstattung oder unklarem Zahlungsstatus: in Etsy prüfen.`:''],'product-'+p.id)}
  ${p.items.length>1?printOverview(p):''}
+ ${toolSummary(p)}
  ${productPrintActions(p)}
  ${p.items.length>1?stockOverview(p):''}
  ${p.items.length>1?`<button class="variant-toggle" data-expand="${esc(p.id)}" aria-expanded="${open}"><span>${open?'Varianten schließen':'Bestände bearbeiten'} · ${p.items.length} Varianten</span><b>${open?'−':'+'}</b></button>`:''}
@@ -275,6 +277,7 @@ function render(){if(!model)return;
  const critical=(model.orders||[]).filter(o=>{const days=calendarDaysUntil(o.ship_by);return days!==null&&days<=2;}).length;
  updateHTML($('summary'),[['Produkte',products.length],['Nachdrucken',products.reduce((n,p)=>n+p.need,0)+' Stk.'],['Im Druck',products.flatMap(p=>p.items).reduce((n,i)=>n+i.in_print,0)+' Stk.'],['Versandkritisch',critical+' Aufträge']].map(([label,value],index)=>`<div ${index===3&&critical?'class="summary-urgent"':''}><span>${label}</span><b>${value}</b></div>`).join(''));
  renderOrders();
+ renderCatalog();
  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('selected',b.dataset.filter===filter));
  const search=$('search').value.trim().toLocaleLowerCase('de');
  const selected=order.map(id=>products.find(p=>p.id===id)).filter(Boolean).filter(p=>(filter!=='need'||p.need>0||p.unmatched>0)&&(filter!=='printing'||p.items.some(i=>i.in_print>0))&&(filter!=='uncounted'||p.uninitialized>0)).filter(p=>(p.title+' '+p.items.map(i=>i.label).join(' ')).toLocaleLowerCase('de').includes(search));
@@ -461,7 +464,7 @@ const filamentSpoolCart='<svg class="spool-cart" viewBox="0 0 32 32" fill="none"
 function filamentLine(f,inCart){
  const name=esc(f.brand)+' · '+esc(f.color);
  const swatch=`<span class="filament-swatch" style="background:${esc(f.color_hex)}" aria-hidden="true"></span>`;
- const intro=`<div class="filament-identity">${swatch}<div><strong>${esc(f.color)}</strong><small>${esc(f.brand)} · ${esc(f.material)}</small></div></div>`;
+ const intro=`<div class="filament-identity">${swatch}<div><strong>${esc(f.color)}${f.internal_code?` <em class="filament-internal-code">#${esc(f.internal_code)}</em>`:""}</strong><small>${esc(f.brand)} · ${esc(f.material)}</small>${f.notes?`<small title="${esc(f.notes)}">Notiz: ${esc(f.notes)}</small>`:""}</div></div>`;
  const shop=f.purchase_url?`<a class="filament-shop" href="${esc(f.purchase_url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Shop ↗</a>`:'';
  return `<article class="filament-line" data-filament-line="${f.id}">
    ${intro}<div class="filament-meta"><span>${inCart?`<b>${f.cart_qty} Sp.</b> auf Liste`:`<b>${f.stock_qty}</b> ${f.stock_qty===1?'Spule':'Spulen'} vorrätig`}</span><span>${filamentMoney(f.price_cents)}</span></div>
@@ -481,7 +484,7 @@ function renderFilaments(){
  document.querySelectorAll('[data-filament-view]').forEach(b=>{const selected=b.dataset.filamentView===filamentView;b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));});
  $('filament-search-wrap').hidden=filamentView==='cart';
  const query=$('filament-search').value.trim().toLocaleLowerCase('de');
- const visible=filamentView==='cart'?cart:rows.filter(f=>(f.brand+' '+f.color+' '+f.material).toLocaleLowerCase('de').includes(query));
+ const visible=filamentView==='cart'?cart:rows.filter(f=>(f.brand+' '+f.color+' '+f.material+' '+(f.internal_code||'')+' '+(f.notes||'')).toLocaleLowerCase('de').includes(query));
  $('filament-message').textContent=filamentView==='cart'?
   'Spulen für deinen nächsten Einkauf. „Erhalten“ bucht gelieferte Spulen ins Regal.':
   'Jede Zeile ist ein Filament. Einkaufswagen antippen, wenn du eine Spule nachbestellen möchtest.';
@@ -511,14 +514,16 @@ function showWorkspace(value){
  for(const b of document.querySelectorAll('[data-workspace]')){const chosen=b.dataset.workspace===value;b.classList.toggle('selected',chosen);b.setAttribute('aria-pressed',String(chosen));}
  const production=value==='production';
  for(const id of ['orders-shell','product-toolbar','product-sort-note','products'])$(id).hidden=!production;
- $('filament-shell').hidden=production;
- if(!production)loadFilaments();
+ $('filament-shell').hidden=value!=='filament';
+ $('catalog-shell').hidden=value!=='catalog';
+ if(value==='catalog'){renderCatalog();loadPrintTools();}
+ if(value==='filament')loadFilaments();
 }
 function openFilamentEditor(id){
  const f=(filamentData?.filaments||[]).find(x=>x.id===id);
  const form=$('filament-form');form.reset();
  form.elements.id.value=f?.id||'';
- for(const name of ['brand','color','material','color_hex','stock_qty','purchase_url']){
+ for(const name of ['brand','color','material','color_hex','stock_qty','purchase_url','internal_code','notes']){
   form.elements[name].value=f?f[name]:(name==='color_hex'?'#ffffff':name==='material'?'PLA':name==='stock_qty'?0:'');
  }
  form.elements.price.value=f&&f.price_cents!==null?(f.price_cents/100).toFixed(2).replace('.',','):'';
@@ -666,7 +671,7 @@ $('filament-form').addEventListener('submit',async event=>{
  updateFilamentDuplicate();
  if($('filament-save').disabled)return;
  const values=Object.fromEntries(new FormData(event.target).entries());
- const payload={action:'save',id:values.id?Number(values.id):null,brand:values.brand,color:values.color,material:values.material,color_hex:values.color_hex,stock_qty:Number(values.stock_qty),price:values.price.trim(),purchase_url:values.purchase_url};
+ const payload={action:'save',id:values.id?Number(values.id):null,brand:values.brand,color:values.color,material:values.material,color_hex:values.color_hex,stock_qty:Number(values.stock_qty),price:values.price.trim(),purchase_url:values.purchase_url,internal_code:values.internal_code,notes:values.notes};
  $('filament-editor').close();
  await filamentAction(payload);
 });
@@ -679,6 +684,138 @@ $('filament-delete').addEventListener('click',async()=>{
 });
 setInterval(()=>{if(workspace==='filament'&&!document.hidden)loadFilaments();},30000);
 
-load(true);setInterval(()=>load(false),5000);
+
+const masterPrinters=['H2D','P1S Old','P1S New','Snapmaker U1','A1 mini','Prusa MK4'];
+function toolSummary(p){
+ const profiles=printTools.profiles.filter(r=>r.listing_id===p.id);
+ const files=printTools.files.filter(r=>r.listing_id===p.id);
+ const preferred=profiles.find(r=>r.variant_id===(selectedVariants.get(p.id)||'')&&r.printer==='H2D')||profiles.find(r=>r.variant_id===''&&r.printer==='H2D')||profiles[0];
+ const colors=preferred?.colors||[];
+ return '<div class="master-card-row"><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">▣ 3MF &amp; Farben'+(files.length?' · '+files.length:'')+'</button>'
+  +(colors.length?'<div class="master-card-colors" title="'+esc(preferred.printer)+'">'+colors.map(f=>'<span class="master-chip" title="'+esc(f.slot+' · '+f.brand+' '+f.color)+'"><span class="filament-swatch" style="background:'+esc(f.hex)+'"></span><b>'+esc(f.code||f.color)+'</b></span>').join('')+'</div>':'')+'</div>';
+}
+function renderCatalog(){
+ if(!model)return;
+ const shell=$('catalog-rows');if(!shell)return;
+ const search=$('catalog-search').value.trim().toLocaleLowerCase('de');
+ const rows=model.products.filter(p=>p.state==='active'&&p.title.toLocaleLowerCase('de').includes(search));
+ updateHTML(shell,rows.length?rows.map(p=>{
+  const files=printTools.files.filter(f=>f.listing_id===p.id).length;
+  const profiles=printTools.profiles.filter(f=>f.listing_id===p.id).length;
+  const img=thumbnail(p.image);
+  return '<article class="catalog-item" data-catalog-item="'+esc(p.id)+'">'+(img?'<img src="'+esc(img)+'" alt="" loading="lazy">':'<div class="catalog-placeholder">P+</div>')+
+   '<div><b>'+esc(p.title)+'</b><small>'+files+' Masterdatei(en) · '+profiles+' Druckprofil(e)</small></div><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">3MF &amp; Belegung</button></article>';
+ }).join(''):'<p class="hint">Kein aktives Produkt passt zur Suche.</p>');
+}
+async function loadPrintTools(){
+ try{printTools=await api('print-tools');if(model){renderCatalog();render();}}
+ catch(err){flash('Druckprofile konnten nicht geladen werden: '+err.message,true);}
+}
+function selectedMasterTarget(){
+ return {listing_id:masterContext?.id||'',variant_id:$('master-variant').value,printer:$('master-printer').value};
+}
+function findMasterProfile(){
+ const x=selectedMasterTarget();
+ return printTools.profiles.find(p=>p.listing_id===x.listing_id&&p.variant_id===x.variant_id&&p.printer===x.printer);
+}
+function masterSelectionChanged(){
+ const existing=findMasterProfile();
+ masterSources=existing?JSON.parse(JSON.stringify(existing.sources)):[];
+ renderMasterSources();renderMasterFiles();
+}
+async function openMasterEditor(id){
+ const p=model?.products.find(p=>p.id===id);
+ if(!p)return;
+ masterContext=p;
+ $('master-title').textContent=p.title;
+ $('master-variant').innerHTML='<option value="">Alle Varianten (Standard)</option>'+p.items.map(i=>'<option value="'+esc(i.id)+'">'+esc(i.label)+'</option>').join('');
+ $('master-printer').innerHTML=masterPrinters.map(name=>'<option value="'+esc(name)+'">'+esc(name)+'</option>').join('');
+ $('master-variant').value='';
+ $('master-printer').value='H2D';
+ $('master-editor').showModal();
+ try{const [tool,spool]=await Promise.all([api('print-tools?listing_id='+encodeURIComponent(id)),api('filaments')]);
+  printTools.profiles=[...printTools.profiles.filter(r=>r.listing_id!==id),...tool.profiles];
+  printTools.files=[...printTools.files.filter(r=>r.listing_id!==id),...tool.files];
+  filamentData=spool;
+  masterSelectionChanged();
+ }catch(err){flash(err.message,true);}
+}
+function renderMasterSources(){
+ const filaments=filamentData?.filaments||[];
+ updateHTML($('master-sources'),masterSources.length?masterSources.map((s,n)=>
+  '<div class="master-source" data-master-source="'+n+'"><div class="master-source-title"><b>'+esc(s.label)+'</b><button type="button" class="text-button" data-master-remove="'+n+'">Entfernen</button></div><div class="master-slots">'+s.slots.map((fid,j)=>
+   '<label><span>Platz '+(j+1)+'</span><select data-master-source="'+n+'" data-master-slot="'+j+'"><option value="">Nicht belegt</option>'+filaments.map(f=>'<option value="'+f.id+'" '+(f.id===fid?'selected':'')+'>'+esc((f.internal_code?'#'+f.internal_code+' · ':'')+f.brand+' · '+f.color+' · '+f.material)+'</option>').join('')+'</select>'
+   +(fid?'<span class="master-slot-swatch" style="background:'+esc(filaments.find(f=>f.id===fid)?.color_hex||'#ffffff')+'"></span>':'')+'</label>').join('')+'</div></div>'
+ ).join(''):'<p class="hint">Noch keine Filamentquelle zugeordnet. Füge ein AMS, AMS HT oder eine externe Spule hinzu.</p>');
+}
+function renderMasterFiles(){
+ const x=selectedMasterTarget();
+ const files=printTools.files.filter(f=>f.listing_id===x.listing_id&&f.variant_id===x.variant_id&&f.printer===x.printer);
+ updateHTML($('master-files'),files.length?files.map(f=>
+  '<div class="master-file"><div><b>'+esc(f.filename)+'</b><small>'+new Date(f.created*1000).toLocaleString('de-DE')+' · '+(f.bytes/1048576).toFixed(1)+' MB</small></div><a class="secondary small" href="api/master-download?id='+encodeURIComponent(f.id)+'" download>Herunterladen</a></div>'
+ ).join(''):'<p class="hint">Noch keine Masterdatei für diese Kombination vorhanden.</p>');
+}
+async function saveMaster(){
+ if(masterBusy||!masterContext)return;
+ masterBusy=true;$('master-save').disabled=true;
+ try{const next=await api('print-profile',{...selectedMasterTarget(),sources:masterSources});
+  printTools.profiles=[...printTools.profiles.filter(r=>r.listing_id!==masterContext.id),...next.profiles];
+  render();renderCatalog();flash('Filamentbelegung gespeichert.');
+ }catch(err){flash(err.message,true);}
+ finally{masterBusy=false;$('master-save').disabled=false;}
+}
+async function uploadMaster(){
+ if(masterBusy||!masterContext)return;
+ const file=$('master-upload-input').files[0];
+ if(!file||!file.name.toLowerCase().endsWith('.3mf')){flash('Bitte eine .3mf-Datei auswählen.',true);return;}
+ if(file.size>100*1024*1024){flash('Maximal 100 MB pro Datei.',true);return;}
+ masterBusy=true;$('master-upload').disabled=true;
+ try{const q=new URLSearchParams({...selectedMasterTarget(),filename:file.name});
+  const res=await fetch('api/master-upload?'+q,{method:'POST',headers:{'Content-Type':'application/octet-stream','X-PP-Upload':'1'},body:file});
+  const data=await res.json();if(!res.ok)throw Error(data.error||'Upload fehlgeschlagen.');
+  const tool=await api('print-tools?listing_id='+encodeURIComponent(masterContext.id));
+  printTools.files=[...printTools.files.filter(r=>r.listing_id!==masterContext.id),...tool.files];
+  $('master-upload-input').value='';renderMasterFiles();render();renderCatalog();
+  flash('Masterdatei abgelegt. Frühere Versionen bleiben erhalten.');
+ }catch(err){flash(err.message,true);}
+ finally{masterBusy=false;$('master-upload').disabled=false;}
+}
+async function copyMasterPath(){
+ if(!masterContext)return;
+ const path='\\\\homeassistant\\share\\print-pulse\\masterdateien\\'+masterContext.id+'\\'+$('master-printer').value.replace(/[^a-zA-Z0-9_-]/g,'-');
+ try{await navigator.clipboard.writeText(path);flash('Netzwerkordner-Pfad kopiert. In Windows-Explorer einfügen.');}
+ catch{window.prompt('Diesen Pfad im Windows-Explorer öffnen:',path);}
+}
+$('catalog-search').addEventListener('input',renderCatalog);
+for(const box of ['products','catalog-rows'])$(box).addEventListener('click',event=>{
+ const b=event.target.closest('[data-master-open]');if(b)openMasterEditor(b.dataset.masterOpen);
+});
+$('master-printer').addEventListener('change',masterSelectionChanged);
+$('master-variant').addEventListener('change',masterSelectionChanged);
+$('master-add').addEventListener('click',()=>{
+ const type=$('master-source-type').value;
+ if(masterSources.length>=12){flash('Maximal 12 Filamentquellen.',true);return;}
+ const label=type==='ams'?'AMS ':type==='ams_ht'?'AMS HT ':'Externe Spule ';
+ masterSources.push({type,label:label+(masterSources.filter(s=>s.type===type).length+1),slots:Array(type==='ams'?4:1).fill(null)});
+ renderMasterSources();
+});
+$('master-sources').addEventListener('click',event=>{
+ const b=event.target.closest('[data-master-remove]');if(!b)return;
+ masterSources.splice(Number(b.dataset.masterRemove),1);
+ for(const type of ['ams','ams_ht','external']){
+  masterSources.filter(s=>s.type===type).forEach((s,i)=>s.label=(type==='ams'?'AMS ':type==='ams_ht'?'AMS HT ':'Externe Spule ')+(i+1));
+ }
+ renderMasterSources();
+});
+$('master-sources').addEventListener('change',event=>{
+ const b=event.target.closest('select[data-master-slot]');if(!b)return;
+ masterSources[Number(b.dataset.masterSource)].slots[Number(b.dataset.masterSlot)]=b.value?Number(b.value):null;
+ renderMasterSources();
+});
+$('master-save').addEventListener('click',saveMaster);
+$('master-upload').addEventListener('click',uploadMaster);
+$('master-copy-path').addEventListener('click',copyMasterPath);
+
+load(true);loadPrintTools();setInterval(()=>load(false),5000);
 setInterval(refreshShippingDay,30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshShippingDay();});
