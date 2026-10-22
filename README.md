@@ -4,11 +4,21 @@ Eine bewusst kleine Home-Assistant-App für deinen echten Lagervorrat: Etsy-Prod
 
 ## Update in Home Assistant
 
-Der Neustart heißt in der Oberfläche **Lager v0.1**. Die aktuelle technische App-Version ist **0.11.13**. Home Assistant erkennt sie als Update der bisherigen 0.11.12. Repository, Ordner und App-Slug bleiben identisch. In der HA-App-Verwaltung nach Updates suchen, sichern und aktualisieren. Nicht deinstallieren oder eine zweite App anlegen.
+Der Neustart heißt in der Oberfläche **Lager v0.1**. Die aktuelle technische App-Version ist **0.11.14**. Home Assistant erkennt sie als Update der bisherigen 0.11.13. Repository, Ordner und App-Slug bleiben identisch. In der HA-App-Verwaltung nach Updates suchen, sichern und aktualisieren. Nicht deinstallieren oder eine zweite App anlegen.
 
 Die alte Oberfläche (Dashboard, Bestellverwaltung, Drucker, 3MF-Dateien und Produktionslinien) ist vollständig ersetzt. Bestehende Etsy-Zugangsdaten bleiben lokal erhalten. Alte Tabellen werden aus Rücksichtsgründen nicht gelöscht, aber nicht mehr verwendet. Frühere Produktionsstände sind **keine Lagerzählung** und werden nicht übernommen.
 
 **Einmalige Etsy-Freigabe:** Die bisherige Verbindung las nur Bestellungen (`transactions_r`). Für Varianten benötigt Etsy zusätzlich `listings_r`. Bei entsprechendem Hinweis unter **Einstellungen → Etsy-Freigabe öffnen** erneut erlauben und die vollständige Rückleitungsadresse einfügen. Schlüssel müssen bei gleicher Installation nicht neu eingegeben werden. Etsy erhält ausschließlich Lesezugriffe; die angebotenen Mengen werden nie überschrieben.
+
+## Neu in 0.11.14: Drucker-Monitor für Bambu und Snapmaker U1
+
+**Fünf Drucker auf einen Blick:** Auf der Produktionsseite steht unter den Hauptreitern, direkt vor den Etsy-Bestellungen, eine schmale Leiste mit fünf Tachos: Bambu H2D, P1S Old, P1S New, A1 mini und Snapmaker U1. Sie zeigen tatsächlichen Druckstatus, Prozentfortschritt und Restzeit, soweit Home-Assistant-Sensoren diese Werte liefern. Bei fehlender Einrichtung, Offline oder ungültigen Sensorwerten gibt es **keine erfundenen Fortschrittszahlen**.
+
+Im neuen Reiter **Drucker** findest du zu jedem Gerät eine großzügigere Karte mit aktueller Druckdatei, Status, Restzeit, Temperaturen, Schichten und optionaler AMS-Belegung. Beim Snapmaker U1 sind die Temperaturen von T0, T1, T2 und T3 vorgesehen, beim H2D links/rechts. Angezeigt wird nur, was die jeweilige HA-Integration tatsächlich liefert. Der Monitor ist **ausschließlich lesend**; er steuert die Drucker nicht und bucht keine Lagerbestände.
+
+**Einmalige Einrichtung:** In Home Assistant zuerst die entsprechende **Bambu Lab**-Integration für deine vier Bambu-Drucker und eine passende **Snapmaker-U1**-Integration installieren und die Geräte dort verbinden. Danach im Druckplaner **Drucker → Sensoren zuordnen** öffnen und mindestens den tatsächlichen `print_status`- bzw. `print_state`-Sensor je Drucker auswählen. Fortschritt, Restzeit, Datei und Temperaturen sind optional. Über **Passende Sensoren vorschlagen** werden nur eindeutige Treffer angeboten; bei zwei P1S mit ähnlich benannten Sensoren die **Old/New-Zuordnung manuell prüfen**, damit keine Geräte vertauscht werden. Eingaben werden updatefest unter `/data/production.sqlite3` gespeichert und verändern die vorhandenen Etsy-/Lagerdaten nicht.
+
+Die App nutzt ausschließlich lesend die offizielle Home-Assistant-Core-API über den Supervisor-Proxy (`homeassistant_api: true`); die Berechtigung wird durch Home Assistant bei der Aktualisierung bereitgestellt. Der Token bleibt auf dem HA-System. Statusabfrage circa alle 20 Sekunden; der Server verwendet kurzzeitig einen 12-Sekunden-Cache. Ohne die genannten HA-Integrationen zeigt die Oberfläche **Einrichten** beziehungsweise **Offline**. Die Veröffentlichung kann die Geräte nicht selbst in deinem Home Assistant einbinden.
 
 ## Neu in 0.11.13: Master-3MF, Druckprofile und interne Filamentcodes
 
