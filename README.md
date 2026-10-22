@@ -1,3 +1,9 @@
+## Update 0.11.15: Home-Assistant-Sensoren
+
+In Version 0.11.14 startete die App ohne with-contenv; dadurch war der Supervisor-Token in Python nicht sichtbar und die Meldung „Home-Assistant-Zugriff in dieser Umgebung nicht verfügbar“ erschien. **Version 0.11.15 korrigiert den Start**. Nach Installation die App neu starten.
+
+Unter **Drucker → Sensoren zuordnen** werden bei vorhandener Home-Assistant-Integration jetzt eindeutige Sensoren automatisch vorgeschlagen. Die vier Grundfelder sind sichtbar, alle weiteren Temperatursensoren stehen unter **Weitere Sensoren**. Werden keine Sensoren gefunden, zuerst die passende Bambu- beziehungsweise Snapmaker-Integration in Home Assistant prüfen. Identische P1S-Modelle Old und New müssen anhand ihrer wirklichen HA-Entitäten unterschieden werden. Es werden weiterhin **keine** Zugangsdaten der Drucker benötigt oder gespeicherte Lagerdaten verändert.
+
 # Print & Pulse · Lager v0.1
 
 Eine bewusst kleine Home-Assistant-App für deinen echten Lagervorrat: Etsy-Produkte mit Bild und Titel, separate Etsy-Menge, echte Bestände mit **− / Zahl / +**, laufende Drucke und nachvollziehbare Nachdruckempfehlungen.
