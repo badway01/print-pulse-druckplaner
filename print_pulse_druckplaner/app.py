@@ -31,7 +31,7 @@ DB_PATH = DATA / "production.sqlite3"
 MASTER_ROOT = Path(os.environ.get("PP_MASTER_DIR", "/share/print-pulse/masterdateien"))
 MAX_MASTER_SIZE = 100 * 1024 * 1024
 PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","A1 mini","Prusa MK4")
-MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","A1 mini","Snapmaker U1")
+MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1")
 MONITOR_FIELDS = ("status","progress","remaining","filename","nozzle","nozzle_left","nozzle_right",
                   "bed","chamber","layer","total_layers","stage","active_tray",
                   "head0","head1","head2","head3","ams1","ams2","ams3","ams4")
@@ -916,18 +916,43 @@ def print_tools_overview(listing_id=None):
         files=[dict(r) for r in db.execute(
             'SELECT id,listing_id,variant_id,printer,filename,bytes,created FROM master_files'
             +where+' ORDER BY created DESC,id DESC',args)]
-        spools={r['id']:dict(r) for r in db.execute(
-            'SELECT id,brand,color,material,color_hex,internal_code,notes FROM filament_spools')}
+        # v0.11.x stores two optional filament columns. Old installations may
+        # contain older columns; read the common fields without changing data.
+        cols={col['name'] for col in db.execute('PRAGMA table_info(filament_spools)')}
+        standard=('id','brand','color','material','color_hex')
+        available=[col for col in (*standard,'internal_code','notes') if col in cols]
+        spools={r['id']:{**dict(r),'internal_code':dict(r).get('internal_code',''),
+                         'notes':dict(r).get('notes','')}
+                for r in db.execute('SELECT '+','.join(available)+' FROM filament_spools')}
     for row in profiles:
-        row['sources']=json.loads(row.pop('sources_json'))
+        raw=row.pop('sources_json',None)
+        try:
+            parsed=json.loads(raw) if isinstance(raw,str) else []
+        except (ValueError,TypeError):
+            log.warning('Druckprofil hat unlesbare Filament-Zuordnung, Anzeige bleibt verfügbar.')
+            parsed=[]
+        if not isinstance(parsed,list):
+            parsed=[]
+        clean=[]
         row['colors']=[]
-        for source in row['sources']:
-            for number,fid in enumerate(source['slots'],1):
-                f=spools.get(fid)
+        for source in parsed[:12]:
+            if not isinstance(source,dict):
+                continue
+            slots=source.get('slots')
+            if not isinstance(slots,list):
+                continue
+            label=str(source.get('label') or 'Spule')[:80]
+            clean.append({**source,'label':label,'slots':slots[:4]})
+            for number,fid in enumerate(slots[:4],1):
+                # Historical saved JSON may encode ids as strings.
+                try: sid=int(fid) if fid not in (None,'') else None
+                except (TypeError,ValueError):continue
+                f=spools.get(sid)
                 if f:
-                    row['colors'].append({'id':fid,'code':f['internal_code'],'color':f['color'],
+                    row['colors'].append({'id':sid,'code':f['internal_code'],'color':f['color'],
                         'brand':f['brand'],'material':f['material'],'hex':f['color_hex'],
-                        'slot':source['label']+' · '+str(number)})
+                        'slot':label+' · '+str(number)})
+        row['sources']=clean
     return {'profiles':profiles,'files':files}
 
 
@@ -1154,6 +1179,94 @@ def automatic_printer_bindings(bindings,candidates):
         put_cfg(db,'printer_monitor_bindings',json.dumps(raw,ensure_ascii=False))
     return saved_printer_bindings(),saved
 
+# Confirmed HA entity IDs supplied by the workshop owner on 2026-10-22.
+# These are real printer entities (not Shelly power switches); no tokens, IPs
+# or private device credentials are stored. A1 mini stays in the 3MF catalog.
+CONFIRMED_PRINTER_ENTITIES = {
+    'H2D': {
+        'status':'sensor.keller_h2d_druckstatus',
+        'progress':'sensor.keller_h2d_druckfortschritt',
+        'remaining':'sensor.keller_h2d_verbleibende_zeit',
+        'filename':'sensor.keller_h2d_gcode_dateiname',
+        'nozzle_left':'sensor.keller_h2d_linke_dusentemperatur',
+        'nozzle_right':'sensor.keller_h2d_rechte_dusentemperatur',
+        'bed':'sensor.keller_h2d_druckbetttemperatur',
+        'chamber':'sensor.keller_h2d_temperatur_im_druckraum',
+        'layer':'sensor.keller_h2d_aktuelle_schicht',
+        'total_layers':'sensor.keller_h2d_gesamtzahl_der_schichten',
+        'stage':'sensor.keller_h2d_aktueller_arbeitsschritt',
+        'active_tray':'sensor.keller_h2d_aktiver_slot',
+        'ams1':'sensor.keller_h2d_ams_1_slot_1',
+        'ams2':'sensor.keller_h2d_ams_1_slot_2',
+        'ams3':'sensor.keller_h2d_ams_1_slot_3',
+        'ams4':'sensor.keller_h2d_ams_1_slot_4',
+    },
+    'P1S Old': {
+        'status':'sensor.keller_p1s_old_druckstatus',
+        'progress':'sensor.keller_p1s_old_druckfortschritt',
+        'remaining':'sensor.keller_p1s_old_verbleibende_zeit',
+        'filename':'sensor.keller_p1s_old_gcode_dateiname',
+        'nozzle':'sensor.keller_p1s_old_temperatur_der_duse',
+        'bed':'sensor.keller_p1s_old_druckbetttemperatur',
+        'layer':'sensor.keller_p1s_old_aktuelle_schicht',
+        'total_layers':'sensor.keller_p1s_old_gesamtzahl_der_schichten',
+        'stage':'sensor.keller_p1s_old_aktueller_arbeitsschritt',
+        'active_tray':'sensor.keller_p1s_old_aktiver_slot',
+        'ams1':'sensor.keller_p1s_old_ams_1_slot_1',
+        'ams2':'sensor.keller_p1s_old_ams_1_slot_2',
+        'ams3':'sensor.keller_p1s_old_ams_1_slot_3',
+        'ams4':'sensor.keller_p1s_old_ams_1_slot_4',
+    },
+    'Snapmaker U1': {
+        'status':'sensor.keller_snapmaker_u1_print_state',
+        'progress':'sensor.keller_snapmaker_u1_print_progress',
+        'remaining':'sensor.keller_snapmaker_u1_time_remaining',
+        'filename':'sensor.keller_snapmaker_u1_filename',
+        'bed':'sensor.keller_snapmaker_u1_bed_temperature',
+        'chamber':'sensor.keller_snapmaker_u1_cavity',
+        'layer':'sensor.keller_snapmaker_u1_current_layer',
+        'total_layers':'sensor.keller_snapmaker_u1_total_layers',
+        'head0':'sensor.keller_snapmaker_u1_t0_nozzle_temperature',
+        'head1':'sensor.keller_snapmaker_u1_t1_nozzle_temperature',
+        'head2':'sensor.keller_snapmaker_u1_t2_nozzle_temperature',
+        'head3':'sensor.keller_snapmaker_u1_t3_nozzle_temperature',
+    },
+}
+
+
+def apply_confirmed_printer_bindings(existing,states):
+    """Update locally persisted mappings using only verified, present entities.
+
+    No mapping is generated for P1S New: its supplied list contains Shelly
+    switch/power values only, not a printer status. A missing device retains a
+    previously saved mapping, but never substitutes data from another printer.
+    """
+    patch={}
+    for name,known in CONFIRMED_PRINTER_ENTITIES.items():
+        if known['status'] not in states:
+            continue
+        available={field:entity for field,entity in known.items() if entity in states}
+        saved=existing.get(name,{})
+        target=dict(saved)
+        if saved.get('status') != known['status']:
+            target={field:'' for field in MONITOR_FIELDS}
+        target.update(available)
+        if target!=saved:
+            patch[name]=target
+    if not patch:return existing,[]
+    with connect() as db:
+        try: stored=json.loads(cfg(db,'printer_monitor_bindings','{}'))
+        except (ValueError,TypeError):stored={}
+        if not isinstance(stored,dict):stored={}
+        for name,fields in patch.items():
+            old=stored.get(name,{})
+            if isinstance(old,dict) and old.get('status')==CONFIRMED_PRINTER_ENTITIES[name]['status']:
+                fields={**old,**{k:v for k,v in fields.items() if v}}
+            stored[name]={field:fields.get(field,'') for field in MONITOR_FIELDS}
+        put_cfg(db,'printer_monitor_bindings',json.dumps(stored,ensure_ascii=False))
+    return saved_printer_bindings(),list(patch)
+
+
 def saved_printer_bindings():
     with connect() as db:
         try: raw=json.loads(cfg(db,'printer_monitor_bindings','{}'))
@@ -1265,7 +1378,8 @@ def printer_state(item,configured):
     if key in ('finish','finished','complete','completed','success','done'):return 'finished'
     if key in ('pause','paused','pausing','suspended'):return 'paused'
     if key in ('failed','failure','error','cancelled','canceled','aborted'):return 'error'
-    if key in ('idle','ready','standby','stopped','offline_idle'):return 'idle'
+    if key in ('offline','disconnected','not_connected'):return 'offline'
+    if key in ('idle','ready','standby','stopped'):return 'idle'
     if key in ('prepare','preparing','heating','calibrating','slicing'):return 'preparing'
     return 'unknown'
 
@@ -1295,7 +1409,9 @@ def printer_dashboard(force=False):
     candidates=discover_printer_candidates(states) if connected else []
     assigned=[]
     if connected:
-        bindings,assigned=automatic_printer_bindings(bindings,candidates)
+        bindings,confirmed=apply_confirmed_printer_bindings(bindings,states)
+        bindings,detected=automatic_printer_bindings(bindings,candidates)
+        assigned=confirmed+detected
     rows=[]
     for printer in MONITOR_PRINTERS:
         selected=bindings.get(printer,{})
