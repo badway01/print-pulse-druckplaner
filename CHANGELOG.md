@@ -1,3 +1,10 @@
+# 0.11.16 · Druckprofile und Master-3MF in Safari
+
+- Robuster Datenabruf: Nach einem HTML-Fehler des Home-Assistant-Ingress wird eine konkrete Meldung mit HTTP-Status angezeigt statt der unverständlichen Safari-Ausnahme „The string did not match the expected pattern“.
+- API-Ladefehler und Darstellungsfehler werden getrennt behandelt; die letzte gültige Liste von Druckprofilen bleibt erhalten.
+- Backend liefert bei einem Lese-/Datenbankfehler eine kontrollierte JSON-Antwort statt einer abgebrochenen Verbindung; keine Veränderung gespeicherter Profile oder Masterdateien.
+- Neuer Safari/WebKit-Browsertest prüft das Anzeigen realer Druckprofile, HTML-Fehlerantworten und die Wiederherstellung nach einem fehlgeschlagenen Abruf.
+
 # 0.11.15 · Home-Assistant-Verbindung repariert
 
 - Startkommando auf S6 with-contenv korrigiert: Python erhält den für Home Assistant benötigten Supervisor-Token.
