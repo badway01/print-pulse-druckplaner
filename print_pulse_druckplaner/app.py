@@ -1222,7 +1222,11 @@ class Handler(BaseHTTPRequestHandler):
             lid=(params.get('listing_id') or [''])[0]
             if lid and (not lid.isdigit() or len(lid)>32):
                 return self.send(400,{'error':'Ungültige Produkt-ID.'})
-            return self.send(200,print_tools_overview(lid or None))
+            try:
+                return self.send(200,print_tools_overview(lid or None))
+            except (sqlite3.Error,ValueError,TypeError,KeyError,AttributeError):
+                log.exception('Druckprofile: Abruf fehlgeschlagen (keine gespeicherten Daten verändert)')
+                return self.send(500,{'error':'Druckprofile momentan nicht lesbar. Die gespeicherten Druckprofile und 3MF-Dateien bleiben erhalten. Bitte das App-Protokoll prüfen.'})
         if path=='/api/master-download':
             file_id=(urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get('id') or [''])[0]
             try:
