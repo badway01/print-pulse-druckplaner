@@ -71,6 +71,62 @@ class PrinterMonitorTests(unittest.TestCase):
         self.assertEqual(u1['temps']['head0'],205.5)
         self.assertEqual(data['bindings']['H2D']['status'],'sensor.h2d_print_status')
 
+    def test_confirmed_german_entities_populate_real_printer_cards(self):
+        """Exact sensor IDs from the user's HA device exports."""
+        states={x['entity_id']:x for x in (
+            entity('sensor.keller_h2d_druckstatus','running'),
+            entity('sensor.keller_h2d_druckfortschritt',72,'%'),
+            entity('sensor.keller_h2d_verbleibende_zeit',1.5,'h'),
+            entity('sensor.keller_h2d_gcode_dateiname','test.gcode'),
+            entity('sensor.keller_h2d_linke_dusentemperatur',210,'°C'),
+            entity('sensor.keller_h2d_rechte_dusentemperatur',215,'°C'),
+            entity('sensor.keller_p1s_old_druckstatus','offline'),
+            entity('sensor.keller_p1s_old_druckfortschritt',70,'%'),
+            entity('sensor.keller_snapmaker_u1_print_state','standby'),
+            entity('sensor.keller_snapmaker_u1_print_progress',40,'%'),
+            entity('sensor.keller_snapmaker_u1_time_remaining',900,'s'),
+            entity('sensor.keller_snapmaker_u1_t0_nozzle_temperature',25,'°C'),
+            entity('sensor.keller_h2d_ams_1_slot_1','Bambu PLA Matte'),
+        )}
+        with patch.object(app,'homeassistant_states',return_value=states):
+            result=app.printer_dashboard()
+        self.assertEqual([p['id'] for p in result['printers']],
+            ['H2D','P1S Old','P1S New','Snapmaker U1'])
+        self.assertIn('H2D',result['auto_assigned'])
+        self.assertIn('P1S Old',result['auto_assigned'])
+        self.assertIn('Snapmaker U1',result['auto_assigned'])
+        h2d,old,new,u1=result['printers']
+        self.assertEqual((h2d['state'],h2d['progress'],h2d['remaining_seconds']),('printing',72,5400))
+        self.assertEqual((h2d['temps']['nozzle_left'],h2d['temps']['nozzle_right']),(210,215))
+        self.assertEqual(h2d['ams'][0]['name'],'Bambu PLA Matte')
+        self.assertEqual(old['state'],'offline')
+        self.assertIsNone(old['progress'])
+        self.assertEqual(new['state'],'setup')
+        self.assertIsNone(new['progress'])
+        self.assertEqual(u1['state'],'idle')
+        self.assertEqual(u1['temps']['head0'],25)
+        self.assertIsNone(u1['progress'])
+
+    def test_only_shelly_power_sensors_do_not_make_p1s_new_printable(self):
+        states={x['entity_id']:x for x in (
+            entity('sensor.keller_p1s_new_leistung',32.1,'W'),
+            entity('sensor.keller_p1s_new_energie',50.1,'kWh')
+        )}
+        with patch.object(app,'homeassistant_states',return_value=states):
+            result=app.printer_dashboard()
+        self.assertFalse(result['printers'][2]['configured'])
+        self.assertEqual(result['printers'][2]['state'],'setup')
+        self.assertNotIn('P1S New',result['auto_assigned'])
+
+    def test_no_guess_if_confirmed_device_missing(self):
+        states={x['entity_id']:x for x in (
+            entity('binary_sensor.keller_h2d_ams_128_aktiv','on'),
+            entity('sensor.keller_h2d_ams_128_temperatur',24,'°C'))}
+        with patch.object(app,'homeassistant_states',return_value=states):
+            result=app.printer_dashboard()
+        self.assertEqual(result['auto_assigned'],[])
+        self.assertEqual(result['printers'][0]['state'],'setup')
+
     def test_two_p1s_remain_separate_and_offline_wipes_progress(self):
         app.save_printer_bindings({'printer':'P1S Old','entities':{
             'status':'sensor.p1s_old_print_status','progress':'sensor.p1s_old_print_progress'}})
