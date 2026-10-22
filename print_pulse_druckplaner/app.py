@@ -1091,27 +1091,27 @@ def homeassistant_states(force=False):
 
 
 PRINTER_ENTITY_SUFFIXES = {
- 'status': ('print_status','print_state','printer_status','print_stats_state'),
- 'progress': ('print_progress','print_percent','progress'),
- 'remaining': ('remaining_time','time_remaining','print_time_remaining'),
- 'filename': ('gcode_filename','gcode_file','current_file','print_filename','task_name','filename'),
+ 'status': ('print_status','print_state','printer_status','print_stats_state','druckstatus'),
+ 'progress': ('print_progress','print_percent','progress','druckfortschritt'),
+ 'remaining': ('remaining_time','time_remaining','print_time_remaining','verbleibende_zeit'),
+ 'filename': ('gcode_filename','gcode_file','current_file','print_filename','task_name','filename','gcode_dateiname'),
  'nozzle_left': ('left_nozzle_temperature','left_nozzle_temp','nozzle_left_temperature'),
  'nozzle_right': ('right_nozzle_temperature','right_nozzle_temp','nozzle_right_temperature'),
- 'nozzle': ('nozzle_temperature','nozzle_temp'),
- 'bed': ('bed_temperature','bed_temp'),
+ 'nozzle': ('nozzle_temperature','nozzle_temp','temperatur_der_duse'),
+ 'bed': ('bed_temperature','bed_temp','druckbetttemperatur'),
  'chamber': ('chamber_temperature','chamber_temp'),
- 'layer': ('current_layer','print_layer'),
- 'total_layers': ('total_layer_count','total_layers','total_layer'),
- 'stage': ('current_stage','print_stage'),
- 'active_tray': ('active_tray','active_ams_tray'),
+ 'layer': ('current_layer','print_layer','aktuelle_schicht'),
+ 'total_layers': ('total_layer_count','total_layers','total_layer','gesamtzahl_der_schichten'),
+ 'stage': ('current_stage','print_stage','aktueller_arbeitsschritt'),
+ 'active_tray': ('active_tray','active_ams_tray','aktiver_slot'),
  'head0': ('head_0_nozzle_temperature','head0_nozzle_temperature','tool0_temperature','toolhead_0_temp','extruder_temperature'),
  'head1': ('head_1_nozzle_temperature','head1_nozzle_temperature','tool1_temperature','toolhead_1_temp','extruder1_temperature'),
  'head2': ('head_2_nozzle_temperature','head2_nozzle_temperature','tool2_temperature','toolhead_2_temp','extruder2_temperature'),
  'head3': ('head_3_nozzle_temperature','head3_nozzle_temperature','tool3_temperature','toolhead_3_temp','extruder3_temperature'),
- 'ams1': ('tray_1','ams_tray_1'),
- 'ams2': ('tray_2','ams_tray_2'),
- 'ams3': ('tray_3','ams_tray_3'),
- 'ams4': ('tray_4','ams_tray_4'),
+ 'ams1': ('tray_1','ams_tray_1','ams_1_slot_1'),
+ 'ams2': ('tray_2','ams_tray_2','ams_1_slot_2'),
+ 'ams3': ('tray_3','ams_tray_3','ams_1_slot_3'),
+ 'ams4': ('tray_4','ams_tray_4','ams_1_slot_4'),
 }
 
 def printer_model_for_slug(slug):
@@ -1179,9 +1179,10 @@ def automatic_printer_bindings(bindings,candidates):
         put_cfg(db,'printer_monitor_bindings',json.dumps(raw,ensure_ascii=False))
     return saved_printer_bindings(),saved
 
-# Confirmed HA entity IDs supplied by the workshop owner on 2026-10-22.
-# These are real printer entities (not Shelly power switches); no tokens, IPs
-# or private device credentials are stored. A1 mini stays in the 3MF catalog.
+# Known HA entity patterns from actual printer integrations, with P1S New
+# matched against live HA state IDs at runtime. HA display names alone do not
+# prove an entity ID exists. Shelly power switches are never printer status.
+# No tokens, IPs or private device credentials are stored.
 CONFIRMED_PRINTER_ENTITIES = {
     'H2D': {
         'status':'sensor.keller_h2d_druckstatus',
@@ -1217,6 +1218,24 @@ CONFIRMED_PRINTER_ENTITIES = {
         'ams3':'sensor.keller_p1s_old_ams_1_slot_3',
         'ams4':'sensor.keller_p1s_old_ams_1_slot_4',
     },
+    'P1S New': {
+        # These IDs follow the existing P1S Old naming convention.
+        # Nothing is saved unless the real status entity exists in HA.
+        'status':'sensor.keller_p1s_new_druckstatus',
+        'progress':'sensor.keller_p1s_new_druckfortschritt',
+        'remaining':'sensor.keller_p1s_new_verbleibende_zeit',
+        'filename':'sensor.keller_p1s_new_gcode_dateiname',
+        'nozzle':'sensor.keller_p1s_new_temperatur_der_duse',
+        'bed':'sensor.keller_p1s_new_druckbetttemperatur',
+        'layer':'sensor.keller_p1s_new_aktuelle_schicht',
+        'total_layers':'sensor.keller_p1s_new_gesamtzahl_der_schichten',
+        'stage':'sensor.keller_p1s_new_aktueller_arbeitsschritt',
+        'active_tray':'sensor.keller_p1s_new_aktiver_slot',
+        'ams1':'sensor.keller_p1s_new_ams_1_slot_1',
+        'ams2':'sensor.keller_p1s_new_ams_1_slot_2',
+        'ams3':'sensor.keller_p1s_new_ams_1_slot_3',
+        'ams4':'sensor.keller_p1s_new_ams_1_slot_4',
+    },
     'Snapmaker U1': {
         'status':'sensor.keller_snapmaker_u1_print_state',
         'progress':'sensor.keller_snapmaker_u1_print_progress',
@@ -1237,9 +1256,9 @@ CONFIRMED_PRINTER_ENTITIES = {
 def apply_confirmed_printer_bindings(existing,states):
     """Update locally persisted mappings using only verified, present entities.
 
-    No mapping is generated for P1S New: its supplied list contains Shelly
-    switch/power values only, not a printer status. A missing device retains a
-    previously saved mapping, but never substitutes data from another printer.
+    The P1S New mappings are candidates inferred from sibling Bambu names:
+    only existing Home Assistant sensor entity IDs are accepted. A missing
+    device retains a saved mapping but never substitutes Shelly power data.
     """
     patch={}
     for name,known in CONFIRMED_PRINTER_ENTITIES.items():
@@ -1347,7 +1366,7 @@ def numeric_sensor(item):
 def sensor_text(item):
     if not isinstance(item,dict): return None
     value=str(item.get('state','')).strip()
-    return None if not value or value.lower() in ('unknown','unavailable','none','null') else value[:180]
+    return None if not value or value.casefold() in ('unknown','unavailable','none','null','unbekannt','nicht verfügbar','nicht verfugbar') else value[:180]
 
 
 def printer_remaining(item,printer):
@@ -1374,13 +1393,13 @@ def printer_state(item,configured):
     value=sensor_text(item)
     if value is None:return 'offline'
     key=value.casefold().replace(' ','_')
-    if key in ('running','printing','print','working','in_progress','busy'):return 'printing'
-    if key in ('finish','finished','complete','completed','success','done'):return 'finished'
-    if key in ('pause','paused','pausing','suspended'):return 'paused'
+    if key in ('running','printing','print','working','in_progress','busy','druckt','drucken','druckvorgang_lauft','druckvorgang_läuft'):return 'printing'
+    if key in ('finish','finished','complete','completed','success','done','fertig','abgeschlossen'):return 'finished'
+    if key in ('pause','paused','pausing','suspended','pausiert','angehalten'):return 'paused'
     if key in ('failed','failure','error','cancelled','canceled','aborted'):return 'error'
-    if key in ('offline','disconnected','not_connected'):return 'offline'
-    if key in ('idle','ready','standby','stopped'):return 'idle'
-    if key in ('prepare','preparing','heating','calibrating','slicing'):return 'preparing'
+    if key in ('offline','disconnected','not_connected','nicht_verbunden'):return 'offline'
+    if key in ('idle','ready','standby','stopped','bereit','leerlauf'):return 'idle'
+    if key in ('prepare','preparing','heating','calibrating','slicing','vorbereitung','heizt_auf','kalibrierung'):return 'preparing'
     return 'unknown'
 
 
