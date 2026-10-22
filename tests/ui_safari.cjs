@@ -8,8 +8,12 @@ const assert=require('node:assert/strict');
  const page=await browser.newPage({viewport:{width:1280,height:800}});
  const errors=[];page.on('pageerror',err=>errors.push(err.message));
  try {
-  await page.goto('http://127.0.0.1:8099');
+  await Promise.all([
+   page.waitForResponse(res=>res.url().includes('/api/print-tools') && res.ok()),
+   page.goto('http://127.0.0.1:8099')
+  ]);
   await page.locator('.product').first().waitFor();
+  await page.waitForFunction(()=>!masterToolsLoading);
   const saved=await page.request.post('http://127.0.0.1:8099/api/print-profile',{
    data:{listing_id:'101',variant_id:'',printer:'H2D',sources:[]}
   });
