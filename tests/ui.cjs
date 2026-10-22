@@ -18,6 +18,12 @@ many.items=Array.from({length:784},(_,n)=>({...many.items[0],id:'combination-'+n
  await route.fulfill({response,json:data});
 });
 await page.route('https://test.etsystatic.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="green"/></svg>'}));
+await page.route('**/api/printer-entities',async route=>route.fulfill({json:{connected:true,error:'',entities:[
+  {id:'sensor.h2d_print_status',name:'H2D print status',state:'running',unit:''},
+  {id:'sensor.h2d_print_progress',name:'H2D print progress',state:'50',unit:'%'},
+  {id:'sensor.h2d_remaining_time',name:'H2D remaining time',state:'30',unit:'min'},
+  {id:'sensor.h2d_gcode_file',name:'H2D gcode file',state:'test.3mf',unit:''}
+]}}));
 await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().waitFor();assert.equal(await page.locator('.brand-logo').count(),1);await page.waitForFunction(()=>{const image=document.querySelector('.brand-logo');return image&&image.complete&&image.naturalWidth>0;},{timeout:10000});assert.equal(await page.locator('.product').count(),4);
 
 await page.locator('.printer-mini').first().waitFor();
@@ -30,6 +36,13 @@ assert.equal(await page.locator('.printer-panel').count(),5);
 await page.locator('[data-printer-config="H2D"]').click();
 assert.equal(await page.locator('#printer-config-dialog').isVisible(),true);
 assert.equal(await page.locator('[data-printer-field="status"]').count(),1);
+await page.waitForFunction(()=>document.querySelector('[data-printer-field="status"]').value==='sensor.h2d_print_status');
+assert.equal(await page.locator('[data-printer-field="progress"]').inputValue(),'sensor.h2d_print_progress');
+assert.equal(await page.locator('[data-printer-field="remaining"]').inputValue(),'sensor.h2d_remaining_time');
+assert.equal(await page.locator('.printer-advanced-fields').isVisible(),false);
+assert.equal(await page.locator('#printer-config-fields input:visible').count(),4);
+await page.locator('#printer-config-fields summary').click();
+assert.equal(await page.locator('.printer-advanced-fields').isVisible(),true);
 await page.locator('[data-close="printer-config-dialog"]').click();
 await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('#printer-strip').isVisible(),true);
