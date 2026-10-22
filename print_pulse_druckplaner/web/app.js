@@ -81,7 +81,27 @@ function notices(messages,key){
 function showAlert(messages){const html=notices(messages,'global');updateHTML($('alert'),html);$('alert').hidden=!html;}
 const stateNames={active:'Aktiv',sold_out:'Bei Etsy ausverkauft',inactive:'Inaktiv',draft:'Entwurf',expired:'Abgelaufen'};
 function flash(message,error=false){$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;clearTimeout(flash.timer);flash.timer=setTimeout(()=>$('toast').hidden=true,error?9000:3500);}
-async function api(path,body){const response=await fetch('api/'+path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw Error(data.error||'Aktion fehlgeschlagen.');return data;}
+async function api(path,body){
+ // Safari reports misleading "string did not match expected pattern" when an
+ // ingress or upstream error returns HTML instead of the expected JSON.
+ const response=await fetch('api/'+path,{
+  method:body===undefined?'GET':'POST',
+  headers:body===undefined?{}:{'Content-Type':'application/json'},
+  body:body===undefined?undefined:JSON.stringify(body),
+  credentials:'same-origin'
+ });
+ const raw=await response.text();
+ let data;
+ try{data=JSON.parse(raw);}
+ catch{
+  const html=/^\s*(?:<!doctype html|<html|<head|<body)/i.test(raw);
+  if(html)throw Error('Home Assistant hat statt JSON eine Webseite zurückgegeben (HTTP '+response.status+'). Bitte die Druckplanung neu öffnen und den App-Status prüfen.');
+  throw Error('Ungültige Serverantwort (HTTP '+response.status+'). Bitte den Druckplaner neu starten und die App-Protokolle prüfen.');
+ }
+ if(!response.ok)throw Error((data&&typeof data.error==='string'?data.error:'Serverfehler')+' (HTTP '+response.status+')');
+ if(!data||typeof data!=='object')throw Error('Unvollständige Serverantwort von '+path+'.');
+ return data;
+}
 function thumbnail(url){try{const u=new URL(url);return u.protocol==='https:'&&u.hostname.endsWith('.etsystatic.com')&&!u.username&&!u.password?u.href:'';}catch{return '';}}
 function setModel(data,resort=false){model=data;if(resort||!order.length)order=data.products.map(p=>p.id);else order=[...order.filter(id=>data.products.some(p=>p.id===id)),...data.products.filter(p=>!order.includes(p.id)).map(p=>p.id)];render();}
 function scheduleSort(){clearTimeout(sortTimer);sortTimer=setTimeout(()=>{if(busy||$('quantity').open||$('settings').open){scheduleSort();return;}order=model.products.map(p=>p.id);render();},5000);}
@@ -711,9 +731,32 @@ function renderCatalog(){
    '<div><b>'+esc(p.title)+'</b><small>'+files+' Masterdatei(en) · '+profiles+' Druckprofil(e)</small></div><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">3MF &amp; Belegung</button></article>';
  }).join(''):'<p class="hint">Kein aktives Produkt passt zur Suche.</p>');
 }
+let masterToolsLoading=false;
 async function loadPrintTools(){
- try{printTools=await api('print-tools');if(model){renderCatalog();render();}}
- catch(err){flash('Druckprofile konnten nicht geladen werden: '+err.message,true);}
+ if(masterToolsLoading)return;
+ masterToolsLoading=true;
+ let next;
+ try{
+  next=await api('print-tools');
+  if(!Array.isArray(next.profiles)||!Array.isArray(next.files)){
+   throw Error('Druckprofile-Antwort ist unvollständig.');
+  }
+ }catch(err){
+  console.error('Druckprofile API:',err);
+  flash('Druckprofile nicht abrufbar: '+err.message,true);
+  masterToolsLoading=false;
+  return;
+ }
+ // Keep the last valid snapshot intact if a redraw ever fails in a browser.
+ printTools=next;
+ masterToolsLoading=false;
+ if(model){
+  try{renderCatalog();render();}
+  catch(err){
+   console.error('Druckprofile Darstellung:',err);
+   flash('Druckprofile geladen, aber Darstellung fehlgeschlagen: '+err.message,true);
+  }
+ }
 }
 function selectedMasterTarget(){
  return {listing_id:masterContext?.id||'',variant_id:$('master-variant').value,printer:$('master-printer').value};
