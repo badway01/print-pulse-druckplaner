@@ -34,10 +34,10 @@ class PrinterMonitorTests(unittest.TestCase):
         self.assertIn('CMD ["/command/with-contenv", "python3"',dockerfile)
         self.assertIn('homeassistant_api: true',config)
 
-    def test_five_printers_start_unconfigured_without_fake_values(self):
+    def test_four_printers_start_unconfigured_without_fake_values(self):
         with patch.object(app,'homeassistant_states',return_value={}):
             data=app.printer_dashboard()
-        self.assertEqual(len(data['printers']),5)
+        self.assertEqual(len(data['printers']),4)
         self.assertTrue(all(p['state']=='setup' and p['progress'] is None for p in data['printers']))
         self.assertEqual([p['id'] for p in data['printers']],list(app.MONITOR_PRINTERS))
 
@@ -107,7 +107,7 @@ class PrinterMonitorTests(unittest.TestCase):
         with patch.object(app,'homeassistant_states',return_value=states):
             response=app.printer_dashboard()
         h2d=response['printers'][0]
-        u1=response['printers'][4]
+        u1=response['printers'][3]
         self.assertEqual(response['auto_assigned'],['H2D','Snapmaker U1'])
         self.assertEqual((h2d['state'],h2d['progress'],h2d['remaining_seconds']),('printing',65,2400))
         self.assertEqual((u1['state'],u1['progress'],u1['remaining_seconds']),('printing',11,600))
