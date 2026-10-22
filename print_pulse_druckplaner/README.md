@@ -1,3 +1,7 @@
+## Etsy-Verfügbarkeitswarnung ab 0.11.17
+
+Das Dashboard zeigt einen kompakten Warnbanner, wenn der zuletzt von Etsy importierte Listing- bzw. aktivierte Variantenbestand unter der eingestellten Schwelle (Standard 3) liegt. Null/ausverkauft rot, 1–2 goldgelb. Aufklappen zeigt betroffene Varianten, und Zur Produktkarte führt zum Listing. Die Daten kommen aus dem Etsy-Katalogabgleich (normalerweise täglich), nicht aus den tatsächlichen gezählten Lagerbeständen. Es erfolgen keine Schreiboperationen bei Etsy.
+
 ## Version 0.11.16
 
 Wenn das Laden von 3MF-Druckprofilen in Safari scheitert, zeigt die App jetzt konkrete Fehler für HTML-/Proxy-Antworten, HTTP-Status und Datenbanklesefehler, statt der generischen WebKit-Ausnahme. Bestehende Masterdateien, Druckprofile und Lagerbestände werden nicht verändert. Die CI testet diesen Ablauf mit WebKit.
