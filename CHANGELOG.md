@@ -1,3 +1,12 @@
+# 0.11.19 · Bestätigte Druckersensoren und fehlertolerante Druckprofile
+
+- Aus den tatsächlichen Home-Assistant-Entitäten vom 22.10.2026 sind H2D, P1S Old und Snapmaker U1 direkt zugeordnet; keine manuelle Sensor-Eingabe nötig. Bambu-Statusdaten und Snapmaker-Temperaturen/Schichten werden nur bei vorhandenen HA-Entitäten verwendet.
+- P1S New bleibt im Monitor, erscheint vorerst als nicht eingerichtet: die übermittelten P1S-New-Entitäten stammen von der Shelly-Strommessung und enthalten **keinen echten Druckstatus**. Keine Rückschlüsse aus Watt oder Ampere auf Druckfortschritt.
+- A1 mini **nur aus beiden Monitoransichten** (Dashboard und Drucker-Reiter) entfernt. Er bleibt für gespeicherte 3MF-Druckprofile verfügbar; keine Profile oder Filamente löschen.
+- Robustere Lesefunktion für Druckprofile: altes Filamentdatenbank-Schema oder beschädigte `sources_json`-Einträge führen nicht mehr zum globalen HTTP-500-Fehler. Beschädigte Zuordnungen werden in der Anzeige übersprungen und unverändert in SQLite gelassen.
+- H2D-Verbleibende-Zeit in **Stunden**, Snapmaker U1 in **Sekunden** interpretieren. Druckstatus `offline` wird als Offline angezeigt.
+- Neue Regressionstests für drei bestätigte HA-Geräte, Shelly-only P1S New, vier Tachos und nicht-destruktive Masterprofil-Fehlertoleranz.
+
 # 0.11.18 · Drucker automatisch erkennen, „Fertig“ größer
 
 - Erkennt Bambu H2D, A1 mini und Snapmaker U1 anhand echter Druckstatus-Entitäten aus Home Assistant und speichert eindeutige Verknüpfungen updatefest.

@@ -42,7 +42,7 @@ await page.route('**/api/printers*',async route=>{
 await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().waitFor();assert.equal(await page.locator('.brand-logo').count(),1);await page.waitForFunction(()=>{const image=document.querySelector('.brand-logo');return image&&image.complete&&image.naturalWidth>0;},{timeout:10000});assert.equal(await page.locator('.product').count(),4);
 
 await page.locator('.printer-mini').first().waitFor();
-assert.equal(await page.locator('.printer-mini').count(),5);
+assert.equal(await page.locator('.printer-mini').count(),4);
 assert.equal(await page.locator('#etsy-stock-banner').isVisible(),true);
 assert((await page.locator('#etsy-alert-title').textContent()).includes('1 Artikel ausverkauft'));
 assert.equal(await page.locator('#etsy-alert-list').isVisible(),false);
@@ -54,11 +54,12 @@ assert.equal(await page.locator('[data-product="101"]').isVisible(),true);
 await page.locator('#etsy-alert-toggle').click();
 assert.equal(await page.locator('#etsy-alert-list').isVisible(),false);
 assert.equal(await page.locator('#printer-strip').isVisible(),true);
+assert.equal(await page.locator('[data-printer-focus="A1 mini"]').count(),0);
 await page.locator('#printer-strip-more').click();
 assert.equal(await page.locator('#printer-strip').isVisible(),false);
 assert.equal(await page.locator('#etsy-stock-banner').isVisible(),false);
 assert.equal(await page.locator('[data-workspace="printers"]').getAttribute('aria-pressed'),'true');
-assert.equal(await page.locator('.printer-panel').count(),5);
+assert.equal(await page.locator('.printer-panel').count(),4);
 await page.locator('[data-printer-config="H2D"]').click();
 assert.equal(await page.locator('#printer-config-dialog').isVisible(),true);
 assert.equal(await page.locator('[data-printer-field="status"]').count(),1);
