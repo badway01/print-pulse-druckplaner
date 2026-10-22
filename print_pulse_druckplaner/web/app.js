@@ -114,7 +114,7 @@ function variant(p,i){
  <div class="stock-label">Tatsächlicher Bestand</div><div class="stock-row"><button data-action="adjust" data-id="${esc(i.id)}" data-delta="-1" class="step" ${unknown||i.on_hand===0?'disabled':''} aria-label="Ein Stück weniger, ${esc(i.label)}">−</button><button data-action="set" data-id="${esc(i.id)}" class="stock-number" aria-label="Bestand direkt eingeben, ${esc(i.label)}">${unknown?'Zählen':i.on_hand}</button><button data-action="adjust" data-id="${esc(i.id)}" data-delta="1" class="step" ${unknown?'disabled':''} aria-label="Ein Stück mehr, ${esc(i.label)}">+</button></div>
  <p class="availability">${unknown?'Noch nicht erfasst':`${i.reserved} bestellt · ${i.free} frei${coverage}`}</p>
  <div class="recommend ${i.level}"><span class="dot"></span>${esc(recommendation)}</div>
- <div class="print-row"><button class="secondary small" data-action="printing" data-id="${esc(i.id)}" ${unknown?'disabled':''}>+ Im Druck ${i.in_print?`(${i.in_print})`:''}</button>${i.in_print>(i.order_printing||0)?`<button class="primary small" data-action="finish" data-id="${esc(i.id)}">Fertig</button><button class="text-button small" data-action="cancel" data-id="${esc(i.id)}">Abbruch</button>`:''}<button class="text-button small minimum" data-action="minimum" data-id="${esc(i.id)}">Minimum ${i.minimum}</button></div>${i.order_printing?`<p class="hint">Davon ${i.order_printing} für Etsy-Aufträge · Fertigmelden in der Bestellung.</p>`:''}
+ <div class="print-row"><button class="secondary small" data-action="printing" data-id="${esc(i.id)}" ${unknown?'disabled':''}>+ Im Druck ${i.in_print?`(${i.in_print})`:''}</button>${i.in_print>(i.order_printing||0)?`<button class="primary print-finish-large" data-action="finish" data-id="${esc(i.id)}">✓ Fertig</button><button class="text-button small" data-action="cancel" data-id="${esc(i.id)}">Abbruch</button>`:''}<button class="text-button small minimum" data-action="minimum" data-id="${esc(i.id)}">Minimum ${i.minimum}</button></div>${i.order_printing?`<p class="hint">Davon ${i.order_printing} für Etsy-Aufträge · Fertigmelden in der Bestellung.</p>`:''}
  ${notices([i.notice],'variant-'+i.id)}</div>`;
 }
 function printOverview(p){
@@ -153,7 +153,7 @@ function productPrintActions(p){
  return `<div class="product-print-actions"><button class="primary print-start" data-product-print="${esc(p.id)}" data-print-action="printing" ${p.items.length?'':'disabled'}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 17H3V9h18v8h-3M6 14h12v7H6z"/><path d="M17 11h1"/></svg>In Druck</button>
  ${running.length?`<div class="running-print"><b>Im Druck</b><ul>${running.map(i=>`<li><strong>${i.in_print} ×</strong> ${esc(shortVariant(i.label))}${i.order_printing?` · ${i.order_printing} auftragsbezogen`:''}</li>`).join('')}</ul>
  ${own?`<div><button class="secondary" data-product-print="${esc(p.id)}" data-print-action="finish">Fertig (frei)</button><button class="text-button" data-product-print="${esc(p.id)}" data-print-action="cancel">Abbruch (frei)</button></div>`:''}
- ${jobs.map(j=>`<div class="order-job"><small>Auftrag #${esc(j.receipt_id)} · ${j.printing} × ${esc(j.label)}${j.status==='shipped'?' · bereits versendet':''}</small><div><button class="secondary" data-order-job="${esc(j.transaction_id)}" data-job-action="finish">Fertig</button><button class="text-button" data-order-job="${esc(j.transaction_id)}" data-job-action="cancel">Abbruch</button></div></div>`).join('')}</div>`:''}</div>`;
+ ${jobs.map(j=>`<div class="order-job"><small>Auftrag #${esc(j.receipt_id)} · ${j.printing} × ${esc(j.label)}${j.status==='shipped'?' · bereits versendet':''}</small><div><button class="primary print-finish-large" data-order-job="${esc(j.transaction_id)}" data-job-action="finish">✓ Fertig</button><button class="text-button" data-order-job="${esc(j.transaction_id)}" data-job-action="cancel">Abbruch</button></div></div>`).join('')}</div>`:''}</div>`;
 }
 function printCandidates(p,action){return p.items.filter(i=>action==='printing'?i.enabled:i.in_print>(i.order_printing||0));}
 function productPrintDialog(id,action){
@@ -948,7 +948,7 @@ const monitorFields=[
  ['ams1','AMS Platz 1'],['ams2','AMS Platz 2'],['ams3','AMS Platz 3'],['ams4','AMS Platz 4']
 ];
 const printerStateLabels={
- setup:'Einrichten',offline:'Offline',printing:'Druckt',paused:'Pausiert',
+ setup:'Nicht verbunden',offline:'Offline',printing:'Druckt',paused:'Pausiert',
  finished:'Fertig',idle:'Bereit',error:'Störung',preparing:'Vorbereitung',unknown:'Status unklar'
 };
 const printerFallback=()=>monitorPrinters.map(id=>({
@@ -1013,7 +1013,7 @@ function renderPrinterMonitor(){
     '<small>'+(i+1)+' · '+esc(slot.name)+(slot.material?' · '+esc(slot.material):'')+'</small></span>').join('')+'</div></div>':'')+
    '<div class="printer-panel-footer"><button type="button" class="secondary small" data-printer-config="'+esc(p.id)+'">'+
    (p.configured?'Sensorzuordnung bearbeiten':'Sensoren zuordnen')+'</button>'+
-   (p.state==='setup'?'<small>Einmalige Einrichtung erforderlich</small>':'')+'</div></article>';
+   (p.state==='setup'?'<small>'+(p.id.startsWith('P1S')&&(printerLive?.candidates||[]).some(c=>c.model==='P1S')?'P1S einmal zuordnen':'Kein Druckstatus erkannt · HA-Integration prüfen')+'</small>':'')+'</div></article>';
  }).join(''));
 }
 async function loadPrinters(force=false){
