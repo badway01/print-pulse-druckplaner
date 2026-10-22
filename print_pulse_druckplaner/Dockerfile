@@ -9,4 +9,5 @@ WORKDIR /opt/print-pulse
 COPY app.py ./app.py
 COPY web ./web
 RUN mkdir -p /data && chmod 700 /data
-CMD ["python3", "-u", "/opt/print-pulse/app.py"]
+# S6 requires with-contenv to load SUPERVISOR_TOKEN into the app process.
+CMD ["/command/with-contenv", "python3", "-u", "/opt/print-pulse/app.py"]
