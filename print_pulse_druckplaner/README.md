@@ -1,3 +1,7 @@
+## Korrektur 0.11.15
+
+S6-Container starten Python mit /command/with-contenv, damit SUPERVISOR_TOKEN aus Home Assistant vorhanden ist. Das behebt den fehlenden Zugriff auf die Sensoren. Der Zuordnungsdialog schlägt bei eindeutigen IDs passende HA-Entitäten vor und versteckt optionale Felder unter „Weitere Sensoren“. Bestehende Konfiguration bleibt erhalten.
+
 ## Druckerstatus ab Version 0.11.14
 
 Der Monitor holt fünf Druckerstände lesend aus Home Assistant über den Supervisor-Core-API-Proxy. Eine passende Integration für Bambu und Snapmaker muss in Home Assistant bereits vorhanden sein. Drucker-Reiter öffnen und pro Gerät mindestens den Statussensor auswählen, optional Fortschritt, Restzeit, Temperatur, Dateiname sowie AMS-/Druckkopfsensoren. Zwei P1S niemals automatisch gleich zuordnen. Offline-/fehlende Zustände werden nicht als Druckfortschritt dargestellt. Die Konfiguration wird in der bestehenden SQLite-Datei unter /data gespeichert.
