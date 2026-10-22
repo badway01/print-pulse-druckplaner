@@ -26,6 +26,14 @@ class PrinterMonitorTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    def test_s6_start_restores_supervisor_access_token(self):
+        """Regression: bare CMD hides the Supervisor token in S6."""
+        root=Path(__file__).resolve().parents[1]/'print_pulse_druckplaner'
+        dockerfile=(root/'Dockerfile').read_text()
+        config=(root/'config.yaml').read_text()
+        self.assertIn('CMD ["/command/with-contenv", "python3"',dockerfile)
+        self.assertIn('homeassistant_api: true',config)
+
     def test_five_printers_start_unconfigured_without_fake_values(self):
         with patch.object(app,'homeassistant_states',return_value={}):
             data=app.printer_dashboard()

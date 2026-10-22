@@ -947,10 +947,16 @@ async function openPrinterConfig(id){
  $('printer-config-title').textContent=id+' · HA-Sensoren';
  $('printer-config-dialog').showModal();
  const saved=printerLive?.bindings?.[id]||{};
- updateHTML($('printer-config-fields'),monitorFields.filter(([field])=>id==='Snapmaker U1'?
+ const relevant=monitorFields.filter(([field])=>id==='Snapmaker U1'?
   !['nozzle_left','nozzle_right','chamber'].includes(field):
-  !['head0','head1','head2','head3'].includes(field)).map(([field,label])=>
-  '<label>'+esc(label)+'<input type="text" spellcheck="false" autocomplete="off" maxlength="170" data-printer-field="'+esc(field)+'" list="printer-entity-options" placeholder="sensor.…" value="'+esc(saved[field]||'')+'"></label>').join(''));
+  !['head0','head1','head2','head3'].includes(field));
+ const quickFields=['status','progress','remaining','filename'];
+ const fieldInput=([field,label])=>
+  '<label>'+esc(label)+'<input type="text" spellcheck="false" autocomplete="off" maxlength="170" data-printer-field="'+esc(field)+'" list="printer-entity-options" placeholder="sensor.…" value="'+esc(saved[field]||'')+'"></label>';
+ updateHTML($('printer-config-fields'),
+  relevant.filter(([field])=>quickFields.includes(field)).map(fieldInput).join('')+
+  '<details><summary>Weitere Sensoren (Temperaturen, AMS und Druckköpfe) – optional</summary>'+
+  '<div class="printer-advanced-fields">'+relevant.filter(([field])=>!quickFields.includes(field)).map(fieldInput).join('')+'</div></details>');
  document.querySelectorAll('#printer-config-fields [data-printer-field]').forEach(input=>{input.value=saved[input.dataset.printerField]||'';});
  $('printer-config-info').textContent='HA-Sensoren werden geladen …';
  try{
@@ -958,8 +964,9 @@ async function openPrinterConfig(id){
   printerEntities=response.entities||[];
   updateHTML($('printer-entity-options'),printerEntities.map(e=>
    '<option value="'+esc(e.id)+'" label="'+esc(e.name)+'"></option>').join(''));
-  $('printer-config-info').textContent=response.connected?printerEntities.length+
-   ' Druckersensoren gefunden. Nach ID suchen oder Vorschläge verwenden.':
+  if(response.connected && !saved.status) printerAutofill();
+  else $('printer-config-info').textContent=response.connected?printerEntities.length+
+   ' Druckersensoren gefunden. Vorschläge prüfen oder manuell wählen.':
    response.error||'Home-Assistant-Sensoren nicht erreichbar. Entitäts-IDs können trotzdem eingetragen werden.';
  }catch(err){$('printer-config-info').textContent='Sensorliste nicht erreichbar: '+err.message;}
 }
