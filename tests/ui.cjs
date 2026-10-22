@@ -12,6 +12,12 @@ const assert=require('node:assert/strict');
  ];
  data.products.find(p=>p.id==='101').image='https://test.etsystatic.com/product.svg';
  data.products.push({...data.products[0],id:'inactive-cat',title:'Inaktive Katze',state:'inactive',need:999,uninitialized:999});
+ data.etsy_alert_threshold=3;
+ data.etsy_stock_alerts=[
+  {listing_id:'101',title:'Geldgeschenk mit Reagenzglas',state:'active',etsy_qty:2,severity:'low',affected_variants:0,variants:[],more_variants:0},
+  {listing_id:'102',title:'Kleine Winterdekoration',state:'active',etsy_qty:40,severity:'empty',affected_variants:2,
+   variants:[{id:'102-default',label:'Farbe: Beige',etsy_qty:0},{id:'102-black',label:'Farbe: Schwarz',etsy_qty:2}],more_variants:0}
+ ];
  const many=data.products.find(p=>p.id==='102');
 many.inventory_error='Varianten bitte prüfen.';
 many.items=Array.from({length:784},(_,n)=>({...many.items[0],id:'combination-'+n,label:'Katzenfarbe: Farbe '+Math.floor(n/28)+' · Laternenfarbe: Farbe '+(n%28),on_hand:n===2?null:n,need:n===0?2:n===1?3:0}));
@@ -28,9 +34,20 @@ await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().
 
 await page.locator('.printer-mini').first().waitFor();
 assert.equal(await page.locator('.printer-mini').count(),5);
+assert.equal(await page.locator('#etsy-stock-banner').isVisible(),true);
+assert((await page.locator('#etsy-alert-title').textContent()).includes('1 Artikel ausverkauft'));
+assert.equal(await page.locator('#etsy-alert-list').isVisible(),false);
+await page.locator('#etsy-alert-toggle').click();
+assert.equal(await page.locator('.etsy-alert-item').count(),2);
+assert((await page.locator('#etsy-alert-list').textContent()).includes('Farbe: Beige'));
+await page.locator('[data-etsy-alert-to="101"]').click();
+assert.equal(await page.locator('[data-product="101"]').isVisible(),true);
+await page.locator('#etsy-alert-toggle').click();
+assert.equal(await page.locator('#etsy-alert-list').isVisible(),false);
 assert.equal(await page.locator('#printer-strip').isVisible(),true);
 await page.locator('#printer-strip-more').click();
 assert.equal(await page.locator('#printer-strip').isVisible(),false);
+assert.equal(await page.locator('#etsy-stock-banner').isVisible(),false);
 assert.equal(await page.locator('[data-workspace="printers"]').getAttribute('aria-pressed'),'true');
 assert.equal(await page.locator('.printer-panel').count(),5);
 await page.locator('[data-printer-config="H2D"]').click();
@@ -217,7 +234,8 @@ assert((await manyCard.boundingBox()).height<1750);
 await equalRows();
 await page.locator('#search').fill('Wunschfarbe');assert.equal(await page.locator('.product').count(),1);await page.locator('[data-action="set"]').click();await page.locator('#quantity-value').fill('8');await page.locator('#quantity-form [type="submit"]').click();await page.waitForFunction(()=>document.querySelector('.stock-number').textContent==='8');
 await page.reload();await page.locator('.product').first().waitFor();assert.equal(await page.locator('[data-product="104"] .stock-number').textContent(),'8');
-await page.locator('#settings-open').click();await page.locator('#days').fill('10');await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/settings')&&r.request().method()==='POST'),page.locator('#settings-form [type="submit"]').click()]);assert.equal((await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json())).days,10);
+await page.locator('#settings-open').click();await page.locator('#days').fill('10');await page.locator('#etsy-alert-threshold').fill('4');await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/settings')&&r.request().method()==='POST'),page.locator('#settings-form [type="submit"]').click()]);assert.equal((await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json())).days,10);
+assert.equal((await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json())).etsy_alert_threshold,4);
 await page.setViewportSize({width:1280,height:800});
 await page.waitForTimeout(300);
 assert.equal(await page.locator('#products').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),3);

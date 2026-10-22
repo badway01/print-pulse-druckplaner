@@ -537,6 +537,49 @@ def recommendation(stock, printing, demand, sold7, sold30, minimum, days, made_t
     return {'need':need,'coverage':coverage,'target':target,'level':level}
 
 
+
+
+def etsy_stock_alerts(listings, threshold=3):
+    """Flag quantities buyers can order on Etsy, never local on_hand or print jobs.
+
+    Etsy inventory is a catalog snapshot, not a real-time counter. Keep alerts
+    grouped by listing to avoid flooding the dashboard for hundreds of variants.
+    """
+    result=[]
+    for listing in listings:
+        if listing.get('state') not in ('active','sold_out'):
+            continue
+        total=listing.get('etsy_qty')
+        total=total if type(total) is int and total>=0 else None
+        sold_out=listing.get('state')=='sold_out'
+        listing_low=total is not None and total<threshold
+        variants=[]
+        for item in listing.get('items',[]):
+            qty=item.get('etsy_qty')
+            if not item.get('enabled') or type(qty) is not int or qty<0 or qty>=threshold:
+                continue
+            variants.append({'id':str(item['id']),'label':str(item['label']),
+                             'etsy_qty':qty,'sold30':int(item.get('sold30') or 0)})
+        if not (sold_out or listing_low or variants):
+            continue
+        variants.sort(key=lambda v:(v['etsy_qty'],-v['sold30'],v['label'].casefold()))
+        has_zero=sold_out or total==0 or any(v['etsy_qty']==0 for v in variants)
+        result.append({
+            'listing_id':str(listing['id']),
+            'title':str(listing['title']),
+            'state':listing['state'],
+            'etsy_qty':total,
+            'severity':'empty' if has_zero else 'low',
+            'affected_variants':len(variants),
+            'variants':[{'id':v['id'],'label':v['label'],'etsy_qty':v['etsy_qty']}
+                        for v in variants[:3]],
+            'more_variants':max(0,len(variants)-3)
+        })
+    result.sort(key=lambda x:(0 if x['severity']=='empty' else 1,
+                              x['etsy_qty'] if x['etsy_qty'] is not None else 999999,
+                              x['title'].casefold()))
+    return result
+
 def overview():
     now=int(time.time())
     with connect() as db:
@@ -546,6 +589,7 @@ def overview():
         receipt_rows=[dict(r) for r in db.execute('SELECT * FROM stock_receipts')]
         print_rows=[dict(r) for r in db.execute('SELECT * FROM stock_order_prints')]
         days=int(cfg(db,'stock_days','7'))
+        etsy_threshold=max(1,min(99,int(cfg(db,'etsy_alert_threshold','3'))))
         sync_at=int(cfg(db,'stock_last_sync','0'))
         configured=bool(cfg(db,'keystring') and cfg(db,'callback'))
         authorized=bool(cfg(db,'access_token'))
@@ -590,6 +634,7 @@ def overview():
     top={p['id'] for p in eligible[:max(1,math.ceil(len(listings)*.2))]}
     for p in listings: p['bestseller']=p['id'] in top
     listings.sort(key=lambda p:({'red':0,'yellow':1,'unknown':2,'green':3}[p['level']],-p['need'],-p['sold7'],p['title'].casefold()))
+    low_etsy=etsy_stock_alerts(listings,etsy_threshold) if catalog_at else []
     images={p['id']:safe_etsy_image_url(p['image']) for p in listings}
     titles={p['id']:p['title'] for p in listings}
     orders=[]
@@ -615,7 +660,7 @@ def overview():
                        'created':receipt['created'],'ship_by':receipt['ship_by'],
                        'items':lines,'quantity':sum(line['quantity'] for line in lines)})
     with STATUS_LOCK: status=dict(STATUS)
-    return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'version':'0.1'}
+    return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'etsy_alert_threshold':etsy_threshold,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'version':'0.1'}
 
 
 def mutate_stock(data):
@@ -1304,7 +1349,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,overview())
             if path=='/api/settings':
                 days=integer(data.get('days'),1,60)
-                with connect() as db: put_cfg(db,'stock_days',days)
+                threshold=integer(data.get('etsy_alert_threshold',3),1,99)
+                with connect() as db:
+                    put_cfg(db,'stock_days',days)
+                    put_cfg(db,'etsy_alert_threshold',threshold)
                 return self.send(200,overview())
             if path == "/api/config":
                 if IMPORT_LOCK.locked():

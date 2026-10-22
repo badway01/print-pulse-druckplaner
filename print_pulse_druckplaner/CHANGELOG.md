@@ -1,3 +1,10 @@
+# 0.11.17 · Frühwarnung für Etsy-Verfügbarkeit
+
+- Übersichtlicher Warnbanner bei niedrigen Etsy-Mengen (rot 0, gelb 1–2, Standardwarnschwelle 3).
+- Varianten im aufklappbaren Bereich und direkter Sprung zur Produktkarte.
+- Schwellenwert in den Einstellungen; Anzeige nur für aktive/ausverkaufte Listings und Daten mit tatsächlichem Etsy-Bestand.
+- Letzte Etsy-Katalogaktualisierung sichtbar, keine automatische Schreibaktion bei Etsy.
+
 # 0.11.16 · Safari-Fehlermeldung beim Laden der Druckprofile
 
 - API-Fehler und HTML-Fehlantworten werden als verständliche Meldung angezeigt.
