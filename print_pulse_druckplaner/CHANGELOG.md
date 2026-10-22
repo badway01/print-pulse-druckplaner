@@ -1,3 +1,9 @@
+# 0.11.20 · P1S New: Bambu-Sensoren korrekt zuordnen
+
+- Deutsch benannte Bambu-HA-Drucksensoren für P1S New automatisch zuordnen, sofern tatsächlich vorhanden.
+- Zustände „Fertig“, „Bereit“, „Druckt“ und „Pausiert“ erkennen.
+- Kein manueller Eintrag von Sensor-IDs; keine Änderung an Lager, Bestellungen oder 3MF.
+
 # 0.11.19 · Drucker direkt verbinden, 3MF-Daten vorsichtig laden
 
 - Echte Sensor-IDs für H2D, P1S Old und Snapmaker U1 voreingestellt, ausschließlich bei vorhandenen HA-Entitäten.
