@@ -131,7 +131,7 @@ await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
 await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.27'));
 assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.35');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.36');
 await page.locator('[data-close="settings"]').click();
 
 
@@ -360,6 +360,63 @@ await page.locator('.filament-line').first().waitFor();
 assert.equal(await page.locator('.filament-line').count(),1);
 assert.deepEqual(await page.locator('.filament-line-actions').first().locator(':scope > *').evaluateAll(nodes=>nodes.map(el=>el.classList[0])),
  ['filament-shop','filament-cart-button','filament-roll-button','filament-edit'], 'Shop must be the first action in Meine Farben');
+// Simulate a Mac Split View / Home Assistant panel independent of viewport width.
+// Two matching rows, one with a Shop link and one without it, must use the
+// exact same four action slots without wrapping or horizontal overflow.
+await page.evaluate(()=>{
+ window.__filamentLayoutOriginal=filamentData.filaments;
+ filamentData.filaments=[...filamentData.filaments,{
+  ...filamentData.filaments[0],id:987654,purchase_url:''
+ }];
+ renderFilaments();
+});
+assert.equal(await page.locator('.filament-line').count(),2);
+assert.equal(await page.locator('.filament-shop-placeholder').count(),1);
+assert.equal(await page.locator('.filament-shop[href]').count(),1);
+const actionGeometry=async width=>page.evaluate(width=>{
+ const panel=document.querySelector('#filament-shell');
+ panel.style.width=width+'px';panel.style.maxWidth='none';
+ const rows=[...document.querySelectorAll('.filament-line')];
+ const rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
+ return rows.map(row=>({
+  card:rect(row),actions:rect(row.querySelector('.filament-line-actions')),
+  cells:[...row.querySelector('.filament-line-actions').children].map(rect)
+ }));
+},width);
+for(const width of [1020,935,805,740,585,450,390,330]){
+ const measurements=await actionGeometry(width);
+ assert.equal(measurements.length,2,'both filament rows must remain visible');
+ const [withShop,withoutShop]=measurements;
+ assert(Math.abs(withShop.card.height-withoutShop.card.height)<1,'matching rows keep identical heights at '+width);
+ for(const [i,row] of measurements.entries()){
+  assert.equal(row.cells.length,4,'four fixed action cells: '+width+' row '+i);
+  assert(row.actions.right<=row.card.right+1,'buttons must stay inside the right card edge at '+width);
+  assert(row.actions.bottom<=row.card.bottom+1,'buttons must stay inside card height at '+width);
+  assert(row.cells.every(cell=>cell.x>=row.card.x-1&&cell.right<=row.card.right+1),'no side overflow '+width);
+  assert(row.cells.every(cell=>cell.bottom<=row.card.bottom+1),'no vertical overflow '+width);
+  assert(row.cells.every(cell=>cell.height>=40),'all touch targets sized for tablet '+width);
+ }
+ for(let i=0;i<4;i++){
+  assert(Math.abs(withShop.cells[i].x-withoutShop.cells[i].x)<1,'same horizontal button slot '+width+' index '+i);
+  assert(Math.abs(withShop.cells[i].width-withoutShop.cells[i].width)<1,'same slot width '+width+' index '+i);
+ }
+ if(width>450){
+  assert(withShop.cells.every(cell=>Math.abs(cell.y-withShop.cells[0].y)<1),'single-row action grid at '+width);
+  assert(withShop.cells.every((cell,i)=>i===0||cell.x>withShop.cells[i-1].right),'buttons never overlap '+width);
+ }else{
+  assert(Math.abs(withShop.cells[0].y-withShop.cells[1].y)<1,'first row Shop/List aligned '+width);
+  assert(Math.abs(withShop.cells[2].y-withShop.cells[3].y)<1,'second row Rolls/Edit aligned '+width);
+  assert(withShop.cells[2].y>withShop.cells[0].bottom,'button rows do not overlap '+width);
+ }
+}
+await page.evaluate(()=>{
+ const panel=document.querySelector('#filament-shell');
+ panel.style.removeProperty('width');panel.style.removeProperty('max-width');
+ filamentData.filaments=window.__filamentLayoutOriginal;
+ delete window.__filamentLayoutOriginal;
+ renderFilaments();
+});
+assert.equal(await page.locator('.filament-line').count(),1);
 const sortedVariants=await page.evaluate(()=>({
   most:sortFilamentRows([{id:'low',stock_qty:1,brand:'A',color:'Rot'},{id:'high',stock_qty:6,brand:'A',color:'Weiß'},{id:'empty',stock_qty:0,brand:'B',color:'Kupfer'}],'stock-desc').map(x=>x.id),
   least:sortFilamentRows([{id:'low',stock_qty:1,brand:'A',color:'Rot'},{id:'high',stock_qty:6,brand:'A',color:'Weiß'},{id:'empty',stock_qty:0,brand:'B',color:'Kupfer'}],'stock-asc').map(x=>x.id)
