@@ -257,6 +257,14 @@ function findOrderJob(tid){
  }
  return null;
 }
+function setInitialStockRequired(required){
+ const label=$('quantity-initial-stock-label');
+ const field=$('quantity-initial-stock');
+ label.hidden=!required;
+ field.required=required;
+ field.value='';
+}
+
 function orderPrintDialog(tid,action){
  if(busy)return;
  const job=findOrderJob(tid);
@@ -277,11 +285,13 @@ function orderPrintDialog(tid,action){
  const field=$('quantity-value');
  field.min=1;field.max=count;
  field.value=action==='printing'?Math.min(count,Math.max(1,found.i.need||count)):count;
- $('quantity-confirm').disabled=action==='finish'&&found.i.on_hand===null&&job.status!=='shipped';
+ const needsInitialStock=action==='finish'&&found.i.on_hand===null&&job.status!=='shipped';
+ setInitialStockRequired(needsInitialStock);
+ $('quantity-confirm').disabled=false;
  $('quantity-help').textContent=action==='printing'?
   'Der Druck wird genau diesem Etsy-Auftrag zugeordnet und reduziert die offene Nachdruckempfehlung. Dein Lagerbestand bleibt bis „Fertig“ unverändert.':
-  action==='finish'?(job.status==='shipped'?'Bereits versendet: Fertigmelden erhöht den Lagerbestand nicht erneut.':'Erfolgreich gedruckte Stücke werden ins Lager gebucht. Etsy zieht sie beim Versand einmalig ab.'):'Fehldruck oder Abbruch: Die Menge wird aus „Im Druck“ entfernt.';
- field.focus();field.select();
+  action==='finish'?(needsInitialStock?'Trage den bisher vorhandenen fertigen Bestand ein (0, falls keiner da ist). Die jetzt gedruckten Stücke kommen zusätzlich dazu.':job.status==='shipped'?'Bereits versendet: Fertigmelden erhöht den Lagerbestand nicht erneut.':'Erfolgreich gedruckte Stücke werden ins Lager gebucht. Etsy zieht sie beim Versand einmalig ab.'):'Fehldruck oder Abbruch: Die Menge wird aus „Im Druck“ entfernt.';
+ (needsInitialStock?$('quantity-initial-stock'):field).focus();if(!needsInitialStock)field.select();
 }
 
 
@@ -631,9 +641,9 @@ function openFilamentEditor(id){
 }
 
 async function load(resort=false){if(polling||busy)return;polling=true;try{const data=await api('status');if(!busy&&!$('quantity').open&&!$('settings').open&&!$('order-details').open)setModel(data,resort);}catch(err){showAlert(['Verbindung zum Lager unterbrochen: '+err.message]);}finally{polling=false;}}
-async function mutate(path,data){if(busy)return;busy=true;document.querySelectorAll('#products button,#products input,#products select,#orders button,#order-details button,#undo').forEach(b=>b.disabled=true);try{setModel(await api(path,data));scheduleSort();flash('Gespeichert.');}catch(err){flash(err.message,true);try{setModel(await api('status'));}catch{}}finally{busy=false;render();}}
+async function mutate(path,data){if(busy)return false;busy=true;let saved=false;document.querySelectorAll('#products button,#products input,#products select,#orders button,#order-details button,#undo').forEach(b=>b.disabled=true);try{setModel(await api(path,data));scheduleSort();flash('Gespeichert.');saved=true;}catch(err){flash(err.message,true);try{setModel(await api('status'));}catch{}}finally{busy=false;render();}return saved;}
 function findItem(id){for(const p of model.products){const i=p.items.find(i=>i.id===id);if(i)return {p,i};}return null;}
-function quantityDialog(id,action){const found=findItem(id);if(!found)return;const {p,i}=found;quantityContext={id,action,revision:i.revision};$('quantity-variants').hidden=true;$('quantity-confirm').disabled=action==='finish'&&i.on_hand===null;$('quantity-confirm').textContent=['printing','finish','cancel'].includes(action)?'Bestätigen':'Speichern';const labels={set:'Bestand erfassen',printing:'In Druck nehmen',finish:'Fertige Stücke einlagern',cancel:'Druckmenge zurücknehmen',minimum:'Mindestbestand'};$('quantity-title').textContent=labels[action];$('quantity-label').textContent=p.title+' · '+i.label;const input=$('quantity-value');input.min=['set','minimum'].includes(action)?0:1;input.max=['finish','cancel'].includes(action)?i.in_print-(i.order_printing||0):100000;input.value=action==='set'?(i.on_hand??0):action==='minimum'?i.minimum:action==='printing'?Math.max(1,i.need||1):i.in_print-(i.order_printing||0);$('quantity-help').textContent=action==='set'?'Alle fertigen Stücke zählen, einschließlich reservierter und gepackter Ware.':action==='finish'&&i.on_hand===null?'Bitte zuerst den Lagerbestand dieser Variante erfassen.':action==='finish'?'Nur erfolgreich gedruckte Stücke buchen. Fehlgeschlagene Stücke über „Abbruch“ zurücknehmen.':action==='printing'?'Merkt die Menge vor. Startet keinen Drucker.':action==='minimum'?'Wird bei Lagerartikeln mindestens als freier Vorrat empfohlen.':'Entfernt die Menge aus „Im Druck“, ohne den Lagerbestand zu erhöhen.';if(!$('quantity').open){$('quantity').showModal();input.focus();input.select();}}
+function quantityDialog(id,action){const found=findItem(id);if(!found)return;const {p,i}=found;quantityContext={id,action,revision:i.revision};$('quantity-variants').hidden=true;const needsInitialStock=action==='finish'&&i.on_hand===null;setInitialStockRequired(needsInitialStock);$('quantity-confirm').disabled=false;$('quantity-confirm').textContent=['printing','finish','cancel'].includes(action)?'Bestätigen':'Speichern';const labels={set:'Bestand erfassen',printing:'In Druck nehmen',finish:'Fertige Stücke einlagern',cancel:'Druckmenge zurücknehmen',minimum:'Mindestbestand'};$('quantity-title').textContent=labels[action];$('quantity-label').textContent=p.title+' · '+i.label;const input=$('quantity-value');input.min=['set','minimum'].includes(action)?0:1;input.max=['finish','cancel'].includes(action)?i.in_print-(i.order_printing||0):100000;input.value=action==='set'?(i.on_hand??0):action==='minimum'?i.minimum:action==='printing'?Math.max(1,i.need||1):i.in_print-(i.order_printing||0);$('quantity-help').textContent=action==='set'?'Alle fertigen Stücke zählen, einschließlich reservierter und gepackter Ware.':action==='finish'&&i.on_hand===null?'Trage den bisher fertigen Lagerbestand ein (0, wenn keiner vorhanden ist). Die jetzt gedruckten Stücke werden danach hinzugebucht.':action==='finish'?'Nur erfolgreich gedruckte Stücke buchen. Fehlgeschlagene Stücke über „Abbruch“ zurücknehmen.':action==='printing'?'Merkt die Menge vor. Startet keinen Drucker.':action==='minimum'?'Wird bei Lagerartikeln mindestens als freier Vorrat empfohlen.':'Entfernt die Menge aus „Im Druck“, ohne den Lagerbestand zu erhöhen.';if(!$('quantity').open){$('quantity').showModal();(needsInitialStock?$('quantity-initial-stock'):input).focus();if(!needsInitialStock)input.select();}}
 $('orders').addEventListener('click',event=>{
  const print=event.target.closest('[data-order-print]');
  if(print&&!busy){
@@ -688,7 +698,22 @@ $('quantity-variants').addEventListener('change',event=>{
  quantityDialog(selectedVariants.get(productId),action);
  quantityContext.productId=productId;renderPrintPicker(p);
 });
-$('quantity-form').addEventListener('submit',async event=>{event.preventDefault();const data={...quantityContext,quantity:Number($('quantity-value').value)};$('quantity').close();if(data.orderPrint)await mutate('order-print',{transaction_id:data.transactionId,receipt_id:data.receiptId,action:data.action,quantity:data.quantity,revision:data.revision});else await mutate('stock',data);});
+$('quantity-form').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(busy)return;
+ const data={...quantityContext,quantity:Number($('quantity-value').value)};
+ if($('quantity-initial-stock').required)data.initial_stock=Number($('quantity-initial-stock').value);
+ const button=$('quantity-confirm');
+ const oldText=button.textContent;
+ button.disabled=true;
+ button.textContent='Wird gespeichert …';
+ try{
+  const saved=data.orderPrint
+   ?await mutate('order-print',{transaction_id:data.transactionId,receipt_id:data.receiptId,action:data.action,quantity:data.quantity,revision:data.revision,...(data.initial_stock===undefined?{}:{initial_stock:data.initial_stock})})
+   :await mutate('stock',data);
+  if(saved)$('quantity').close();
+ }finally{button.disabled=false;button.textContent=oldText;}
+});
 $('search').addEventListener('input',()=>{render();scheduleSort();});
 for(const b of document.querySelectorAll('[data-filter]'))b.addEventListener('click',()=>{filter=b.dataset.filter;order=model.products.map(p=>p.id);render();});
 for(const b of document.querySelectorAll('[data-close]'))b.addEventListener('click',() => $(b.dataset.close).close());
