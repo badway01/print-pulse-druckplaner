@@ -177,11 +177,13 @@ async function api(path,body){
 }
 function thumbnail(url){try{const u=new URL(url);return u.protocol==='https:'&&u.hostname.endsWith('.etsystatic.com')&&!u.username&&!u.password?u.href:'';}catch{return '';}}
 let lastModelSignature='';
+let modelEpoch=0;
 function setModel(data,resort=false){
  // Data changes, not polling intervals, trigger full UI repaint.
  const signature=JSON.stringify(data);
  if(signature===lastModelSignature&&!resort)return;
  lastModelSignature=signature;
+ modelEpoch++;
  model=data;
  if(resort||!order.length)order=data.products.map(p=>p.id);
  else{
@@ -928,16 +930,20 @@ async function load(resort=false){
  if(polling||busy||document.hidden||
     $('quantity').open||$('settings').open||$('order-details').open)return;
  polling=true;
+ const startedAtEpoch=modelEpoch;
  try{
   const data=await api('status');
-  if(!busy&&!document.hidden&&!$('quantity').open&&!$('settings').open&&!$('order-details').open)
-   setModel(data,resort);
+  // A stock change might have committed while this earlier poll was in flight.
+  // Never redraw the new stock from an older status response.
+  if(startedAtEpoch===modelEpoch&&!busy&&!document.hidden&&!$('quantity').open&&
+     !$('settings').open&&!$('order-details').open)setModel(data,resort);
  }catch(err){showAlert(['Verbindung zum Lager unterbrochen: '+err.message]);}
  finally{polling=false;}
 }
 async function mutate(path,data){
  if(busy)return false;
  busy=true;
+ modelEpoch++; // invalidate any in-flight pre-mutation status refresh
  let saved=false,updated=null;
  try{
   // Never disable the entire product grid: even a long-running request must
