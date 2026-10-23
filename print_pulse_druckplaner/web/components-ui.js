@@ -305,7 +305,10 @@ $('components-list').addEventListener('click',async event=>{
   const input=[...$('components-list').querySelectorAll('[data-component-count]')].find(x=>x.dataset.componentCount===id);
   const stock=Number(input?.value);
   if(!Number.isSafeInteger(stock)||stock<0||stock>100000){flash('Ungültiger Bauteilbestand.',true);return;}
-  if(await mutate('components',{action:'stock',listing_id:componentEditorProduct,id,stock})){
+  const previous=p?.components.find(part=>part.id===id);
+  if(!previous)return;
+  if(await mutate('components',{action:'stock',listing_id:componentEditorProduct,id,stock,
+    expected_stock:previous.stock})){
    componentRenderEditor();flash('Bauteilbestand gespeichert.');
   }
  }
