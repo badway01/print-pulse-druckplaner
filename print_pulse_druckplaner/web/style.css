@@ -1340,3 +1340,35 @@ html[data-theme="dark"] .priority-count{color:#b6dfc5}
  .priority-shell .priority-description>b{font-size:12px}
  .priority-shell .priority-item{padding:9px 8px}
 }
+
+
+/* v0.11.42 · Settings-only transaction history and verified data export. */
+.audit-panel{margin:18px 0;padding:14px;border:1px solid var(--line);
+ background:var(--surface,#fff);border-radius:10px}
+.audit-panel>summary{cursor:pointer;font-weight:750;color:var(--green);
+ min-height:38px;padding:6px 0;font-size:13px}
+.audit-head{display:flex;gap:10px;align-items:center;justify-content:space-between;
+ margin-top:13px}
+.audit-head h3,.audit-backup h3{font-size:13px;margin:0}
+.audit-rows{max-height:380px;overflow:auto;display:grid;gap:7px;
+ margin:10px 0 16px}
+.audit-row{display:flex;align-items:start;justify-content:space-between;gap:7px 16px;
+ flex-wrap:wrap;padding:10px;border:1px solid var(--line);
+ border-radius:8px;background:var(--surface-soft,#f5f5f2)}
+.audit-title{flex:1 1 165px;min-width:0}
+.audit-title strong{display:block;font-size:12px;overflow-wrap:anywhere}
+.audit-title small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.audit-changes{flex:2 1 200px;display:flex;flex-wrap:wrap;gap:5px}
+.audit-difference{font-size:10px;background:var(--surface,#fff);border:1px solid var(--line);
+ border-radius:6px;padding:5px 7px;overflow-wrap:anywhere}
+.audit-backup{border-top:1px solid var(--line);padding-top:15px}
+.audit-backup p{line-height:1.55}
+.backup-download{display:inline-flex;align-items:center;justify-content:center;
+ text-align:center;text-decoration:none;font-size:12px;font-weight:750;
+ min-height:44px;border:1px solid var(--line);border-radius:8px;
+ color:var(--green);background:var(--surface,#fff);padding:10px 14px;margin:8px 0}
+.backup-download:hover{border-color:var(--green)}
+html[data-theme="dark"] .audit-panel,html[data-theme="dark"] .audit-difference{
+ background:var(--surface);border-color:var(--line)}
+html[data-theme="dark"] .audit-row{background:var(--surface-soft);border-color:var(--line)}
+html[data-theme="dark"] .backup-download{background:var(--surface-soft);color:var(--ink)}
