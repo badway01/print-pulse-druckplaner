@@ -523,3 +523,175 @@ dialog .dialog-heading .icon-button{
 }
 #quantity-initial-stock{min-height:48px;font-size:18px;width:100%}
 #quantity-initial-stock-label{padding:12px;background:#f0f4ee;border:1px solid #d1dfd4;border-radius:10px}
+
+
+/* v0.11.23: Print & Pulse light/dark surfaces, touch-friendly 3-way theme switch. */
+:root{
+ --bg:#fafaf8;--line:#d1d7ce;--surface:#ffffff;
+ --surface-soft:#f4f6f1;--border-strong:#c3cbc0;
+}
+html[data-theme="dark"]{
+ color-scheme:dark;
+ --bg:#19231f;--ink:#ebf0ed;--muted:#b5c2ba;
+ --green:#39725f;--mint:#8ebaa6;--gold:#d1b080;
+ --line:#47564c;--surface:#25312b;--surface-soft:#2e3b33;
+ --border-strong:#596b5e;--red:#d96a5e;--amber:#e0b76b;
+}
+html:not([data-theme="dark"]) body{background:#fafaf8}
+html:not([data-theme="dark"]) header{background:#fdfcf9}
+html:not([data-theme="dark"]) .summary{background:#f1f3ef}
+html:not([data-theme="dark"]) .orders-shell{background:linear-gradient(135deg,#fafbf8,#f4f6f2)}
+html:not([data-theme="dark"]) .filament-shell{background:linear-gradient(145deg,#fafbf8,#f3f5f1)}
+/* Slightly stronger perimeter lines, without changing the established urgency colors. */
+.summary,.product,.order-card,.orders-shell,.filament-shell,.filament-line,
+.catalog-item,.printer-mini,.printer-panel,.master-source,.stock-variant,
+.filament-empty,.orders-empty,.order-modal-lines>div,.etsy-stock-banner,
+.filament-cart-summary,.printer-tray,.master-context select,
+.master-add-source select,.master-slots select{
+ border-color:var(--border-strong);
+}
+.summary,.orders-shell,.filament-shell,.catalog-item,.filament-line,
+.printer-mini,.printer-panel,.master-source,.stock-variant{border-width:1.25px}
+.product,.order-card{border-left-color:var(--border-strong);border-right-color:var(--border-strong);border-bottom-color:var(--border-strong)}
+.product.red,.order-card.red{border-top-color:var(--red)}
+.product.yellow,.order-card.yellow{border-top-color:#d2aa4d}
+.product.green,.order-card.green{border-top-color:#4f8a63}
+
+/* Header switch: icon-only sun and moon, clear automatic option. */
+.theme-switch{display:inline-flex;align-items:center;gap:3px;padding:4px;
+ margin-left:auto;background:var(--surface-soft);border:1.25px solid var(--border-strong);
+ border-radius:13px;flex:none}
+.theme-switch .theme-option{width:41px;height:41px;min-width:41px;min-height:41px;
+ display:inline-flex;align-items:center;justify-content:center;padding:0;
+ border:0;border-radius:9px;background:transparent;color:var(--muted);
+ font-size:12px;line-height:1;font-weight:750;touch-action:manipulation}
+.theme-switch .theme-option svg{width:21px;height:21px}
+.theme-switch .theme-option.theme-auto{width:49px}
+.theme-switch .theme-option[aria-pressed="true"]{
+ background:var(--green);color:#fff;box-shadow:0 1px 4px #142b2223}
+.theme-switch .theme-option:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.release-history{margin:20px 0 12px;border:1.25px solid var(--border-strong);
+ border-radius:12px;padding:13px 16px;background:var(--surface)}
+.release-history>summary{cursor:pointer;font-weight:700;display:list-item}
+.version-number{float:right;color:var(--muted);font-size:12px;font-weight:500;letter-spacing:.4px}
+.release-history-content{max-height:330px;overflow:auto;margin-top:13px}
+.release-entry{padding:11px 0;border-top:1px solid var(--line)}
+.release-entry h4{margin:0 0 6px;font-size:14px}
+.release-entry ul{margin:4px 0 0;padding-left:20px}
+.release-entry li{margin:4px 0;font-size:12px;color:var(--muted);line-height:1.5}
+@media(max-width:620px){
+ header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 10px;
+ padding:15px 18px;align-items:center}
+ header .brand{grid-column:1;grid-row:1/3;min-width:0}
+ header .brand-logo{width:min(38vw,150px);height:auto;max-width:100%}
+ header .theme-switch{grid-column:2;grid-row:1;justify-self:end;margin-left:0}
+ header #settings-open{grid-column:2;grid-row:2;justify-self:end;padding:8px 13px}
+ .theme-switch .theme-option{width:39px;min-width:39px;height:39px;min-height:39px}
+ .theme-switch .theme-option.theme-auto{width:46px}
+}
+
+/* Dark theme applied to every major production surface, not just the header. */
+html[data-theme="dark"] body{background:linear-gradient(155deg,#1d2822,#19231f 60%,#151f1b)}
+html[data-theme="dark"] header{background:#202c26;border-bottom-color:var(--line)}
+html[data-theme="dark"] button:not(.primary):not([aria-pressed="true"]):not(.print-finish-large),
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea{
+ color:var(--ink);background-color:var(--surface);border-color:var(--line)}
+html[data-theme="dark"] button.primary,
+html[data-theme="dark"] .theme-option[aria-pressed="true"]{background:var(--green);color:#fff}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder{color:#a7b6ac}
+html[data-theme="dark"] h1 span{color:#ddba83}
+html[data-theme="dark"] .eyebrow{color:#98c9b3}
+html[data-theme="dark"] .summary,
+html[data-theme="dark"] .orders-shell,
+html[data-theme="dark"] .filament-shell,
+html[data-theme="dark"] .printer-strip{background:var(--surface-soft);border-color:var(--border-strong)}
+html[data-theme="dark"] .summary>div{border-color:var(--line)}
+html[data-theme="dark"] .order-card,
+html[data-theme="dark"] .product,
+html[data-theme="dark"] .orders-empty,
+html[data-theme="dark"] .filament-line,
+html[data-theme="dark"] .filament-empty,
+html[data-theme="dark"] .catalog-item,
+html[data-theme="dark"] .master-source,
+html[data-theme="dark"] .printer-mini,
+html[data-theme="dark"] .printer-panel,
+html[data-theme="dark"] .stock-variant,
+html[data-theme="dark"] .order-modal-lines>div,
+html[data-theme="dark"] .etsy-alert-item{background:var(--surface)}
+html[data-theme="dark"] .product-photo,
+html[data-theme="dark"] .order-card-main>img,
+html[data-theme="dark"] .catalog-item img,
+html[data-theme="dark"] .catalog-placeholder{background:#344238}
+html[data-theme="dark"] .stock-overview,
+html[data-theme="dark"] .print-overview,
+html[data-theme="dark"] .variant-toggle,
+html[data-theme="dark"] .step,
+html[data-theme="dark"] .recommend,
+html[data-theme="dark"] .running-print,
+html[data-theme="dark"] .printer-tray,
+html[data-theme="dark"] .master-chip,
+html[data-theme="dark"] .printer-config-fields>details,
+html[data-theme="dark"] .printer-manual-fields,
+html[data-theme="dark"] #quantity-initial-stock-label{
+ background:var(--surface-soft);color:var(--ink);border-color:var(--line)}
+html[data-theme="dark"] .recommend.red,
+html[data-theme="dark"] .order-countdown.red{background:#4a302d;color:#f4b6ae}
+html[data-theme="dark"] .recommend.yellow,
+html[data-theme="dark"] .order-countdown.yellow{background:#51432d;color:#f5d7a0}
+html[data-theme="dark"] .recommend.green,
+html[data-theme="dark"] .order-countdown.green{background:#284e3c;color:#a3dcc1}
+html[data-theme="dark"] .print-need,
+html[data-theme="dark"] .filament-duplicate{background:#44352f;color:#f1bdb1;border-color:#73544b}
+html[data-theme="dark"] .print-need strong{color:#ffc0ac}
+html[data-theme="dark"] .etsy-stock-banner{background:#443b29;border-color:#8c764e}
+html[data-theme="dark"] .etsy-stock-banner.etsy-alert-critical{background:#4d302e;border-color:#93534b}
+html[data-theme="dark"] .etsy-alert-info strong,
+html[data-theme="dark"] .etsy-alert-info p,
+html[data-theme="dark"] .etsy-alert-foot,
+html[data-theme="dark"] .etsy-alert-item{color:var(--ink)}
+html[data-theme="dark"] .etsy-alert-top>button{background:#504632;color:#f2e5cf}
+html[data-theme="dark"] .filament-cart-summary,
+html[data-theme="dark"] .orders-count,
+html[data-theme="dark"] .filament-internal-code,
+html[data-theme="dark"] .badge.made,
+html[data-theme="dark"] .order-open{background:#304e3e;color:#c5e7d5}
+html[data-theme="dark"] .badge.best{background:#53452f;color:#f1d79b}
+html[data-theme="dark"] .order-countdown,
+html[data-theme="dark"] .printer-status-pill{background:#31503f;color:#c5e7d5}
+html[data-theme="dark"] .printer-status-pill.error{background:#53332e;color:#f3b2a7}
+html[data-theme="dark"] .printer-status-pill.finished{background:#51442f;color:#f0d49a}
+html[data-theme="dark"] .printer-status-pill.offline,
+html[data-theme="dark"] .printer-status-pill.setup,
+html[data-theme="dark"] .printer-status-pill.unknown{background:#37433d;color:#c4ccc6}
+html[data-theme="dark"] .printer-gauge::before{background:var(--surface)}
+html[data-theme="dark"] .printer-gauge{background:conic-gradient(from -90deg,var(--printer-tone) 0 var(--printer-progress),#415348 var(--printer-progress) 100%)}
+html[data-theme="dark"] .workspace-tabs button,
+html[data-theme="dark"] .filament-switch button,
+html[data-theme="dark"] .filament-suggest-item{background:var(--surface);color:var(--ink)}
+html[data-theme="dark"] .workspace-tabs button.selected,
+html[data-theme="dark"] .filament-switch button.selected,
+html[data-theme="dark"] .filters button.selected{background:var(--green);color:#fff}
+html[data-theme="dark"] .filament-line-actions a,
+html[data-theme="dark"] .filament-edit,
+html[data-theme="dark"] .filament-step,
+html[data-theme="dark"] .filament-hex-preview,
+html[data-theme="dark"] .filament-suggest-list,
+html[data-theme="dark"] .filament-suggest-item:hover,
+html[data-theme="dark"] .printer-match-choice,
+html[data-theme="dark"] .printer-match-ok,
+html[data-theme="dark"] .printer-match-warning{background:var(--surface-soft);color:var(--ink)}
+html[data-theme="dark"] dialog{color:var(--ink);background:#223029;border:1px solid var(--border-strong)}
+html[data-theme="dark"] .release-history{background:var(--surface);border-color:var(--border-strong)}
+html[data-theme="dark"] .toast{background:#e5efe9;color:#23352a}
+html[data-theme="dark"] .toast.error{background:#99483b;color:#fff}
+html[data-theme="dark"] .theme-switch{background:#293830}
+html[data-theme="dark"] .theme-switch .theme-option:not([aria-pressed="true"]){background:transparent;color:#c5d1c9;border:0}
+html[data-theme="dark"] .search,
+html[data-theme="dark"] .filament-search{background:var(--surface)}
+html[data-theme="dark"] .search input,
+html[data-theme="dark"] .filament-search input{background:transparent;border:none}
+html[data-theme="dark"] .running-print button.print-finish-large,
+html[data-theme="dark"] .order-job button.print-finish-large{background:var(--green);color:#fff}
