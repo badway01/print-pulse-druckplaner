@@ -1,3 +1,13 @@
+# 0.11.36 · Einheitliche Filament-Buttons in Split View und auf dem Tablet
+
+- „Shop“, „Auf Liste“, „Rollen“ und „Bearbeiten“ verwenden nun vier feste Button-Positionen in genau dieser Reihenfolge.
+- Ohne Einkaufslink wird der Shop-Platz freigehalten, damit alle übrigen Buttons von Zeile zu Zeile exakt ausgerichtet bleiben.
+- Das responsive Layout richtet sich nach der tatsächlichen verfügbaren Breite im Home-Assistant-Fenster, nicht nur nach der Bildschirmgröße (Mac Split View, Dashboard-Seitenleiste, Tablet).
+- In breiten und mittleren Ansichten bleiben alle vier Buttons in einer Reihe; in sehr schmalen Ansichten werden sie kontrolliert in zwei gleichmäßige Reihen aufgeteilt.
+- Kleine Änderungen an Abständen und Button-Größen verhindern das unerwartete Umbrechen von „Bearbeiten“.
+- Die Einkaufsliste nutzt weiterhin ihren eigenen Bedienbereich. Bestände, Preise und Filamentdaten bleiben unverändert.
+- Browser-Regressionstests prüfen gleiche Button-Positionen und Kartenhöhen bei acht Panelbreiten, mit und ohne Einkaufslink.
+
 # 0.11.35 · Volle und angebrochene Filamentrollen ohne Wiegen
 
 - Das Filamentlager unterscheidet jetzt volle und angebrochene Spulen pro Hersteller/Farbe/Material – ausschließlich als Stückzahlen, ohne Grammangaben oder Nachwiegen.
