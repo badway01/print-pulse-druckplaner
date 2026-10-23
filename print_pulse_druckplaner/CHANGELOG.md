@@ -1,3 +1,12 @@
+# 0.11.24 · Mobilnavigation und klare Status-Texte
+
+- Produktionsbereich: „PRODUKTION · LIVE“ statt „WERKSTATT · LIVE AUS HOME ASSISTANT“.
+- Etsy-Bestellungen: „ETSY · DEIN SHOP“ statt „ETSY · LIVE NACH ABGLEICH“. **Wichtig:** Datum und Uhrzeit der letzten Etsy-Bestellungs- und Katalogaktualisierung bleiben unverändert sichtbar, einschließlich der Abgleichintervalle.
+- Auf dem iPhone und anderen kleinen Displays stehen Produktion, Produktkatalog & 3MF, Filament & Einkauf und Drucker in einer einzigen horizontal wischbaren Leiste, ohne Seitenumbruch; der aktive Reiter wird automatisch ins Sichtfeld gebracht.
+- Das originale Print-&-Pulse-Logo bleibt unverändert; der eingebettete helle Bildhintergrund fügt sich über eine CSS-Mischung in den hellen beziehungsweise dunklen Header ein.
+- Browser-Regressionstests kontrollieren Überschriften, Etsy-Aktualisierungsanzeige, das helle/dunkle Logo und mobile Reiter ohne horizontales Scrollen der gesamten Seite.
+- Keine Änderung an Etsy-Synchronisation, Lagerbeständen, Druckersteuerung oder gespeicherten Master-3MF-Dateien.
+
 # 0.11.23 · Theme-Switch, Tag/Nacht-Automatik und klarere Oberfläche
 
 - Im Header ersetzt ein kompakter Dreifach-Switch die alte, falsche Anzeige „LAGER v0.1“: Sonne (Hell), Halbmond (Dunkel), Auto.
