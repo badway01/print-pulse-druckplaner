@@ -1372,3 +1372,84 @@ html[data-theme="dark"] .audit-panel,html[data-theme="dark"] .audit-difference{
  background:var(--surface);border-color:var(--line)}
 html[data-theme="dark"] .audit-row{background:var(--surface-soft);border-color:var(--line)}
 html[data-theme="dark"] .backup-download{background:var(--surface-soft);color:var(--ink)}
+
+
+/* v0.11.44: order production overview – always readable on tablet, split view
+   and phones; the actual ordered colors are the visual focal point. */
+#order-details{width:min(780px,calc(100% - 22px));padding:clamp(14px,2.3vw,26px)}
+#order-details .dialog-heading{margin-bottom:12px}
+#order-details .dialog-heading h2{font-size:clamp(18px,2.2vw,23px);line-height:1.3}
+.order-work-meta{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;padding:0 2px 14px}
+.order-work-meta>div:first-child{display:grid;gap:2px}
+.order-work-meta>div:first-child strong{font-size:15px}
+.order-work-meta>div:first-child small{color:var(--muted);font-size:12px}
+.order-work-meta .order-deadline{width:auto;display:flex;gap:8px;align-items:center}
+.order-work-meta .order-ship-date{font-size:12px}
+.order-work-meta .order-countdown{font-size:12px}
+.order-worklist{display:grid;gap:11px}
+.order-worklist-heading{display:grid;gap:2px;margin:4px 0 0}
+.order-worklist-heading>span{font-size:10px;color:var(--green);font-weight:800;letter-spacing:1.25px}
+.order-worklist-heading h3{margin:0 0 3px;font-size:22px;line-height:1.3}
+.order-work-item{background:var(--surface,#fff);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+.order-work-product{display:flex;align-items:center;gap:12px;min-width:0}
+.order-work-product img{flex:0 0 64px;width:64px;height:64px;object-fit:cover;border-radius:9px;border:1px solid var(--line);background:#f5f3ee}
+.order-work-product>div{min-width:0}
+.order-work-product small{display:block;color:var(--muted);font-weight:800;letter-spacing:.5px;font-size:10px;margin-bottom:2px}
+.order-work-product h4{margin:0;font-size:clamp(17px,2vw,21px);line-height:1.25;overflow-wrap:anywhere;font-weight:800}
+.order-work-variants{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0}
+.order-work-variant{display:flex;flex-direction:column;gap:1px;justify-content:center;min-width:110px;max-width:100%;padding:9px 14px;border-radius:9px;border:1px solid #c4d5cb;background:#edf4ef;overflow-wrap:anywhere}
+.order-work-variant small{color:#426757;font-size:11px;font-weight:750;line-height:1.3}
+.order-work-variant b{color:#254a3b;font-size:clamp(17px,2vw,21px);line-height:1.25;font-weight:850}
+.order-work-steps{display:flex;flex-wrap:wrap;gap:7px;margin:9px 0}
+.order-work-step{display:inline-flex;align-items:center;min-height:33px;max-width:100%;padding:7px 11px;border-radius:8px;border:1px solid #e3d4a6;background:#fff3d6;color:#77551c;font-size:13px;line-height:1.3;overflow-wrap:anywhere}
+.order-work-step.to-print{background:#fff0e4;color:#963e25;border-color:#edb9a3}
+.order-work-step.from-stock,.order-work-step.is-ready{background:#e7f4e9;color:#276242;border-color:#b9d8c0}
+.order-work-step.needs-attention{background:#fae9e6;color:#983a32;border-color:#e8b5ae}
+.order-work-step.in-print{background:#e8edf6;color:#405e8b;border-color:#c0d0e6}
+.order-work-booking{margin-top:12px;padding-top:11px;border-top:1px solid var(--line)}
+.order-work-booking .order-line-actions{margin-top:6px}
+.order-work-booking .order-line-actions button{font-size:13px;min-height:46px}
+.order-work-booking .component-order-list{margin-top:0}
+.order-work-help{margin-top:14px;border-top:1px solid var(--line);padding-top:9px;color:var(--muted)}
+.order-work-help summary{font-size:12px;cursor:pointer}
+.order-work-help .hint{margin:7px 0}
+.component-order-kicker{font-size:11px;color:var(--muted);font-weight:800;letter-spacing:.7px}
+.order-work-booking .component-order-piece{padding:13px;border-radius:10px}
+.component-piece-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.component-piece-title{display:flex;flex-direction:column;gap:3px;min-width:0}
+.component-piece-title>small{font-size:10px;color:var(--muted);font-weight:750;letter-spacing:.5px}
+.component-order-piece .component-piece-title>strong{font-size:18px;line-height:1.3}
+.component-piece-color{display:inline-block;align-self:flex-start;padding:3px 9px;border-radius:6px;border:1px solid #c4d5cb;background:#eaf2ec;color:#2b5844;font-size:16px;font-weight:800;overflow-wrap:anywhere}
+.component-piece-status{padding:5px 9px;border-radius:7px;font-weight:800;font-size:11px;background:#e7f4e9;color:#276242;white-space:normal}
+.component-piece-status.to-print{background:#fff0e4;color:#963e25}
+.component-piece-status.in-print{background:#e8edf6;color:#405e8b}
+.component-piece-status.needs-attention{background:#fae9e6;color:#983a32}
+.component-piece-numbers{display:flex;gap:6px 11px;align-items:baseline;flex-wrap:wrap;margin:10px 0 2px;font-size:12px}
+.component-piece-numbers b{font-size:13px}
+.component-piece-numbers span{color:var(--muted)}
+.component-order-instruction{display:block;font-size:12px;color:var(--muted)}
+.order-work-booking .component-order-buttons button{font-size:13px;min-height:46px}
+html[data-theme="dark"] .order-work-item{background:var(--surface);border-color:var(--border-strong)}
+html[data-theme="dark"] .order-work-variant,
+html[data-theme="dark"] .component-piece-color{background:#2d493b;border-color:#62836d;color:#e1f3e6}
+html[data-theme="dark"] .order-work-variant small{color:#b6d7bf}
+html[data-theme="dark"] .order-work-variant b{color:#e8f6ec}
+html[data-theme="dark"] .order-work-step.from-stock,
+html[data-theme="dark"] .order-work-step.is-ready,
+html[data-theme="dark"] .component-piece-status.is-ready{background:#2b513b;color:#d5efdb;border-color:#558b64}
+html[data-theme="dark"] .order-work-step.to-print,
+html[data-theme="dark"] .component-piece-status.to-print{background:#563b30;color:#ffe0c9;border-color:#945b45}
+html[data-theme="dark"] .order-work-step.needs-attention,
+html[data-theme="dark"] .component-piece-status.needs-attention{background:#56312f;color:#f9d2ca;border-color:#995951}
+html[data-theme="dark"] .order-work-step.in-print,
+html[data-theme="dark"] .component-piece-status.in-print{background:#35465d;color:#dce9ff;border-color:#657b98}
+@media(max-width:600px){
+ #order-details{padding:14px}
+ .order-work-meta .order-deadline{width:100%;justify-content:space-between}
+ .order-work-item{padding:11px}
+ .order-work-product img{width:52px;height:52px;flex-basis:52px}
+ .order-work-variants{gap:6px}
+ .order-work-variant{flex:1 1 125px;min-width:0;padding:8px 10px}
+ .order-work-variant b{font-size:17px}
+ .component-piece-heading{align-items:flex-start}
+}
