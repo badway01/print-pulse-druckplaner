@@ -131,7 +131,7 @@ await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
 await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.27'));
 assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.33');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.34');
 await page.locator('[data-close="settings"]').click();
 
 
@@ -213,6 +213,11 @@ assert.deepEqual(printProgressChecks.complete,{total:3,finished:3,complete:true}
 assert.equal(printProgressChecks.unassigned.complete,false);
 assert.equal(printProgressChecks.overscheduled.complete,false);
 assert.equal(await page.locator('[data-order-card="501"] .order-print-complete').count(),0);
+const baseOrderGeometry=await page.locator('[data-order-card="501"]').evaluate(card=>({
+ cardHeight:card.getBoundingClientRect().height,
+ imageTop:card.querySelector('.order-card-main img').getBoundingClientRect().top,
+ imageHeight:card.querySelector('.order-card-main img').getBoundingClientRect().height
+}));
 await page.evaluate(()=>{
  const example=model.orders.find(order=>order.id==='501');
  window.beforePrintMarker=example.items;
@@ -221,9 +226,30 @@ await page.evaluate(()=>{
 });
 const doneCard=page.locator('[data-order-card="501"]');
 assert.equal(await doneCard.locator('.order-print-complete').count(),1);
-assert((await doneCard.locator('.order-print-complete').textContent()).includes('DRUCK FERTIG'));
+assert.equal((await doneCard.locator('.order-print-complete').textContent()).trim(),'✓FERTIG');
 assert.equal(await doneCard.locator('.order-print-check').textContent(),'✓');
-assert((await doneCard.locator('.order-print-complete').boundingBox()).height>=40);
+const bookmark=await doneCard.locator('.order-print-complete').evaluate(el=>{
+ const r=el.getBoundingClientRect(),card=el.closest('.order-card').getBoundingClientRect();
+ const image=el.closest('.order-card').querySelector('.order-card-main img').getBoundingClientRect();
+ const scroller=el.closest('.orders-carousel').getBoundingClientRect();
+ const css=getComputedStyle(el);
+ return {tag:el.tagName,height:r.height,width:r.width,top:r.top,bottom:r.bottom,right:r.right,
+   cardTop:card.top,cardRight:card.right,cardHeight:card.height,imageTop:image.top,imageHeight:image.height,
+   scrollTop:scroller.top,position:css.position,pointerEvents:css.pointerEvents};
+});
+assert.equal(bookmark.tag,'DIV','bookmark is a non-interactive status, not a button');
+assert.equal(bookmark.position,'absolute','bookmark should not consume card height');
+assert.equal(bookmark.pointerEvents,'none','bookmark must not be clickable');
+assert(bookmark.height<=28&&bookmark.width<115,'bookmark stays compact even on tablet');
+assert(bookmark.top>=bookmark.scrollTop-1,'bookmark cannot be clipped by the carousel');
+assert(bookmark.bottom<=bookmark.cardTop+6,'bookmark must sit on the top edge, above content');
+assert(bookmark.right<=bookmark.cardRight+1,'bookmark must attach to the top-right corner');
+assert.equal(bookmark.imageHeight,baseOrderGeometry.imageHeight,'product image size is unchanged');
+assert(Math.abs(bookmark.imageTop-baseOrderGeometry.imageTop)<=1,'bookmark does not push product image down');
+assert(Math.abs(bookmark.cardHeight-baseOrderGeometry.cardHeight)<=1,'finished card height is unchanged');
+const orderHeights=await page.locator('.order-card').evaluateAll(cards=>cards.map(c=>c.getBoundingClientRect().height));
+assert(orderHeights.every(h=>Math.abs(h-orderHeights[0])<=1),'all cards must have equal height');
+
 assert.equal(await doneCard.locator('.order-print').isDisabled(),true);
 await doneCard.locator('[data-order-open]').click();
 assert.equal(await page.locator('#order-details-content .order-print-complete').count(),1);
@@ -234,7 +260,9 @@ await page.evaluate(()=>{
  renderOrders();
 });
 assert.equal(await doneCard.locator('.order-print-complete').count(),0);
-assert((await doneCard.locator('.order-print-partial').textContent()).includes('1 von 2'));
+assert((await doneCard.locator('.order-print-partial').textContent()).includes('1/2 fertig'));
+const partialHeights=await page.locator('.order-card').evaluateAll(cards=>cards.map(c=>c.getBoundingClientRect().height));
+assert(partialHeights.every(h=>Math.abs(h-partialHeights[0])<=1),'partially finished cards must not grow');
 await page.evaluate(()=>{
  model.orders.find(order=>order.id==='501').items=window.beforePrintMarker;
  delete window.beforePrintMarker;
