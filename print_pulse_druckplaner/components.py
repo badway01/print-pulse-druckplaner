@@ -83,11 +83,11 @@ def snapshot(db,products,orders):
         enabled[product['id']]=bool(product.get('components_enabled'))
     for order in orders:
         for line in order['items']:
-            line['components_enabled']=enabled.get(line['listing_id'],False)
+            line['components_enabled']=enabled.get(str(line.get('listing_id') or ''),False)
             line['components']=[]
             if not line['components_enabled'] or not line.get('item_id'):
                 continue
-            for part in group.get(line['listing_id'],[]):
+            for part in group.get(str(line.get('listing_id') or ''),[]):
                 total,label,error=requirement(part,line)
                 job=jobs.get((str(line['transaction_id']),part['id']),{})
                 state={k:int(job.get(k,0)) for k in ('booked','printing','finished','consumed')}
