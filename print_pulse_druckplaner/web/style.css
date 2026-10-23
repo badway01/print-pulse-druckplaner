@@ -1179,3 +1179,18 @@ html[data-theme="dark"] .filament-rows .filament-line-actions{
 .order-card-actions button[data-component-tid]{background:var(--green);color:#fff;border-color:var(--green)}
 html[data-theme="dark"] .component-management-row,
 html[data-theme="dark"] .component-order-piece{background:var(--surface-soft)}
+
+/* Physical switch, not a plain checkbox; matches the catalog concept. */
+.catalog-part-switch input[role="switch"]{
+ appearance:none;-webkit-appearance:none;display:inline-block;position:relative;
+ width:40px;height:24px;border:1px solid #b8c3b8;border-radius:999px;
+ background:#dce2db;flex-shrink:0;cursor:pointer;transition:background .15s;
+}
+.catalog-part-switch input[role="switch"]::before{
+ content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;
+ border-radius:50%;background:white;box-shadow:0 1px 3px #0002;
+ transition:transform .15s;
+}
+.catalog-part-switch input[role="switch"]:checked{background:var(--green);border-color:var(--green)}
+.catalog-part-switch input[role="switch"]:checked::before{transform:translateX(16px)}
+.catalog-part-switch input[role="switch"]:focus-visible{outline:3px solid #cf9c45;outline-offset:2px}
