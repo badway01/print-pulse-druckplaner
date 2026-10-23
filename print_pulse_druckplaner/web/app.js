@@ -647,6 +647,17 @@ function updateFilamentDuplicate(){
 }
 
 const filamentMoney=cents=>cents===null||cents===undefined?'Preis offen':(cents/100).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+/* Value of recorded full spools only; shopping cart is excluded. */
+function filamentStockValue(rows){
+ return rows.reduce((total,f)=>{
+  const qty=Number(f.stock_qty);
+  if(!Number.isSafeInteger(qty)||qty<=0)return total;
+  total.spools+=qty;
+  if(f.price_cents===null||f.price_cents===undefined)total.missing_qty+=qty;
+  else total.known_total_cents+=qty*Number(f.price_cents);
+  return total;
+ },{spools:0,known_total_cents:0,missing_qty:0});
+}
 const filamentSpoolCart='<svg class="spool-cart" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h3l3 16h18l3-11H8"/><circle cx="13" cy="27" r="2"/><circle cx="25" cy="27" r="2"/><circle cx="18" cy="13" r="5"/><circle cx="18" cy="13" r="2"/></svg>';
 function filamentLine(f,inCart){
  const name=esc(f.brand)+' · '+esc(f.color);
@@ -664,6 +675,13 @@ function renderFilaments(){
  if(!filamentData)return;
  const rows=filamentData.filaments||[];
  const cart=rows.filter(f=>f.cart_qty>0);
+ const inventory=filamentStockValue(rows);
+ $('filament-stock-summary').hidden=filamentView!=='colors';
+ $('filament-stock-spools').textContent=inventory.spools+' '+(inventory.spools===1?'volle Spule':'volle Spulen');
+ $('filament-stock-value').textContent=filamentMoney(inventory.known_total_cents);
+ $('filament-stock-missing').textContent=inventory.missing_qty
+  ?inventory.missing_qty+' '+(inventory.missing_qty===1?'Spule ohne Preis':'Spulen ohne Preis')+' – Wert unvollständig'
+  :'Menge × Preis pro Spule';
  $('filament-color-count').textContent=rows.length;
  $('filament-cart-count').textContent=filamentData.cart_count;
  $('filament-tab-count').textContent=filamentData.cart_count;
