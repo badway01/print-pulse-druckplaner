@@ -207,8 +207,46 @@ await page.evaluate(()=>{
 });
 await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('#printer-strip').isVisible(),true);
-
-
+// With component mode enabled, even a product with 784 variant combinations
+// shows only physical components and never 784 "Noch zählen" entries.
+const variantNeedsBefore=await page.evaluate(()=>{
+ const p=model.products.find(product=>product.id==='102');
+ return p.need;
+});
+await page.evaluate(()=>{
+ const p=model.products.find(product=>product.id==='102');
+ p.components_enabled=1;
+ p.components=[
+  {id:'ghost-stock',listing_id:'102',name:'Geist Weiß',kind:'stock',units:1,stock:8,property_name:'',quantity_property:'Setgröße'},
+  {id:'book-demand',listing_id:'102',name:'Buch',kind:'demand',units:1,stock:0,property_name:'Buchfarbe',quantity_property:'Setgröße'}
+ ];
+ render();
+});
+const componentCard=page.locator('[data-product="102"]');
+assert.equal(await componentCard.locator('.component-card-part').count(),2);
+assert((await componentCard.locator('.component-card-panel').textContent()).includes('Geist Weiß'));
+assert((await componentCard.locator('.component-card-panel').textContent()).includes('8 ×'));
+assert((await componentCard.locator('.component-card-panel').textContent()).includes('Buchfarbe'));
+assert((await componentCard.locator('.component-card-panel').textContent()).includes('Nach Auftrag'));
+assert.equal(await componentCard.locator('.stock-overview,.stock-quick-toggle,.variant-picker,.print-overview,.product-print-actions').count(),0);
+assert.equal(await componentCard.locator('.photo-stock-toggle').count(),0);
+assert.equal(await componentCard.locator('.component-legacy .variant-toggle').count(),1,'historical complete variants stay accessible only if requested');
+assert.equal(await componentCard.locator('.component-legacy .variant').count(),0,'do not render hundreds of variations by default');
+assert.equal(await componentCard.locator('.product-photo img').count(),1,'existing Etsy photo remains visible');
+const afterCompSum=await page.locator('#summary b').nth(1).textContent();
+const expectedCompDue=await page.evaluate(()=>model.products
+ .filter(p=>p.state==='active'&&!p.components_enabled).reduce((n,p)=>n+p.need,0));
+assert.equal(Number.parseInt(afterCompSum,10),expectedCompDue,'variant-level demand from component products is excluded');
+assert(variantNeedsBefore>=0);
+await componentCard.locator('[data-product-components-open]').click();
+assert.equal(await page.locator('#components-editor').isVisible(),true);
+assert((await page.locator('#components-list').textContent()).includes('Geist Weiß'));
+await page.locator('[data-close="components-editor"]').click();
+await page.evaluate(()=>{
+ const p=model.products.find(product=>product.id==='102');
+ p.components_enabled=0;p.components=[];render();
+});
+assert.equal(await componentCard.locator('.stock-quick-toggle').count(),1,'normal variant inventory returns when switch off');
 
 assert.equal((await page.locator('#order-count').textContent()).trim(),'3 offen');
 assert.equal((await page.locator('.summary-urgent b').textContent()).trim(),'2 Aufträge');
