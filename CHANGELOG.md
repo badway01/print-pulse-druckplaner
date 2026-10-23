@@ -1,3 +1,11 @@
+# 0.11.42 · Sicherheitsupdate für Buchungen und vollständige Sicherungen
+
+- Korrektur des fehlenden `assembled`-Datenfelds beim Etsy-Versand: fertig montierte Artikel werden nicht doppelt abgebucht.
+- Transaktionales Buchungsprotokoll für Fertigwaren-, Bauteil- und Auftragsbuchungen, erreichbar unter Einstellungen.
+- Verifizierter ZIP-Export aus SQLite-Datenbank und Master-3MF-Dateien mit Prüfsummen, Integritätskontrolle und Wiederherstellungsprobe außerhalb des Produktivbetriebs.
+- Keine automatischen Restore-Aktionen, keine Rücksetzung gespeicherter Lagerdaten.
+- Zusätzliche Regressionstests für Versand, Journal und vollständige Sicherung.
+
 # 0.11.41 · Priorisierte Druckliste direkt in der Produktion
 
 - „Als Nächstes drucken“ zwischen Etsy-Bestellungen und Produktkarten mit den drei wichtigsten Druckempfehlungen und aufklappbarem Rest.
