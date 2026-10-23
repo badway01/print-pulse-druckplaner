@@ -131,7 +131,7 @@ await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
 await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.27'));
 assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.30');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.31');
 await page.locator('[data-close="settings"]').click();
 
 
@@ -241,6 +241,19 @@ await page.locator('#filament-form [name="purchase_url"]').fill('https://example
 await page.locator('#filament-form [type="submit"]').click();
 await page.locator('.filament-line').first().waitFor();
 assert.equal(await page.locator('.filament-line').count(),1);
+assert.deepEqual(await page.locator('.filament-line-actions').first().locator(':scope > *').evaluateAll(nodes=>nodes.map(el=>el.classList[0])),
+ ['filament-shop','filament-cart-button','filament-edit'], 'Shop must be the first action in Meine Farben');
+const sortedVariants=await page.evaluate(()=>({
+  most:sortFilamentRows([{id:'low',stock_qty:1,brand:'A',color:'Rot'},{id:'high',stock_qty:6,brand:'A',color:'Weiß'},{id:'empty',stock_qty:0,brand:'B',color:'Kupfer'}],'stock-desc').map(x=>x.id),
+  least:sortFilamentRows([{id:'low',stock_qty:1,brand:'A',color:'Rot'},{id:'high',stock_qty:6,brand:'A',color:'Weiß'},{id:'empty',stock_qty:0,brand:'B',color:'Kupfer'}],'stock-asc').map(x=>x.id)
+}));
+assert.deepEqual(sortedVariants,{most:['high','low','empty'],least:['empty','low','high']});
+await page.locator('#filament-sort').selectOption('stock-desc');
+assert.equal(await page.locator('#filament-sort').inputValue(),'stock-desc');
+assert.equal(await page.evaluate(()=>localStorage.getItem('pp-filament-sort')),'stock-desc');
+await page.locator('#filament-sort').selectOption('stock-asc');
+assert.equal(await page.locator('#filament-sort').inputValue(),'stock-asc');
+await page.locator('#filament-sort').selectOption('default');
 assert((await page.locator('.filament-line').textContent()).includes('1 Spule'));
 assert.equal(await page.locator('#filament-stock-spools').textContent(),'1 volle Spule');
 assert((await page.locator('#filament-stock-value').textContent()).includes('19,90'));
@@ -267,6 +280,9 @@ await page.locator('[data-filament-view="cart"]').click();
 assert.equal(await page.locator('#filament-stock-summary').isVisible(),false);
 assert.equal(await page.locator('.filament-line').count(),1);
 assert((await page.locator('#filament-cart-summary').textContent()).includes('19,90'));
+assert.equal(await page.locator('#filament-sort-wrap').isVisible(),false);
+assert.deepEqual(await page.locator('.filament-line-actions').first().locator(':scope > *').evaluateAll(nodes=>nodes.map(el=>el.classList[0])),
+ ['filament-shop','filament-step','filament-cart-qty','filament-step','secondary'], 'Shop first in the shopping list');
 await page.locator('[data-filament-delta="1"]').click();
 await page.waitForFunction(()=>document.querySelector('#filament-cart-count').textContent==='2');
 await page.locator('[data-filament-delta="-1"]').click();
