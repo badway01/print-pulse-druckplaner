@@ -1,3 +1,9 @@
+# 0.11.39 · Vorproduktions-Schalter im Produktkatalog sichtbar
+
+- Der Home-Assistant-Webserver erlaubt jetzt auch die neue Datei `components-ui.js`. In 0.11.38 wurde sie zwar ausgeliefert, aber mit HTTP 404 blockiert. Deshalb fehlten die Vorproduktions-Schalter im Produktkatalog.
+- Jeder aktive Etsy-Artikel zeigt nach dem Update den zunächst ausgeschalteten Schalter „Vorproduktion verwenden“ und nach Aktivierung „Bauteile verwalten“.
+- Keine Änderung an bereits gespeicherten Lagermengen, Bauteilen, Bestellungen, Druckprofilen oder 3MF-Dateien.
+
 # 0.11.38 · Vorproduktion und gemeinsame Bauteile pro Etsy-Produkt
 
 - Im Produktkatalog hat jedes aktive Etsy-Produkt einen eigenen, zunächst ausgeschalteten Schalter „Vorproduktion verwenden“. Ein aktivierter Artikel bietet „Bauteile verwalten“.
