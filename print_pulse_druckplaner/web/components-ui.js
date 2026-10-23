@@ -355,3 +355,42 @@ $('order-details-content').addEventListener('click',async event=>{
  const b=event.target.closest('[data-component-tid]');
  if(b){event.stopImmediatePropagation();await componentOrderAction(b);}
 },true);
+
+
+/* v0.11.42: low-noise transaction history, in Settings only. */
+let auditLoading=false;
+const auditFields={
+ stock:'Bestand',printing:'Im Druck',minimum:'Minimum',booked:'Reserviert',
+ finished:'Fertig',allocated:'Aus Lager',assembled:'Montiert',
+ consumed:'Verbraucht',target:'Auffüllziel',status:'Etsy-Status'
+};
+function auditText(value){
+ return value===null||value===undefined?'nicht erfasst':String(value);
+}
+async function loadAudit(){
+ if(auditLoading)return;
+ auditLoading=true;
+ const area=$('audit-rows');
+ updateHTML(area,'<p class="hint">Buchungen werden geladen …</p>');
+ try{
+  const data=await api('audit?limit=80');
+  const events=Array.isArray(data.events)?data.events:[];
+  updateHTML(area,events.length?events.map(entry=>{
+   const date=new Date((Number(entry.created)||0)*1000).toLocaleString('de-DE',
+    {dateStyle:'short',timeStyle:'short',timeZone:'Europe/Berlin'});
+   const changes=(entry.changes||[]).map(change=>
+    '<span class="audit-difference">'+esc(auditFields[change.field]||change.field)+': '+
+    esc(auditText(change.before))+' → '+esc(auditText(change.after))+
+    (change.delta?' ('+esc(change.delta)+')':'')+'</span>').join('');
+   return '<div class="audit-row"><div class="audit-title"><strong>'+esc(entry.title)+
+    '</strong><small>'+esc(date)+' · '+esc(entry.category)+'</small></div>'+
+    '<div class="audit-changes">'+(changes||esc(entry.action))+'</div></div>';
+  }).join(''):'<p class="hint">Noch keine Buchungen erfasst. Neue Bestandsbewegungen werden ab diesem Update protokolliert.</p>');
+ }catch(err){
+  updateHTML(area,'<p class="hint">Buchungen konnten nicht geladen werden: '+esc(err.message)+'</p>');
+ }finally{auditLoading=false;}
+}
+$('audit-panel').addEventListener('toggle',event=>{
+ if(event.target.open)loadAudit();
+});
+$('audit-refresh').addEventListener('click',loadAudit);
