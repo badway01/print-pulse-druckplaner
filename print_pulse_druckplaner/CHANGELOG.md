@@ -1,3 +1,14 @@
+# 0.11.43 · Schnelle Lagerbearbeitung ohne graue Karten
+
+- Bei Bestandsänderungen werden nicht mehr sämtliche Produktkarten und Bedienelemente deaktiviert. Eine dezente Meldung „Änderung wird gespeichert …“ zeigt die laufende Buchung an; Doppelbuchungen bleiben blockiert.
+- Nach einer erfolgreichen Buchung aktualisiert sich die Oberfläche einmal statt zweimal.
+- Unveränderte Serverantworten verursachen keinen neuen Kartenaufbau. Identische HTML-Karten werden gar nicht erneut verarbeitet.
+- Der DOM-Abgleich großer Variantenlisten verwendet jetzt eine lineare Zuordnung statt wiederholter quadratischer Suchen.
+- Die reine Hintergrundanzeige aktualisiert sich alle 15 statt alle 5 Sekunden. Während Bearbeitungsdialogen und bei ausgeblendeter App wird keine neue Gesamtansicht gezeichnet. Beim Zurückwechseln wird aktualisiert.
+- Noch laufende alte Hintergrundanfragen überschreiben keine neueren Lagerbuchungen mehr.
+- Der Server fasst Etsy-Aufträge und Druckjobs für den Status einmalig je Artikel/Variante zusammen, statt wiederholt vollständige Listen zu durchsuchen.
+- Bestehende Lager-, Bauteil-, Etsy- und Master-3MF-Daten bleiben unverändert erhalten.
+
 # 0.11.42 · Punkt 3: Buchungssicherheit, Verlauf und verifizierte Datensicherung
 
 - Etsy-Versandabgleich korrigiert: Der SELECT der Auftragsdruck-Buchung berücksichtigt jetzt auch `assembled`. Dadurch werden bereits montierte Kundenaufträge nicht erneut vom Fertigwarenbestand abgebucht und der Abgleich bricht nicht mehr wegen eines fehlenden Feldes ab.
