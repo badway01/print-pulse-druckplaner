@@ -171,6 +171,8 @@ def mutate(db,data,whole):
             db.execute('DELETE FROM pp_components WHERE id=?',(cid,))
         elif action=='stock':
             if not old or old['kind']!='stock': raise ValueError('Vorratsbauteil nicht gefunden.')
+            if 'expected_stock' in data and whole(data['expected_stock'],0,100000)!=old['stock']:
+                raise ValueError('Der Bauteilbestand wurde inzwischen geändert. Bitte neu laden.')
             qty=whole(data.get('stock'),0,100000)
             db.execute('UPDATE pp_components SET stock=?,updated=? WHERE id=?',(qty,int(time.time()),cid))
         elif action in ('stock-print','stock-finish','stock-cancel'):
