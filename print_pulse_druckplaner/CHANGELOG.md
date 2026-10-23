@@ -1,3 +1,11 @@
+# 0.11.44 · Produktionsübersicht mit sichtbaren Farben
+
+- Etsy-Bestelldetails zeigen direkt den bestellten Artikel, die gewählten Ausführungen und Farbwerte in gut lesbaren Feldern.
+- Pro Auftragsposition wird der nächste konkrete Arbeitsschritt hervorgehoben: Drucken, aus Bauteillager zuordnen, laufender Druck, fehlender Vorrat oder Montage.
+- Vorproduktions-Bauteile haben größere Namen, farblich klar getrennte Status und weiterhin dieselben Buchungsaktionen.
+- Buchungshinweise sind einklappbar. Die Dialogansicht passt sich Wandtablet, Desktop, Split View und Handy an.
+- Keine Änderung an Etsy-Daten, vorhandenen Bauteilen, Lagerbeständen oder Buchungslogik.
+
 # 0.11.43 · Schnelle Lagerbearbeitung ohne graue Karten
 
 - Bei Bestandsänderungen werden nicht mehr sämtliche Produktkarten und Bedienelemente deaktiviert. Eine dezente Meldung „Änderung wird gespeichert …“ zeigt die laufende Buchung an; Doppelbuchungen bleiben blockiert.
