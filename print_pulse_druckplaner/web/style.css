@@ -511,3 +511,15 @@ footer{color:#84786a}
 .running-print button.print-finish-large,
 .order-job button.print-finish-large,
 .print-row button.print-finish-large{min-height:64px;min-width:170px;padding:12px 19px;font-size:18px;font-weight:750;background:var(--green);color:#fff;border-color:var(--green)}
+
+/* Touchsichere Dialogaktionen auf iPhone und Wandtablet. */
+dialog .dialog-heading{gap:12px;align-items:flex-start}
+dialog .dialog-heading h2{min-width:0}
+dialog .dialog-heading .icon-button{
+ display:inline-flex;align-items:center;justify-content:center;
+ flex:0 0 48px;min-width:48px;min-height:48px;
+ padding:0;margin:-8px -8px 0 0;line-height:1;position:relative;z-index:1;
+ touch-action:manipulation;
+}
+#quantity-initial-stock{min-height:48px;font-size:18px;width:100%}
+#quantity-initial-stock-label{padding:12px;background:#f0f4ee;border:1px solid #d1dfd4;border-radius:10px}

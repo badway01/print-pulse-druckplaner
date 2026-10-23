@@ -127,5 +127,34 @@ class OrderPrintTests(unittest.TestCase):
         self.assertEqual(self.item()['order_jobs'][0]['receipt_id'],'401')
 
 
+    def test_first_order_finish_accepts_counted_initial_stock(self):
+        self.action('printing',2)
+        iid=self.item()['id']
+        with app.connect() as db:
+            db.execute('UPDATE stock_items SET on_hand=NULL,revision=revision+1 WHERE id=?',(iid,))
+        request={'transaction_id':'301','receipt_id':'401','action':'finish',
+                 'quantity':2,'revision':self.item()['revision']}
+        with self.assertRaises(ValueError):
+            app.mutate_order_print(request)
+        for invalid in (-1,True,'0',1.5):
+            with self.assertRaises(ValueError):
+                app.mutate_order_print({**request,'initial_stock':invalid})
+        app.mutate_order_print({**request,'initial_stock':0})
+        self.assertEqual((self.item()['on_hand'],self.item()['in_print']),(2,0))
+        app.apply_snapshot(None,self.tx('shipped'),{'401'},orders=[])
+        self.assertEqual(self.item()['on_hand'],0)
+
+    def test_first_generic_finish_accepts_counted_initial_stock(self):
+        iid=self.item()['id']
+        app.mutate_stock({'id':iid,'action':'printing','quantity':1})
+        with app.connect() as db:
+            db.execute('UPDATE stock_items SET on_hand=NULL,revision=revision+1 WHERE id=?',(iid,))
+        data={'id':iid,'action':'finish','quantity':1}
+        with self.assertRaises(ValueError):
+            app.mutate_stock(data)
+        app.mutate_stock({**data,'initial_stock':3})
+        self.assertEqual((self.item()['on_hand'],self.item()['in_print']),(4,0))
+
+
 if __name__=='__main__':
     unittest.main()

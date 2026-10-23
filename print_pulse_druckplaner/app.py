@@ -682,11 +682,15 @@ def mutate_stock(data):
         elif action=='printing':
             after['in_print']=integer(row['in_print']+integer(data.get('quantity'),1))
         elif action=='finish':
-            if row['on_hand'] is None: raise ValueError('Bitte zuerst den Lagerbestand erfassen.')
+            if row['on_hand'] is None:
+                if 'initial_stock' not in data: raise ValueError('Bitte zuerst den bisherigen Lagerbestand erfassen.')
+                starting_stock=integer(data['initial_stock'])
+            else:
+                starting_stock=row['on_hand']
             linked=db.execute('SELECT COALESCE(SUM(printing),0) FROM stock_order_prints WHERE item_id=?',(iid,)).fetchone()[0]
             qty=integer(data.get('quantity'),1,row['in_print']-linked)
             after['in_print']-=qty
-            after['on_hand']=integer(row['on_hand']+qty)
+            after['on_hand']=integer(starting_stock+qty)
         elif action=='cancel':
             linked=db.execute('SELECT COALESCE(SUM(printing),0) FROM stock_order_prints WHERE item_id=?',(iid,)).fetchone()[0]
             after['in_print']-=integer(data.get('quantity'),1,row['in_print']-linked)
@@ -729,7 +733,11 @@ def mutate_order_print(data):
         elif action in ('finish','cancel'):
             qty=integer(data.get('quantity'),1,printing)
             if action=='finish' and row['on_hand'] is None and tx['status']!='shipped':
-                raise ValueError('Vor dem Fertigmelden bitte den tatsächlichen Lagerbestand zählen.')
+                if 'initial_stock' not in data:
+                    raise ValueError('Vor dem Fertigmelden bitte den bisherigen Lagerbestand zählen.')
+                starting_stock=integer(data['initial_stock'])
+            else:
+                starting_stock=row['on_hand']
             printing-=qty
             new_print=row['in_print']-qty
             if new_print<0: raise ValueError('Druckbestand nicht mehr konsistent. Bitte Lager prüfen.')
@@ -737,7 +745,7 @@ def mutate_order_print(data):
                 finished+=qty
                 # If Etsy shipment was already recorded, the assigned pieces
                 # were excluded from its stock debit; do not add them now.
-                new_stock=row['on_hand'] if tx['status']=='shipped' else row['on_hand']+qty
+                new_stock=row['on_hand'] if tx['status']=='shipped' else integer(starting_stock+qty)
             else:
                 new_stock=row['on_hand']
         else:
