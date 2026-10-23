@@ -131,6 +131,80 @@ class OrderPrintTests(unittest.TestCase):
         self.assertEqual(self.item()['order_jobs'][0]['receipt_id'],'401')
 
 
+    def test_assign_existing_inventory_completes_order_without_reprinting(self):
+        self.set_stock(2)
+        self.action('allocate',2)
+        line=self.line()
+        self.assertEqual((line['allocated'],line['finished'],line['printing'],line['remaining']),(2,0,0,0))
+        self.assertEqual((self.item()['on_hand'],self.item()['reserved']),(0,0))
+        # Etsy shipping must not consume these same two pieces a second time.
+        app.apply_snapshot(None,self.tx('shipped'),{'401'},orders=[])
+        app.apply_snapshot(None,self.tx('shipped'),{'401'},orders=[])
+        self.assertEqual(self.item()['on_hand'],0)
+        with self.assertRaises(ValueError):
+            self.action('allocate',1)
+        with self.assertRaises(ValueError):
+            self.action('release',1)
+
+    def test_partial_allocation_and_releasing_to_inventory(self):
+        self.set_stock(3)
+        self.action('allocate',1)
+        self.assertEqual((self.item()['on_hand'],self.item()['reserved']),(2,1))
+        self.assertEqual((self.line()['remaining'],self.line()['allocated']),(1,1))
+        self.action('release',1)
+        self.assertEqual((self.item()['on_hand'],self.item()['reserved']),(3,2))
+        self.assertEqual((self.line()['remaining'],self.line()['allocated']),(2,0))
+        self.action('allocate',2)
+        self.action('release',1)
+        self.assertEqual((self.item()['on_hand'],self.line()['allocated']),(2,1))
+        app.apply_snapshot(None,self.tx('shipped'),{'401'},orders=[])
+        # One already withdrawn, one still in stock at shipment: only debit 1.
+        self.assertEqual(self.item()['on_hand'],1)
+
+    def test_stock_allocation_mixed_with_printing(self):
+        self.set_stock(1)
+        self.action('allocate',1)
+        self.action('printing',1)
+        self.assertEqual((self.line()['allocated'],self.line()['printing'],self.line()['remaining']),(1,1,0))
+        self.action('finish',1)
+        self.assertEqual((self.line()['allocated'],self.line()['finished'],self.line()['remaining']),(1,1,0))
+        self.assertEqual(self.item()['on_hand'],1)
+        app.apply_snapshot(None,self.tx('shipped'),{'401'},orders=[])
+        self.assertEqual(self.item()['on_hand'],0)
+
+    def test_allocation_rejects_shortage_overbooking_stale_revision_and_bad_inputs(self):
+        self.set_stock(1)
+        stale=self.item()['revision']
+        for qty in (0,-1,True,'1',3):
+            with self.assertRaises(ValueError):
+                self.action('allocate',qty)
+        self.action('allocate',1)
+        self.assertEqual(self.item()['on_hand'],0)
+        with self.assertRaises(ValueError):
+            self.action('allocate',1,revision=stale)
+        with self.assertRaises(ValueError):
+            self.action('allocate',1)
+        self.action('release',1)
+        self.set_stock(0)
+        with self.assertRaises(ValueError):
+            self.action('allocate',1)
+        with app.connect() as db:
+            db.execute('UPDATE stock_items SET on_hand=NULL,revision=revision+1 WHERE id=?',
+                       (self.item()['id'],))
+        with self.assertRaises(ValueError):
+            self.action('allocate',1)
+
+    def test_allocations_survive_etsy_sync_and_idempotent_db_migration(self):
+        self.set_stock(2)
+        self.action('allocate',1)
+        app.init_db()
+        app.init_db()
+        app.apply_snapshot(None,self.tx(),{'401'},orders=self.orders)
+        line=self.line()
+        self.assertEqual((line['allocated'],line['remaining'],line['finished']),(1,1,0))
+        self.assertEqual(self.item()['on_hand'],1)
+        self.assertEqual(self.item()['reserved'],1)
+
     def test_first_order_finish_accepts_counted_initial_stock(self):
         self.action('printing',2)
         iid=self.item()['id']
