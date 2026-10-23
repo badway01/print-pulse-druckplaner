@@ -1,3 +1,11 @@
+# 0.11.21 · Druck-Fertigmeldung auf Handy und Tablet absichern
+
+- Bei bisher nicht erfasstem Lagerbestand erscheint im Fertigmelden-Dialog direkt ein Pflichtfeld für den bisherigen fertigen Bestand (0 ist erlaubt). Der neue Druck wird in derselben Datenbanktransaktion hinzugebucht; kein still deaktivierter Bestätigen-Button mehr.
+- Während des Speicherns zeigt der Button „Wird gespeichert …“; der Dialog bleibt bei Fehlern offen und die eingegebene Menge bleibt erhalten.
+- Schließen-X in Dialogen mindestens 48 × 48 Pixel groß und besser per Touch bedienbar.
+- Regressionstests für den ersten Auftragsdruck, den allgemeinen Fertig-Workflow und die Dialogbedienung.
+- Keine Änderung an Etsy-Daten, Druckerzuordnungen, 3MF-Dateien oder bestehenden Lagerbeständen.
+
 # 0.11.20 · P1S New aus deutscher Bambu-Integration lesen
 
 - Bambu Lab ist für P1S New bereits aktiv: die Druckerzuordnung erkennt deshalb nun echte deutsch benannte HA-Entitäten (`druckstatus`, `druckfortschritt`, `verbleibende_zeit`, `gcode_dateiname`, Temperatur, Schichten, AMS).
