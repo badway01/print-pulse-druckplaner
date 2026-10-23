@@ -38,6 +38,8 @@ def schema(db):
     part_columns={col['name'] for col in db.execute('PRAGMA table_info(pp_components)')}
     if 'target_stock' not in part_columns:
         db.execute('ALTER TABLE pp_components ADD COLUMN target_stock INTEGER NOT NULL DEFAULT 0 CHECK(target_stock>=0)')
+    if 'printing_stock' not in part_columns:
+        db.execute('ALTER TABLE pp_components ADD COLUMN printing_stock INTEGER NOT NULL DEFAULT 0 CHECK(printing_stock>=0)')
 
 
 def option(line, name):
@@ -117,7 +119,7 @@ def recover_cancelled(db,tid):
 def mutate(db,data,whole):
     action=str(data.get('action') or '')
     listing_id=str(data.get('listing_id') or '')
-    if action in ('toggle','save','delete','stock'):
+    if action in ('toggle','save','delete','stock','stock-print','stock-finish','stock-cancel'):
         listing=db.execute('SELECT * FROM stock_listings WHERE id=?',(listing_id,)).fetchone()
         if not listing: raise ValueError('Produkt nicht gefunden.')
         if action=='toggle':
@@ -144,7 +146,7 @@ def mutate(db,data,whole):
             if not name or kind not in ('stock','demand'): raise ValueError('Bauteilname und Art fehlen.')
             if kind=='stock' and prop: raise ValueError('Ein Standardbauteil braucht keine Farbvariation.')
             if old:
-                if old['kind']=='stock' and kind!='stock' and old['stock']>0:
+                if old['kind']=='stock' and kind!='stock' and (old['stock']>0 or old['printing_stock']>0):
                     raise ValueError('Vor Umstellung zuerst den vorhandenen Bauteilbestand auf 0 korrigieren.')
                 used=db.execute('SELECT 1 FROM pp_component_orders WHERE component_id=? LIMIT 1',(cid,)).fetchone()
                 if used and any((old[k]!=v for k,v in [
@@ -160,6 +162,8 @@ def mutate(db,data,whole):
                     (secrets.token_hex(12),listing_id,name,kind,prop,qty_prop,units,target_stock,int(time.time())))
         elif action=='delete':
             if not old: raise ValueError('Bauteil nicht gefunden.')
+            if old['printing_stock']>0:
+                raise ValueError('Bauteildruck läuft noch. Bitte zuerst fertigmelden oder abbrechen.')
             if old['stock']>0:
                 raise ValueError('Bauteil hat noch Lagerbestand. Vor dem Löschen den Bestand klären und auf 0 setzen.')
             if db.execute('SELECT 1 FROM pp_component_orders WHERE component_id=? LIMIT 1',(cid,)).fetchone():
@@ -169,6 +173,22 @@ def mutate(db,data,whole):
             if not old or old['kind']!='stock': raise ValueError('Vorratsbauteil nicht gefunden.')
             qty=whole(data.get('stock'),0,100000)
             db.execute('UPDATE pp_components SET stock=?,updated=? WHERE id=?',(qty,int(time.time()),cid))
+        elif action in ('stock-print','stock-finish','stock-cancel'):
+            if not old or old['kind']!='stock': raise ValueError('Vorratsbauteil nicht gefunden.')
+            qty=whole(data.get('quantity'),1,100000)
+            if action=='stock-print':
+                if old['printing_stock']+qty>100000: raise ValueError('Zu viele offene Vorratsdrucke.')
+                db.execute('UPDATE pp_components SET printing_stock=printing_stock+?,updated=? WHERE id=?',
+                           (qty,int(time.time()),cid))
+            else:
+                if qty>old['printing_stock']: raise ValueError('So viele Bauteile sind nicht im Druck.')
+                if action=='stock-finish':
+                    if old['stock']+qty>100000: raise ValueError('Lagerobergrenze erreicht.')
+                    db.execute('UPDATE pp_components SET printing_stock=printing_stock-?,stock=stock+?,updated=? WHERE id=?',
+                               (qty,qty,int(time.time()),cid))
+                else:
+                    db.execute('UPDATE pp_components SET printing_stock=printing_stock-?,updated=? WHERE id=?',
+                               (qty,int(time.time()),cid))
         return
 
     tid=str(data.get('transaction_id') or '')
