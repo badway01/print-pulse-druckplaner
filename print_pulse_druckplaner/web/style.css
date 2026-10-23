@@ -1194,3 +1194,79 @@ html[data-theme="dark"] .component-order-piece{background:var(--surface-soft)}
 .catalog-part-switch input[role="switch"]:checked{background:var(--green);border-color:var(--green)}
 .catalog-part-switch input[role="switch"]:checked::before{transform:translateX(16px)}
 .catalog-part-switch input[role="switch"]:focus-visible{outline:3px solid #cf9c45;outline-offset:2px}
+
+
+/* v0.11.40: Part-based products show their shared component inventory
+   instead of 84 Etsy colour combinations on workshop cards. */
+.product.component-product{border-top-color:#6c9c83}
+.product.component-product .product-photo{position:relative}
+.component-photo-mode{
+ position:absolute;right:11px;bottom:11px;
+ border:1px solid #b9d0be;border-radius:7px;
+ background:#ecf5edf2;color:#35644d;padding:4px 8px;
+ font-size:10px;font-weight:750;pointer-events:none;
+}
+.component-product .product-body{gap:0}
+.component-card-panel{
+ display:grid;gap:0;margin:16px 0 12px;border-radius:11px;
+ border:1px solid #d5e1d5;background:#f4f7f2;overflow:hidden;
+}
+.component-card-panel-heading{
+ display:flex;align-items:baseline;justify-content:space-between;
+ gap:5px 12px;flex-wrap:wrap;padding:11px 12px 9px;
+}
+.component-card-panel-heading>b{font-size:13px;color:#375d4b}
+.component-card-panel-heading>small{font-size:10px;color:var(--muted)}
+.component-card-part{
+ display:flex;gap:10px;align-items:center;justify-content:space-between;
+ border-top:1px solid #dce6d9;padding:11px 12px;min-width:0;
+}
+.component-card-part-text{flex:1;min-width:0;overflow-wrap:anywhere}
+.component-card-part-text strong{display:block;font-size:13px;line-height:1.35}
+.component-card-part-text small{display:block;font-size:10px;color:var(--muted);line-height:1.4;margin-top:3px}
+.component-card-part-text .component-card-printing{font-weight:700;color:var(--green)}
+.component-card-part-text .component-card-warning{color:var(--red)}
+.component-card-qty{
+ display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
+ min-width:90px;max-width:40%;gap:1px;flex-shrink:0;text-align:right;
+}
+.component-card-qty strong{
+ font-size:22px;line-height:1.2;font-variant-numeric:tabular-nums;
+ color:#356b4e;
+}
+.component-card-qty small{font-size:10px;color:var(--muted)}
+.component-card-qty.is-demand span{
+ display:inline-block;border:1px solid #d9ddd4;background:#fff;
+ border-radius:6px;padding:5px 8px;font-size:11px;font-weight:600;color:#656c60;
+}
+.component-card-empty{font-size:12px;color:var(--muted);padding:10px 12px;margin:0}
+.component-product .component-card-manage{width:100%;min-height:46px;margin:7px 0 12px;font-size:13px}
+.component-product .master-card-row{margin:9px 0}
+.component-product .component-legacy{margin:5px 0 12px}
+.component-product .component-legacy .variant-toggle{
+ background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--muted);
+ font-size:11px;min-height:42px;margin:0;padding:9px 11px;
+}
+.component-product .component-legacy .variant-picker{padding:8px 0 5px}
+.component-product .component-card-footer{
+ display:inline-flex;align-items:center;gap:6px;
+ font-size:11px;font-weight:650;color:var(--green);
+}
+.component-product .component-card-footer .dot{width:7px;height:7px}
+html[data-theme="dark"] .component-card-panel{
+ background:var(--surface-soft);border-color:var(--line);
+}
+html[data-theme="dark"] .component-card-panel-heading>b,
+html[data-theme="dark"] .component-card-qty strong{color:#c1e1ce}
+html[data-theme="dark"] .component-card-part{border-color:var(--line)}
+html[data-theme="dark"] .component-card-qty.is-demand span{
+ background:var(--surface);border-color:var(--line);color:var(--ink)
+}
+html[data-theme="dark"] .component-photo-mode{
+ background:#334b3d;color:#d5eadb;border-color:#6d9075
+}
+@media(max-width:580px){
+ .component-card-panel-heading{align-items:start}
+ .component-card-qty{min-width:75px}
+ .component-card-qty strong{font-size:21px}
+}
