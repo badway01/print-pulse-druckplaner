@@ -36,14 +36,15 @@ function componentProductCard(p){
   const running=jobs.reduce((n,job)=>n+(Number(job.printing)||0),0);
   const needed=jobs.reduce((n,job)=>n+Math.max(0,(Number(job.required)||0)-
    (stock?Number(job.booked)||0:(Number(job.printing)||0)+(Number(job.finished)||0))),0);
-  const missingStock=stock?Math.max(0,needed-(Number(part.stock)||0)):0;
+  const missingStock=stock?Math.max(0,needed-(Number(part.stock)||0)-(Number(part.printing_stock)||0)):0;
   return `<div class="component-card-part">
    <div class="component-card-part-text">
     <strong>${esc(part.name)}</strong>
     <small>${stock?'Gemeinsamer Vorrat für alle Varianten':
      'Erst nach Bestellung'+(part.property_name?' · '+esc(part.property_name):'')}
     </small>
-    ${running?`<small class="component-card-printing">${running} im Druck</small>`:''}
+    ${stock&&part.printing_stock?`<small class="component-card-printing">${part.printing_stock} im Druck</small>`:''}
+    ${running?`<small class="component-card-printing">${running} im Auftragsdruck</small>`:''}
     ${needed?`<small>${needed} für offene Aufträge noch nicht ${stock?'zugeordnet':'zum Druck eingeplant'}</small>`:''}
     ${missingStock?`<small class="component-card-warning">${missingStock} Stück fehlen im Bauteilvorrat</small>`:''}
     ${missing?`<small class="component-card-warning">${missing} Auftrag/Aufträge mit unklarer Etsy-Variante</small>`:''}
@@ -197,13 +198,16 @@ renderCatalog=function(){
  }).join(''):'<p class="hint">Kein aktives Produkt passt zur Suche.</p>');
 };
 function componentKindChange(){
- $('components-property-wrap').hidden=$('components-kind').value==='stock';
- if($('components-kind').value==='stock')$('components-property').value='';
+ const stock=$('components-kind').value==='stock';
+ $('components-property-wrap').hidden=stock;
+ $('components-target-wrap').hidden=!stock;
+ if(stock)$('components-property').value='';
 }
 function componentReset(){
  $('components-form').reset();
  $('components-id').value='';
  $('components-units').value='1';
+ $('components-target').value='0';
  $('components-form-title').textContent='+ Bauteil hinzufügen';
  componentKindChange();
 }
@@ -218,10 +222,15 @@ function componentRenderEditor(){
   '<small>'+(part.kind==='stock'?'Vorratsbauteil':'Nach Bestellung')+
   (part.property_name?' · '+esc(part.property_name):'')+
   (part.quantity_property?' · Set: '+esc(part.quantity_property):'')+
-  ' · '+part.units+' je Einheit</small></div>'+
+  ' · '+part.units+' je Einheit'+(part.kind==='stock'&&part.target_stock?' · Auffüllziel '+part.target_stock:'')+'</small></div>'+
   (part.kind==='stock'?'<label>Im Lager<input type="number" min="0" max="100000" step="1" inputmode="numeric"'+
    ' value="'+part.stock+'" data-component-count="'+esc(part.id)+'" aria-label="Bauteilbestand"></label>'+
-   '<button type="button" class="secondary small" data-component-stock-save="'+esc(part.id)+'">Bestand speichern</button>':
+   '<button type="button" class="secondary small" data-component-stock-save="'+esc(part.id)+'">Bestand speichern</button>'+
+   '<div class="component-batch-actions"><small>'+part.printing_stock+' im Druck</small>'+
+   '<button type="button" class="secondary small" data-component-batch="stock-print" data-batch-id="'+esc(part.id)+'">+ Im Druck</button>'+
+   (part.printing_stock?'<button type="button" class="primary small" data-component-batch="stock-finish" data-batch-id="'+esc(part.id)+'">✓ Fertig</button>'+
+    '<button type="button" class="text-button small" data-component-batch="stock-cancel" data-batch-id="'+esc(part.id)+'">Abbruch</button>':'')+
+   '</div>':
    '<span class="component-demand-note">Nach Auftrag</span>')+
   '<button type="button" class="secondary small" data-component-edit="'+esc(part.id)+'">Bearbeiten</button>'+
   '<button type="button" class="text-button" data-component-delete="'+esc(part.id)+'">Entfernen</button></div>'
@@ -253,6 +262,25 @@ $('components-list').addEventListener('click',async event=>{
  const edit=event.target.closest('[data-component-edit]');
  const del=event.target.closest('[data-component-delete]');
  const save=event.target.closest('[data-component-stock-save]');
+ const batch=event.target.closest('[data-component-batch]');
+ if(batch){
+  const part=p?.components.find(x=>x.id===batch.dataset.batchId);
+  if(!part||part.kind!=='stock')return;
+  const action=batch.dataset.componentBatch;
+  const defaultCount=action==='stock-print'?Math.max(1,Math.min(100,Math.max(0,(part.target_stock||0)-(part.stock||0)-(part.printing_stock||0)))):part.printing_stock;
+  const response=prompt(action==='stock-print'?'Wie viele „'+part.name+'“ nimmst du jetzt in Druck?':
+    action==='stock-finish'?'Wie viele „'+part.name+'“ wurden erfolgreich gedruckt?':
+    'Wie viele laufende Bauteildrucke wurden abgebrochen?',String(defaultCount));
+  if(response===null)return;
+  const qty=Number(response);
+  if(!Number.isSafeInteger(qty)||qty<1||qty>100000||(action!=='stock-print'&&qty>part.printing_stock)){
+   flash('Bitte eine gültige Druckmenge eingeben.',true);return;
+  }
+  if(await mutate('components',{action,listing_id:componentEditorProduct,id:part.id,quantity:qty})){
+   componentRenderEditor();flash('Bauteildruck aktualisiert.');
+  }
+  return;
+ }
  if(edit){
   const part=p?.components.find(x=>x.id===edit.dataset.componentEdit);
   if(!part)return;
@@ -263,6 +291,7 @@ $('components-list').addEventListener('click',async event=>{
   $('components-property').value=part.property_name||'';
   $('components-quantity-property').value=part.quantity_property||'';
   $('components-units').value=part.units;
+  $('components-target').value=part.target_stock||0;
   $('components-form-title').textContent='Bauteil bearbeiten';
   $('components-name').focus();
  }else if(del){
@@ -288,7 +317,7 @@ $('components-form').addEventListener('submit',async event=>{
   name:$('components-name').value,kind:$('components-kind').value,
   property_name:$('components-property').value,
   quantity_property:$('components-quantity-property').value,
-  units:Number($('components-units').value)};
+  units:Number($('components-units').value),target_stock:Number($('components-target').value||0)};
  if(await mutate('components',data)){componentReset();componentRenderEditor();}
 });
 async function componentOrderAction(button){
