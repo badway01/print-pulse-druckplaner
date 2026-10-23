@@ -131,7 +131,7 @@ await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
 await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.27'));
 assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.34');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.35');
 await page.locator('[data-close="settings"]').click();
 
 
@@ -339,6 +339,7 @@ assert.equal(await page.locator('#filament-stock-spools').textContent(),'0 volle
 assert((await page.locator('#filament-stock-value').textContent()).includes('0,00'));
 await page.locator('#filament-add').click();
 assert.equal(await page.locator('#filament-form [name="stock_qty"]').getAttribute('inputmode'),'numeric');
+assert.equal(await page.locator('#filament-form [name="open_qty"]').getAttribute('inputmode'),'numeric');
 assert.equal(await page.locator('#filament-form [name="price"]').getAttribute('inputmode'),'decimal');
 await page.locator('#filament-brand').fill('Bambu');
 assert((await page.locator('#filament-brand-options').textContent()).includes('Bambu Lab'));
@@ -358,7 +359,7 @@ await page.locator('#filament-form [type="submit"]').click();
 await page.locator('.filament-line').first().waitFor();
 assert.equal(await page.locator('.filament-line').count(),1);
 assert.deepEqual(await page.locator('.filament-line-actions').first().locator(':scope > *').evaluateAll(nodes=>nodes.map(el=>el.classList[0])),
- ['filament-shop','filament-cart-button','filament-edit'], 'Shop must be the first action in Meine Farben');
+ ['filament-shop','filament-cart-button','filament-roll-button','filament-edit'], 'Shop must be the first action in Meine Farben');
 const sortedVariants=await page.evaluate(()=>({
   most:sortFilamentRows([{id:'low',stock_qty:1,brand:'A',color:'Rot'},{id:'high',stock_qty:6,brand:'A',color:'Weiß'},{id:'empty',stock_qty:0,brand:'B',color:'Kupfer'}],'stock-desc').map(x=>x.id),
   least:sortFilamentRows([{id:'low',stock_qty:1,brand:'A',color:'Rot'},{id:'high',stock_qty:6,brand:'A',color:'Weiß'},{id:'empty',stock_qty:0,brand:'B',color:'Kupfer'}],'stock-asc').map(x=>x.id)
@@ -371,7 +372,7 @@ await page.locator('#filament-sort').selectOption('stock-asc');
 assert.equal(await page.locator('#filament-sort').inputValue(),'stock-asc');
 await page.locator('#filament-sort').selectOption('default');
 assert((await page.locator('.filament-line').textContent()).includes('1 Spule'));
-assert.equal(await page.locator('#filament-stock-spools').textContent(),'1 volle Spule');
+assert.equal(await page.locator('#filament-stock-spools').textContent(),'1 volle Spule · 0 angebrochen');
 assert((await page.locator('#filament-stock-value').textContent()).includes('19,90'));
 await page.locator('#filament-add').click();
 await page.locator('#filament-brand').fill('Bambu Lab');
@@ -410,6 +411,32 @@ const valuation=await page.evaluate(()=>filamentStockValue([
  {stock_qty:1,price_cents:0,cart_qty:0}
 ]));
 assert.deepEqual(valuation,{spools:6,known_total_cents:5970,missing_qty:2});
+await page.locator('[data-filament-view="colors"]').click();
+assert.equal(await page.locator('.filament-roll-button').count(),1);
+await page.locator('.filament-roll-button').click();
+assert.equal(await page.locator('#filament-rolls').isVisible(),true);
+assert.equal(await page.locator('#filament-rolls-full').textContent(),'1');
+assert.equal(await page.locator('#filament-rolls-open').textContent(),'0');
+assert.equal(await page.locator('#filament-roll-empty').isDisabled(),true);
+await page.locator('#filament-roll-open').click();
+await page.waitForFunction(()=>document.querySelector('#filament-rolls-full').textContent==='0');
+assert.equal(await page.locator('#filament-rolls-open').textContent(),'1');
+assert.equal(await page.locator('#filament-roll-open').isDisabled(),true);
+assert((await page.locator('.filament-line .filament-meta').textContent()).includes('0 voll · 1 angebrochen'));
+assert.equal(await page.locator('#filament-stock-spools').textContent(),'0 volle Spulen · 1 angebrochen');
+assert((await page.locator('#filament-stock-value').textContent()).includes('0,00'));
+await page.locator('#filament-roll-empty').click();
+await page.waitForFunction(()=>document.querySelector('#filament-rolls-open').textContent==='0');
+assert.equal(await page.locator('#filament-rolls-full').textContent(),'0');
+assert.equal(await page.locator('#filament-roll-empty').isDisabled(),true);
+await page.locator('#filament-roll-edit').click();
+assert.equal(await page.locator('#filament-form [name="open_qty"]').inputValue(),'0');
+await page.locator('#filament-form [name="open_qty"]').fill('2');
+await page.locator('#filament-form [name="stock_qty"]').fill('1');
+await page.locator('#filament-form [type="submit"]').click();
+await page.waitForFunction(()=>document.querySelector('#filament-stock-spools').textContent==='1 volle Spule · 2 angebrochen');
+assert((await page.locator('#filament-stock-value').textContent()).includes('19,90'));
+
 await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('.product').count(),4);
 await page.locator('[data-order-sort="new"]').click();
