@@ -538,12 +538,37 @@ function render(){if(!model)return;
  const stale=model.last_sync&&Date.now()/1000-model.last_sync>3600;
  showAlert([model.sync.error,model.warning,!model.authorized?'Bitte Etsy unter Einstellungen verbinden.':cooldownActive?`Etsy hat zu viele Anfragen gemeldet. Bis ${cooldownDate} pausiert unser Druckplaner automatisch.`:stale?'Bestelldaten sind älter als eine Stunde. Etsy-Abgleich prüfen.':'']);
  const critical=(model.orders||[]).filter(o=>{const days=calendarDaysUntil(o.ship_by);return days!==null&&days<=2;}).length;
- updateHTML($('summary'),[['Produkte',products.length],['Nachdrucken',products.reduce((n,p)=>n+p.need,0)+' Stk.'],['Im Druck',products.flatMap(p=>p.items).reduce((n,i)=>n+i.in_print,0)+' Stk.'],['Versandkritisch',critical+' Aufträge']].map(([label,value],index)=>`<div ${index===3&&critical?'class="summary-urgent"':''}><span>${label}</span><b>${value}</b></div>`).join(''));
+ // When an item is assembled from components, unfinished Etsy variant stock is
+ // not a production recommendation. Count only real component jobs.
+ const componentDue=new Map(),componentPrinting=new Map();
+ for(const receipt of model.orders||[]){
+  for(const line of receipt.items||[]){
+   if(!line.components_enabled)continue;
+   const id=String(line.listing_id||'');
+   for(const part of line.components||[]){
+    if(part.error)continue; // unknown Etsy mappings must not invent demand
+    if(part.kind==='demand'){
+     const needed=Math.max(0,(Number(part.required)||0)-(Number(part.printing)||0)-(Number(part.finished)||0));
+     componentDue.set(id,(componentDue.get(id)||0)+needed);
+     componentPrinting.set(id,(componentPrinting.get(id)||0)+(Number(part.printing)||0));
+    }
+   }
+  }
+ }
+ const dueFor=p=>p.components_enabled?(componentDue.get(p.id)||0):(p.need||0);
+ const runningFor=p=>p.items.reduce((n,i)=>n+(Number(i.in_print)||0),0)+(p.components_enabled?(componentPrinting.get(p.id)||0):0);
+ const due=products.reduce((n,p)=>n+dueFor(p),0);
+ const inProgress=products.reduce((n,p)=>n+runningFor(p),0);
+ updateHTML($('summary'),[['Produkte',products.length],['Nachdrucken',due+' Stk.'],['Im Druck',inProgress+' Stk.'],['Versandkritisch',critical+' Aufträge']].map(([label,value],index)=>`<div ${index===3&&critical?'class="summary-urgent"':''}><span>${label}</span><b>${value}</b></div>`).join(''));
  renderOrders();
  renderCatalog();
  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('selected',b.dataset.filter===filter));
  const search=$('search').value.trim().toLocaleLowerCase('de');
- const selected=order.map(id=>visibleProducts.find(p=>p.id===id)).filter(Boolean).filter(p=>(filter!=='need'||p.need>0||p.unmatched>0)&&(filter!=='printing'||p.items.some(i=>i.in_print>0))&&(filter!=='uncounted'||p.uninitialized>0)).filter(p=>(p.title+' '+p.items.map(i=>i.label).join(' ')).toLocaleLowerCase('de').includes(search));
+ const selected=order.map(id=>visibleProducts.find(p=>p.id===id)).filter(Boolean).filter(p=>
+  (filter!=='need'||dueFor(p)>0||p.unmatched>0)&&
+  (filter!=='printing'||runningFor(p)>0)&&
+  (filter!=='uncounted'||(!p.components_enabled&&p.uninitialized>0))
+ ).filter(p=>(p.title+' '+p.items.map(i=>i.label).join(' ')).toLocaleLowerCase('de').includes(search));
  const focus=document.activeElement,focusId=focus?.dataset.id,focusAction=focus?.dataset.action,delta=focus?.dataset.delta;
  updateHTML($('products'),selected.length?selected.map(card).join(''):`<div class="empty"><h2>${products.length?'Hier ist alles erledigt.':'Dein Lager startet hier.'}</h2><p>${products.length?'Kein Produkt passt zu dieser Auswahl.':'Etsy verbinden, Produkte laden und einmal deine echten Bestände zählen.'}</p></div>`);
  if(focusId){const next=[...document.querySelectorAll('[data-action]')].find(b=>b.dataset.id===focusId&&b.dataset.action===focusAction&&b.dataset.delta===delta);next?.focus({preventScroll:true});}
