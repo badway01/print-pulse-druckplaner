@@ -130,7 +130,7 @@ assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el)
 await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
 await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.38'));
-assert((await page.locator('#release-history-content').textContent()).includes('Auftragsaktionen'),'latest packaged release is displayed');
+assert((await page.locator('#release-history-content').textContent()).includes('Vorproduktion'),'latest packaged release is displayed');
 assert.equal(await page.locator('#app-version').textContent(),'v0.11.38');
 await page.locator('[data-close="settings"]').click();
 
