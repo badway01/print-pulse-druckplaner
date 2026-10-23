@@ -769,3 +769,19 @@ html[data-theme="dark"] header .brand-logo{
   font-size:13px;
  }
 }
+
+/* v0.11.25: The logo SVG itself now removes the original WebP photo backdrop.
+   Do not blend a cream rectangle over the sage dashboard in either theme. */
+html:not([data-theme="dark"]) header{background:#f5f8f4}
+header .brand,
+header .brand-logo{background:transparent}
+header .brand-logo{
+ border-radius:0;
+ filter:none;
+ mix-blend-mode:normal;
+}
+html[data-theme="dark"] header .brand-logo{
+ /* Keep dark script legible while retaining the logo's transparent pixels. */
+ filter:brightness(1.16) invert(1) hue-rotate(180deg) saturate(.85);
+ mix-blend-mode:normal;
+}
