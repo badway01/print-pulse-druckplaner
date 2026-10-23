@@ -540,7 +540,7 @@ function render(){if(!model)return;
  const critical=(model.orders||[]).filter(o=>{const days=calendarDaysUntil(o.ship_by);return days!==null&&days<=2;}).length;
  // When an item is assembled from components, unfinished Etsy variant stock is
  // not a production recommendation. Count only real component jobs.
- const componentDue=new Map(),componentPrinting=new Map();
+ const componentDue=new Map(),componentPrinting=new Map(),stockPartWaiting=new Map();
  for(const receipt of model.orders||[]){
   for(const line of receipt.items||[]){
    if(!line.components_enabled)continue;
@@ -551,8 +551,22 @@ function render(){if(!model)return;
      const needed=Math.max(0,(Number(part.required)||0)-(Number(part.printing)||0)-(Number(part.finished)||0));
      componentDue.set(id,(componentDue.get(id)||0)+needed);
      componentPrinting.set(id,(componentPrinting.get(id)||0)+(Number(part.printing)||0));
+    }else if(part.kind==='stock'){
+     // Subtract shared, unreserved component stock once per part, not for
+     // every Etsy order or every colour variation.
+     const key=id+':'+part.id;
+     stockPartWaiting.set(key,(stockPartWaiting.get(key)||0)+
+      Math.max(0,(Number(part.required)||0)-(Number(part.booked)||0)));
     }
    }
+  }
+ }
+ for(const p of products.filter(product=>product.components_enabled)){
+  for(const part of p.components||[]){
+   if(part.kind!=='stock')continue;
+   const waiting=stockPartWaiting.get(p.id+':'+part.id)||0;
+   const shortage=Math.max(0,waiting-(Number(part.stock)||0));
+   componentDue.set(p.id,(componentDue.get(p.id)||0)+shortage);
   }
  }
  const dueFor=p=>p.components_enabled?(componentDue.get(p.id)||0):(p.need||0);
