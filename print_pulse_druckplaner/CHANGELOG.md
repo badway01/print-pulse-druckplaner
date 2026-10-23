@@ -1,3 +1,13 @@
+# 0.11.33 · Fertige Lagerware direkt einer Etsy-Bestellung zuordnen
+
+- Hat eine passende Etsy-Bestellvariante fertigen Lagerbestand, heißt die Hauptaktion auf der Bestellung „Aus Lager“ statt „Drucken“.
+- Nach Bestätigung der Menge wird die fertige Ware der exakten Etsy-Bestellposition zugeordnet und sofort aus dem Lagerbestand ausgebucht. Die grüne Fertig-Markierung berücksichtigt sowohl abgeschlossene Auftragsdrucke als auch aus dem Lager zugeordnete Stücke.
+- Mehrere Bestellpositionen können einzeln über „Details“ aus Lager zugeordnet werden; nur vollständig bediente Bestellungen erhalten den großen Fertig-Haken.
+- Irrtümlich zugeordnete Stücke lassen sich bei noch offenen Bestellungen über „Zurück ins Lager“ wieder freigeben.
+- Bei einer späteren Etsy-Versandmeldung werden bereits zugeordnete Lagerstücke nicht erneut abgezogen. Laufende Drucke und bereits gedruckte Stücke bleiben sauber getrennt.
+- Alte Bestands-, Filament-, Etsy- und Masterdatei-Daten bleiben erhalten. Sichere, wiederholbare Migration eines zusätzlichen Zuordnungsfeldes; Validierung gegen Überbuchung und parallele Bestandsänderungen.
+- Erweiterte Backend- und Browsertests für Lagerzuordnung, Rückbuchung, Teilmengen, Mischaufträge und Versandabgleich.
+
 # 0.11.32 · Sichtbare Druckfertig-Markierung je Etsy-Bestellung
 
 - Jede offene Etsy-Bestellkarte erhält nach vollständigem Fertigmelden aller bestellten Positionen einen gut sichtbaren grünen Balken „✓ DRUCK FERTIG“ und einen grünen Kartenrand.
