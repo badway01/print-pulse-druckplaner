@@ -1,3 +1,10 @@
+# 0.11.44 · Etsy-Aufträge: Farben und Druckaufgaben sofort sehen
+
+- Bestell-Details beginnen jetzt mit einer gut lesbaren Produktionsübersicht statt mit langen Artikeltiteln und kleinen Variantenzeilen.
+- Farbe und Setgröße sind deutlich hervorgehoben. Für jedes tatsächlich eingerichtete Bauteil wird die nächste Lager- oder Druckaufgabe angezeigt.
+- Vorproduktions-Bauteile zeigen Namen, optionale Farbwerte, benötigte Menge und Status deutlich größer. Vorhandene Buchungen bleiben unverändert.
+- Platzsparende Hinweise und responsives Layout für Wandtablet, Mac Split View und iPhone.
+
 # 0.11.43 · Beschleunigte Lagerbuchungen
 
 - Beim Ändern des Bestands bleiben die übrigen Produktkarten bedienbar. Laufende Buchungen erhalten eine kleine Statusmeldung statt die gesamte Oberfläche auszugrauen.
