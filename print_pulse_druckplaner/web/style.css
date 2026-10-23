@@ -215,6 +215,9 @@ footer{color:#84786a}
 .order-card-actions button{min-height:41px;min-width:0;font-size:12px;padding:7px 6px;white-space:nowrap}
 .order-card-actions .order-print{background:var(--green);color:#fff;border-color:var(--green)}
 .order-card-actions .order-print:disabled{background:#e9ebe5;color:#6a716e;border-color:var(--line)}
+.order-card-actions .order-open-only{grid-column:1 / -1}
+.order-card-actions .order-print{overflow:hidden;text-overflow:ellipsis}
+.order-line-actions .order-print{min-width:125px}
 .order-print-state{font-size:10px;color:var(--green);font-weight:650}
 .order-modal-lines .order-line{padding:12px}
 .order-line-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
