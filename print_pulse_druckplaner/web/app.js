@@ -5,6 +5,8 @@ let model=null,filter='all',busy=false,polling=false,sortTimer=null,quantityCont
 let order=[];
 let orderSort='ship';
 let workspace='production',filamentView='colors',filamentData=null,filamentBusy=false,filamentLoading=false;
+let filamentSort='default';
+try{const saved=localStorage.getItem('pp-filament-sort');if(['default','stock-desc','stock-asc'].includes(saved))filamentSort=saved;}catch{}
 let printTools={profiles:[],files:[]}, masterContext=null,masterSources=[],masterBusy=false;
 let printerLive=null,printerLoading=false,printerEntities=[],printerConfigId=null,printerConfigBusy=false;
 let etsyAlertExpanded=false,etsyAlertFocused=null;
@@ -59,7 +61,7 @@ async function loadVersionHistory(){
  if(historyLoaded)return;
  try{
   const result=await api('versions');
-  $('app-version').textContent='v'+String(result.version||'0.11.30');
+  $('app-version').textContent='v'+String(result.version||'0.11.31');
   const entries=Array.isArray(result.releases)?result.releases:[];
   if(!entries.length){$('release-history-content').textContent='Noch keine Versionshistorie vorhanden.';historyLoaded=true;return;}
   $('release-history-content').innerHTML=entries.map(entry=>
@@ -668,10 +670,18 @@ function filamentLine(f,inCart){
  const shop=f.purchase_url?`<a class="filament-shop" href="${esc(f.purchase_url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Shop ↗</a>`:'';
  return `<article class="filament-line" data-filament-line="${f.id}">
    ${intro}<div class="filament-meta"><span>${inCart?`<b>${f.cart_qty} Sp.</b> auf Liste`:`<b>${f.stock_qty}</b> ${f.stock_qty===1?'Spule':'Spulen'} vorrätig`}</span><span>${filamentMoney(f.price_cents)}</span></div>
-   <div class="filament-line-actions">${inCart?
-     `<button type="button" class="filament-step" data-filament-delta="-1" data-filament-id="${f.id}" aria-label="Eine Spule von der Einkaufsliste nehmen">−</button><b class="filament-cart-qty">${f.cart_qty}</b><button type="button" class="filament-step" data-filament-delta="1" data-filament-id="${f.id}" aria-label="Eine weitere Spule vormerken">+</button>${shop}<button type="button" class="secondary filament-receive" data-filament-receive="${f.id}">Erhalten</button>`:
-     `<button type="button" class="filament-cart-button" data-filament-cart="${f.id}" aria-label="${name} zur Einkaufsliste hinzufügen">${filamentSpoolCart}<span>Auf Liste ${f.cart_qty? `(${f.cart_qty})`:''}</span></button>${shop}<button type="button" class="filament-edit" data-filament-edit="${f.id}">Bearbeiten</button>`}
+   <div class="filament-line-actions">${shop}${inCart?
+     `<button type="button" class="filament-step" data-filament-delta="-1" data-filament-id="${f.id}" aria-label="Eine Spule von der Einkaufsliste nehmen">−</button><b class="filament-cart-qty">${f.cart_qty}</b><button type="button" class="filament-step" data-filament-delta="1" data-filament-id="${f.id}" aria-label="Eine weitere Spule vormerken">+</button><button type="button" class="secondary filament-receive" data-filament-receive="${f.id}">Erhalten</button>`:
+     `<button type="button" class="filament-cart-button" data-filament-cart="${f.id}" aria-label="${name} zur Einkaufsliste hinzufügen">${filamentSpoolCart}<span>Auf Liste ${f.cart_qty? `(${f.cart_qty})`:''}</span></button><button type="button" class="filament-edit" data-filament-edit="${f.id}">Bearbeiten</button>`}
    </div></article>`;
+}
+function sortFilamentRows(rows,mode=filamentSort){
+ if(mode==='default')return rows;
+ const multiplier=mode==='stock-desc'?-1:1;
+ return [...rows].sort((a,b)=>
+  multiplier*(Number(a.stock_qty||0)-Number(b.stock_qty||0)) ||
+  (a.brand+' '+a.color).localeCompare(b.brand+' '+b.color,'de')
+ );
 }
 function renderFilaments(){
  if(!filamentData)return;
@@ -690,8 +700,11 @@ function renderFilaments(){
  $('filament-tab-count').hidden=!filamentData.cart_count;
  document.querySelectorAll('[data-filament-view]').forEach(b=>{const selected=b.dataset.filamentView===filamentView;b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));});
  $('filament-search-wrap').hidden=filamentView==='cart';
+ $('filament-sort-wrap').hidden=filamentView==='cart';
+ $('filament-sort').value=filamentSort;
  const query=$('filament-search').value.trim().toLocaleLowerCase('de');
- const visible=filamentView==='cart'?cart:rows.filter(f=>(f.brand+' '+f.color+' '+f.material+' '+(f.internal_code||'')+' '+(f.notes||'')).toLocaleLowerCase('de').includes(query));
+ const visible=filamentView==='cart'?cart:sortFilamentRows(rows.filter(f=>(f.brand+' '+f.color+' '+f.material+' '+(f.internal_code||'')+' '+(f.notes||'')).toLocaleLowerCase('de').includes(query)));
+
  $('filament-message').textContent=filamentView==='cart'?
   'Spulen für deinen nächsten Einkauf. „Erhalten“ bucht gelieferte Spulen ins Regal.':
   'Jede Zeile ist ein Filament. Einkaufswagen antippen, wenn du eine Spule nachbestellen möchtest.';
@@ -846,6 +859,7 @@ $('finish-form').addEventListener('submit',async event=>{event.preventDefault();
 
 for(const b of document.querySelectorAll('[data-workspace]'))b.addEventListener('click',()=>showWorkspace(b.dataset.workspace));
 for(const b of document.querySelectorAll('[data-filament-view]'))b.addEventListener('click',()=>{filamentView=b.dataset.filamentView;renderFilaments();});
+$('filament-sort').addEventListener('change',event=>{filamentSort=event.target.value;try{localStorage.setItem('pp-filament-sort',filamentSort);}catch{}renderFilaments();});
 $('filament-add').addEventListener('click',()=>openFilamentEditor(null));
 $('filament-search').addEventListener('input',renderFilaments);
 $('filament-rows').addEventListener('click',event=>{
