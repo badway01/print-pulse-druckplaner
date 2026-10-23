@@ -36,6 +36,7 @@ function componentProductCard(p){
   const running=jobs.reduce((n,job)=>n+(Number(job.printing)||0),0);
   const needed=jobs.reduce((n,job)=>n+Math.max(0,(Number(job.required)||0)-
    (stock?Number(job.booked)||0:(Number(job.printing)||0)+(Number(job.finished)||0))),0);
+  const missingStock=stock?Math.max(0,needed-(Number(part.stock)||0)):0;
   return `<div class="component-card-part">
    <div class="component-card-part-text">
     <strong>${esc(part.name)}</strong>
@@ -44,6 +45,7 @@ function componentProductCard(p){
     </small>
     ${running?`<small class="component-card-printing">${running} im Druck</small>`:''}
     ${needed?`<small>${needed} für offene Aufträge noch nicht ${stock?'zugeordnet':'zum Druck eingeplant'}</small>`:''}
+    ${missingStock?`<small class="component-card-warning">${missingStock} Stück fehlen im Bauteilvorrat</small>`:''}
     ${missing?`<small class="component-card-warning">${missing} Auftrag/Aufträge mit unklarer Etsy-Variante</small>`:''}
    </div>
    <div class="component-card-qty ${stock?'is-stock':'is-demand'}">
