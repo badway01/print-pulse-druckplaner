@@ -25,7 +25,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.11.32'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.11.33'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -224,6 +224,7 @@ def init_db():
           item_id TEXT NOT NULL REFERENCES stock_items(id),
           printing INTEGER NOT NULL DEFAULT 0 CHECK(printing>=0),
           finished INTEGER NOT NULL DEFAULT 0 CHECK(finished>=0),
+          allocated INTEGER NOT NULL DEFAULT 0 CHECK(allocated>=0),
           updated INTEGER NOT NULL);
         CREATE INDEX IF NOT EXISTS stock_order_prints_item ON stock_order_prints(item_id);
         CREATE TABLE IF NOT EXISTS filament_spools(
@@ -246,6 +247,10 @@ def init_db():
           bytes INTEGER NOT NULL,created INTEGER NOT NULL);
         CREATE INDEX IF NOT EXISTS master_files_listing ON master_files(listing_id);
         """)
+        # Previously stored order-print records must survive all add-on updates.
+        print_columns={col['name'] for col in db.execute("PRAGMA table_info(stock_order_prints)")}
+        if 'allocated' not in print_columns:
+            db.execute("ALTER TABLE stock_order_prints ADD COLUMN allocated INTEGER NOT NULL DEFAULT 0 CHECK(allocated>=0)")
         columns={col['name'] for col in db.execute("PRAGMA table_info(filament_spools)")}
         if 'internal_code' not in columns:
             db.execute("ALTER TABLE filament_spools ADD COLUMN internal_code TEXT NOT NULL DEFAULT ''")
@@ -486,9 +491,11 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
             if newly_shipped:
                 # Assigned pieces still being printed have never entered physical
                 # stock. Deduct only the shipped pieces that were booked into it.
-                linked=db.execute('SELECT item_id,printing FROM stock_order_prints WHERE transaction_id=?',(tid,)).fetchone()
+                linked=db.execute('SELECT item_id,printing,allocated FROM stock_order_prints WHERE transaction_id=?',(tid,)).fetchone()
                 target=(prior['item_id'] if prior else None) or (linked['item_id'] if linked else None) or iid
-                stock_debit=max(0,qty-(linked['printing'] if linked else 0))
+                # Already allocated from finished stock was debited when booked.
+                # Running prints never entered stock. Never debit either twice.
+                stock_debit=max(0,qty-(linked['printing'] if linked else 0)-(linked['allocated'] if linked else 0))
                 if target and stock_debit:
                     stock=db.execute('SELECT on_hand FROM stock_items WHERE id=?',(target,)).fetchone()
                     if stock and stock['on_hand'] is not None:
@@ -664,7 +671,9 @@ def overview():
             lines=[t for t in sales if t['item_id']==item['id']]
             item['sold7']=sum(t['qty'] for t in lines if t['created']>=now-7*86400)
             item['sold30']=sum(t['qty'] for t in lines if t['created']>=now-30*86400)
-            item['reserved']=sum(t['qty'] for t in lines if t['status']=='open')
+            # Pieces already transferred out of stock are no longer reservations.
+            item['reserved']=sum(max(0,t['qty']-prints_by_tx.get(t['id'],{}).get('allocated',0))
+                                 for t in lines if t['status']=='open')
             item['order_jobs']=[{'transaction_id':j['transaction_id'],'receipt_id':j['receipt_id'],
                                  'printing':j['printing'],'finished':j['finished'],
                                  'status':tx_by_id.get(j['transaction_id'],{}).get('status','unknown')}
@@ -696,11 +705,13 @@ def overview():
                 job=prints_by_tx.get(tx['id'])
                 line['printing']=job['printing'] if job else 0
                 line['finished']=job['finished'] if job else 0
-                line['remaining']=max(0,tx['qty']-line['printing']-line['finished'])
+                line['allocated']=job['allocated'] if job else 0
+                line['remaining']=max(0,tx['qty']-line['printing']-line['finished']-line['allocated'])
             else:
                 line['item_id']=None
                 line['printing']=0
                 line['finished']=0
+                line['allocated']=0
                 line['remaining']=0
             line['image']=images.get(line['listing_id'],'')
             # Receipt titles follow the buyer's language. Use our cached shop title.
@@ -772,10 +783,33 @@ def mutate_order_print(data):
             raise ValueError('Die Zuordnung dieser Bestellvariante hat sich geändert. Bitte prüfen.')
         printing=previous['printing'] if previous else 0
         finished=previous['finished'] if previous else 0
-        if action=='printing':
+        allocated=previous['allocated'] if previous else 0
+        if action=='allocate':
+            if tx['status']!='open':
+                raise ValueError('Nur offene Etsy-Aufträge können Lagerbestand erhalten.')
+            qty=integer(data.get('quantity'),1,tx['qty']-printing-finished-allocated)
+            if row['on_hand'] is None:
+                raise ValueError('Lagerbestand noch nicht erfasst. Erst vorhandene Stückzahl eintragen.')
+            if qty>row['on_hand']:
+                raise ValueError('Nicht genügend fertige Stücke auf Lager. Bitte Menge prüfen.')
+            # Transfer immediately out of physical inventory into this exact
+            # Etsy transaction. Shipment must not debit these pieces again.
+            new_stock=row['on_hand']-qty
+            new_print=row['in_print']
+            allocated+=qty
+        elif action=='release':
+            if tx['status']!='open':
+                raise ValueError('Nach Versand oder Stornierung ist keine Rückbuchung möglich.')
+            qty=integer(data.get('quantity'),1,allocated)
+            if row['on_hand'] is None:
+                raise ValueError('Lagerbestand zuerst erfassen, bevor eine Rückbuchung möglich ist.')
+            new_stock=integer(row['on_hand']+qty)
+            new_print=row['in_print']
+            allocated-=qty
+        elif action=='printing':
             if tx['status']!='open':
                 raise ValueError('Nur offene bezahlte Etsy-Bestellungen können neue Auftragsdrucke erhalten.')
-            qty=integer(data.get('quantity'),1,tx['qty']-printing-finished)
+            qty=integer(data.get('quantity'),1,tx['qty']-printing-finished-allocated)
             new_stock=row['on_hand']
             new_print=integer(row['in_print']+qty)
             printing+=qty
@@ -801,10 +835,11 @@ def mutate_order_print(data):
             raise ValueError('Unbekannte Auftragsdruck-Aktion.')
         db.execute('UPDATE stock_items SET on_hand=?,in_print=?,revision=revision+1 WHERE id=?',
                    (new_stock,new_print,row['id']))
-        db.execute("""INSERT INTO stock_order_prints(transaction_id,receipt_id,item_id,printing,finished,updated)
-          VALUES(?,?,?,?,?,?) ON CONFLICT(transaction_id) DO UPDATE SET
-          printing=excluded.printing,finished=excluded.finished,updated=excluded.updated""",
-          (tid,receipt_id,row['id'],printing,finished,int(time.time())))
+        db.execute("""INSERT INTO stock_order_prints(transaction_id,receipt_id,item_id,printing,finished,allocated,updated)
+          VALUES(?,?,?,?,?,?,?) ON CONFLICT(transaction_id) DO UPDATE SET
+          printing=excluded.printing,finished=excluded.finished,
+          allocated=excluded.allocated,updated=excluded.updated""",
+          (tid,receipt_id,row['id'],printing,finished,allocated,int(time.time())))
 
 
 def undo_action(action_id):
