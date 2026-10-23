@@ -1,3 +1,10 @@
+# 0.11.22 · Alte Druckprofil-Tabelle blockiert Masteransicht nicht mehr
+
+- Schließt den Fehler `no such column: listing_id` beim Laden der 3MF-/Filamentprofile.
+- Eigene Datenbanktabelle für Master-Filamentbelegungen; ältere inkompatible Tabellen bleiben unberührt.
+- Bereits kompatible Profile werden ohne Löschung oder Überschreiben übernommen.
+- Zusätzliche Datenbank-Migrationstests.
+
 # 0.11.21 · Auftragsdruck per Touch zuverlässig fertigmelden
 
 - Bei noch nicht erfasstem Bestand bisherigen Lagerbestand direkt im Dialog eingeben, danach Fertigmeldung atomar buchen.
