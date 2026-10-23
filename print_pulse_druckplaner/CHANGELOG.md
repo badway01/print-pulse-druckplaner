@@ -1,3 +1,10 @@
+# 0.11.27 · Lagerbestand auf der Produktkarte
+
+- Etsy-Menge bleibt auf dem Produktbild links oben.
+- Rechts oben jetzt die **gezählten Lagerbestände** der Varianten, maximal drei kompakte Zeilen mit „+ weitere“ bei langen Listen.
+- Nicht erfasste Bestände heißen „Noch zählen“; kein Vermischen mit Nachdruckbedarf.
+- Sofortige Aktualisierung nach Lagerbuchungen und Fertigmeldung, lesbar auf dem iPhone und im Dunkelmodus.
+
 # 0.11.26 · Etsy-Verfügbarkeit prozentual überwachen
 
 - 25 % der höchsten gemerkten Etsy-Artikelmenge, aufgerundet, statt fixer Stückzahl; je Listing und Variante separat.
