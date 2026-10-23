@@ -1,3 +1,15 @@
+# 0.11.38 · Vorproduktion und gemeinsame Bauteile pro Etsy-Produkt
+
+- Im Produktkatalog hat jedes aktive Etsy-Produkt einen eigenen, zunächst ausgeschalteten Schalter „Vorproduktion verwenden“. Ein aktivierter Artikel bietet „Bauteile verwalten“.
+- Standardbauteile können gemeinsam über alle Varianten bevorratet werden; variable Bauteile werden auf Wunsch anhand einer Etsy-Variation erst bei Bestellung gedruckt.
+- Die Bauteilmenge je Verkaufseinheit und eine optionale Setgrößen-Eigenschaft lassen sich je Bauteil hinterlegen.
+- Im Etsy-Auftrag werden Vorratsbauteile zugeordnet, Farbteile gedruckt und der fertige Zusammenbau bestätigt, ohne den allgemeinen Fertigwarenbestand doppelt zu verändern.
+- SQLite-Bestände bleiben nach Updates erhalten. Der klassische Ablauf bleibt bei ausgeschaltetem Schalter unverändert.
+
+# 0.11.37 · Schnellaktionen und geschützte Bestellungen
+
+- Direkte Schnellaktionen für Drucken, Aus Lager und Fertig ohne unnötige Mengendialoge; fertig zugeordnete Auftragsdrucke werden vor Zweitzuordnung geschützt.
+
 # 0.11.36 · Einheitliche Filament-Buttons in Split View und auf dem Tablet
 
 - „Shop“, „Auf Liste“, „Rollen“ und „Bearbeiten“ verwenden nun vier feste Button-Positionen in genau dieser Reihenfolge.
