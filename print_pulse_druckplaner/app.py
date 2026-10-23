@@ -25,7 +25,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.11.34'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.11.35'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -233,6 +233,7 @@ def init_db():
           color_hex TEXT NOT NULL DEFAULT '#c1c9c1',
           price_cents INTEGER CHECK(price_cents>=0), purchase_url TEXT NOT NULL DEFAULT '',
           stock_qty INTEGER NOT NULL DEFAULT 0 CHECK(stock_qty>=0),
+          open_qty INTEGER NOT NULL DEFAULT 0 CHECK(open_qty>=0),
           cart_qty INTEGER NOT NULL DEFAULT 0 CHECK(cart_qty>=0),
           created INTEGER NOT NULL, updated INTEGER NOT NULL);
         -- Dedicated table: older planner databases may already contain an
@@ -256,6 +257,8 @@ def init_db():
             db.execute("ALTER TABLE filament_spools ADD COLUMN internal_code TEXT NOT NULL DEFAULT ''")
         if 'notes' not in columns:
             db.execute("ALTER TABLE filament_spools ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
+        if 'open_qty' not in columns:
+            db.execute("ALTER TABLE filament_spools ADD COLUMN open_qty INTEGER NOT NULL DEFAULT 0 CHECK(open_qty>=0)")
         # Preserve legacy data: migrate compatible master assignments once.
         # Incompatible print_profiles tables remain entirely untouched.
         # Idempotent first-run bootstrap: only Etsy catalog quantities, never local stock.
@@ -932,6 +935,8 @@ def filament_mutate(data):
         internal_code=internal_code.strip()
         notes=notes.strip()
         stock_qty=integer(data.get('stock_qty'),0,100000)
+        # Existing clients that do not send open_qty must preserve the count.
+        open_qty=integer(data['open_qty'],0,100000) if 'open_qty' in data else None
         color_hex=str(data.get('color_hex') or '#c1c9c1')
         if not re.fullmatch(r'#[0-9A-Fa-f]{6}',color_hex):
             raise ValueError('Ungültiger Farbwert.')
@@ -967,14 +972,15 @@ def filament_mutate(data):
                     raise ValueError('Filament bereits vorhanden: '+existing['brand']+' · '+existing['material']+' · '+existing['color']+'. Bitte vorhandenen Eintrag bearbeiten.')
             if rowid is None:
                 db.execute("""INSERT INTO filament_spools
-                   (brand,color,material,color_hex,price_cents,purchase_url,stock_qty,internal_code,notes,created,updated)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-                   (fields['brand'],fields['color'],fields['material'],color_hex,price_cents,url,stock_qty,internal_code,notes,now,now))
+                   (brand,color,material,color_hex,price_cents,purchase_url,stock_qty,open_qty,internal_code,notes,created,updated)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   (fields['brand'],fields['color'],fields['material'],color_hex,price_cents,url,stock_qty,open_qty or 0,internal_code,notes,now,now))
             else:
                 changed=db.execute("""UPDATE filament_spools
-                   SET brand=?,color=?,material=?,color_hex=?,price_cents=?,purchase_url=?,stock_qty=?,internal_code=?,notes=?,updated=?
+                   SET brand=?,color=?,material=?,color_hex=?,price_cents=?,purchase_url=?,stock_qty=?,
+                       open_qty=COALESCE(?,open_qty),internal_code=?,notes=?,updated=?
                    WHERE id=?""",(fields['brand'],fields['color'],fields['material'],color_hex,
-                   price_cents,url,stock_qty,internal_code,notes,now,rowid))
+                   price_cents,url,stock_qty,open_qty,internal_code,notes,now,rowid))
                 if not changed.rowcount: raise ValueError('Filament nicht gefunden.')
         return
     rowid=integer(data.get('id'),1,999999999)
@@ -985,6 +991,16 @@ def filament_mutate(data):
             changed=db.execute("""UPDATE filament_spools SET cart_qty=cart_qty+?,updated=?
                WHERE id=? AND cart_qty+? BETWEEN 0 AND 999""",(delta,now,rowid,delta))
             if not changed.rowcount: raise ValueError('Einkaufsmenge nicht verfügbar.')
+        elif action=='open':
+            changed=db.execute("""UPDATE filament_spools
+               SET stock_qty=stock_qty-1,open_qty=open_qty+1,updated=?
+               WHERE id=? AND stock_qty>0 AND open_qty<100000""",(now,rowid))
+            if not changed.rowcount: raise ValueError('Keine volle Rolle zum Öffnen vorhanden.')
+        elif action=='empty':
+            changed=db.execute("""UPDATE filament_spools
+               SET open_qty=open_qty-1,updated=?
+               WHERE id=? AND open_qty>0""",(now,rowid))
+            if not changed.rowcount: raise ValueError('Keine angebrochene Rolle vorhanden.')
         elif action=='receive':
             changed=db.execute("""UPDATE filament_spools SET stock_qty=stock_qty+cart_qty,cart_qty=0,updated=?
                WHERE id=? AND cart_qty>0 AND stock_qty+cart_qty<=100000""",(now,rowid))
