@@ -1,3 +1,13 @@
+# 0.11.41 · Dein nächster Druck – priorisierte Produktionsübersicht
+
+- Auf der Produktionsseite steht unter den aktuellen Etsy-Bestellungen und vor den Produktkarten eine kompakte Liste „Als Nächstes drucken“.
+- Sortierung: (1) offene und noch nicht produzierte Etsy-Auftragsmengen nach Versandtermin, (2) Vorratsbauteile mit freiwillig hinterlegtem Auffüllziel, (3) Fertigwarenvarianten mit belegten Verkäufen der letzten 30 Tage und echtem Nachdruckbedarf.
+- Bis zu drei Vorschläge sofort sichtbar; „Alle Vorschläge anzeigen“ klappt den Rest aus. Je Eintrag führt eine Schaltfläche direkt zur richtigen Bestellung, Bauteilverwaltung oder zur Druckvorbereitung der passenden Variante. Kein Drucker wird ferngestartet.
+- Bereits vorhandene Fertigware und als „Im Druck“ gemeldete Auftrags-, Varianten- und Vorratsbauteildrucke werden berücksichtigt, um Doppelvorschläge zu verhindern. Nicht gezählte klassische Lagerbestände werden zur Prüfung statt als sichere Druckempfehlung angezeigt.
+- Gemeinsame Vorratsbauteile erhalten ein optionales Auffüllziel (0 = keine automatische Auffüllempfehlung) und getrennte Aktionen „+ Im Druck“, „Fertig“ und „Abbruch“. Fertigmelden erhöht erst dann ihren physischen Bauteilbestand.
+- Kundenbezogene fehlende Bauteile haben Vorrang vor Lageraufbau; Mengen anderer Etsy-Varianten werden nicht als freie Bestände oder Auftragsdrucke interpretiert.
+- Darstellung responsiv für Home Assistant, den Mac im Split View und das 11-Zoll-Wandtablet. Keine zusätzliche Hauptnavigation, keine Änderungen an Etsy-Artikeln und keine Rücksetzung bestehender Lagerdaten.
+
 # 0.11.40 · Bauteilvorrat direkt auf Produktionskarten
 
 - Wenn „Vorproduktion verwenden“ eingeschaltet ist, zeigt die Produktionskarte die tatsächlich gespeicherten Bauteile samt gemeinsamem Vorrat (z. B. „Geist Weiß – 8 × im Vorrat“) und variablen Bauteilen („Buch – Nach Auftrag“).
