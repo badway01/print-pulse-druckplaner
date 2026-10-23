@@ -26,7 +26,12 @@ from zoneinfo import ZoneInfo
 try:
     from . import components
 except ImportError:
-    import components
+    # The add-on also starts app.py directly, and the regression tests load it
+    # by file path rather than as an installed Python package.
+    import importlib.util
+    _parts_spec=importlib.util.spec_from_file_location('pp_components',Path(__file__).with_name('components.py'))
+    components=importlib.util.module_from_spec(_parts_spec)
+    _parts_spec.loader.exec_module(components)
 
 ROOT = Path(__file__).resolve().parent
 APP_VERSION = os.environ.get('PP_VERSION') or '0.11.38'
