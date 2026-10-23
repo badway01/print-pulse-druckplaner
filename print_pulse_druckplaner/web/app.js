@@ -61,7 +61,7 @@ async function loadVersionHistory(){
  if(historyLoaded)return;
  try{
   const result=await api('versions');
-  $('app-version').textContent='v'+String(result.version||'0.11.36');
+  $('app-version').textContent='v'+String(result.version||'0.11.37');
   const entries=Array.isArray(result.releases)?result.releases:[];
   if(!entries.length){$('release-history-content').textContent='Noch keine Versionshistorie vorhanden.';historyLoaded=true;return;}
   $('release-history-content').innerHTML=entries.map(entry=>
@@ -308,18 +308,35 @@ function orderPrintMarker(progress,compact=false){
  if(progress.finished>0)return `<div class="order-print-partial" role="status"><span aria-hidden="true">◔</span><strong>${compact?`${progress.finished}/${progress.total} fertig`:`${progress.finished} von ${progress.total} Stück fertig`}</strong></div>`;
  return '';
 }
-function orderStockCandidates(o){
- return (o.items||[]).filter(line=>{
-  if(!line.item_id||!(Number(line.remaining)>0))return false;
-  const item=findItem(line.item_id)?.i;
-  return item&&Number.isSafeInteger(item.on_hand)&&item.on_hand>0;
- });
+function stockForOrder(line){
+ if(!line?.item_id)return 0;
+ const item=findItem(line.item_id)?.i;
+ return Number.isSafeInteger(item?.allocatable)?Math.max(0,item.allocatable):0;
+}
+// One prominent next step per order position. A multi-position order keeps
+// its variant selection in Details; neither Etsy nor the printer is changed.
+function orderNextAction(line){
+ if(!line?.item_id)return null;
+ const printing=Math.max(0,Number(line.printing)||0);
+ const remaining=Math.max(0,Number(line.remaining)||0);
+ if(printing>0)return {action:'finish',qty:printing,label:`✓ ${printing} × Fertig`};
+ if(!remaining)return null;
+ const inStock=Math.min(remaining,stockForOrder(line));
+ return inStock>0
+  ?{action:'allocate',qty:inStock,label:`${inStock} × Aus Lager`}
+  :{action:'printing',qty:remaining,label:`${remaining} × Drucken`};
+}
+function orderQuickButton(line){
+ const next=orderNextAction(line);
+ if(!next)return '';
+ return `<button type="button" class="primary order-print ${next.action==='allocate'?'order-allocate':''}" data-order-quick="${esc(line.transaction_id)}" data-quick-action="${esc(next.action)}" data-quick-qty="${next.qty}" aria-label="${esc(next.label+' für '+line.title)}">${esc(next.label)}</button>`;
 }
 function orderCard(o){
  const shipping=shipInfo(o);
  const printProgress=orderPrintProgress(o);
- const stockCandidates=orderStockCandidates(o);
  const lines=o.items||[];
+ const actionable=lines.filter(line=>orderNextAction(line));
+ const quick=actionable.length===1?orderQuickButton(actionable[0]):'';
  const image=thumbnail(lines[0]?.image||'');
  const summary=lines.slice(0,2).map(i=>`<span><b>${i.quantity} ×</b> ${esc(i.title)}${i.variant?' · '+esc(i.variant):''}</span>`).join('');
  return `<article class="order-card ${shipping.level}${printProgress.complete?' print-complete':''}" data-order-card="${esc(o.id)}">
@@ -328,7 +345,9 @@ function orderCard(o){
   <div class="order-card-main">${image?`<img src="${esc(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}
    <div><strong>${esc(o.customer)}</strong><small>${o.quantity} Stück · ${lines.length} Position${lines.length===1?'':'en'}</small></div></div>
   <div class="order-lines">${summary}${lines.length>2?`<small>+ ${lines.length-2} weitere Position${lines.length===3?'':'en'}</small>`:''}</div>
-  <div class="order-card-foot"><span class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</span><div class="order-card-actions"><button class="primary order-print ${stockCandidates.length?'order-allocate':''}" data-order-print="${esc(o.id)}" data-order-action="${stockCandidates.length?'allocate':'printing'}" ${lines.some(i=>i.item_id&&i.remaining>0)?'':'disabled'} aria-label="Auftrag ${esc(o.id)} ${stockCandidates.length?'aus vorhandenem Lager zuordnen':'in Druck nehmen'}">${stockCandidates.length?'Aus Lager':'Drucken'}</button><button class="order-open" data-order-open="${esc(o.id)}" aria-label="Bestellung ${esc(o.id)} öffnen">Details ›</button></div>${lines.some(i=>i.printing>0)?`<small class="order-print-state">${lines.reduce((n,i)=>n+i.printing,0)} Stück für diesen Auftrag im Druck</small>`:''}</div>
+  <div class="order-card-foot"><span class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</span>
+   <div class="order-card-actions">${quick}<button type="button" class="order-open ${quick?'':'order-open-only'}" data-order-open="${esc(o.id)}" aria-label="Bestellung ${esc(o.id)} öffnen">Details ›</button></div>
+   ${lines.some(i=>i.printing>0)?`<small class="order-print-state">${lines.reduce((n,i)=>n+i.printing,0)} Stück für diesen Auftrag im Druck</small>`:''}</div>
  </article>`;
 }
 function renderOrders(){
@@ -340,6 +359,22 @@ function renderOrders(){
  $('orders-prev').disabled=!orders.length;
  $('orders-next').disabled=!orders.length;
 }
+function orderLineActions(line){
+ if(!line.item_id)return '<small>Variante nicht eindeutig zugeordnet. Etsy-Abgleich und Varianten prüfen.</small>';
+ const main=orderNextAction(line);
+ const remaining=Math.max(0,Number(line.remaining)||0);
+ const allocatable=Math.min(remaining,stockForOrder(line));
+ const stillToPrint=Math.max(0,remaining-allocatable);
+ return `<small>${line.printing} im Druck · ${line.finished} gedruckt · ${line.allocated||0} aus Lager · ${line.remaining} noch offen</small>
+ <div class="order-line-actions">
+  ${orderQuickButton(line)}
+  ${main?.action==='allocate'&&stillToPrint>0?`<button type="button" class="secondary" data-order-quick="${esc(line.transaction_id)}" data-quick-action="printing" data-quick-qty="${stillToPrint}">${stillToPrint} × Drucken</button>`:''}
+  ${main?.action==='allocate'&&stillToPrint===0?`<button type="button" class="text-button" data-order-line="${esc(line.transaction_id)}" data-job-action="printing">Stattdessen drucken</button>`:''}
+  ${main?.action==='finish'&&remaining>0?`<button type="button" class="secondary" data-order-line="${esc(line.transaction_id)}" data-job-action="printing">${remaining} weitere drucken</button>`:''}
+  ${line.allocated>0?`<button type="button" class="secondary" data-order-line="${esc(line.transaction_id)}" data-job-action="release">Zurück ins Lager (${line.allocated})</button>`:''}
+  ${line.printing>0?`<button type="button" class="text-button" data-order-line="${esc(line.transaction_id)}" data-job-action="cancel">Abbruch / Teilmenge</button>`:''}
+ </div>`;
+}
 function showOrder(id){
  const o=(model.orders||[]).find(order=>order.id===id);
  if(!o)return;
@@ -347,16 +382,12 @@ function showOrder(id){
  const printProgress=orderPrintProgress(o);
  $('order-details').dataset.orderId=o.id;
  $('order-details-title').textContent='Etsy-Bestellung #'+o.id;
- updateHTML($('order-details-content'),`<p><b>${esc(o.customer)}</b> · ${esc(shortDate(o.created))}</p><div class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</div>
+ updateHTML($('order-details-content'),`<p><b>${esc(o.customer)}</b> · ${esc(shortDate(o.created))}</p>
+ <div class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</div>
  ${orderPrintMarker(printProgress)}
  <div class="order-modal-lines">${o.items.map(i=>`<div class="order-line"><b>${i.quantity} × ${esc(i.title)}</b>${i.variant?`<small>${esc(i.variant)}</small>`:''}
- ${i.item_id?`<small>${i.printing} im Druck · ${i.finished} gedruckt · ${i.allocated||0} aus Lager · ${i.remaining} noch offen</small>
- <div class="order-line-actions">${i.remaining?`<button class="primary" data-order-line="${esc(i.transaction_id)}" data-job-action="printing">Drucken</button>`:''}
- ${i.remaining&&Number(findItem(i.item_id)?.i?.on_hand)>0?`<button class="primary order-allocate" data-order-line="${esc(i.transaction_id)}" data-job-action="allocate">Aus Lager (${findItem(i.item_id).i.on_hand} verfügbar)</button>`:''}
- ${i.allocated>0?`<button class="secondary" data-order-line="${esc(i.transaction_id)}" data-job-action="release">Zurück ins Lager (${i.allocated})</button>`:''}
- ${i.printing?`<button class="secondary" data-order-line="${esc(i.transaction_id)}" data-job-action="finish">Fertig</button><button class="text-button" data-order-line="${esc(i.transaction_id)}" data-job-action="cancel">Abbruch</button>`:''}
- </div>`:'<small>Variante nicht eindeutig zugeordnet. Etsy-Abgleich und Varianten prüfen.</small>'}</div>`).join('')}</div>
- <p class="hint">„Aus Lager“ ordnet vorhandene fertige Stücke dieser Bestellung zu und zieht sie sofort vom Lagerbestand ab. „Zurück ins Lager“ macht diese Zuordnung rückgängig. „Drucken“ erfasst nur den Produktionsstart. Beim Etsy-Versand erfolgt keine doppelte Lagerabbuchung.</p>`);
+ ${orderLineActions(i)}</div>`).join('')}</div>
+ <p class="hint">„Aus Lager“ bucht sofort auf diesen Auftrag; fertige Auftragsdrucke bleiben für ihren Auftrag reserviert. „Drucken“ erfasst nur den Druckstart. Beim Etsy-Versand erfolgt keine doppelte Lagerabbuchung.</p>`);
  if(!$('order-details').open)$('order-details').showModal();
 }
 let lastShippingDay=berlinDay(Date.now());
@@ -393,7 +424,7 @@ function orderPrintDialog(tid,action){
  if(!job){flash('Bestellposition nicht zugeordnet. Bitte Etsy-Abgleich prüfen.',true);return;}
  const found=findItem(job.itemId);
  if(!found){flash('Variante nicht verfügbar.',true);return;}
- const stockAvailable=Number.isSafeInteger(found.i.on_hand)?found.i.on_hand:0;
+ const stockAvailable=stockForOrder({item_id:job.itemId});
  const count=action==='allocate'?Math.min(job.line.remaining,stockAvailable):
   action==='release'?(job.line.allocated||0):
   action==='printing'?job.line.remaining:job.line.printing;
@@ -835,21 +866,38 @@ async function load(resort=false){if(polling||busy)return;polling=true;try{const
 async function mutate(path,data){if(busy)return false;busy=true;let saved=false;document.querySelectorAll('#products button,#products input,#products select,#orders button,#order-details button,#undo').forEach(b=>b.disabled=true);try{setModel(await api(path,data));scheduleSort();flash('Gespeichert.');saved=true;}catch(err){flash(err.message,true);try{setModel(await api('status'));}catch{}}finally{busy=false;render();}return saved;}
 function findItem(id){for(const p of model.products){const i=p.items.find(i=>i.id===id);if(i)return {p,i};}return null;}
 function quantityDialog(id,action){const found=findItem(id);if(!found)return;const {p,i}=found;quantityContext={id,action,revision:i.revision};$('quantity-variants').hidden=true;const needsInitialStock=action==='finish'&&i.on_hand===null;setInitialStockRequired(needsInitialStock);$('quantity-confirm').disabled=false;$('quantity-confirm').textContent=['printing','finish','cancel'].includes(action)?'Bestätigen':'Speichern';const labels={set:'Bestand erfassen',printing:'In Druck nehmen',finish:'Fertige Stücke einlagern',cancel:'Druckmenge zurücknehmen',minimum:'Mindestbestand'};$('quantity-title').textContent=labels[action];$('quantity-label').textContent=p.title+' · '+i.label;const input=$('quantity-value');input.min=['set','minimum'].includes(action)?0:1;input.max=['finish','cancel'].includes(action)?i.in_print-(i.order_printing||0):100000;input.value=action==='set'?(i.on_hand??0):action==='minimum'?i.minimum:action==='printing'?Math.max(1,i.need||1):i.in_print-(i.order_printing||0);$('quantity-help').textContent=action==='set'?'Alle fertigen Stücke zählen, einschließlich reservierter und gepackter Ware.':action==='finish'&&i.on_hand===null?'Trage den bisher fertigen Lagerbestand ein (0, wenn keiner vorhanden ist). Die jetzt gedruckten Stücke werden danach hinzugebucht.':action==='finish'?'Nur erfolgreich gedruckte Stücke buchen. Fehlgeschlagene Stücke über „Abbruch“ zurücknehmen.':action==='printing'?'Merkt die Menge vor. Startet keinen Drucker.':action==='minimum'?'Wird bei Lagerartikeln mindestens als freier Vorrat empfohlen.':'Entfernt die Menge aus „Im Druck“, ohne den Lagerbestand zu erhöhen.';if(!$('quantity').open){$('quantity').showModal();(needsInitialStock?$('quantity-initial-stock'):input).focus();if(!needsInitialStock)input.select();}}
-$('orders').addEventListener('click',event=>{
- const print=event.target.closest('[data-order-print]');
- if(print&&!busy){
-  const o=(model.orders||[]).find(x=>x.id===print.dataset.orderPrint);
-  const action=print.dataset.orderAction==='allocate'?'allocate':'printing';
-  const candidates=action==='allocate'?orderStockCandidates(o):
-    (o?.items.filter(i=>i.item_id&&i.remaining>0)||[]);
-  if(candidates.length===1)orderPrintDialog(candidates[0].transaction_id,action);
-  else if(o)showOrder(o.id);
-  return;
+// Quick buttons use the same atomic API as the quantity dialog. The item
+// revision rejects stale clicks and double submits across browser sessions.
+async function runOrderQuick(button){
+ if(busy)return;
+ const tid=button.dataset.orderQuick;
+ const action=button.dataset.quickAction;
+ const qty=Number(button.dataset.quickQty);
+ const job=findOrderJob(tid);
+ const found=job&&findItem(job.itemId);
+ if(!job||!found||!Number.isSafeInteger(qty)||qty<1){
+  flash('Auftragsposition nicht verfügbar. Bitte Bestellungen aktualisieren.',true);return;
  }
+ // For partial successes keep the quantity dialog so failed pieces are never
+ // accidentally marked finished. Unknown initial stocks also need counting.
+ if(action==='finish'&&(qty>1||found.i.on_hand===null)){
+  orderPrintDialog(tid,action);return;
+ }
+ const saved=await mutate('order-print',{
+  transaction_id:tid,receipt_id:job.receiptId,
+  action,quantity:qty,revision:found.i.revision
+ });
+ if(saved&&$('order-details').open&&$('order-details').dataset.orderId===job.receiptId)showOrder(job.receiptId);
+}
+$('orders').addEventListener('click',async event=>{
+ const quick=event.target.closest('[data-order-quick]');
+ if(quick){await runOrderQuick(quick);return;}
  const button=event.target.closest('[data-order-open]');
  if(button)showOrder(button.dataset.orderOpen);
 });
-$('order-details-content').addEventListener('click',event=>{
+$('order-details-content').addEventListener('click',async event=>{
+ const quick=event.target.closest('[data-order-quick]');
+ if(quick){await runOrderQuick(quick);return;}
  const button=event.target.closest('[data-order-line]');
  if(button&&!busy)orderPrintDialog(button.dataset.orderLine,button.dataset.jobAction);
 });
