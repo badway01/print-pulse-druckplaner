@@ -420,6 +420,14 @@ class StockTests(unittest.TestCase):
                 logo=urllib.request.urlopen(base+'/brand.svg')
                 self.assertEqual(logo.headers.get_content_type(),'image/svg+xml')
                 self.assertIn(b'data:image/webp;base64,',logo.read())
+                # v0.11.39: Home Assistant must actually serve the optional
+                # component UI script referenced in index.html (previously 404).
+                html_page=response.read().decode('utf-8')
+                self.assertIn('components-ui.js',html_page)
+                components_asset=urllib.request.urlopen(base+'/components-ui.js')
+                self.assertEqual(components_asset.status,200)
+                self.assertEqual(components_asset.headers.get_content_type(),'application/javascript')
+                self.assertIn(b'Vorproduktion verwenden',components_asset.read())
                 payload=json.dumps({'id':'101-default','action':'set','quantity':8,'revision':0}).encode()
                 request=urllib.request.Request(base+'/api/stock',data=payload,headers={'Content-Type':'application/json','Sec-Fetch-Site':'same-origin'})
                 result=json.load(urllib.request.urlopen(request))
