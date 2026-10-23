@@ -61,7 +61,7 @@ async function loadVersionHistory(){
  if(historyLoaded)return;
  try{
   const result=await api('versions');
-  $('app-version').textContent='v'+String(result.version||'0.11.33');
+  $('app-version').textContent='v'+String(result.version||'0.11.34');
   const entries=Array.isArray(result.releases)?result.releases:[];
   if(!entries.length){$('release-history-content').textContent='Noch keine Versionshistorie vorhanden.';historyLoaded=true;return;}
   $('release-history-content').innerHTML=entries.map(entry=>
@@ -302,9 +302,10 @@ function orderPrintProgress(o){
   Number(line.printing||0)===0&&Number(line.remaining||0)===0);
  return {total,finished,complete};
 }
-function orderPrintMarker(progress){
- if(progress.complete)return '<div class="order-print-complete" role="status" aria-label="Alle Positionen vollständig gedruckt"><span class="order-print-check" aria-hidden="true">✓</span><strong>DRUCK FERTIG</strong></div>';
- if(progress.finished>0)return `<div class="order-print-partial" role="status"><span aria-hidden="true">◔</span><strong>${progress.finished} von ${progress.total} Stück fertig</strong></div>`;
+function orderPrintMarker(progress,compact=false){
+ // Compact paper tab on cards, expanded confirmation remains in order details.
+ if(progress.complete)return `<div class="order-print-complete" role="status" aria-label="Alle Positionen fertig" ><span class="order-print-check" aria-hidden="true">✓</span><strong>${compact?'FERTIG':'DRUCK FERTIG'}</strong></div>`;
+ if(progress.finished>0)return `<div class="order-print-partial" role="status"><span aria-hidden="true">◔</span><strong>${compact?`${progress.finished}/${progress.total} fertig`:`${progress.finished} von ${progress.total} Stück fertig`}</strong></div>`;
  return '';
 }
 function orderStockCandidates(o){
@@ -323,7 +324,7 @@ function orderCard(o){
  const summary=lines.slice(0,2).map(i=>`<span><b>${i.quantity} ×</b> ${esc(i.title)}${i.variant?' · '+esc(i.variant):''}</span>`).join('');
  return `<article class="order-card ${shipping.level}${printProgress.complete?' print-complete':''}" data-order-card="${esc(o.id)}">
   <div class="order-card-top"><b>#${esc(o.id)}</b><small>${esc(shortDate(o.created))}</small></div>
-  ${orderPrintMarker(printProgress)}
+  ${orderPrintMarker(printProgress,true)}
   <div class="order-card-main">${image?`<img src="${esc(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}
    <div><strong>${esc(o.customer)}</strong><small>${o.quantity} Stück · ${lines.length} Position${lines.length===1?'':'en'}</small></div></div>
   <div class="order-lines">${summary}${lines.length>2?`<small>+ ${lines.length-2} weitere Position${lines.length===3?'':'en'}</small>`:''}</div>
