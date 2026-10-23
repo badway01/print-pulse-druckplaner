@@ -1,3 +1,12 @@
+# 0.11.32 · Sichtbare Druckfertig-Markierung je Etsy-Bestellung
+
+- Jede offene Etsy-Bestellkarte erhält nach vollständigem Fertigmelden aller bestellten Positionen einen gut sichtbaren grünen Balken „✓ DRUCK FERTIG“ und einen grünen Kartenrand.
+- Bei nur teilweise fertiggemeldeten Drucken steht stattdessen „X von Y Stück fertig“. Das bloße Starten eines Drucks reicht nicht für den Fertig-Haken.
+- Der Haken wird nur angezeigt, wenn alle Positionen eindeutig zugeordnet und vollständig fertiggebucht sind; nicht zuordenbare Varianten bleiben offen.
+- Auch in den Bestelldetails ist der Status sichtbar. Die Versanddringlichkeit bleibt unabhängig erhalten.
+- Der Status wird aus dem vorhandenen Auftragsdruckprotokoll berechnet: keine zusätzliche Datenbank, keine manuelle Pflege, keine Änderungen an Etsy.
+- Browserprüfungen für vollständige, teilweise, noch druckende und nicht zugeordnete Aufträge sowie die vorhandene Lagerbuchung ergänzt.
+
 # 0.11.31 · Shop-Button und Filamentsortierung
 
 - Bei „Meine Farben“ wird der Shop-Link links vor „Auf Liste“ und „Bearbeiten“ angezeigt.
