@@ -1,3 +1,13 @@
+# 0.11.26 · Etsy-Bestandswarnung nach Prozent statt fixer Stückzahl
+
+- Warnbanner bewertet den *Etsy*-Katalogbestand ab einer einstellbaren Restquote (Standard 25 %), aufgerundet auf die nächste ganze Stückzahl und inklusive der errechneten Grenze.
+- Beispiele: Etsy-Ausgangsmenge 5 → Warnung bei höchstens 2 Stück; 8 → 2 Stück; 10 → 3 Stück; 25 → 7 Stück.
+- Die Etsy-Ausgangs-/Referenzmenge wird für jedes Listing und jede Etsy-Variante separat als bisher höchste erfolgreich beobachtete Etsy-Menge lokal und updatefest gespeichert. Sie sinkt bei Verkäufen nicht mit. Steigt eine Etsy-Menge durch Nachfüllen über die bisherige Referenz, erhöht sich die Referenz automatisch.
+- Auf bestehenden Installationen wird die Referenz beim ersten Start aus dem **bereits gespeicherten Etsy-Katalogbestand** übernommen. Früher eingestellte Ausgangsmengen, die Etsy inzwischen reduziert hat, können nicht automatisch zurückgerechnet werden.
+- Details der Warnung nennen Etsy-Restbestand, Referenzmenge und berechnete Warnschwelle. Die Prozentgrenze lässt sich unter Einstellungen anpassen.
+- Der physische Lagerbestand (gezählte Bestände, im Druck, Reservierungen) hat keinerlei Einfluss auf die Etsy-Verfügbarkeitswarnung.
+- Der letzte Etsy-Bestellungs- und Katalogabgleich mit Datum/Uhrzeit bleibt angezeigt. Etsy-Katalogbestände werden weiterhin regulär täglich abgerufen, um Etsy-API-Limits einzuhalten.
+
 # 0.11.25 · Print-&-Pulse-Logo ohne hellen Hintergrundkasten
 
 - Der ursprüngliche Schriftzug, die grüne Pulslinie und das goldene Herz bleiben erhalten. Eine Alpha-Maske in der SVG-Datei entfernt nun den eingebetteten hellen Fotohintergrund direkt im Logo.
