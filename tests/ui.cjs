@@ -290,7 +290,9 @@ let realState=await page.request.get('http://127.0.0.1:8099/api/status').then(r=
 let black=realState.products.find(p=>p.id==='102').items.find(i=>i.id==='102-black');
 assert.equal(black.on_hand,null);assert.equal(black.in_print,4);
 await realCard.locator('[data-print-action="finish"]').click();
-assert(await page.locator('#quantity-confirm').isDisabled());
+assert.equal(await page.locator('#quantity-confirm').isEnabled(),true);
+ assert.equal(await page.locator('#quantity-initial-stock').isVisible(),true);
+ assert.equal(await page.locator('#quantity-initial-stock').evaluate(el=>el.required),true);
 await page.locator('[data-close="quantity"]').click();
 await page.request.post('http://127.0.0.1:8099/api/stock',{data:{id:black.id,action:'set',quantity:2,revision:black.revision}});
 await page.reload();await realCard.locator('[data-print-action="finish"]').click();
