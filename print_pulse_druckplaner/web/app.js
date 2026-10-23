@@ -61,7 +61,7 @@ async function loadVersionHistory(){
  if(historyLoaded)return;
  try{
   const result=await api('versions');
-  $('app-version').textContent='v'+String(result.version||'0.11.34');
+  $('app-version').textContent='v'+String(result.version||'0.11.35');
   const entries=Array.isArray(result.releases)?result.releases:[];
   if(!entries.length){$('release-history-content').textContent='Noch keine Versionshistorie vorhanden.';historyLoaded=true;return;}
   $('release-history-content').innerHTML=entries.map(entry=>
@@ -709,11 +709,12 @@ function filamentLine(f,inCart){
  const swatch=`<span class="filament-swatch" style="background:${esc(f.color_hex)}" aria-hidden="true"></span>`;
  const intro=`<div class="filament-identity">${swatch}<div><strong>${esc(f.color)}${f.internal_code?` <em class="filament-internal-code">#${esc(f.internal_code)}</em>`:""}</strong><small>${esc(f.brand)} · ${esc(f.material)}</small>${f.notes?`<small title="${esc(f.notes)}">Notiz: ${esc(f.notes)}</small>`:""}</div></div>`;
  const shop=f.purchase_url?`<a class="filament-shop" href="${esc(f.purchase_url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Shop ↗</a>`:'';
+ const opened=Number(f.open_qty)||0;
  return `<article class="filament-line" data-filament-line="${f.id}">
-   ${intro}<div class="filament-meta"><span>${inCart?`<b>${f.cart_qty} Sp.</b> auf Liste`:`<b>${f.stock_qty}</b> ${f.stock_qty===1?'Spule':'Spulen'} vorrätig`}</span><span>${filamentMoney(f.price_cents)}</span></div>
+   ${intro}<div class="filament-meta"><span>${inCart?`<b>${f.cart_qty} Sp.</b> auf Liste`:`<b>${f.stock_qty}</b> voll · <b>${opened}</b> angebrochen`}</span><span>${filamentMoney(f.price_cents)} / volle Spule</span></div>
    <div class="filament-line-actions">${shop}${inCart?
      `<button type="button" class="filament-step" data-filament-delta="-1" data-filament-id="${f.id}" aria-label="Eine Spule von der Einkaufsliste nehmen">−</button><b class="filament-cart-qty">${f.cart_qty}</b><button type="button" class="filament-step" data-filament-delta="1" data-filament-id="${f.id}" aria-label="Eine weitere Spule vormerken">+</button><button type="button" class="secondary filament-receive" data-filament-receive="${f.id}">Erhalten</button>`:
-     `<button type="button" class="filament-cart-button" data-filament-cart="${f.id}" aria-label="${name} zur Einkaufsliste hinzufügen">${filamentSpoolCart}<span>Auf Liste ${f.cart_qty? `(${f.cart_qty})`:''}</span></button><button type="button" class="filament-edit" data-filament-edit="${f.id}">Bearbeiten</button>`}
+     `<button type="button" class="filament-cart-button" data-filament-cart="${f.id}" aria-label="${name} zur Einkaufsliste hinzufügen">${filamentSpoolCart}<span>Auf Liste ${f.cart_qty? `(${f.cart_qty})`:''}</span></button><button type="button" class="filament-roll-button" data-filament-rolls="${f.id}" aria-label="Volle und angebrochene Rollen für ${name} verwalten">Rollen</button><button type="button" class="filament-edit" data-filament-edit="${f.id}">Bearbeiten</button>`}
    </div></article>`;
 }
 function sortFilamentRows(rows,mode=filamentSort){
@@ -729,12 +730,13 @@ function renderFilaments(){
  const rows=filamentData.filaments||[];
  const cart=rows.filter(f=>f.cart_qty>0);
  const inventory=filamentStockValue(rows);
+ const opened=rows.reduce((sum,f)=>sum+Math.max(0,Number(f.open_qty)||0),0);
  $('filament-stock-summary').hidden=filamentView!=='colors';
- $('filament-stock-spools').textContent=inventory.spools+' '+(inventory.spools===1?'volle Spule':'volle Spulen');
+ $('filament-stock-spools').textContent=inventory.spools+' '+(inventory.spools===1?'volle Spule':'volle Spulen')+' · '+opened+' angebrochen';
  $('filament-stock-value').textContent=filamentMoney(inventory.known_total_cents);
  $('filament-stock-missing').textContent=inventory.missing_qty
   ?inventory.missing_qty+' '+(inventory.missing_qty===1?'Spule ohne Preis':'Spulen ohne Preis')+' – Wert unvollständig'
-  :'Menge × Preis pro Spule';
+  :'Wert nur voller Spulen – angebrochene ohne Schätzung';
  $('filament-color-count').textContent=rows.length;
  $('filament-cart-count').textContent=filamentData.cart_count;
  $('filament-tab-count').textContent=filamentData.cart_count;
@@ -748,9 +750,10 @@ function renderFilaments(){
 
  $('filament-message').textContent=filamentView==='cart'?
   'Spulen für deinen nächsten Einkauf. „Erhalten“ bucht gelieferte Spulen ins Regal.':
-  'Jede Zeile ist ein Filament. Einkaufswagen antippen, wenn du eine Spule nachbestellen möchtest.';
+  'Volle und angebrochene Rollen zählen – ohne Wiegen. Über „Rollen“ kannst du eine Spule öffnen oder als leer markieren.';
  updateHTML($('filament-rows'),visible.length?visible.map(f=>filamentLine(f,filamentView==='cart')).join(''):
   `<div class="filament-empty">${filamentView==='cart'?'Deine Einkaufsliste ist leer. Füge bei „Meine Farben“ eine Spule hinzu.':query?'Kein Filament passt zur Suche.':'Noch keine Farben angelegt. Starte mit „+ Filament anlegen“.'}</div>`);
+ if($('filament-rolls').open)renderFilamentRolls();
  const summary=$('filament-cart-summary');
  summary.hidden=filamentView!=='cart'||!cart.length;
  if(!summary.hidden)updateHTML(summary,`<span><b>${filamentData.cart_count} ${filamentData.cart_count===1?'Spule':'Spulen'}</b> auf der Einkaufsliste</span><strong>${filamentMoney(filamentData.cart_known_total_cents)}${filamentData.cart_missing_prices?' + Preise offen':''}</strong>`);
@@ -765,10 +768,10 @@ async function loadFilaments(){
 async function filamentAction(data){
  if(filamentBusy)return;
  filamentBusy=true;
- document.querySelectorAll('#filament-shell button,#filament-form button').forEach(b=>b.disabled=true);
+ document.querySelectorAll('#filament-shell button,#filament-form button,#filament-rolls button').forEach(b=>b.disabled=true);
  try{filamentData=await api('filament',data);renderFilaments();flash('Filamentliste gespeichert.');}
  catch(err){flash(err.message,true);}
- finally{filamentBusy=false;document.querySelectorAll('#filament-shell button,#filament-form button').forEach(b=>b.disabled=false);}
+ finally{filamentBusy=false;document.querySelectorAll('#filament-shell button,#filament-form button,#filament-rolls button').forEach(b=>b.disabled=false);if($('filament-rolls').open)renderFilamentRolls();}
 }
 function showWorkspace(value){
  workspace=value;
@@ -793,12 +796,28 @@ function showWorkspace(value){
  if(value==='filament')loadFilaments();
  if(value==='printers'){renderPrinterMonitor();loadPrinters();}
 }
+function renderFilamentRolls(){
+ const d=$('filament-rolls');
+ const f=(filamentData?.filaments||[]).find(x=>x.id===Number(d.dataset.filamentId));
+ if(!f){d.close();return;}
+ $('filament-rolls-name').textContent=f.brand+' · '+f.color+' · '+f.material;
+ $('filament-rolls-full').textContent=f.stock_qty;
+ $('filament-rolls-open').textContent=f.open_qty||0;
+ $('filament-roll-open').disabled=filamentBusy||f.stock_qty<1;
+ $('filament-roll-empty').disabled=filamentBusy||!f.open_qty;
+ $('filament-roll-edit').disabled=filamentBusy;
+}
+function openFilamentRolls(id){
+ $('filament-rolls').dataset.filamentId=id;
+ renderFilamentRolls();
+ $('filament-rolls').showModal();
+}
 function openFilamentEditor(id){
  const f=(filamentData?.filaments||[]).find(x=>x.id===id);
  const form=$('filament-form');form.reset();
  form.elements.id.value=f?.id||'';
- for(const name of ['brand','color','material','color_hex','stock_qty','purchase_url','internal_code','notes']){
-  form.elements[name].value=f?f[name]:(name==='color_hex'?'#ffffff':name==='material'?'PLA':name==='stock_qty'?0:'');
+ for(const name of ['brand','color','material','color_hex','stock_qty','open_qty','purchase_url','internal_code','notes']){
+  form.elements[name].value=f?f[name]:(name==='color_hex'?'#ffffff':name==='material'?'PLA':['stock_qty','open_qty'].includes(name)?0:'');
  }
  form.elements.price.value=f&&f.price_cents!==null?(f.price_cents/100).toFixed(2).replace('.',','):'';
  $('filament-title').textContent=f?'Filament bearbeiten':'Filament anlegen';
@@ -905,8 +924,13 @@ for(const b of document.querySelectorAll('[data-filament-view]'))b.addEventListe
 $('filament-sort').addEventListener('change',event=>{filamentSort=event.target.value;try{localStorage.setItem('pp-filament-sort',filamentSort);}catch{}renderFilaments();});
 $('filament-add').addEventListener('click',()=>openFilamentEditor(null));
 $('filament-search').addEventListener('input',renderFilaments);
+$('filament-roll-open').addEventListener('click',()=>{const id=Number($('filament-rolls').dataset.filamentId);if(!filamentBusy)filamentAction({action:'open',id});});
+$('filament-roll-empty').addEventListener('click',()=>{const id=Number($('filament-rolls').dataset.filamentId);if(!filamentBusy)filamentAction({action:'empty',id});});
+$('filament-roll-edit').addEventListener('click',()=>{const id=Number($('filament-rolls').dataset.filamentId);$('filament-rolls').close();openFilamentEditor(id);});
 $('filament-rows').addEventListener('click',event=>{
  if(filamentBusy)return;
+ const rolls=event.target.closest('[data-filament-rolls]');
+ if(rolls){openFilamentRolls(Number(rolls.dataset.filamentRolls));return;}
  const edit=event.target.closest('[data-filament-edit]');
  if(edit){openFilamentEditor(Number(edit.dataset.filamentEdit));return;}
  const add=event.target.closest('[data-filament-cart]');
@@ -965,7 +989,7 @@ $('filament-form').addEventListener('submit',async event=>{
  updateFilamentDuplicate();
  if($('filament-save').disabled)return;
  const values=Object.fromEntries(new FormData(event.target).entries());
- const payload={action:'save',id:values.id?Number(values.id):null,brand:values.brand,color:values.color,material:values.material,color_hex:values.color_hex,stock_qty:Number(values.stock_qty),price:values.price.trim(),purchase_url:values.purchase_url,internal_code:values.internal_code,notes:values.notes};
+ const payload={action:'save',id:values.id?Number(values.id):null,brand:values.brand,color:values.color,material:values.material,color_hex:values.color_hex,stock_qty:Number(values.stock_qty),open_qty:Number(values.open_qty),price:values.price.trim(),purchase_url:values.purchase_url,internal_code:values.internal_code,notes:values.notes};
  $('filament-editor').close();
  await filamentAction(payload);
 });
