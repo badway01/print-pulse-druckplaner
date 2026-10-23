@@ -131,7 +131,7 @@ await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
 await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.27'));
 assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.32');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.33');
 await page.locator('[data-close="settings"]').click();
 
 
@@ -241,6 +241,44 @@ await page.evaluate(()=>{
  renderOrders();
 });
 assert.equal(await doneCard.locator('.order-print-complete').count(),0);
+// A counted, matching variant is assigned directly to an Etsy order, without printing.
+await page.evaluate(()=>{
+ const order=model.orders.find(o=>o.id==='502');
+ window.stockCardBefore=order.items;
+ order.items=[{...order.items[0],item_id:'101-default',transaction_id:'stock-demo',quantity:1,
+  finished:0,allocated:0,printing:0,remaining:1,variant:'Farbe: Weiß'}];
+ renderOrders();
+});
+const allocationCard=page.locator('[data-order-card="502"]');
+assert.equal(await allocationCard.locator('[data-order-action="allocate"]').count(),1);
+assert((await allocationCard.locator('.order-print').textContent()).includes('Aus Lager'));
+await allocationCard.locator('.order-print').click();
+assert((await page.locator('#quantity-title').textContent()).includes('aus Lager zuordnen'));
+assert((await page.locator('#quantity-label').textContent()).includes('Weiß'));
+assert.equal(await page.locator('#quantity-value').getAttribute('max'),'1');
+assert((await page.locator('#quantity-help').textContent()).includes('nicht erneut beim Versand'));
+await page.locator('[data-close="quantity"]').click();
+await allocationCard.locator('[data-order-open]').click();
+assert.equal(await page.locator('#order-details-content [data-job-action="allocate"]').count(),1);
+assert.equal(await page.locator('#order-details-content [data-job-action="printing"]').count(),1);
+await page.locator('[data-close="order-details"]').click();
+await page.evaluate(()=>{
+ const order=model.orders.find(o=>o.id==='502');
+ order.items=[{...order.items[0],allocated:1,printing:0,remaining:0}];
+ renderOrders();
+});
+assert.equal(await allocationCard.locator('.order-print-complete').count(),1);
+assert.equal(await allocationCard.locator('.order-print').isDisabled(),true);
+await allocationCard.locator('[data-order-open]').click();
+assert.equal(await page.locator('#order-details-content [data-job-action="release"]').count(),1);
+await page.locator('[data-close="order-details"]').click();
+await page.evaluate(()=>{
+ const order=model.orders.find(o=>o.id==='502');
+ order.items=window.stockCardBefore;
+ delete window.stockCardBefore;
+ renderOrders();
+});
+assert.equal(await allocationCard.locator('.order-print-complete').count(),0);
 // Check countdown colors, singular/plural, today and overdue using Berlin calendar days.
 const countdownCases=await page.evaluate(()=>{
  const today=berlinDay(Date.now());
