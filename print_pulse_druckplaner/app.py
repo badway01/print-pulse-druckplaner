@@ -14,6 +14,7 @@ import secrets
 import sqlite3
 import threading
 import time
+import tempfile
 import zipfile
 import urllib.error
 import urllib.parse
@@ -24,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components
+    from . import components, safety
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -32,9 +33,12 @@ except ImportError:
     _parts_spec=importlib.util.spec_from_file_location('pp_components',Path(__file__).with_name('components.py'))
     components=importlib.util.module_from_spec(_parts_spec)
     _parts_spec.loader.exec_module(components)
+    _safety_spec=importlib.util.spec_from_file_location('pp_safety',Path(__file__).with_name('safety.py'))
+    safety=importlib.util.module_from_spec(_safety_spec)
+    _safety_spec.loader.exec_module(safety)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.11.41'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.11.42'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -288,6 +292,7 @@ def init_db():
                 FROM print_profiles""")
         elif old_columns:
             log.info('Alte print_profiles-Tabelle hat anderes Schema; bleibt unverändert erhalten.')
+        safety.schema(db)
         os.chmod(DB_PATH, 0o600)
 
 
@@ -1668,6 +1673,42 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
         path=urllib.parse.urlsplit(self.path).path
         if path=='/api/status': return self.send(200,overview())
+        if path=='/api/audit':
+            params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            try:
+                limit=int((params.get('limit') or ['80'])[0])
+                if not 1<=limit<=150:raise ValueError('Ungültige Anzahl.')
+                with connect() as db:
+                    result=safety.report(db,limit)
+                return self.send(200,{'events':result})
+            except (ValueError,sqlite3.Error):
+                return self.send(400,{'error':'Buchungsprotokoll konnte nicht geladen werden.'})
+        if path=='/api/backup':
+            try:
+                with tempfile.TemporaryDirectory(prefix='pp-backup-') as scratch:
+                    archive=Path(scratch)/'sicherung.zip'
+                    safety.build_backup(DB_PATH,MASTER_ROOT,archive)
+                    timestamp=dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d-%H%M')
+                    self.connection.settimeout(180)
+                    self.send_response(200)
+                    self.send_header('Content-Type','application/zip')
+                    self.send_header('Content-Length',str(archive.stat().st_size))
+                    self.send_header('Content-Disposition',
+                        'attachment; filename="Print-Pulse-Sicherung-'+timestamp+'.zip"')
+                    self.send_header('Cache-Control','no-store')
+                    self.send_header('X-Content-Type-Options','nosniff')
+                    self.send_header('Referrer-Policy','no-referrer')
+                    self.end_headers()
+                    with archive.open('rb') as stream:
+                        while block:=stream.read(1024*1024):
+                            self.wfile.write(block)
+                return
+            except (OSError,ValueError,sqlite3.Error,zipfile.BadZipFile) as exc:
+                log.warning('Verifizierte Sicherung nicht verfügbar: %s',type(exc).__name__)
+                return self.send(503,{'error':'Sicherung konnte nicht vollständig verifiziert werden. Bitte App-Protokoll und 3MF-Dateien prüfen.'})
+            except Exception:
+                log.exception('Fehler bei der verifizierten Sicherung')
+                return self.send(500,{'error':'Sicherung fehlgeschlagen. Es wurden keine Lagerdaten verändert.'})
         if path=='/api/theme': return self.send(200,theme_sun_state())
         if path=='/api/versions': return self.send(200,version_history())
         if path=='/api/filaments': return self.send(200,filament_overview())
