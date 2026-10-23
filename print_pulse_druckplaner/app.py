@@ -816,7 +816,8 @@ def mutate_order_print(data):
         assembled=previous['assembled'] if previous else 0
         if action in ('allocate','printing'):
             chosen=db.execute('SELECT components_enabled FROM stock_listings WHERE id=?',(tx['listing_id'],)).fetchone()
-            if assembled or (chosen and chosen['components_enabled'] and
+            legacy=bool(previous and (previous['printing'] or previous['finished'] or previous['allocated']))
+            if assembled or (not legacy and chosen and chosen['components_enabled'] and
                     db.execute('SELECT 1 FROM pp_components WHERE listing_id=? LIMIT 1',(tx['listing_id'],)).fetchone()):
                 raise ValueError('Bauteilfertigung ist für diesen Auftrag aktiviert. Bitte Bauteile im Auftrag bearbeiten.')
         if action=='allocate':
