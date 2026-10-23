@@ -57,9 +57,9 @@ function componentProductCard(p){
     ${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:
       '<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}
     <span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span>
-    <span class="component-photo-mode">Bauteilfertigung</span>
   </div>
   <div class="product-body">
+   <span class="component-card-kicker">BAUTEILFERTIGUNG</span>
    <h2 title="${esc(p.title)}">${esc(p.title)}</h2>
    <div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span>
     <span><b>${p.sold30}</b> / 30 Tage</span>
