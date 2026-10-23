@@ -428,6 +428,13 @@ class StockTests(unittest.TestCase):
                 self.assertEqual(components_asset.status,200)
                 self.assertEqual(components_asset.headers.get_content_type(),'application/javascript')
                 self.assertIn(b'Vorproduktion verwenden',components_asset.read())
+                # The new compact priority panel requires a second allowed
+                # static script; guard against the 0.11.38 missing-route bug.
+                self.assertIn('priority-ui.js',html_page)
+                priority_asset=urllib.request.urlopen(base+'/priority-ui.js')
+                self.assertEqual(priority_asset.status,200)
+                self.assertEqual(priority_asset.headers.get_content_type(),'application/javascript')
+                self.assertIn(b'priorityCandidates',priority_asset.read())
                 payload=json.dumps({'id':'101-default','action':'set','quantity':8,'revision':0}).encode()
                 request=urllib.request.Request(base+'/api/stock',data=payload,headers={'Content-Type':'application/json','Sec-Fetch-Site':'same-origin'})
                 result=json.load(urllib.request.urlopen(request))
