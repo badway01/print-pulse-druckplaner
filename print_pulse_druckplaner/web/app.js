@@ -416,7 +416,7 @@ function orderVariantLabels(variant){
    const colon=entry.indexOf(':');
    if(colon<0)return '<span class="order-work-variant"><b>'+esc(entry.trim())+'</b></span>';
    return '<span class="order-work-variant"><small>'+esc(entry.slice(0,colon).trim())+':'+
-    '</small><b>'+esc(entry.slice(colon+1).trim())+'</b></span>';
+    '</small> <b>'+esc(entry.slice(colon+1).trim())+'</b></span>';
   }).join('')+'</div>';
 }
 function orderProductionSummary(line){
