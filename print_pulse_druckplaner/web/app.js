@@ -61,7 +61,7 @@ async function loadVersionHistory(){
  if(historyLoaded)return;
  try{
   const result=await api('versions');
-  $('app-version').textContent='v'+String(result.version||'0.11.35');
+  $('app-version').textContent='v'+String(result.version||'0.11.36');
   const entries=Array.isArray(result.releases)?result.releases:[];
   if(!entries.length){$('release-history-content').textContent='Noch keine Versionshistorie vorhanden.';historyLoaded=true;return;}
   $('release-history-content').innerHTML=entries.map(entry=>
@@ -708,11 +708,12 @@ function filamentLine(f,inCart){
  const name=esc(f.brand)+' · '+esc(f.color);
  const swatch=`<span class="filament-swatch" style="background:${esc(f.color_hex)}" aria-hidden="true"></span>`;
  const intro=`<div class="filament-identity">${swatch}<div><strong>${esc(f.color)}${f.internal_code?` <em class="filament-internal-code">#${esc(f.internal_code)}</em>`:""}</strong><small>${esc(f.brand)} · ${esc(f.material)}</small>${f.notes?`<small title="${esc(f.notes)}">Notiz: ${esc(f.notes)}</small>`:""}</div></div>`;
- const shop=f.purchase_url?`<a class="filament-shop" href="${esc(f.purchase_url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Shop ↗</a>`:'';
+ const shop=f.purchase_url?`<a class="filament-shop" href="${esc(f.purchase_url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Shop ↗</a>`:
+  (inCart?'':`<span class="filament-shop filament-shop-placeholder" aria-hidden="true"></span>`);
  const opened=Number(f.open_qty)||0;
  return `<article class="filament-line" data-filament-line="${f.id}">
    ${intro}<div class="filament-meta"><span>${inCart?`<b>${f.cart_qty} Sp.</b> auf Liste`:`<b>${f.stock_qty}</b> voll · <b>${opened}</b> angebrochen`}</span><span>${filamentMoney(f.price_cents)} / volle Spule</span></div>
-   <div class="filament-line-actions">${shop}${inCart?
+   <div class="filament-line-actions ${inCart?'is-cart':'is-colors'}">${shop}${inCart?
      `<button type="button" class="filament-step" data-filament-delta="-1" data-filament-id="${f.id}" aria-label="Eine Spule von der Einkaufsliste nehmen">−</button><b class="filament-cart-qty">${f.cart_qty}</b><button type="button" class="filament-step" data-filament-delta="1" data-filament-id="${f.id}" aria-label="Eine weitere Spule vormerken">+</button><button type="button" class="secondary filament-receive" data-filament-receive="${f.id}">Erhalten</button>`:
      `<button type="button" class="filament-cart-button" data-filament-cart="${f.id}" aria-label="${name} zur Einkaufsliste hinzufügen">${filamentSpoolCart}<span>Auf Liste ${f.cart_qty? `(${f.cart_qty})`:''}</span></button><button type="button" class="filament-roll-button" data-filament-rolls="${f.id}" aria-label="Volle und angebrochene Rollen für ${name} verwalten">Rollen</button><button type="button" class="filament-edit" data-filament-edit="${f.id}">Bearbeiten</button>`}
    </div></article>`;
