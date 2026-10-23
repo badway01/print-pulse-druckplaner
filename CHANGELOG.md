@@ -1,3 +1,11 @@
+# 0.11.37 · Einfachere Etsy-Auftragsaktionen mit verbindlicher Lagerzuordnung
+
+- Bestellkarten zeigen die nächste sinnvolle Aktion: „X × Aus Lager“, „X × Drucken“ oder „✓ X × Fertig“. Bei mehreren gleichzeitig offenen Positionen bleibt die eindeutige Positionsauswahl in „Details“.
+- Bestätigungsfenster entfallen für eindeutige Aus-Lager- und Druckstart-Buchungen. Ein einzelner erfolgreicher Auftragsdruck lässt sich direkt fertigmelden; bei mehreren oder unbekanntem Anfangsbestand bleibt die Mengenkontrolle erhalten.
+- Teilbestellungen bieten in den Details automatisch die passende Aufteilung aus vorhandenen und noch zu druckenden Stückzahlen.
+- Bereits fertig gedruckte, einem offenen Etsy-Auftrag zugeordnete Stücke sind gegen eine zweite Lagerzuordnung gesperrt. Die Prüfung und Bestandsabbuchung erfolgen atomar in SQLite, mit Revisionsschutz gegen parallele Klicks.
+- Die Etsy-Versandabbuchung, Rückbuchung „Zurück ins Lager“, Status-Lesezeichen und vorhandene Lagerdaten bleiben erhalten; Etsy selbst wird nicht verändert.
+
 # 0.11.36 · Einheitliche Filament-Buttons in Split View und auf dem Tablet
 
 - „Shop“, „Auf Liste“, „Rollen“ und „Bearbeiten“ verwenden nun vier feste Button-Positionen in genau dieser Reihenfolge.
