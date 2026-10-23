@@ -25,7 +25,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.11.36'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.11.37'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -661,6 +661,13 @@ def overview():
                 undo=action['id']
     tx_by_id={t['id']:t for t in txs}
     prints_by_tx={p['transaction_id']:p for p in print_rows}
+    # Successfully finished order-linked prints are still physically on hand
+    # until shipment. They must not be reassigned to another Etsy order.
+    locked_finished={}
+    for job in print_rows:
+        if tx_by_id.get(job['transaction_id'],{}).get('status')=='open':
+            iid=job['item_id']
+            locked_finished[iid]=locked_finished.get(iid,0)+job['finished']
     for listing in listings:
         listing['etsy_reference_qty']=etsy_refs.get((listing['id'],''),listing['etsy_qty'])
         sales=[t for t in txs if t['listing_id']==listing['id'] and t['status'] in ('open','shipped')]
@@ -682,6 +689,7 @@ def overview():
                                  'status':tx_by_id.get(j['transaction_id'],{}).get('status','unknown')}
                                 for j in print_rows if j['item_id']==item['id'] and j['printing']>0]
             item['order_printing']=sum(j['printing'] for j in item['order_jobs'])
+            item['allocatable']=None if item['on_hand'] is None else max(0,item['on_hand']-locked_finished.get(item['id'],0))
             item['free']=None if item['on_hand'] is None else max(0,item['on_hand']-item['reserved'])
             active=listing['state'] in ('active','sold_out') and bool(item['enabled'])
             item.update(recommendation(item['on_hand'],item['in_print'],item['reserved'],item['sold7'],item['sold30'],item['minimum'],days,bool(listing['made_to_order']),active))
@@ -793,8 +801,15 @@ def mutate_order_print(data):
             qty=integer(data.get('quantity'),1,tx['qty']-printing-finished-allocated)
             if row['on_hand'] is None:
                 raise ValueError('Lagerbestand noch nicht erfasst. Erst vorhandene Stückzahl eintragen.')
-            if qty>row['on_hand']:
-                raise ValueError('Nicht genügend fertige Stücke auf Lager. Bitte Menge prüfen.')
+            # Physical stock contains finished prints reserved for other open
+            # orders. Only uncommitted stock may be allocated. This check and
+            # the debit run in the same BEGIN IMMEDIATE transaction.
+            locked=db.execute("""SELECT COALESCE(SUM(j.finished),0)
+                FROM stock_order_prints j
+                JOIN stock_transactions t ON t.id=j.transaction_id
+                WHERE j.item_id=? AND t.status='open'""",(row['id'],)).fetchone()[0]
+            if qty>max(0,row['on_hand']-locked):
+                raise ValueError('Nicht genug frei zuordenbare Stücke: fertige Drucke sind für andere Aufträge reserviert. Bitte Druckliste prüfen.')
             # Transfer immediately out of physical inventory into this exact
             # Etsy transaction. Shipment must not debit these pieces again.
             new_stock=row['on_hand']-qty
