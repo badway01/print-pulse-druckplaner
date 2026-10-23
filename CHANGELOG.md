@@ -1,3 +1,12 @@
+# 0.11.43 · Beschleunigte Lagerbuchungen
+
+- Beim Ändern des Bestands bleiben die übrigen Produktkarten bedienbar. Laufende Buchungen erhalten eine kleine Statusmeldung statt die gesamte Oberfläche auszugrauen.
+- Unveränderte Daten lösen keine erneute Darstellung aus. Änderungen werden nur einmal neu dargestellt.
+- Schnellere Verarbeitung sehr großer Variantenlisten sowie optimierte serverseitige Zuordnung von Etsy-Transaktionen.
+- Hintergrundaktualisierung alle 15 Sekunden, bei Wechsel zurück in den Tab zusätzlich sofort. Der Etsy-Abgleich bleibt unabhängig davon alle 15 Minuten.
+- Schutz vor veralteten Hintergrundantworten nach einer neuen Lagerbuchung.
+- Keine Bestandsdaten oder 3MF-Dateien geändert.
+
 # 0.11.42 · Sicherheitsupdate für Buchungen und vollständige Sicherungen
 
 - Korrektur des fehlenden `assembled`-Datenfelds beim Etsy-Versand: fertig montierte Artikel werden nicht doppelt abgebucht.
