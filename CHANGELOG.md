@@ -1,3 +1,12 @@
+# 0.11.22 · HTTP 500 beim Abruf von 3MF-Druckprofilen beheben
+
+- Ursache im Home-Assistant-Protokoll: bereits vorhandene SQLite-Tabelle `print_profiles` ohne Spalte `listing_id` (`sqlite3.OperationalError`).
+- 3MF-Filamentbelegungen nutzen ab jetzt die eigene Tabelle `pp_master_filament_profiles`, um Namenskollisionen mit älteren Datenbankstrukturen zu vermeiden.
+- Voll kompatible, bereits gespeicherte Profilzuordnungen werden beim Start ausschließlich kopiert (`INSERT OR IGNORE`); alte Tabellen und deren Inhalte bleiben unverändert.
+- Unbekannte ältere `print_profiles`-Strukturen werden weder gelöscht noch umgebaut. Die 3MF-Übersicht kann trotzdem leer starten und neue Profile speichern.
+- Regressionstest reproduziert das gemeldete Schema-Problem und prüft Erhaltung der bestehenden Tabellen sowie idempotente Migration.
+- Etsy-Aufträge, Lagerbestand, Filamente, Druckerzuordnungen und gespeicherte Master-3MF-Dateien bleiben unverändert.
+
 # 0.11.21 · Druck-Fertigmeldung auf Handy und Tablet absichern
 
 - Bei bisher nicht erfasstem Lagerbestand erscheint im Fertigmelden-Dialog direkt ein Pflichtfeld für den bisherigen fertigen Bestand (0 ist erlaubt). Der neue Druck wird in derselben Datenbanktransaktion hinzugebucht; kein still deaktivierter Bestätigen-Button mehr.
