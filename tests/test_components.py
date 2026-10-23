@@ -1,0 +1,118 @@
+"""Regression tests: optional shared parts must never double-debit shop inventory."""
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+import time
+import unittest
+
+ROOT=Path(__file__).resolve().parents[1]
+spec=importlib.util.spec_from_file_location('component_test_app',ROOT/'print_pulse_druckplaner'/'app.py')
+app=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(app)
+
+
+class ComponentTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory()
+        self.previous=app.DB_PATH
+        app.DB_PATH=Path(self.temp.name)/'production.sqlite3'
+        app.init_db()
+        self.catalog=[(
+            {'listing_id':101,'title':'Lesender Geist','quantity':50,'state':'active'},
+            '', '', [('101-blue','101','201','Buchfarbe: Blau · Setgröße: 3er-Set','[]',50,1)], True
+        )]
+        self.tx=('tx1','receipt1','101','201','[]',1,int(time.time()),'open')
+        self.lines=[{'transaction_id':'tx1','listing_id':'101','quantity':1,
+                     'variant':'Buchfarbe: Blau · Setgröße: 3er-Set'}]
+        self.receipts=[('receipt1',int(time.time()),int(time.time())+86400,
+                        'Testkundin',json.dumps(self.lines))]
+        app.apply_snapshot(self.catalog,[self.tx],{'receipt1'},orders=self.receipts)
+
+    def tearDown(self):
+        app.DB_PATH=self.previous
+        self.temp.cleanup()
+
+    def change(self,**data):
+        with app.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            app.components.mutate(db,data,app.integer)
+
+    def configure(self):
+        self.change(action='toggle',listing_id='101',enabled=True)
+        self.change(action='save',listing_id='101',name='Geist Weiß',kind='stock',
+                    units=1,property_name='',quantity_property='Setgröße')
+        self.change(action='save',listing_id='101',name='Buch',kind='demand',
+                    units=1,property_name='Buchfarbe',quantity_property='Setgröße')
+        parts=app.overview()['products'][0]['components']
+        return {p['name']:p['id'] for p in parts}
+
+    def state(self):
+        return app.overview()
+
+    def test_toggle_is_off_by_default_and_persists_migration(self):
+        self.assertFalse(self.state()['products'][0]['components_enabled'])
+        ids=self.configure()
+        self.assertEqual(len(ids),2)
+        app.init_db()
+        self.assertTrue(self.state()['products'][0]['components_enabled'])
+        self.assertEqual(len(self.state()['products'][0]['components']),2)
+
+    def test_components_are_shared_without_complete_variant_stock(self):
+        ids=self.configure()
+        self.change(action='stock',listing_id='101',id=ids['Geist Weiß'],stock=6)
+        line=self.state()['orders'][0]['items'][0]
+        self.assertEqual([p['required'] for p in line['components']],[3,3])
+        self.change(action='book',transaction_id='tx1',component_id=ids['Geist Weiß'],quantity=3)
+        self.change(action='start',transaction_id='tx1',component_id=ids['Buch'],quantity=3)
+        self.change(action='finish',transaction_id='tx1',component_id=ids['Buch'],quantity=3)
+        line=self.state()['orders'][0]['items'][0]
+        self.assertTrue(all(p['available']==3 for p in line['components']))
+        self.change(action='assemble',transaction_id='tx1',quantity=1)
+        line=self.state()['orders'][0]['items'][0]
+        self.assertEqual(line['remaining'],0)
+        self.assertEqual(line['assembled'],1)
+        item=self.state()['products'][0]['items'][0]
+        self.assertIsNone(item['on_hand'],'Assembly must not invent a complete variant stock count.')
+        self.assertEqual(self.state()['products'][0]['components'][0]['stock'],3) if self.state()['products'][0]['components'][0]['name']=='Geist Weiß' else None
+        self.assertEqual(app.components.requirement({'units':1,'property_name':'Buchfarbe',
+                         'quantity_property':'Setgröße'},self.lines[0]),(3,'Blau',''))
+        with self.assertRaises(ValueError):
+            self.change(action='assemble',transaction_id='tx1',quantity=1)
+        shipped=list(self.tx);shipped[-1]='shipped'
+        app.apply_snapshot(self.catalog,[tuple(shipped)],{'receipt1'},orders=[])
+        app.apply_snapshot(self.catalog,[tuple(shipped)],{'receipt1'},orders=[])
+        self.assertIsNone(self.state()['products'][0]['items'][0]['on_hand'])
+        self.assertEqual(self.state()['products'][0]['components'][0]['stock'],3) if self.state()['products'][0]['components'][0]['name']=='Geist Weiß' else None
+
+    def test_missing_etsy_property_prevents_guessing(self):
+        ids=self.configure()
+        with app.connect() as db:
+            db.execute('UPDATE stock_receipts SET lines_json=? WHERE id=?',(
+              json.dumps([{'transaction_id':'tx1','listing_id':'101','quantity':1,'variant':'Buchfarbe: Blau'}]),'receipt1'))
+        with self.assertRaisesRegex(ValueError,'Setgröße'):
+            self.change(action='start',transaction_id='tx1',component_id=ids['Buch'],quantity=1)
+
+    def test_cancel_returns_only_unused_reserved_parts(self):
+        ids=self.configure()
+        self.change(action='stock',listing_id='101',id=ids['Geist Weiß'],stock=4)
+        self.change(action='book',transaction_id='tx1',component_id=ids['Geist Weiß'],quantity=3)
+        cancelled=list(self.tx);cancelled[-1]='review'
+        app.apply_snapshot(self.catalog,[tuple(cancelled)],{'receipt1'},orders=[])
+        part=next(p for p in self.state()['products'][0]['components'] if p['id']==ids['Geist Weiß'])
+        self.assertEqual(part['stock'],4)
+
+    def test_cannot_reuse_consumed_reserved_stock(self):
+        ids=self.configure()
+        self.change(action='stock',listing_id='101',id=ids['Geist Weiß'],stock=3)
+        self.change(action='book',transaction_id='tx1',component_id=ids['Geist Weiß'],quantity=3)
+        with self.assertRaises(ValueError):
+            self.change(action='book',transaction_id='tx1',component_id=ids['Geist Weiß'],quantity=1)
+        self.change(action='release',transaction_id='tx1',component_id=ids['Geist Weiß'],quantity=1)
+        self.change(action='book',transaction_id='tx1',component_id=ids['Geist Weiß'],quantity=1)
+        part=next(p for p in self.state()['products'][0]['components'] if p['id']==ids['Geist Weiß'])
+        self.assertEqual(part['stock'],0)
+
+
+if __name__=='__main__':
+    unittest.main()
