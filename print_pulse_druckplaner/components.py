@@ -139,6 +139,8 @@ def mutate(db,data,whole):
             if not name or kind not in ('stock','demand'): raise ValueError('Bauteilname und Art fehlen.')
             if kind=='stock' and prop: raise ValueError('Ein Standardbauteil braucht keine Farbvariation.')
             if old:
+                if old['kind']=='stock' and kind!='stock' and old['stock']>0:
+                    raise ValueError('Vor Umstellung zuerst den vorhandenen Bauteilbestand auf 0 korrigieren.')
                 used=db.execute('SELECT 1 FROM pp_component_orders WHERE component_id=? LIMIT 1',(cid,)).fetchone()
                 if used and any((old[k]!=v for k,v in [
                     ('kind',kind),('property_name',prop),('quantity_property',qty_prop),('units',units)])):
@@ -153,6 +155,8 @@ def mutate(db,data,whole):
                     (secrets.token_hex(12),listing_id,name,kind,prop,qty_prop,units,int(time.time())))
         elif action=='delete':
             if not old: raise ValueError('Bauteil nicht gefunden.')
+            if old['stock']>0:
+                raise ValueError('Bauteil hat noch Lagerbestand. Vor dem Löschen den Bestand klären und auf 0 setzen.')
             if db.execute('SELECT 1 FROM pp_component_orders WHERE component_id=? LIMIT 1',(cid,)).fetchone():
                 raise ValueError('Bauteil ist bereits mit Aufträgen verknüpft und kann nicht gelöscht werden.')
             db.execute('DELETE FROM pp_components WHERE id=?',(cid,))
