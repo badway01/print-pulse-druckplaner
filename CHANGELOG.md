@@ -1,3 +1,11 @@
+# 0.11.31 · Shop-Button und Filamentsortierung
+
+- Bei „Meine Farben“ wird der Shop-Link links vor „Auf Liste“ und „Bearbeiten“ angezeigt.
+- Auf der Einkaufsliste steht „Shop“ bei vorhandenem Link ebenfalls an erster Stelle.
+- Sortierung der Filamente nach vorrätigen Spulen: Standard, meiste zuerst oder wenigste zuerst.
+- Die Sortierung gilt nur für „Meine Farben“, funktioniert zusammen mit der Suche und bleibt auf dem Gerät gespeichert.
+- Rein visuelle Änderung: Filamentbestände, Preise und Einkaufslisten-Einträge bleiben unangetastet.
+
 # 0.11.30 · Auftragsfertigung und Bestellübersicht
 
 - Bei „Auf Bestellung“ entfallen störende „Noch zählen“-Hinweise in der Hauptkarte und Lager-Variantenübersicht.
