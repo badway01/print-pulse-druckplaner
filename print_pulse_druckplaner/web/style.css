@@ -1025,3 +1025,39 @@ html[data-theme="dark"] .orders-carousel .order-card .order-print-partial::after
  border-top-color:#86764e;
 }
 
+/* v0.11.35 · Physical spool counts, without weight or guessed material value. */
+.filament-line-actions .filament-roll-button{
+ color:var(--green);background:#ecf3ec;border:1px solid #cbdccb;
+ min-height:42px;font-weight:750;
+}
+.filament-line-actions .filament-roll-button:hover{background:#dfebdf}
+.filament-stock-summary b small{
+ font-size:10px;font-weight:600;letter-spacing:0;color:var(--muted);
+}
+.filament-rolls-counts{
+ display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 18px;
+}
+.filament-rolls-counts>div{
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:4px;padding:17px 10px;background:#f3f5f0;
+ border:1px solid #d7e1d5;border-radius:10px;text-align:center;
+}
+.filament-rolls-counts strong{
+ font-size:29px;color:var(--green);font-variant-numeric:tabular-nums;
+}
+.filament-rolls-counts span{font-size:12px;color:var(--muted)}
+.filament-rolls-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.filament-rolls-actions button{min-height:48px;font-size:13px}
+#filament-roll-edit{margin-top:8px;min-height:42px}
+html[data-theme="dark"] .filament-rolls-counts>div{
+ background:var(--surface-soft);border-color:var(--line);
+}
+html[data-theme="dark"] .filament-rolls-counts strong{color:#c1e1ce}
+html[data-theme="dark"] .filament-line-actions .filament-roll-button{
+ background:#304638;color:#d9eddf;border-color:#5e806b;
+}
+@media(max-width:520px){
+ .filament-rolls-actions{grid-template-columns:1fr}
+ .filament-rolls-counts{gap:7px}
+}
+
