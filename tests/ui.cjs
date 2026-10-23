@@ -116,10 +116,10 @@ const priorityChecks=await page.evaluate(()=>{
   {id:'c',title:'Geldkarte',state:'active',components_enabled:0,sold7:4,sold30:8,
    items:[{id:'gold',label:'Gold Edition',on_hand:1,allocatable:1,enabled:1,need:4,sold7:4,sold30:8}]}],
  orders:[
-  {id:'a',ship_by:1790000000,created:1790000000,items:[
+  {id:'a',ship_by:Date.UTC(2026,8,21)/1000,created:Date.UTC(2026,8,21)/1000,items:[
    {listing_id:'g',item_id:'gv',transaction_id:'a1',remaining:3,
     components_enabled:true,components:[{id:'white',kind:'stock',name:'Geist Weiß',required:3,booked:0}]}]},
-  {id:'b',ship_by:1791000000,created:1790000000,items:[
+  {id:'b',ship_by:Date.UTC(2026,9,3)/1000,created:Date.UTC(2026,8,21)/1000,items:[
    {listing_id:'c',item_id:'gold',transaction_id:'b1',remaining:2,components_enabled:false,variant:'Gold Edition'}]}
  ]};
  const items=priorityCandidates(data);
