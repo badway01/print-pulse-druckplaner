@@ -1,3 +1,11 @@
+# 0.11.29 · Filament-Gesamtwert und Zahlentastaturen
+
+- Im Filamentlager zeigt „Meine Farben“ den Wert der erfassten vollen Spulen: Anzahl × hinterlegter Spulenpreis.
+- Spulen ohne Preis werden separat angezeigt, damit eine unvollständige Gesamtsumme nicht als vollständiger Lagerwert erscheint.
+- Die Einkaufsliste fließt nicht in den Lagerwert ein; ihre bestehende Kostensumme bleibt erhalten.
+- Im Filamentformular öffnen Mobilgeräte die Zifferntastatur für volle Spulen und die Dezimaltastatur für den Preis.
+- Kein Datenbankeingriff: Filamentfarben, Bestände, Preise, Druckaufträge, Etsy-Daten und Master-3MF-Dateien bleiben unverändert.
+
 # 0.11.28 · Lagerbestand ohne Foto-Overlay
 
 - Großes Lager-Overlay entfernt: Produktfotos bleiben auf Tablet und iPhone sichtbar.
