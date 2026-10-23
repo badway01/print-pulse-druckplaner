@@ -901,3 +901,53 @@ html[data-theme="dark"] .filament-sort{
  .filament-sort select{width:100%;max-width:none}
 }
 
+/* v0.11.32: unmistakeable linked Etsy order print completion.
+   Do not replace the shipping urgency band: printed != shipped. */
+.orders-shell .order-card.print-complete{
+ background:linear-gradient(180deg,#f0f9f2 0%,#ffffff 62%);
+ border-left:2px solid #64a77f;
+ border-right:2px solid #64a77f;
+ border-bottom:2px solid #64a77f;
+ box-shadow:0 5px 15px #2e704335;
+}
+.order-print-complete{
+ display:flex;align-items:center;justify-content:center;gap:10px;
+ width:100%;min-height:45px;margin:9px 0 6px;padding:6px 10px;
+ background:#257448;color:#ffffff;border:1px solid #1e613b;
+ border-radius:9px;box-shadow:0 2px 7px #134f3033;
+ font-size:13px;letter-spacing:.5px;line-height:1.25;
+}
+.order-print-complete strong{color:inherit;font-weight:850;white-space:nowrap}
+.order-print-check{
+ display:inline-flex;align-items:center;justify-content:center;
+ flex:0 0 26px;width:26px;height:26px;
+ background:#ffffff;color:#216940;border-radius:50%;
+ font-size:21px;font-weight:900;line-height:1;
+}
+.order-print-partial{
+ display:flex;align-items:center;justify-content:center;gap:7px;
+ width:100%;min-height:29px;margin:7px 0 4px;padding:5px 8px;
+ background:#edf1ec;color:#46614e;border:1px solid #d0ddd1;
+ border-radius:7px;font-size:11px;line-height:1.25;
+}
+.order-print-partial strong{font-weight:750}
+.order-print-partial span{font-size:16px;line-height:1}
+#order-details-content>.order-print-complete,
+#order-details-content>.order-print-partial{margin:12px 0}
+html[data-theme="dark"] .orders-shell .order-card.print-complete{
+ background:linear-gradient(180deg,#294334 0%,var(--surface) 70%);
+ border-left-color:#84bf93;border-right-color:#84bf93;
+ border-bottom-color:#84bf93;
+}
+html[data-theme="dark"] .order-print-complete{
+ background:#20663e;color:#ffffff;border-color:#77a985;
+}
+html[data-theme="dark"] .order-print-check{background:#ffffff;color:#20663e}
+html[data-theme="dark"] .order-print-partial{
+ background:#344b3c;color:#d9ecdc;border-color:#64816b;
+}
+@media (min-width:760px) and (max-width:1365px) and (orientation:landscape){
+ .order-print-complete{min-height:40px;margin:6px 0 3px;font-size:12px}
+ .order-print-check{width:24px;height:24px;flex-basis:24px}
+}
+
