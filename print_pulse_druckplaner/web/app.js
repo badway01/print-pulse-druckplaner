@@ -422,7 +422,11 @@ function orderVariantLabels(variant){
 function orderProductionSummary(line){
  const remaining=Math.max(0,Number(line.remaining)||0);
  if(!line.item_id)return '<strong class="order-work-step needs-attention">Variante nicht eindeutig zugeordnet – bitte prüfen</strong>';
- if(!remaining)return '<strong class="order-work-step is-ready">Für diesen Auftrag fertig</strong>';
+ if(!remaining){
+  const printing=Math.max(0,Number(line.printing)||0);
+  return printing?'<strong class="order-work-step in-print">'+printing+' × im Druck</strong>':
+   '<strong class="order-work-step is-ready">Für diesen Auftrag fertig</strong>';
+ }
  const components=Array.isArray(line.components)?line.components:[];
  const legacy=typeof componentLegacyJob==='function'&&componentLegacyJob(line);
  const steps=[];
