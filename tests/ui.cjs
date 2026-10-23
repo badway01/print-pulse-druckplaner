@@ -131,7 +131,7 @@ await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
 await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.27'));
 assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.31');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.32');
 await page.locator('[data-close="settings"]').click();
 
 
@@ -192,6 +192,55 @@ assert.equal(await page.locator('.order-card').count(),3);
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'501');
 assert((await page.locator('[data-order-card="501"] .order-ship-date').textContent()).includes('Versand bis '));
 assert(await page.locator('[data-order-card="501"] .order-countdown').count()===1);
+// Confirmed prints, not "in Druck" starts, earn the large green completion banner.
+const printProgressChecks=await page.evaluate(()=>{
+ const line=(quantity,finished,printing,remaining,item_id='101-default')=>({quantity,finished,printing,remaining,item_id});
+ return {
+  missing:orderPrintProgress({items:[]}),
+  started:orderPrintProgress({items:[line(2,0,2,0)]}),
+  partial:orderPrintProgress({items:[line(2,1,1,0),line(1,0,0,1)]}),
+  finishedOneOfTwo:orderPrintProgress({items:[line(2,2,0,0),line(1,0,0,1)]}),
+  complete:orderPrintProgress({items:[line(2,2,0,0),line(1,1,0,0)]}),
+  unassigned:orderPrintProgress({items:[line(2,2,0,0,null)]}),
+  overscheduled:orderPrintProgress({items:[line(2,2,1,0)]})
+ };
+});
+assert.deepEqual(printProgressChecks.missing,{total:0,finished:0,complete:false});
+assert.deepEqual(printProgressChecks.started,{total:2,finished:0,complete:false});
+assert.deepEqual(printProgressChecks.partial,{total:3,finished:1,complete:false});
+assert.deepEqual(printProgressChecks.finishedOneOfTwo,{total:3,finished:2,complete:false});
+assert.deepEqual(printProgressChecks.complete,{total:3,finished:3,complete:true});
+assert.equal(printProgressChecks.unassigned.complete,false);
+assert.equal(printProgressChecks.overscheduled.complete,false);
+assert.equal(await page.locator('[data-order-card="501"] .order-print-complete').count(),0);
+await page.evaluate(()=>{
+ const example=model.orders.find(order=>order.id==='501');
+ window.beforePrintMarker=example.items;
+ example.items=[{...example.items[0],item_id:'101-default',transaction_id:'print-test',finished:2,printing:0,remaining:0}];
+ renderOrders();
+});
+const doneCard=page.locator('[data-order-card="501"]');
+assert.equal(await doneCard.locator('.order-print-complete').count(),1);
+assert((await doneCard.locator('.order-print-complete').textContent()).includes('DRUCK FERTIG'));
+assert.equal(await doneCard.locator('.order-print-check').textContent(),'✓');
+assert((await doneCard.locator('.order-print-complete').boundingBox()).height>=40);
+assert.equal(await doneCard.locator('.order-print').isDisabled(),true);
+await doneCard.locator('[data-order-open]').click();
+assert.equal(await page.locator('#order-details-content .order-print-complete').count(),1);
+await page.locator('[data-close="order-details"]').click();
+await page.evaluate(()=>{
+ const example=model.orders.find(order=>order.id==='501');
+ example.items=[{...example.items[0],quantity:2,finished:1,printing:1,remaining:0}];
+ renderOrders();
+});
+assert.equal(await doneCard.locator('.order-print-complete').count(),0);
+assert((await doneCard.locator('.order-print-partial').textContent()).includes('1 von 2'));
+await page.evaluate(()=>{
+ model.orders.find(order=>order.id==='501').items=window.beforePrintMarker;
+ delete window.beforePrintMarker;
+ renderOrders();
+});
+assert.equal(await doneCard.locator('.order-print-complete').count(),0);
 // Check countdown colors, singular/plural, today and overdue using Berlin calendar days.
 const countdownCases=await page.evaluate(()=>{
  const today=berlinDay(Date.now());
