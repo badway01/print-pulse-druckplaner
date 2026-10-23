@@ -1,3 +1,12 @@
+# 0.11.35 · Volle und angebrochene Filamentrollen ohne Wiegen
+
+- Das Filamentlager unterscheidet jetzt volle und angebrochene Spulen pro Hersteller/Farbe/Material – ausschließlich als Stückzahlen, ohne Grammangaben oder Nachwiegen.
+- Der kompakte „Rollen“-Button öffnet eine einfache Verwaltung: „Eine Rolle öffnen“ verschiebt genau 1 volle Spule zu den angebrochenen; „Eine Rolle leer“ entfernt eine angebrochene Spule. Beide Änderungen werden sofort und atomar gespeichert.
+- Beim ersten Abgleich lassen sich volle und angebrochene Stückzahlen im bestehenden Bearbeitungsformular auch manuell eingeben.
+- Die Filament-Gesamtwertanzeige enthält weiterhin nur volle Spulen mit bekanntem Preis. Angebrochene Spulen werden separat gezählt und bewusst nicht monetär geschätzt.
+- Einkaufsliste, Preise, Hersteller/Farbvorschläge und Bestandssortierung bleiben unverändert. Bereits gespeicherte Spulen erhalten beim Update automatisch den Startwert 0 angebrochen; wiederholte Migration verändert keine Mengen.
+- Tests decken Umwandlung, Leerbuchung, Grenzfälle, Datenerhalt, Tablet-Dialog und Wertanzeige ab.
+
 # 0.11.34 · Dezentes Fertig-Lesezeichen ohne größere Bestellkarten
 
 - Statt des großen grünen Balkens zeigt eine vollständig bediente Etsy-Bestellung jetzt ein kleines, leicht angewinkeltes, hellgrünes Papier-Lesezeichen „✓ FERTIG“ an der rechten oberen Kartenecke.
