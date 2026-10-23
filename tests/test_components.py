@@ -72,9 +72,14 @@ class ComponentTests(unittest.TestCase):
         line=self.state()['orders'][0]['items'][0]
         self.assertEqual(line['remaining'],0)
         self.assertEqual(line['assembled'],1)
+        # Completed orders no longer block turning the component switch off.
+        self.change(action='toggle',listing_id='101',enabled=False)
+        self.assertFalse(self.state()['products'][0]['components_enabled'])
+        self.change(action='toggle',listing_id='101',enabled=True)
         item=self.state()['products'][0]['items'][0]
         self.assertIsNone(item['on_hand'],'Assembly must not invent a complete variant stock count.')
-        self.assertEqual(self.state()['products'][0]['components'][0]['stock'],3) if self.state()['products'][0]['components'][0]['name']=='Geist Weiß' else None
+        ghost=next(p for p in self.state()['products'][0]['components'] if p['name']=='Geist Weiß')
+        self.assertEqual(ghost['stock'],3)
         self.assertEqual(app.components.requirement({'units':1,'property_name':'Buchfarbe',
                          'quantity_property':'Setgröße'},self.lines[0]),(3,'Blau',''))
         with self.assertRaises(ValueError):
@@ -83,7 +88,8 @@ class ComponentTests(unittest.TestCase):
         app.apply_snapshot(self.catalog,[tuple(shipped)],{'receipt1'},orders=[])
         app.apply_snapshot(self.catalog,[tuple(shipped)],{'receipt1'},orders=[])
         self.assertIsNone(self.state()['products'][0]['items'][0]['on_hand'])
-        self.assertEqual(self.state()['products'][0]['components'][0]['stock'],3) if self.state()['products'][0]['components'][0]['name']=='Geist Weiß' else None
+        ghost=next(p for p in self.state()['products'][0]['components'] if p['name']=='Geist Weiß')
+        self.assertEqual(ghost['stock'],3)
 
     def test_missing_etsy_property_prevents_guessing(self):
         ids=self.configure()
