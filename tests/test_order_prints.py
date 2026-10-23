@@ -66,6 +66,10 @@ class OrderPrintTests(unittest.TestCase):
         self.assertEqual((self.item()['in_print'],self.item()['on_hand']),(1,1))
         self.action('finish',1)
         self.assertEqual((self.item()['in_print'],self.item()['on_hand']),(0,2))
+        # The dashboard completion check requires finished == ordered and
+        # no linked pieces still printing or waiting to be started.
+        line=self.line()
+        self.assertEqual((line['finished'],line['printing'],line['remaining'],line['quantity']),(2,0,0,2))
         app.apply_snapshot(None,self.tx('shipped'),{'401'},orders=[])
         app.apply_snapshot(None,self.tx('shipped'),{'401'},orders=[])
         self.assertEqual((self.item()['on_hand'],self.item()['order_printing']),(0,0))
