@@ -50,6 +50,29 @@ class ComponentTests(unittest.TestCase):
     def state(self):
         return app.overview()
 
+    def test_refill_goal_and_running_batches_are_safe(self):
+        ids=self.configure()
+        gid=ids['Geist Weiß']
+        self.change(action='save',listing_id='101',id=gid,name='Geist Weiß',
+                    kind='stock',units=1,property_name='',quantity_property='Setgröße',
+                    target_stock=8)
+        self.change(action='stock',listing_id='101',id=gid,stock=4)
+        self.change(action='stock-print',listing_id='101',id=gid,quantity=3)
+        ghost=next(x for x in self.state()['products'][0]['components'] if x['id']==gid)
+        self.assertEqual((ghost['stock'],ghost['target_stock'],ghost['printing_stock']),(4,8,3))
+        app.init_db()  # idempotent schema migration and update-safe persistence
+        ghost=next(x for x in self.state()['products'][0]['components'] if x['id']==gid)
+        self.assertEqual((ghost['stock'],ghost['target_stock'],ghost['printing_stock']),(4,8,3))
+        with self.assertRaisesRegex(ValueError,'nicht im Druck'):
+            self.change(action='stock-finish',listing_id='101',id=gid,quantity=4)
+        self.change(action='stock-finish',listing_id='101',id=gid,quantity=2)
+        self.change(action='stock-cancel',listing_id='101',id=gid,quantity=1)
+        ghost=next(x for x in self.state()['products'][0]['components'] if x['id']==gid)
+        self.assertEqual((ghost['stock'],ghost['printing_stock']),(6,0))
+        self.assertEqual(ghost['target_stock'],8)
+        with self.assertRaisesRegex(ValueError,'nicht im Druck'):
+            self.change(action='stock-cancel',listing_id='101',id=gid,quantity=1)
+
     def test_toggle_is_off_by_default_and_persists_migration(self):
         self.assertFalse(self.state()['products'][0]['components_enabled'])
         ids=self.configure()
