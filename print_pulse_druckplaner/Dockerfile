@@ -8,6 +8,7 @@ RUN apk add --no-cache python3 tzdata
 WORKDIR /opt/print-pulse
 COPY app.py ./app.py
 COPY components.py ./components.py
+COPY safety.py ./safety.py
 COPY web ./web
 COPY CHANGELOG.md ./CHANGELOG.md
 ENV PP_VERSION=${BUILD_VERSION}
