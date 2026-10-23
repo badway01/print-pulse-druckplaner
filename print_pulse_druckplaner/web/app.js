@@ -115,9 +115,15 @@ function patchChildren(current,next){
  }
  for(const node of available)node.remove();
 }
+// Keeping a markup fingerprint per container avoids rebuilding all 76 product
+// cards on every poll when neither Etsy nor local stock actually changed.
+// Explicit user actions still call render(), which updates changed markup.
+const markupCache=new WeakMap();
 function updateHTML(element,html){
+ if(markupCache.get(element)===html)return;
  const template=document.createElement('template');template.innerHTML=html;
  patchChildren(element,template.content);
+ markupCache.set(element,html);
 }
 
 function variantPicker(p,controlsOnly=false){
@@ -170,7 +176,21 @@ async function api(path,body){
  return data;
 }
 function thumbnail(url){try{const u=new URL(url);return u.protocol==='https:'&&u.hostname.endsWith('.etsystatic.com')&&!u.username&&!u.password?u.href:'';}catch{return '';}}
-function setModel(data,resort=false){model=data;if(resort||!order.length)order=data.products.map(p=>p.id);else order=[...order.filter(id=>data.products.some(p=>p.id===id)),...data.products.filter(p=>!order.includes(p.id)).map(p=>p.id)];render();}
+let lastModelSignature='';
+function setModel(data,resort=false){
+ // Data changes, not polling intervals, trigger full UI repaint.
+ const signature=JSON.stringify(data);
+ if(signature===lastModelSignature&&!resort)return;
+ lastModelSignature=signature;
+ model=data;
+ if(resort||!order.length)order=data.products.map(p=>p.id);
+ else{
+  const freshIds=new Set(data.products.map(p=>p.id));
+  order=[...order.filter(id=>freshIds.has(id)),
+   ...data.products.filter(p=>!order.includes(p.id)).map(p=>p.id)];
+ }
+ render();
+}
 function scheduleSort(){clearTimeout(sortTimer);sortTimer=setTimeout(()=>{if(busy||$('quantity').open||$('settings').open){scheduleSort();return;}order=model.products.map(p=>p.id);render();},5000);}
 function variant(p,i){
  const unknown=i.on_hand===null;
@@ -903,8 +923,45 @@ function openFilamentEditor(id){
  $('filament-brand').focus();
 }
 
-async function load(resort=false){if(polling||busy)return;polling=true;try{const data=await api('status');if(!busy&&!$('quantity').open&&!$('settings').open&&!$('order-details').open)setModel(data,resort);}catch(err){showAlert(['Verbindung zum Lager unterbrochen: '+err.message]);}finally{polling=false;}}
-async function mutate(path,data){if(busy)return false;busy=true;let saved=false;document.querySelectorAll('#products button,#products input,#products select,#orders button,#order-details button,#undo').forEach(b=>b.disabled=true);try{setModel(await api(path,data));scheduleSort();flash('Gespeichert.');saved=true;}catch(err){flash(err.message,true);try{setModel(await api('status'));}catch{}}finally{busy=false;render();}return saved;}
+async function load(resort=false){
+ // Don't compete with edits or redraw hidden tabs and inactive dashboards.
+ if(polling||busy||document.hidden||
+    $('quantity').open||$('settings').open||$('order-details').open)return;
+ polling=true;
+ try{
+  const data=await api('status');
+  if(!busy&&!document.hidden&&!$('quantity').open&&!$('settings').open&&!$('order-details').open)
+   setModel(data,resort);
+ }catch(err){showAlert(['Verbindung zum Lager unterbrochen: '+err.message]);}
+ finally{polling=false;}
+}
+async function mutate(path,data){
+ if(busy)return false;
+ busy=true;
+ let saved=false,updated=null;
+ try{
+  // Never disable the entire product grid: even a long-running request must
+  // not leave every control greyed out on Mac or tablet.
+  updated=await api(path,data);
+  saved=true;
+ }catch(err){
+  flash(err.message,true);
+  // A failed response may still have reached the server. Refresh first;
+  // never retry a stock adjustment automatically.
+  try{updated=await api('status');}catch{}
+ }finally{
+  busy=false;
+  // Exactly one render after the network request, not once while busy
+  // and again after unlocking the whole interface.
+  if(updated)setModel(updated);
+  else $('undo').disabled=!model?.undo;
+ }
+ if(saved){
+  flash('Gespeichert.');
+  scheduleSort();
+ }
+ return saved;
+}
 function findItem(id){for(const p of model.products){const i=p.items.find(i=>i.id===id);if(i)return {p,i};}return null;}
 function quantityDialog(id,action){const found=findItem(id);if(!found)return;const {p,i}=found;quantityContext={id,action,revision:i.revision};$('quantity-variants').hidden=true;const needsInitialStock=action==='finish'&&i.on_hand===null;setInitialStockRequired(needsInitialStock);$('quantity-confirm').disabled=false;$('quantity-confirm').textContent=['printing','finish','cancel'].includes(action)?'Bestätigen':'Speichern';const labels={set:'Bestand erfassen',printing:'In Druck nehmen',finish:'Fertige Stücke einlagern',cancel:'Druckmenge zurücknehmen',minimum:'Mindestbestand'};$('quantity-title').textContent=labels[action];$('quantity-label').textContent=p.title+' · '+i.label;const input=$('quantity-value');input.min=['set','minimum'].includes(action)?0:1;input.max=['finish','cancel'].includes(action)?i.in_print-(i.order_printing||0):100000;input.value=action==='set'?(i.on_hand??0):action==='minimum'?i.minimum:action==='printing'?Math.max(1,i.need||1):i.in_print-(i.order_printing||0);$('quantity-help').textContent=action==='set'?'Alle fertigen Stücke zählen, einschließlich reservierter und gepackter Ware.':action==='finish'&&i.on_hand===null?'Trage den bisher fertigen Lagerbestand ein (0, wenn keiner vorhanden ist). Die jetzt gedruckten Stücke werden danach hinzugebucht.':action==='finish'?'Nur erfolgreich gedruckte Stücke buchen. Fehlgeschlagene Stücke über „Abbruch“ zurücknehmen.':action==='printing'?'Merkt die Menge vor. Startet keinen Drucker.':action==='minimum'?'Wird bei Lagerartikeln mindestens als freier Vorrat empfohlen.':'Entfernt die Menge aus „Im Druck“, ohne den Lagerbestand zu erhöhen.';if(!$('quantity').open){$('quantity').showModal();(needsInitialStock?$('quantity-initial-stock'):input).focus();if(!needsInitialStock)input.select();}}
 // Quick buttons use the same atomic API as the quantity dialog. The item
@@ -1462,7 +1519,7 @@ $('printer-config-form').addEventListener('submit',async event=>{
  finally{printerConfigBusy=false;$('printer-config-save').disabled=false;}
 });
 
-load(true);loadPrintTools();loadPrinters();setInterval(()=>load(false),5000);
+load(true);loadPrintTools();loadPrinters();setInterval(()=>load(false),15000);
 setInterval(()=>loadPrinters(),20000);
 setInterval(refreshShippingDay,30000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){refreshShippingDay();if(themeMode==='auto')updateAutomaticTheme();}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){refreshShippingDay();load(false);if(themeMode==='auto')updateAutomaticTheme();}});
