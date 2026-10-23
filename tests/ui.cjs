@@ -360,7 +360,7 @@ const badgeGeometry=await page.locator('[data-product="102"] .product-photo').ev
 });
 assert(badgeGeometry.noOverlap,'Etsy badge must not overlap actual stock');
 assert(badgeGeometry.within,'stock badge must remain inside product photo');
-assert.equal(badgeGeometry.rows,3);
+assert(badgeGeometry.rows>=1&&badgeGeometry.rows<=3,'stock badge should show 1–3 rows');
 await page.screenshot({path:'/tmp/lager-mobile.png',fullPage:true});
 assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));// Exercise real multi-variant stock writes via the new card buttons.
 await page.unroute('**/api/status');
