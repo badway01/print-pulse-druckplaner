@@ -61,7 +61,7 @@ async function loadVersionHistory(){
  if(historyLoaded)return;
  try{
   const result=await api('versions');
-  $('app-version').textContent='v'+String(result.version||'0.11.31');
+  $('app-version').textContent='v'+String(result.version||'0.11.32');
   const entries=Array.isArray(result.releases)?result.releases:[];
   if(!entries.length){$('release-history-content').textContent='Noch keine Versionshistorie vorhanden.';historyLoaded=true;return;}
   $('release-history-content').innerHTML=entries.map(entry=>
@@ -289,13 +289,31 @@ function shipInfo(o){
 function shippingMarkup(shipping){
  return `<span class="order-ship-date">${esc(shipping.date)}</span>${shipping.countdown?`<strong class="order-countdown ${shipping.level}">${esc(shipping.countdown)}</strong>`:''}`;
 }
+/* The green completion check is earned only by confirmed finishes on every
+   order line. Printing starts, free inventory and unmatched positions do not count. */
+function orderPrintProgress(o){
+ const lines=Array.isArray(o?.items)?o.items:[];
+ const qty=line=>Math.max(0,Number(line.quantity)||0);
+ const total=lines.reduce((sum,line)=>sum+qty(line),0);
+ const finished=lines.reduce((sum,line)=>sum+Math.min(qty(line),Math.max(0,Number(line.finished)||0)),0);
+ const complete=total>0&&lines.every(line=>Boolean(line.item_id)&&qty(line)>0&&
+  Number(line.finished)>=qty(line)&&Number(line.printing||0)===0&&Number(line.remaining||0)===0);
+ return {total,finished,complete};
+}
+function orderPrintMarker(progress){
+ if(progress.complete)return '<div class="order-print-complete" role="status" aria-label="Alle Positionen vollständig gedruckt"><span class="order-print-check" aria-hidden="true">✓</span><strong>DRUCK FERTIG</strong></div>';
+ if(progress.finished>0)return `<div class="order-print-partial" role="status"><span aria-hidden="true">◔</span><strong>${progress.finished} von ${progress.total} Stück fertig</strong></div>`;
+ return '';
+}
 function orderCard(o){
  const shipping=shipInfo(o);
+ const printProgress=orderPrintProgress(o);
  const lines=o.items||[];
  const image=thumbnail(lines[0]?.image||'');
  const summary=lines.slice(0,2).map(i=>`<span><b>${i.quantity} ×</b> ${esc(i.title)}${i.variant?' · '+esc(i.variant):''}</span>`).join('');
- return `<article class="order-card ${shipping.level}" data-order-card="${esc(o.id)}">
+ return `<article class="order-card ${shipping.level}${printProgress.complete?' print-complete':''}" data-order-card="${esc(o.id)}">
   <div class="order-card-top"><b>#${esc(o.id)}</b><small>${esc(shortDate(o.created))}</small></div>
+  ${orderPrintMarker(printProgress)}
   <div class="order-card-main">${image?`<img src="${esc(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}
    <div><strong>${esc(o.customer)}</strong><small>${o.quantity} Stück · ${lines.length} Position${lines.length===1?'':'en'}</small></div></div>
   <div class="order-lines">${summary}${lines.length>2?`<small>+ ${lines.length-2} weitere Position${lines.length===3?'':'en'}</small>`:''}</div>
@@ -315,9 +333,11 @@ function showOrder(id){
  const o=(model.orders||[]).find(order=>order.id===id);
  if(!o)return;
  const shipping=shipInfo(o);
+ const printProgress=orderPrintProgress(o);
  $('order-details').dataset.orderId=o.id;
  $('order-details-title').textContent='Etsy-Bestellung #'+o.id;
  updateHTML($('order-details-content'),`<p><b>${esc(o.customer)}</b> · ${esc(shortDate(o.created))}</p><div class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</div>
+ ${orderPrintMarker(printProgress)}
  <div class="order-modal-lines">${o.items.map(i=>`<div class="order-line"><b>${i.quantity} × ${esc(i.title)}</b>${i.variant?`<small>${esc(i.variant)}</small>`:''}
  ${i.item_id?`<small>${i.printing} im Druck · ${i.finished} fertig gemeldet · ${i.remaining} noch nicht zum Druck eingeplant</small>
  <div class="order-line-actions">${i.remaining?`<button class="primary" data-order-line="${esc(i.transaction_id)}" data-job-action="printing">Drucken</button>`:''}
