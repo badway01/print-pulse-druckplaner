@@ -680,6 +680,27 @@ def overview():
                 undo=action['id']
     tx_by_id={t['id']:t for t in txs}
     prints_by_tx={p['transaction_id']:p for p in print_rows}
+    # Reuse indexed transactions, items and print jobs across all product cards.
+    # The former nested scans multiplied every stock edit by all historical Etsy
+    # orders and variants, particularly expensive on a low-power HA host.
+    from collections import defaultdict
+    sales_by_listing=defaultdict(list)
+    sales_by_item=defaultdict(list)
+    review_by_listing=defaultdict(int)
+    items_by_listing=defaultdict(list)
+    jobs_by_item=defaultdict(list)
+    for item in items:
+        items_by_listing[item['listing_id']].append(item)
+    for transaction in txs:
+        if transaction['status'] in ('open','shipped'):
+            sales_by_listing[transaction['listing_id']].append(transaction)
+            if transaction['item_id']:
+                sales_by_item[transaction['item_id']].append(transaction)
+        elif transaction['status']=='review':
+            review_by_listing[transaction['listing_id']]+=transaction['qty']
+    for job in print_rows:
+        if job['printing']>0:
+            jobs_by_item[job['item_id']].append(job)
     # Successfully finished order-linked prints are still physically on hand
     # until shipment. They must not be reassigned to another Etsy order.
     locked_finished={}
@@ -689,15 +710,15 @@ def overview():
             locked_finished[iid]=locked_finished.get(iid,0)+job['finished']
     for listing in listings:
         listing['etsy_reference_qty']=etsy_refs.get((listing['id'],''),listing['etsy_qty'])
-        sales=[t for t in txs if t['listing_id']==listing['id'] and t['status'] in ('open','shipped')]
+        sales=sales_by_listing[listing['id']]
         listing['sold30']=sum(t['qty'] for t in sales if t['created']>=now-30*86400)
         listing['sold7']=sum(t['qty'] for t in sales if t['created']>=now-7*86400)
         listing['unmatched']=sum(t['qty'] for t in sales if t['status']=='open' and not t['item_id'])
-        listing['review']=sum(t['qty'] for t in txs if t['listing_id']==listing['id'] and t['status']=='review')
+        listing['review']=review_by_listing[listing['id']]
         variants=[]
-        for item in (i for i in items if i['listing_id']==listing['id']):
+        for item in items_by_listing[listing['id']]:
             item['etsy_reference_qty']=etsy_refs.get((listing['id'],item['id']),item['etsy_qty'])
-            lines=[t for t in sales if t['item_id']==item['id']]
+            lines=sales_by_item[item['id']]
             item['sold7']=sum(t['qty'] for t in lines if t['created']>=now-7*86400)
             item['sold30']=sum(t['qty'] for t in lines if t['created']>=now-30*86400)
             # Pieces already transferred out of stock are no longer reservations.
@@ -706,7 +727,7 @@ def overview():
             item['order_jobs']=[{'transaction_id':j['transaction_id'],'receipt_id':j['receipt_id'],
                                  'printing':j['printing'],'finished':j['finished'],
                                  'status':tx_by_id.get(j['transaction_id'],{}).get('status','unknown')}
-                                for j in print_rows if j['item_id']==item['id'] and j['printing']>0]
+                                for j in jobs_by_item[item['id']]]
             item['order_printing']=sum(j['printing'] for j in item['order_jobs'])
             item['allocatable']=None if item['on_hand'] is None else max(0,item['on_hand']-locked_finished.get(item['id'],0))
             item['free']=None if item['on_hand'] is None else max(0,item['on_hand']-item['reserved'])
