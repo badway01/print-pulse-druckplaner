@@ -101,13 +101,13 @@ def snapshot(db,products,orders):
 
 def recover_cancelled(db,tid):
     """Return unused reserved physical parts when Etsy cancels a transaction."""
-    rows=db.execute("""SELECT w.component_id,w.booked,p.kind FROM pp_component_orders w
+    rows=db.execute("""SELECT w.component_id,w.booked,w.consumed,p.kind FROM pp_component_orders w
         JOIN pp_components p ON p.id=w.component_id
         WHERE w.transaction_id=?""",(tid,)).fetchall()
     for job in rows:
-        if job['kind']=='stock' and job['booked']:
+        if job['kind']=='stock' and job['booked']>job['consumed']:
             db.execute('UPDATE pp_components SET stock=stock+? WHERE id=?',
-                       (job['booked'],job['component_id']))
+                       (job['booked']-job['consumed'],job['component_id']))
     db.execute('DELETE FROM pp_component_orders WHERE transaction_id=?',(tid,))
 
 
@@ -219,12 +219,12 @@ def mutate(db,data,whole):
     consumed=job['consumed'] if job else 0
     qty=whole(data.get('quantity'),1,100000)
     if action=='book':
-        if part['kind']!='stock' or qty>required-booked-consumed or qty>part['stock']:
+        if part['kind']!='stock' or qty>required-booked or qty>part['stock']:
             raise ValueError('Nicht genügend freie Vorratsbauteile für diese Bestellung.')
         db.execute('UPDATE pp_components SET stock=stock-? WHERE id=?',(qty,cid))
         booked+=qty
     elif action=='release':
-        if part['kind']!='stock' or qty>booked: raise ValueError('Nur unmontierte Bauteile freigeben.')
+        if part['kind']!='stock' or qty>booked-consumed: raise ValueError('Nur unmontierte Bauteile freigeben.')
         booked-=qty
         db.execute('UPDATE pp_components SET stock=stock+? WHERE id=?',(qty,cid))
     elif action=='start':
