@@ -695,3 +695,33 @@ html[data-theme="dark"] .search input,
 html[data-theme="dark"] .filament-search input{background:transparent;border:none}
 html[data-theme="dark"] .running-print button.print-finish-large,
 html[data-theme="dark"] .order-job button.print-finish-large{background:var(--green);color:#fff}
+
+/* Dark-mode readability for text with legacy fixed light-theme colors. */
+html[data-theme="dark"] .summary b,
+html[data-theme="dark"] .orders-heading h2,
+html[data-theme="dark"] .printer-strip-head h2,
+html[data-theme="dark"] .printer-mini-name,
+html[data-theme="dark"] .printer-gauge span,
+html[data-theme="dark"] .printer-panel-main b,
+html[data-theme="dark"] .printer-config-fields>details>summary,
+html[data-theme="dark"] .printer-manual-fields>summary,
+html[data-theme="dark"] .etsy-total,
+html[data-theme="dark"] footer{color:var(--ink)}
+html[data-theme="dark"] .summary .summary-urgent b,
+html[data-theme="dark"] .order-deadline.red,
+html[data-theme="dark"] .etsy-alert-qty,
+html[data-theme="dark"] .etsy-alert-variants strong{color:#f1a89d}
+html[data-theme="dark"] .order-deadline.yellow,
+html[data-theme="dark"] .etsy-alert-item.low .etsy-alert-qty,
+html[data-theme="dark"] .printer-mini.finished .printer-mini-state{color:#e8c587}
+html[data-theme="dark"] .order-deadline.green{color:#a3dcc1}
+html[data-theme="dark"] .etsy-total{background:#253b31}
+html[data-theme="dark"] .order-card-actions .order-print,
+html[data-theme="dark"] .filament-cart-button{background:var(--green);color:#fff;border-color:var(--green)}
+html[data-theme="dark"] .order-card-actions .order-print:disabled{background:#39443e;color:#b9c4bc}
+html[data-theme="dark"] .printer-mini.offline .printer-mini-state,
+html[data-theme="dark"] .printer-mini.setup .printer-mini-state,
+html[data-theme="dark"] .etsy-alert-variants,
+html[data-theme="dark"] .filament-identity small{color:var(--muted)}
+html[data-theme="dark"] .filament-cart-button,
+html[data-theme="dark"] .theme-switch .theme-option[aria-pressed="true"]{background:var(--green);color:white}
