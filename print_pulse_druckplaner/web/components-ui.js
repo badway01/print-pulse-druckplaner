@@ -99,7 +99,7 @@ renderCatalog=function(){
    '<div class="catalog-identity"><b>'+esc(p.title)+'</b><small>'+files+' Masterdatei(en) · '+profiles+
    ' Druckprofil(e)'+(enabled?' · '+(p.components||[]).length+' Bauteil(e)':'')+'</small></div>'+
    '<div class="catalog-component-controls"><label class="catalog-part-switch">'+
-   '<input type="checkbox" data-components-toggle="'+esc(p.id)+'" '+(enabled?'checked':'')+'>'+
+   '<input type="checkbox" role="switch" aria-label="Vorproduktion für '+esc(p.title)+'" data-components-toggle="'+esc(p.id)+'" '+(enabled?'checked':'')+'>'+
    '<span>Vorproduktion verwenden</span></label>'+
    (enabled?'<button type="button" class="secondary small" data-components-open="'+esc(p.id)+'">Bauteile verwalten</button>':'')+
    '</div><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">3MF &amp; Belegung</button></article>';
