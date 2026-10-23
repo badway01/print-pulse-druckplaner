@@ -129,8 +129,8 @@ assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
 assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el).mixBlendMode),'normal');
 await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
-await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.27'));
-assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
+await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.36'));
+assert((await page.locator('#release-history-content').textContent()).includes('Filament-Buttons'),'latest packaged release is displayed');
 assert.equal(await page.locator('#app-version').textContent(),'v0.11.36');
 await page.locator('[data-close="settings"]').click();
 
