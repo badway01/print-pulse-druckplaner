@@ -9,6 +9,69 @@ let printTools={profiles:[],files:[]}, masterContext=null,masterSources=[],maste
 let printerLive=null,printerLoading=false,printerEntities=[],printerConfigId=null,printerConfigBusy=false;
 let etsyAlertExpanded=false,etsyAlertFocused=null;
 try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
+
+/* Theme choice is local to this browser; Auto follows HA sun.sun, then OS theme. */
+const THEME_KEY='pp-theme-mode';
+let themeMode='auto',themeRequest=0,historyLoaded=false;
+const systemDark=window.matchMedia('(prefers-color-scheme: dark)');
+function systemTheme(){return systemDark.matches?'dark':'light';}
+function resolvedTheme(value){document.documentElement.dataset.theme=value;}
+function showThemeMode(){
+ for(const button of document.querySelectorAll('[data-theme-mode]')){
+  const pressed=button.dataset.themeMode===themeMode;
+  button.setAttribute('aria-pressed',String(pressed));
+ }
+}
+async function updateAutomaticTheme(){
+ if(themeMode!=='auto')return;
+ const request=++themeRequest;
+ resolvedTheme(systemTheme());
+ try{
+  const data=await api('theme');
+  if(themeMode!=='auto'||request!==themeRequest)return;
+  resolvedTheme(data.theme==='dark'||data.theme==='light'?data.theme:systemTheme());
+ }catch{
+  if(themeMode==='auto'&&request===themeRequest)resolvedTheme(systemTheme());
+ }
+}
+function selectThemeMode(mode){
+ if(!['light','dark','auto'].includes(mode))return;
+ themeMode=mode;
+ try{localStorage.setItem(THEME_KEY,mode);}catch{}
+ showThemeMode();
+ if(mode==='auto')updateAutomaticTheme();
+ else{themeRequest++;resolvedTheme(mode);}
+}
+function initTheme(){
+ try{const saved=localStorage.getItem(THEME_KEY);if(['light','dark','auto'].includes(saved))themeMode=saved;}catch{}
+ showThemeMode();
+ if(themeMode==='auto')updateAutomaticTheme();
+ else resolvedTheme(themeMode);
+ for(const button of document.querySelectorAll('[data-theme-mode]')){
+  button.addEventListener('click',()=>selectThemeMode(button.dataset.themeMode));
+ }
+ const onSystemChange=()=>{if(themeMode==='auto')updateAutomaticTheme();};
+ if(systemDark.addEventListener)systemDark.addEventListener('change',onSystemChange);
+ else if(systemDark.addListener)systemDark.addListener(onSystemChange);
+ setInterval(()=>{if(themeMode==='auto'&&!document.hidden)updateAutomaticTheme();},60000);
+}
+async function loadVersionHistory(){
+ if(historyLoaded)return;
+ try{
+  const result=await api('versions');
+  $('app-version').textContent='v'+String(result.version||'0.11.23');
+  const entries=Array.isArray(result.releases)?result.releases:[];
+  if(!entries.length){$('release-history-content').textContent='Noch keine Versionshistorie vorhanden.';historyLoaded=true;return;}
+  $('release-history-content').innerHTML=entries.map(entry=>
+   '<section class="release-entry"><h4>v'+esc(entry.version)+' · '+esc(entry.title)+'</h4><ul>'+
+   (Array.isArray(entry.changes)?entry.changes:[]).map(note=>'<li>'+esc(note)+'</li>').join('')+
+   '</ul></section>').join('');
+  historyLoaded=true;
+ }catch(err){$('release-history-content').textContent='Versionshistorie momentan nicht erreichbar: '+err.message;}
+}
+$('release-history').addEventListener('toggle',()=>{if($('release-history').open)loadVersionHistory();});
+initTheme();
+
 const expanded=new Set();
 const selectedVariants=new Map();
 // Patch existing nodes so polling never recreates unchanged cards or images.
@@ -1175,4 +1238,4 @@ $('printer-config-form').addEventListener('submit',async event=>{
 load(true);loadPrintTools();loadPrinters();setInterval(()=>load(false),5000);
 setInterval(()=>loadPrinters(),20000);
 setInterval(refreshShippingDay,30000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshShippingDay();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){refreshShippingDay();if(themeMode==='auto')updateAutomaticTheme();}});
