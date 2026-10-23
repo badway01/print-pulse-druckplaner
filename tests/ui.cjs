@@ -129,9 +129,9 @@ assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
 assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el).mixBlendMode),'normal');
 await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
-await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.37'));
+await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.38'));
 assert((await page.locator('#release-history-content').textContent()).includes('Auftragsaktionen'),'latest packaged release is displayed');
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.37');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.38');
 await page.locator('[data-close="settings"]').click();
 
 
@@ -181,6 +181,30 @@ assert.equal(await page.locator('#printer-config-fields input:visible').count(),
 await page.locator('.printer-manual-fields>details>summary').click();
 assert.equal(await page.locator('.printer-advanced-fields').isVisible(),true);
 await page.locator('[data-close="printer-config-dialog"]').click();
+// Optional component switches exist for every active catalog listing and
+// stay off until the owner enables a particular product.
+await page.locator('[data-workspace="catalog"]').click();
+assert.equal(await page.locator('[data-components-toggle]').count(),2);
+assert.equal(await page.locator('[data-components-open]').count(),0);
+await page.evaluate(()=>{
+ const p=model.products.find(item=>item.id==='101');
+ p.components_enabled=1;
+ p.components=[{id:'ghost-white',listing_id:'101',name:'Geist Weiß',kind:'stock',
+   units:1,stock:8,property_name:'',quantity_property:'Setgröße'}];
+ renderCatalog();
+});
+const enabledCatalog=page.locator('[data-catalog-item="101"]');
+assert.equal(await enabledCatalog.locator('[data-components-open]').count(),1);
+await enabledCatalog.locator('[data-components-open]').click();
+assert.equal(await page.locator('#components-editor').isVisible(),true);
+assert((await page.locator('#components-list').textContent()).includes('Geist Weiß'));
+assert.equal(await page.locator('#components-list [data-component-count]').inputValue(),'8');
+await page.locator('[data-close="components-editor"]').click();
+await page.evaluate(()=>{
+ const p=model.products.find(item=>item.id==='101');
+ p.components_enabled=0;p.components=[];
+ renderCatalog();
+});
 await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('#printer-strip').isVisible(),true);
 
