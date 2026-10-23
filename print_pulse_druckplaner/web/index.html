@@ -98,6 +98,24 @@
 <p class="hint">„Öffnen“ verschiebt eine volle Rolle zu den angebrochenen. „Leer“ entfernt eine aufgebrauchte Rolle. Ohne Wiegen, ohne Gramm.</p>
 <button type="button" id="filament-roll-edit" class="text-button">Bestände manuell korrigieren</button>
 </dialog>
+<dialog id="components-editor" class="components-editor">
+ <div class="dialog-heading"><h2 id="components-title">Bauteile</h2><button type="button" class="icon-button" data-close="components-editor" aria-label="Schließen">×</button></div>
+ <p class="hint">Bauteilbestände sind von fertigen Etsy-Produkten getrennt. Gemeinsame Standardbauteile auf Vorrat zählen, Farbteile nach Kundenwunsch drucken.</p>
+ <div id="components-list" class="components-list"></div>
+ <form id="components-form" class="components-form">
+  <h3 id="components-form-title">+ Bauteil hinzufügen</h3>
+  <input id="components-id" type="hidden">
+  <label>Bauteilname<input id="components-name" maxlength="100" placeholder="z. B. Geist Weiß" required></label>
+  <label>Produktionsart<select id="components-kind">
+   <option value="stock">Vorratsbauteil – gemeinsam für alle Varianten</option>
+   <option value="demand">Erst nach Bestellung drucken</option></select></label>
+  <label id="components-property-wrap">Etsy-Eigenschaft für die Variante (optional)<input id="components-property" maxlength="100" placeholder="z. B. Buchfarbe"></label>
+  <label>Bauteile je Verkaufseinheit<input id="components-units" type="number" inputmode="numeric" min="1" max="100" step="1" value="1" required></label>
+  <label>Setgröße aus Etsy-Eigenschaft (optional)<input id="components-quantity-property" maxlength="100" placeholder="z. B. Setgröße"></label>
+  <p class="hint">Beispiel: „Setgröße: 3er-Set“ multipliziert 1 Geist je Einheit mit 3. Die Eigenschaft muss in der Etsy-Bestellung exakt so heißen; unklare Werte werden nicht geraten.</p>
+  <div class="components-form-actions"><button type="submit" class="primary">Bauteil speichern</button><button type="button" id="components-reset" class="secondary">Neu / Abbrechen</button></div>
+ </form>
+</dialog>
 <dialog id="master-editor" class="master-editor"><div class="dialog-heading"><h2 id="master-title">Masterdateien &amp; Farben</h2><button type="button" data-close="master-editor" class="icon-button" aria-label="Schließen">×</button></div>
 <p class="hint">Die Filamentbelegung wird je Produkt, optional je Variante, und Drucker gespeichert.</p>
 <div class="master-context"><label>Variante<select id="master-variant"></select></label><label>Drucker<select id="master-printer"></select></label></div>
