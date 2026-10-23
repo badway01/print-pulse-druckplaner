@@ -242,7 +242,8 @@ assert.equal(bookmark.position,'absolute','bookmark should not consume card heig
 assert.equal(bookmark.pointerEvents,'none','bookmark must not be clickable');
 assert(bookmark.height<=28&&bookmark.width<115,'bookmark stays compact even on tablet');
 assert(bookmark.top>=bookmark.scrollTop-1,'bookmark cannot be clipped by the carousel');
-assert(bookmark.bottom<=bookmark.cardTop+6,'bookmark must sit on the top edge, above content');
+assert(bookmark.bottom<=bookmark.cardTop+13,'bookmark should overlap only the uppermost card edge');
+assert(bookmark.bottom+5<bookmark.imageTop,'bookmark cannot cover the product photo');
 assert(bookmark.right<=bookmark.cardRight+1,'bookmark must attach to the top-right corner');
 assert.equal(bookmark.imageHeight,baseOrderGeometry.imageHeight,'product image size is unchanged');
 assert(Math.abs(bookmark.imageTop-baseOrderGeometry.imageTop)<=1,'bookmark does not push product image down');
