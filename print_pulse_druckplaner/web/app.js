@@ -73,6 +73,7 @@ $('release-history').addEventListener('toggle',()=>{if($('release-history').open
 initTheme();
 
 const expanded=new Set();
+const stockExpanded=new Set();
 const selectedVariants=new Map();
 // Patch existing nodes so polling never recreates unchanged cards or images.
 function nodeKey(node){
@@ -190,45 +191,40 @@ function printOverview(p){
 }
 function shortVariant(label){return label.includes(' · ')?label:label.includes(': ')?label.slice(label.indexOf(': ')+2):label;}
 function stockOverview(p){
- const visible=p.items.length<=8?p.items:p.items.filter(i=>i.on_hand>0);
- const empty=p.items.filter(i=>i.on_hand===0).length;
- const unknown=p.items.filter(i=>i.on_hand===null).length;
- return `<section class="stock-overview" aria-label="Lagerbestand nach Variante"><b>Im Lager</b><div class="stock-variants">${visible.map(i=>`<button class="stock-variant" data-show-variant="${esc(i.id)}" data-listing="${esc(p.id)}"><strong>${i.on_hand===null?'?':i.on_hand+' ×'}</strong><span>${esc(shortVariant(i.label))}${i.on_hand===null?' · noch nicht gezählt':''}</span></button>`).join('')}</div>${p.items.length>8?`<small>${[empty?empty+' Varianten ohne Bestand':'',unknown?unknown+' Varianten noch nicht gezählt':''].filter(Boolean).join(' · ')}</small>`:''}</section>`;
-}
-/* Small read-only stock summary over the product image: use only physical
-   on_hand from this item's variants. Do not confuse it with Etsy quantity,
-   print demand, reserved pieces or running prints. */
-function photoStockBadge(p){
- const items=Array.isArray(p.items)?p.items:[];
- if(!items.length)return '<div class="photo-stock-badge" aria-label="Noch keine Varianten"><b>Im Lager</b><span class="photo-stock-line">Noch zählen</span></div>';
- // For short lists, keep the familiar variant order. On large listings surface
- // stocked variants first so an uncounted/empty combination list cannot bury them.
- const ranked=items.length<=3?items:[...items].sort((a,b)=>{
-  const group=i=>Number.isInteger(i.on_hand)&&i.on_hand>0?0:i.on_hand===null?1:2;
-  return group(a)-group(b)||
-   (group(a)===0?b.on_hand-a.on_hand:0)||
-   String(a.label).localeCompare(String(b.label),'de');
+ const items=[...p.items].sort((a,b)=>{
+  const priority=i=>i.reserved>0?0:i.on_hand>0?1:i.on_hand===0?2:3;
+  return priority(a)-priority(b)||String(a.label).localeCompare(String(b.label),'de');
  });
- const shown=ranked.slice(0,3);
- const rest=ranked.length-shown.length;
- const lines=shown.map(i=>{
-  const name=shortVariant(String(i.label||'Variante'));
-  const count=i.on_hand===null?'Noch zählen':Number.isInteger(i.on_hand)?i.on_hand+' ×':'Noch zählen';
-  return '<span class="photo-stock-line" title="'+esc(i.label)+'"><strong>'+esc(count)+
-   '</strong><span>'+esc(name)+'</span></span>';
- }).join('');
- return '<div class="photo-stock-badge" aria-label="Tatsächlicher Lagerbestand nach Variante">'+
-   '<b>Im Lager</b>'+lines+
-   (rest?'<small>+ '+rest+' weitere Variante'+(rest===1?'':'n')+'</small>':'')+'</div>';
+ const counted=p.items.filter(i=>i.on_hand!==null).length;
+ const uncounted=p.items.length-counted;
+ return `<section class='stock-overview' id='stock-panel-${esc(p.id)}' aria-label='Alle Lagerbestände nach Variante'>
+  <div class='stock-overview-title'><b>Alle ${p.items.length} Varianten</b><small>${counted} gezählt${uncounted?' · '+uncounted+' noch zählen':''}</small></div>
+  <div class='stock-variants'>${items.map(i=>`<button type='button' class='stock-variant' data-show-variant='${esc(i.id)}' data-listing='${esc(p.id)}' title='${esc(i.label)}'><strong>${i.on_hand===null?'Noch zählen':i.on_hand+' ×'}</strong><span>${esc(shortVariant(i.label))}</span></button>`).join('')}</div>
+  <small>Variante antippen, um den Bestand zu bearbeiten.</small>
+ </section>`;
+}
+/* Show physical stock only for variants in open orders, never Etsy quantity or print demand.
+   A one-variant product shows its stock even if no order is open. */
+function stockQuickView(p){
+ const ordered=p.items.filter(i=>Number(i.reserved||0)>0).sort((a,b)=>b.reserved-a.reserved);
+ const relevant=ordered.length?ordered:p.items.length===1?p.items:[];
+ const parts=relevant.slice(0,2).map(i=>`<span class='stock-quick-item' title='${esc(i.label)}'><span>${esc(shortVariant(i.label))}</span><strong>${i.on_hand===null?'Noch zählen':i.on_hand+' ×'}</strong></span>`).join('');
+ const rest=ordered.length>2?`<span class='stock-quick-extra'>+ ${ordered.length-2} weitere</span>`:'';
+ const fallback=`<span class='stock-quick-empty'>Keine offenen Bestellvarianten</span>`;
+ const isOpen=stockExpanded.has(p.id);
+ return `<button type='button' class='stock-quick-toggle' data-stock-toggle='${esc(p.id)}' aria-expanded='${isOpen}' aria-label='Lagerübersicht für ${esc(p.title)} ${isOpen?'schließen':'öffnen'}'>
+  <span class='stock-quick-label'>${ordered.length?'Lager für Aufträge':'Im Lager'}</span>
+  <span class='stock-quick-items'>${parts||fallback}${rest}</span>
+  <span class='stock-quick-arrow' aria-hidden='true'>${isOpen?'▴':'▾'}</span>
+ </button>`;
 }
 function card(p){
  const image=thumbnail(p.image),open=expanded.has(p.id)||p.items.length===1;
- return `<article class="product ${p.level}" data-product="${esc(p.id)}"><div class="product-photo">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:'<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}<span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span>${photoStockBadge(p)}</div><div class="product-body"><h2 title="${esc(p.title)}">${esc(p.title)}</h2><div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span><span><b>${p.sold30}</b> / 30 Tage</span>${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}</div>
+ return `<article class="product ${p.level}" data-product="${esc(p.id)}"><div class="product-photo">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:'<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}<span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span><button type="button" class="photo-stock-toggle" data-stock-toggle="${esc(p.id)}" aria-expanded="${stockExpanded.has(p.id)}" aria-label="Lagerbestand für ${esc(p.title)} anzeigen">Im Lager <span aria-hidden="true">${stockExpanded.has(p.id)?"▴":"▾"}</span></button></div><div class="product-body">${stockQuickView(p)}${stockExpanded.has(p.id)?stockOverview(p):""}<h2 title="${esc(p.title)}">${esc(p.title)}</h2><div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span><span><b>${p.sold30}</b> / 30 Tage</span>${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}</div>
  ${notices([p.inventory_error,p.unmatched?`${p.unmatched} bestellte Stück noch keiner Variante zugeordnet. Bedarf zusätzlich in Etsy prüfen.`:'',p.review?`${p.review} Stück mit Erstattung oder unklarem Zahlungsstatus: in Etsy prüfen.`:''],'product-'+p.id)}
  ${p.items.length>1?printOverview(p):''}
  ${toolSummary(p)}
  ${productPrintActions(p)}
- ${p.items.length>1?stockOverview(p):''}
  ${p.items.length>1?`<button class="variant-toggle" data-expand="${esc(p.id)}" aria-expanded="${open}"><span>${open?'Varianten schließen':'Bestände bearbeiten'} · ${p.items.length} Varianten</span><b>${open?'−':'+'}</b></button>`:''}
  ${open?(p.items.length>1?variantPicker(p):variant(p,p.items[0])):''}
  <div class="card-bottom"><label class="order-mode"><input type="checkbox" data-mode="${esc(p.id)}" ${p.made_to_order?'checked':''}><span>Auf Bestellung</span></label><div class="badges">${p.made_to_order?'<span class="badge made">Nur auf Bestellung</span>':''}${p.bestseller?'<span class="badge best">Bestseller</span>':''}</div></div></div></article>`;
@@ -774,6 +770,8 @@ $('products').addEventListener('click',async event=>{
  if(linked&&!busy){orderPrintDialog(linked.dataset.orderJob,linked.dataset.jobAction);return;}
  const printButton=event.target.closest('[data-product-print]');
  if(printButton&&!busy){productPrintDialog(printButton.dataset.productPrint,printButton.dataset.printAction);return;}
+ const stockButton=event.target.closest('[data-stock-toggle]');
+ if(stockButton&&!busy){const id=stockButton.dataset.stockToggle;stockExpanded.has(id)?stockExpanded.delete(id):stockExpanded.add(id);render();scheduleSort();return;}
  const shortcut=event.target.closest('[data-show-variant]');
  if(shortcut&&!busy){
   selectedVariants.set(shortcut.dataset.listing,shortcut.dataset.showVariant);

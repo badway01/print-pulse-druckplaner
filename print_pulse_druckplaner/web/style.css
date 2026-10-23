@@ -786,30 +786,55 @@ html[data-theme="dark"] header .brand-logo{
  mix-blend-mode:normal;
 }
 
-/* v0.11.27: actual inventory overlay on product photos, opposite Etsy qty.
-   Always based on saved on_hand (never replenishment demand or Etsy quantity). */
-.product-photo .photo-stock-badge{
- position:absolute;top:10px;right:10px;z-index:1;
- display:flex;flex-direction:column;gap:3px;
- width:min(55%,205px);max-width:calc(100% - 120px);
- min-width:0;padding:8px 9px;
- border:1px solid #bbcdc1;border-radius:9px;
- background:#f8fcf8f2;color:#37594a;
- box-shadow:0 2px 10px #283c2a20;
- pointer-events:none;
- font-size:11px;line-height:1.24;
+/* v0.11.28: minimal photo control and separate, touch-friendly stock disclosure.
+   Physical on_hand stays distinct from Etsy counts, reservations and print needs. */
+.product-photo .photo-stock-toggle{
+ position:absolute;right:10px;top:9px;z-index:2;
+ min-height:44px;max-width:calc(100% - 132px);
+ display:inline-flex;align-items:center;justify-content:center;gap:8px;
+ padding:8px 12px;border:1px solid #c2d1c5;border-radius:9px;
+ background:#f8fcf8f2;color:#365d4d;box-shadow:0 2px 9px #283c2a24;
+ font-size:11px;font-weight:750;line-height:1.2;white-space:nowrap;
 }
-.product-photo .photo-stock-badge>b{display:block;font-size:11px;font-weight:750;letter-spacing:.1px;margin-bottom:2px}
-.photo-stock-line{display:flex;align-items:baseline;gap:4px;min-width:0}
-.photo-stock-line>strong{flex:none;color:#294e3e;white-space:nowrap;font-weight:750}
-.photo-stock-line>span{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.photo-stock-badge>small{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#5c7667;margin-top:2px}
-html[data-theme="dark"] .product-photo .photo-stock-badge{
- background:#243e34f2;color:#e0f0e5;border-color:#789a84;box-shadow:0 2px 10px #0006;
+.product-photo .photo-stock-toggle span{font-size:15px;line-height:1}
+.stock-quick-toggle{
+ width:100%;min-width:0;min-height:52px;margin:0 0 16px;
+ display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;
+ padding:9px 11px;background:#f2f6f1;border:1px solid #d6e2d6;
+ border-radius:10px;color:var(--ink);text-align:left;
 }
-html[data-theme="dark"] .photo-stock-line>strong{color:#e9f7ed}
-html[data-theme="dark"] .photo-stock-badge>small{color:#bdd3c4}
-@media(max-width:420px){
- .product-photo .photo-stock-badge{right:9px;top:9px;padding:7px 8px;width:min(56%,190px);font-size:10px}
- .photo-stock-line{gap:3px}
+.stock-quick-label{font-size:11px;font-weight:750;color:#426954;white-space:nowrap}
+.stock-quick-items{min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:5px 7px}
+.stock-quick-item{
+ display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%;
+ padding:3px 7px;border-radius:6px;background:#fff;border:1px solid #e0e8dc;
+ font-size:11px;line-height:1.35;
+}
+.stock-quick-item>span{min-width:0;max-width:135px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stock-quick-item strong{font-size:11px;color:#365f4c;white-space:nowrap}
+.stock-quick-extra,.stock-quick-empty{font-size:11px;color:var(--muted)}
+.stock-quick-arrow{font-size:18px;line-height:1;color:var(--green)}
+.stock-overview{margin:0 0 16px}
+.stock-overview-title{display:flex;justify-content:space-between;flex-wrap:wrap;align-items:baseline;gap:6px}
+.stock-overview-title small{margin:0}
+.stock-overview .stock-variants{max-height:250px;overflow-y:auto;overscroll-behavior:contain}
+.stock-overview .stock-variant{min-height:44px}
+.stock-overview .stock-variant strong{min-width:78px;white-space:nowrap}
+html[data-theme="dark"] .product-photo .photo-stock-toggle{
+ background:#243e34f2;color:#e0f0e5;border-color:#789a84;
+}
+html[data-theme="dark"] .stock-quick-toggle{
+ background:#273c31;color:#e6eee8;border-color:#546e5d;
+}
+html[data-theme="dark"] .stock-quick-label,
+html[data-theme="dark"] .stock-quick-arrow,
+html[data-theme="dark"] .stock-quick-item strong{color:#c1e1ce}
+html[data-theme="dark"] .stock-quick-item{background:#32473a;border-color:#577060}
+@media(max-width:620px){
+ .product-photo .photo-stock-toggle{right:9px;top:9px;padding:8px 10px}
+ .stock-quick-toggle{grid-template-columns:minmax(0,1fr) auto;gap:3px 7px}
+ .stock-quick-label{grid-column:1;grid-row:1}
+ .stock-quick-items{grid-column:1;grid-row:2}
+ .stock-quick-arrow{grid-column:2;grid-row:1 / 3}
+ .stock-quick-item>span{max-width:120px}
 }

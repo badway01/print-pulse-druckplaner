@@ -1,3 +1,12 @@
+# 0.11.28 · Lagerbestand ohne Foto-Overlay
+
+- Großes Lager-Overlay entfernt: Produktfotos bleiben auf Tablet und iPhone sichtbar.
+- Oben rechts nur noch ein kleiner antippbarer Lager-Button (mindestens 44 Pixel).
+- Unter dem Bild steht eine kompakte, für offene Aufträge relevante Bestandszeile: echte Lagerwerte, nicht Etsy-Mengen oder Nachdruckbedarf.
+- Vollständige Lagerübersicht erst nach Antippen: alle Varianten in einer scrollbar begrenzten Liste, nach Auftragsbezug priorisiert.
+- „Noch zählen“ und erfasster Nullbestand sind ausdrücklich verschieden. Geöffneter Zustand bleibt beim automatischen Aktualisieren erhalten.
+- Keine Datenbankänderung; vorhandene Lagerbestände, Etsy-Zugänge, 3MF-Dateien und Druckaufträge bleiben unverändert.
+
 # 0.11.27 · Lagerbestand auf der Produktkarte
 
 - Etsy-Menge bleibt auf dem Produktbild links oben.

@@ -20,7 +20,7 @@ const assert=require('node:assert/strict');
  ];
  const many=data.products.find(p=>p.id==='102');
 many.inventory_error='Varianten bitte prüfen.';
-many.items=Array.from({length:784},(_,n)=>({...many.items[0],id:'combination-'+n,label:'Katzenfarbe: Farbe '+Math.floor(n/28)+' · Laternenfarbe: Farbe '+(n%28),on_hand:n===2?null:n,need:n===0?2:n===1?3:0}));
+many.items=Array.from({length:784},(_,n)=>({...many.items[0],id:'combination-'+n,label:'Katzenfarbe: Farbe '+Math.floor(n/28)+' · Laternenfarbe: Farbe '+(n%28),on_hand:n===2?null:n,need:n===0?2:n===1?3:0,reserved:n===0?2:n===2?1:0}));
  await route.fulfill({response,json:data});
 });
 await page.route('https://test.etsystatic.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="green"/></svg>'}));
@@ -52,24 +52,31 @@ assert(logoPixels.corner<40&&logoPixels.corner2<40,'logo background must be tran
 assert(logoPixels.opaque>1000,'logo artwork must stay opaque');
 assert(logoPixels.transparent>12000,'most of the photo background must disappear');
 
-// Real image overlay: Etsy quantity stays on left; actual local stock is on right.
+// The product photo stays free of large stock overlays; the details open below it.
 const imageBadges=page.locator('[data-product="102"] .product-photo');
+const cardMany=page.locator('[data-product="102"]');
 assert.equal(await imageBadges.locator('.etsy-total').count(),1);
-assert.equal(await imageBadges.locator('.photo-stock-badge').count(),1);
-assert.equal(await imageBadges.locator('.photo-stock-line').count(),3);
-assert((await imageBadges.locator('.photo-stock-badge').textContent()).includes('+ 781 weitere Varianten'));
-const badgeExamples=await page.evaluate(()=>{
- const mk=(label,on_hand,need=99,etsy_qty=0)=>({label,on_hand,need,etsy_qty});
- const p={items:[mk('Farbe: Weiß',2),mk('Farbe: Schwarz',3),mk('Farbe: Beige',null),
-                  mk('Farbe: Kupfer',0)]};
- const raw=photoStockBadge(p);
- const template=document.createElement('template');template.innerHTML=raw;
- return template.content.textContent;
+assert.equal(await imageBadges.locator('.photo-stock-badge').count(),0);
+assert.equal(await imageBadges.locator('.photo-stock-toggle').count(),1);
+assert.equal(await cardMany.locator('.stock-overview').count(),0);
+assert((await cardMany.locator('.stock-quick-toggle').textContent()).includes('Noch zählen'));
+assert((await cardMany.locator('.stock-quick-toggle').textContent()).includes('0 ×'));
+const previewExamples=await page.evaluate(()=>{
+ const mk=(label,on_hand,reserved)=>({label,on_hand,reserved});
+ const raw=stockQuickView({id:'example',title:'Beispiel',items:[
+  mk('Farbe: Weiß',2,2),mk('Farbe: Schwarz',null,1),mk('Farbe: Beige',0,0)
+ ]});
+ const node=document.createElement('div');node.innerHTML=raw;return node.textContent;
 });
-assert(badgeExamples.includes('3 ×Schwarz'),'must show counted inventory, not print need');
-assert(badgeExamples.includes('2 ×Weiß'));
-assert(badgeExamples.includes('Noch zählenBeige'));
-assert(badgeExamples.includes('+ 1 weitere Variante'));
+assert(previewExamples.includes('2 ×'),'must show physical counted stock');
+assert(previewExamples.includes('Noch zählen'),'unknown stock must not be presented as zero');
+assert(!previewExamples.includes('Beige'),'unordered variants should not clutter the summary');
+await cardMany.locator('.photo-stock-toggle').click();
+assert.equal(await cardMany.locator('.stock-variant').count(),784);
+assert((await cardMany.locator('.stock-overview').textContent()).includes('Noch zählen'));
+assert((await cardMany.locator('.stock-overview .stock-variants').evaluate(el=>getComputedStyle(el).maxHeight))==='250px');
+await cardMany.locator('.stock-quick-toggle').click();
+assert.equal(await cardMany.locator('.stock-overview').count(),0);
 await page.locator('.printer-mini').first().waitFor();
 assert.equal((await page.locator('#printer-strip .eyebrow').textContent()).trim(),'PRODUKTION · LIVE');
 assert.equal((await page.locator('#orders-shell .eyebrow').textContent()).trim(),'ETSY · DEIN SHOP');
@@ -103,7 +110,7 @@ await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
 await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.27'));
 assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.27');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.28');
 await page.locator('[data-close="settings"]').click();
 
 
@@ -351,26 +358,27 @@ await page.waitForFunction(()=>document.querySelector('.workspace-tabs').scrollL
 assert.equal(await page.locator('[data-workspace="printers"]').getAttribute('aria-pressed'),'true');
 await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('[data-workspace="production"]').getAttribute('aria-pressed'),'true');
-// Ensure the two image badges do not collide on an iPhone-sized display.
+// The small inventory button must stay inside the photo and outside Etsy's badge.
 const badgeGeometry=await page.locator('[data-product="102"] .product-photo').evaluate(photo=>{
  const a=photo.querySelector('.etsy-total').getBoundingClientRect();
- const b=photo.querySelector('.photo-stock-badge').getBoundingClientRect();
+ const b=photo.querySelector('.photo-stock-toggle').getBoundingClientRect();
  const image=photo.getBoundingClientRect();
- return {noOverlap:a.right<=b.left+1,within:b.right<=image.right+1,rows:photo.querySelectorAll('.photo-stock-line').length};
+ return {noOverlap:a.right<=b.left+1,within:b.right<=image.right+1,height:b.height,width:b.width};
 });
-assert(badgeGeometry.noOverlap,'Etsy badge must not overlap actual stock');
-assert(badgeGeometry.within,'stock badge must remain inside product photo');
-assert(badgeGeometry.rows>=1&&badgeGeometry.rows<=3,'stock badge should show 1–3 rows');
+assert(badgeGeometry.noOverlap,'Etsy and Lager buttons must not collide');
+assert(badgeGeometry.within,'stock button must remain within the product photo');
+assert(badgeGeometry.height>=44,'stock button must be touch-friendly');
+assert(badgeGeometry.width<160,'stock control must remain visually compact');
 await page.screenshot({path:'/tmp/lager-mobile.png',fullPage:true});
 assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));// Exercise real multi-variant stock writes via the new card buttons.
 await page.unroute('**/api/status');
 await page.reload();await page.locator('[data-product="102"]').waitFor();
 const realCard=page.locator('[data-product="102"]');
+assert.equal(await realCard.locator('.stock-overview').count(),0);
+await realCard.locator('.photo-stock-toggle').click();
 assert.equal(await realCard.locator('.stock-variant').count(),2);
 assert((await realCard.locator('.stock-overview').textContent()).includes('0 ×Beige'));
-assert((await realCard.locator('.stock-overview').textContent()).includes('Schwarz · noch nicht gezählt'));
-assert((await realCard.locator('.photo-stock-badge').textContent()).includes('Noch zählenSchwarz'));
-assert((await realCard.locator('.photo-stock-badge').textContent()).includes('0 ×Beige'));
+assert((await realCard.locator('.stock-overview').textContent()).includes('Noch zählenSchwarz'));
 await realCard.locator('.stock-variant[data-show-variant="102-black"]').click();
 assert.equal(await realCard.locator('.variant').getAttribute('data-variant'),'102-black');
 await realCard.locator('[data-expand]').click();
@@ -392,15 +400,16 @@ assert.equal(await page.locator('#quantity-confirm').isEnabled(),true);
 await page.locator('[data-close="quantity"]').click();
 await page.request.post('http://127.0.0.1:8099/api/stock',{data:{id:black.id,action:'set',quantity:2,revision:black.revision}});
 await page.reload();
-assert((await realCard.locator('.photo-stock-badge').textContent()).includes('2 ×Schwarz'));
+await realCard.locator('.photo-stock-toggle').click();
+assert((await realCard.locator('.stock-overview').textContent()).includes('2 ×Schwarz'));
 await realCard.locator('[data-print-action="finish"]').click();
 await page.locator('#quantity-value').fill('3');await page.locator('#quantity-confirm').click();
 await page.waitForFunction(()=>document.querySelector('[data-product="102"] .running-print').textContent.includes('1 ×'));
 realState=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
 black=realState.products.find(p=>p.id==='102').items.find(i=>i.id==='102-black');
 assert.equal(black.on_hand,5);assert.equal(black.in_print,1);
-assert((await realCard.locator('.photo-stock-badge').textContent()).includes('5 ×Schwarz'),
- 'badge must update immediately when confirmed print increases actual stock');
+assert((await realCard.locator('.stock-overview').textContent()).includes('5 ×Schwarz'),
+ 'open stock panel must update immediately when confirmed print increases actual stock');
 await realCard.locator('[data-print-action="cancel"]').click();await page.locator('#quantity-confirm').click();
 await realCard.locator('.running-print').waitFor({state:'detached'});
-assert.deepEqual(errors,[]);console.log('UI PASS: badges stacked; +/undo; printing/partial finish/cancel; variants; search; count; persistence; settings; mobile width; no JS errors.');await browser.close();})().catch(e=>{console.error(e);process.exit(1)});
+assert.deepEqual(errors,[]);console.log('UI PASS: compact stock drawer; +/undo; printing/partial finish/cancel; variants; search; count; persistence; settings; mobile width; no JS errors.');await browser.close();})().catch(e=>{console.error(e);process.exit(1)});
