@@ -1,3 +1,11 @@
+# 0.11.25 · Print-&-Pulse-Logo ohne hellen Hintergrundkasten
+
+- Der ursprüngliche Schriftzug, die grüne Pulslinie und das goldene Herz bleiben erhalten. Eine Alpha-Maske in der SVG-Datei entfernt nun den eingebetteten hellen Fotohintergrund direkt im Logo.
+- Der Dashboard-Kopfbereich erhält eine dezente salbeigrüne Tönung (Hellmodus); das transparente Logo fügt sich ohne sichtbares Rechteck ein.
+- Auch der Dunkelmodus nutzt die transparente Logo-Datei statt unzureichender Mischmodi, mit besserer Lesbarkeit.
+- Ein Browser-Test prüft die tatsächlich gerenderten Alphawerte an den Logo-Ecken und stellt sicher, dass die Schrift erhalten bleibt.
+- Etsy, Lagerbestand, Druckprofile, Drucker und 3MF-Dateien bleiben unverändert.
+
 # 0.11.24 · Mobilnavigation und klare Status-Texte
 
 - Produktionsbereich: „PRODUKTION · LIVE“ statt „WERKSTATT · LIVE AUS HOME ASSISTANT“.
