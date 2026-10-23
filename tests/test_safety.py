@@ -62,6 +62,17 @@ class DataSafetyTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT on_hand FROM stock_items WHERE id='ghost'").fetchone()[0],3)
             self.assertEqual(len(app.safety.report(db,80)),previous)
 
+    def test_stale_component_count_from_second_device_is_rejected(self):
+        with app.connect() as db:
+            db.execute("UPDATE pp_components SET stock=6 WHERE id='white'")
+        with self.assertRaisesRegex(ValueError,'inzwischen geändert'):
+            with app.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                app.components.mutate(db,{'action':'stock','listing_id':'101',
+                    'id':'white','stock':3,'expected_stock':4},app.integer)
+        with app.connect() as db:
+            self.assertEqual(db.execute("SELECT stock FROM pp_components WHERE id='white'").fetchone()[0],6)
+
     def test_idempotent_migration_and_verified_restore(self):
         app.init_db()
         app.init_db()
