@@ -110,7 +110,7 @@ await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
 await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.27'));
 assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.28');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.29');
 await page.locator('[data-close="settings"]').click();
 
 
@@ -197,7 +197,12 @@ const dayChange=await page.evaluate(()=>{
 });
 assert.notEqual(dayChange.before,dayChange.after);
 await page.locator('[data-workspace="filament"]').click();
+assert.equal(await page.locator('#filament-stock-summary').isVisible(),true);
+assert.equal(await page.locator('#filament-stock-spools').textContent(),'0 volle Spulen');
+assert((await page.locator('#filament-stock-value').textContent()).includes('0,00'));
 await page.locator('#filament-add').click();
+assert.equal(await page.locator('#filament-form [name="stock_qty"]').getAttribute('inputmode'),'numeric');
+assert.equal(await page.locator('#filament-form [name="price"]').getAttribute('inputmode'),'decimal');
 await page.locator('#filament-brand').fill('Bambu');
 assert((await page.locator('#filament-brand-options').textContent()).includes('Bambu Lab'));
 await page.locator('#filament-brand-options .filament-suggest-item').first().click();
@@ -216,6 +221,8 @@ await page.locator('#filament-form [type="submit"]').click();
 await page.locator('.filament-line').first().waitFor();
 assert.equal(await page.locator('.filament-line').count(),1);
 assert((await page.locator('.filament-line').textContent()).includes('1 Spule'));
+assert.equal(await page.locator('#filament-stock-spools').textContent(),'1 volle Spule');
+assert((await page.locator('#filament-stock-value').textContent()).includes('19,90'));
 await page.locator('#filament-add').click();
 await page.locator('#filament-brand').fill('Bambu Lab');
 await page.locator('#filament-material').fill('PLA Basic');
@@ -236,12 +243,20 @@ await page.locator('[data-close="filament-editor"]').click();
 await page.locator('[data-filament-cart]').click();
 await page.waitForFunction(()=>document.querySelector('#filament-cart-count').textContent==='1');
 await page.locator('[data-filament-view="cart"]').click();
+assert.equal(await page.locator('#filament-stock-summary').isVisible(),false);
 assert.equal(await page.locator('.filament-line').count(),1);
 assert((await page.locator('#filament-cart-summary').textContent()).includes('19,90'));
 await page.locator('[data-filament-delta="1"]').click();
 await page.waitForFunction(()=>document.querySelector('#filament-cart-count').textContent==='2');
 await page.locator('[data-filament-delta="-1"]').click();
 await page.waitForFunction(()=>document.querySelector('#filament-cart-count').textContent==='1');
+const valuation=await page.evaluate(()=>filamentStockValue([
+ {stock_qty:3,price_cents:1990,cart_qty:11},
+ {stock_qty:2,price_cents:null,cart_qty:9},
+ {stock_qty:0,price_cents:null,cart_qty:1},
+ {stock_qty:1,price_cents:0,cart_qty:0}
+]));
+assert.deepEqual(valuation,{spools:6,known_total_cents:5970,missing_qty:2});
 await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('.product').count(),4);
 await page.locator('[data-order-sort="new"]').click();
