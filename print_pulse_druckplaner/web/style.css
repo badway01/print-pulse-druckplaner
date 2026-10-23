@@ -1061,3 +1061,73 @@ html[data-theme="dark"] .filament-line-actions .filament-roll-button{
  .filament-rolls-counts{gap:7px}
 }
 
+/* v0.11.36 – Filament actions follow the actual available panel width
+   (Home Assistant sidebar, macOS Split View, desktop and 11-inch tablet).
+   Reserve the Shop slot if no link is recorded, so all four actions align. */
+.filament-rows{container-type:inline-size}
+.filament-rows .filament-line{
+ grid-template-columns:minmax(0,1.16fr) minmax(0,.72fr) auto;
+ gap:10px;
+}
+.filament-rows .filament-line .filament-identity,
+.filament-rows .filament-line .filament-meta{min-width:0}
+.filament-rows .filament-line-actions.is-colors{
+ display:grid;
+ grid-template-columns:64px 128px 68px 92px;
+ grid-auto-rows:minmax(42px,auto);
+ gap:6px;
+ align-items:stretch;
+ justify-content:end;
+ align-content:center;
+ flex-wrap:nowrap;
+ min-width:0;
+}
+.filament-rows .filament-line-actions.is-colors>*{
+ box-sizing:border-box;
+ width:100%;min-width:0;max-width:100%;min-height:42px;
+ margin:0;padding:7px 5px;
+ justify-self:stretch;align-self:stretch;
+ text-align:center;
+}
+.filament-rows .filament-line-actions.is-colors .filament-cart-button{
+ gap:4px;padding-left:5px;padding-right:5px;
+ font-size:10.5px;
+}
+.filament-rows .filament-line-actions.is-colors .spool-cart{
+ width:23px;height:23px;
+}
+.filament-rows .filament-line-actions .filament-shop-placeholder{
+ display:block;visibility:hidden;pointer-events:none;
+}
+/* Use the panel's width, not the browser window, for embedded HA and Split View. */
+@container (max-width:770px){
+ .filament-rows .filament-line{
+  grid-template-columns:minmax(0,1fr) minmax(0,auto);
+  column-gap:10px;
+ }
+ .filament-rows .filament-line .filament-identity{grid-column:1}
+ .filament-rows .filament-line .filament-meta{
+  grid-column:2;justify-content:flex-end;text-align:right;
+ }
+ .filament-rows .filament-line-actions{
+  grid-column:1/-1;
+  border-top:1px solid #f0ede6;padding-top:7px;
+ }
+ .filament-rows .filament-line-actions.is-colors{justify-content:end}
+}
+/* Very narrow panes: two even rows, always Shop/List then Rolls/Edit. */
+@container (max-width:450px){
+ .filament-rows .filament-line{grid-template-columns:minmax(0,1fr)}
+ .filament-rows .filament-line .filament-identity,
+ .filament-rows .filament-line .filament-meta{grid-column:1;min-width:0}
+ .filament-rows .filament-line .filament-meta{justify-content:flex-start;text-align:left}
+ .filament-rows .filament-line-actions.is-colors{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  width:100%;justify-content:stretch;
+ }
+ .filament-rows .filament-line-actions.is-colors>*{min-height:44px}
+}
+html[data-theme="dark"] .filament-rows .filament-line-actions{
+ border-top-color:var(--line);
+}
+
