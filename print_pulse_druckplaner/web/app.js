@@ -570,7 +570,9 @@ function render(){if(!model)return;
   }
  }
  const dueFor=p=>p.components_enabled?(componentDue.get(p.id)||0):(p.need||0);
- const runningFor=p=>p.items.reduce((n,i)=>n+(Number(i.in_print)||0),0)+(p.components_enabled?(componentPrinting.get(p.id)||0):0);
+ const runningFor=p=>p.items.reduce((n,i)=>n+(Number(i.in_print)||0),0)+
+  (p.components_enabled?(componentPrinting.get(p.id)||0)+
+   (p.components||[]).reduce((n,part)=>n+(part.kind==='stock'?(Number(part.printing_stock)||0):0),0):0);
  const due=products.reduce((n,p)=>n+dueFor(p),0);
  const inProgress=products.reduce((n,p)=>n+runningFor(p),0);
  updateHTML($('summary'),[['Produkte',products.length],['Nachdrucken',due+' Stk.'],['Im Druck',inProgress+' Stk.'],['Versandkritisch',critical+' Aufträge']].map(([label,value],index)=>`<div ${index===3&&critical?'class="summary-urgent"':''}><span>${label}</span><b>${value}</b></div>`).join(''));
