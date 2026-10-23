@@ -680,7 +680,7 @@ function showWorkspace(value){
   const active=tabs?.querySelector('[data-workspace].selected');
   if(tabs&&active){
    const left=tabs.scrollLeft+active.getBoundingClientRect().left-tabs.getBoundingClientRect().left-3;
-   tabs.scrollTo({left:Math.max(0,left),behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+   tabs.scrollTo({left:Math.max(0,left),behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
   }
  }
  const production=value==='production';
