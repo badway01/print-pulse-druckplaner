@@ -20,18 +20,18 @@
  <div id="etsy-alert-list" class="etsy-alert-list" hidden></div>
  <div class="etsy-alert-foot"><span id="etsy-alert-updated"></span><span>Warnung basiert auf dem Etsy-Katalogbestand, nicht auf dem Lagerbestand.</span></div>
 </section>
-<nav class="workspace-tabs" aria-label="Druckplaner-Bereiche">
+<nav class="workspace-tabs" aria-label="Druckplaner-Bereiche – auf Mobilgeräten seitlich wischbar">
  <button type="button" data-workspace="production" class="selected" aria-pressed="true">Produktion</button>
  <button type="button" data-workspace="catalog" aria-pressed="false">Produktkatalog &amp; 3MF</button>
  <button type="button" data-workspace="filament" aria-pressed="false">Filament &amp; Einkauf <span id="filament-tab-count" class="workspace-count" hidden></span></button>
  <button type="button" data-workspace="printers" aria-pressed="false">Drucker</button>
 </nav>
 <section id="printer-strip" class="printer-strip" aria-label="Druckerstatus">
- <div class="printer-strip-head"><div><span class="eyebrow">WERKSTATT · LIVE AUS HOME ASSISTANT</span><h2>Druckerstatus</h2></div><button type="button" id="printer-strip-more" class="text-button">Alle Druckerdetails ↗</button></div>
+ <div class="printer-strip-head"><div><span class="eyebrow">PRODUKTION · LIVE</span><h2>Druckerstatus</h2></div><button type="button" id="printer-strip-more" class="text-button">Alle Druckerdetails ↗</button></div>
  <div id="printer-strip-row" class="printer-strip-grid" aria-live="off"><p class="hint">Druckerstatus wird geladen …</p></div>
 </section>
 <section id="orders-shell" class="orders-shell" aria-label="Aktuelle Etsy-Bestellungen">
- <div class="orders-heading"><div><span class="eyebrow">ETSY · LIVE NACH ABGLEICH</span><h2>Aktuelle Bestellungen <span id="order-count" class="orders-count">0 offen</span></h2></div>
+ <div class="orders-heading"><div><span class="eyebrow">ETSY · DEIN SHOP</span><h2>Aktuelle Bestellungen <span id="order-count" class="orders-count">0 offen</span></h2></div>
  <div class="orders-tools" role="group" aria-label="Bestellungen sortieren"><button type="button" data-order-sort="ship" class="selected" aria-pressed="true">Versand zuerst</button><button type="button" data-order-sort="new" aria-pressed="false">Neueste zuerst</button><button type="button" id="orders-prev" class="orders-arrow" aria-label="Nach links blättern">‹</button><button type="button" id="orders-next" class="orders-arrow" aria-label="Nach rechts blättern">›</button></div></div>
  <div id="orders" class="orders-carousel" tabindex="0" aria-label="Offene Bestellungen seitlich wischen"></div>
 </section>

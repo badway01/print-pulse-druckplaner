@@ -674,6 +674,15 @@ async function filamentAction(data){
 function showWorkspace(value){
  workspace=value;
  for(const b of document.querySelectorAll('[data-workspace]')){const chosen=b.dataset.workspace===value;b.classList.toggle('selected',chosen);b.setAttribute('aria-pressed',String(chosen));}
+ // Keep the selected tab in view without scrolling the entire page vertically.
+ if(window.matchMedia('(max-width:759px)').matches){
+  const tabs=document.querySelector('.workspace-tabs');
+  const active=tabs?.querySelector('[data-workspace].selected');
+  if(tabs&&active){
+   const left=tabs.scrollLeft+active.getBoundingClientRect().left-tabs.getBoundingClientRect().left-3;
+   tabs.scrollTo({left:Math.max(0,left),behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  }
+ }
  const production=value==='production';
  for(const id of ['orders-shell','product-toolbar','product-sort-note','products'])$(id).hidden=!production;
  renderEtsyStockBanner();
