@@ -1,6 +1,7 @@
 """Regression tests: optional shared parts must never double-debit shop inventory."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import time
@@ -9,7 +10,17 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('component_test_app',ROOT/'print_pulse_druckplaner'/'app.py')
 app=importlib.util.module_from_spec(spec)
-spec.loader.exec_module(app)
+# Home Assistant provides /data; CI runs unprivileged and needs an isolated path.
+BOOT_DATA=tempfile.TemporaryDirectory()
+_previous_data=os.environ.get('PP_DATA_DIR')
+os.environ['PP_DATA_DIR']=BOOT_DATA.name
+try:
+    spec.loader.exec_module(app)
+finally:
+    if _previous_data is None:
+        os.environ.pop('PP_DATA_DIR',None)
+    else:
+        os.environ['PP_DATA_DIR']=_previous_data
 
 
 class ComponentTests(unittest.TestCase):
