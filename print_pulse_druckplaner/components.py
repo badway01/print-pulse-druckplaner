@@ -57,7 +57,7 @@ def requirement(part,line):
     per_unit=int(part['units'])
     if part['quantity_property']:
         qty=option(line,part['quantity_property'])
-        match=re.search(r'\\d+',qty)
+        match=re.search(r'\d+',qty)
         if not match:
             return 0,label,'Setgröße aus „'+part['quantity_property']+'“ nicht erkennbar.'
         size=int(match.group())
