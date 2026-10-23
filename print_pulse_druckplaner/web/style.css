@@ -725,3 +725,47 @@ html[data-theme="dark"] .etsy-alert-variants,
 html[data-theme="dark"] .filament-identity small{color:var(--muted)}
 html[data-theme="dark"] .filament-cart-button,
 html[data-theme="dark"] .theme-switch .theme-option[aria-pressed="true"]{background:var(--green);color:white}
+
+/* v0.11.24: Blend the embedded WebP's bright, baked-in photo background into
+   the actual header. Keep the original logo art and the existing raster intact. */
+header .brand{background:transparent}
+header .brand-logo{
+ background:transparent;
+ border-radius:0;
+ filter:brightness(1.06) contrast(1.08);
+ mix-blend-mode:multiply;
+}
+html[data-theme="dark"] header .brand-logo{
+ /* Invert the white photo background to black, then screen it away on dark. */
+ filter:brightness(1.06) contrast(1.08) invert(1) hue-rotate(180deg);
+ mix-blend-mode:screen;
+}
+
+/* One row, swipeable with a finger; desktop and landscape-tablet tabs unchanged. */
+@media (max-width:759px){
+ .workspace-tabs{
+  display:flex;
+  flex-wrap:nowrap;
+  gap:8px;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  margin:3px 0 18px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  overscroll-behavior-x:contain;
+  scroll-snap-type:x proximity;
+  scroll-padding-inline:3px;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+ }
+ .workspace-tabs::-webkit-scrollbar{display:none}
+ .workspace-tabs button{
+  flex:0 0 auto;
+  white-space:nowrap;
+  min-height:44px;
+  scroll-snap-align:start;
+  padding:10px 16px;
+  font-size:13px;
+ }
+}
