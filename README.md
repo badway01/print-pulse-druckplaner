@@ -1,3 +1,7 @@
+## Version 0.11.39 · Fix für fehlenden Vorproduktions-Schalter
+
+Version 0.11.38 enthielt die Vorproduktions-Oberfläche, lieferte jedoch die neue JavaScript-Datei `components-ui.js` wegen einer fehlenden Dateifreigabe mit HTTP 404 aus. Version 0.11.39 korrigiert diese Freigabe. Im Reiter **Produktkatalog & 3MF** ist jetzt pro aktivem Etsy-Produkt der Schalter „Vorproduktion verwenden“ sichtbar, nach dem Einschalten zusätzlich „Bauteile verwalten“. Die technische Versionsnummer im Home-Assistant-App-Info-Bereich muss **0.11.39** anzeigen. Vorhandene Daten bleiben unverändert.
+
 ## Version 0.11.38 · Optionale Bauteil-Vorproduktion bei allen Artikeln
 
 Im Reiter **Produktkatalog & 3MF** besitzt jetzt **jedes aktive Etsy-Produkt** den Schalter **Vorproduktion verwenden**, anfangs ausgeschaltet. Bei Aktivierung erscheint **Bauteile verwalten**. Dort legst du ein gemeinsames Vorratsbauteil (zum Beispiel „Geist Weiß“) und/oder Bauteile **erst nach Bestellung** (zum Beispiel „Buch“ mit Etsy-Eigenschaft **Buchfarbe**) an. Die Zahl pro Verkaufseinheit lässt sich festlegen. Optional wird sie anhand einer ausdrücklich ausgewählten Setgrößen-Eigenschaft multipliziert, beispielsweise „Setgröße: 3er-Set“. Fehlende Etsy-Eigenschaften oder unklare Setgrößen führen zu einer sichtbaren Fehlermeldung, nicht zu einer geratenen Zuordnung.
