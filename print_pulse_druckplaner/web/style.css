@@ -951,3 +951,19 @@ html[data-theme="dark"] .order-print-partial{
  .order-print-check{width:24px;height:24px;flex-basis:24px}
 }
 
+/* v0.11.33: distinguish direct order allocation from sending to printer. */
+.orders-shell .order-card-actions .order-allocate,
+.order-line-actions .order-allocate{
+ background:#276c51;color:#fff;border:1px solid #276c51;
+ font-weight:800;letter-spacing:.1px;
+}
+.orders-shell .order-card-actions .order-allocate:hover,
+.order-line-actions .order-allocate:hover{background:#205a43;color:#fff}
+.order-line-actions .order-allocate{min-height:44px}
+html[data-theme="dark"] .orders-shell .order-card-actions .order-allocate,
+html[data-theme="dark"] .order-line-actions .order-allocate{
+ background:#337454;color:#fff;border-color:#79ad8c;
+}
+html[data-theme="dark"] .orders-shell .order-card-actions .order-allocate:hover,
+html[data-theme="dark"] .order-line-actions .order-allocate:hover{background:#266142}
+
