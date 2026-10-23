@@ -1,3 +1,11 @@
+## Version 0.11.41 · Automatische Druckprioritäten
+
+Direkt **unter deinen Etsy-Bestellungen** findest du auf der Produktionsseite „Als Nächstes drucken“. Zuerst kommen Kundenaufträge (unter Berücksichtigung bereits zugeordneter Bestände und laufender Drucke), danach gemeinsame Vorratsbauteile mit selbst festgelegtem **Auffüllziel**, anschließend sinnvoller Fertigwaren-Nachdruck anhand der letzten 30 Tage. Die drei wichtigsten Positionen bleiben sichtbar; weitere können aufgeklappt werden. **Die Schaltflächen öffnen den passenden Auftrag, Bauteile-Dialog oder die richtige Druckvariante** – sie starten nicht eigenständig Drucker.
+
+Im **Produktkatalog & 3MF → Vorproduktion verwenden → Bauteile verwalten** kannst du für gemeinsame Vorratsbauteile ein **Auffüllziel** hinterlegen. Der Wert 0 deaktiviert automatische Lagerauffüllvorschläge. Bereits angefangene Bauteildrucke werden mit **+ Im Druck**, **✓ Fertig** oder **Abbruch** geführt. Erst „Fertig“ erhöht den freien Vorrat. Dadurch erscheinen laufende Drucke nicht erneut als unerledigte Druckempfehlung.
+
+Die Änderungen sind optional, abwärtskompatibel und erhalten alle bestehenden Etsy-, Lager- und 3MF-Daten.
+
 ## Version 0.11.39 · Fix für fehlenden Vorproduktions-Schalter
 
 Version 0.11.38 enthielt die Vorproduktions-Oberfläche, lieferte jedoch die neue JavaScript-Datei `components-ui.js` wegen einer fehlenden Dateifreigabe mit HTTP 404 aus. Version 0.11.39 korrigiert diese Freigabe. Im Reiter **Produktkatalog & 3MF** ist jetzt pro aktivem Etsy-Produkt der Schalter „Vorproduktion verwenden“ sichtbar, nach dem Einschalten zusätzlich „Bauteile verwalten“. Die technische Versionsnummer im Home-Assistant-App-Info-Bereich muss **0.11.39** anzeigen. Vorhandene Daten bleiben unverändert.
