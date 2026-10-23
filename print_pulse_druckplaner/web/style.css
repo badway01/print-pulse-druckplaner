@@ -1134,3 +1134,48 @@ html[data-theme="dark"] .filament-rows .filament-line-actions{
  border-top-color:var(--line);
 }
 
+
+
+/* v0.11.38 - optional shared part inventory, responsive to HA panel widths. */
+.catalog-rows{container-type:inline-size}
+.catalog-item{flex-wrap:wrap;gap:10px 13px}
+.catalog-item .catalog-identity{flex:1 1 190px;min-width:0}
+.catalog-component-controls{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:8px;flex:1 1 236px;min-width:0}
+.catalog-part-switch{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--ink);cursor:pointer;margin:0}
+.catalog-part-switch input{margin:0;width:19px;height:19px;accent-color:var(--green)}
+.catalog-component-controls button{min-height:40px}
+@container (max-width:670px){
+ .catalog-item .catalog-component-controls{flex-basis:calc(100% - 68px);padding-left:66px}
+ .catalog-item>.secondary:last-child{margin-left:auto}
+}
+@container (max-width:440px){
+ .catalog-item .catalog-component-controls{flex-basis:100%;padding-left:0}
+ .catalog-item .catalog-identity{flex-basis:calc(100% - 72px)}
+}
+.components-editor{width:min(730px,calc(100% - 20px))}
+.components-list{display:flex;flex-direction:column;gap:9px;margin:16px 0}
+.component-management-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface,#fff)}
+.component-management-name{flex:1 1 175px;min-width:0;overflow-wrap:anywhere}
+.component-management-name strong{display:block;font-size:14px}
+.component-management-name small{display:block;font-size:11px;color:var(--muted)}
+.component-management-row label{display:flex;gap:6px;align-items:center;margin:0;font-size:11px}
+.component-management-row input{width:82px;min-height:41px}
+.component-management-row button{min-height:41px}
+.component-demand-note{color:var(--muted);font-size:11px}
+.components-form{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.components-form h3{margin:0 0 10px;font-size:15px}
+.components-form label{display:flex;flex-direction:column;gap:5px;margin:9px 0;font-size:12px}
+.components-form label input,.components-form label select{width:100%;min-height:44px}
+.components-form-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:15px}
+.components-form-actions button{min-height:44px}
+.component-order-list{display:grid;gap:10px;margin-top:10px}
+.component-order-piece{border:1px solid var(--line);border-radius:9px;padding:10px;background:var(--surface,#fff)}
+.component-order-piece strong{display:block;font-size:13px;overflow-wrap:anywhere}
+.component-order-piece>small{display:block;color:var(--muted);font-size:11px;margin:3px 0}
+.component-order-piece .component-error{color:#a64035}
+.component-order-buttons{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.component-order-buttons button,.component-order-list>button{min-height:44px;font-size:12px;padding:8px 11px}
+.order-card-actions .order-print{overflow:hidden;text-overflow:ellipsis}
+.order-card-actions button[data-component-tid]{background:var(--green);color:#fff;border-color:var(--green)}
+html[data-theme="dark"] .component-management-row,
+html[data-theme="dark"] .component-order-piece{background:var(--surface-soft)}
