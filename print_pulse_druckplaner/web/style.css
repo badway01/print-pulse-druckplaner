@@ -785,3 +785,31 @@ html[data-theme="dark"] header .brand-logo{
  filter:brightness(1.16) invert(1) hue-rotate(180deg) saturate(.85);
  mix-blend-mode:normal;
 }
+
+/* v0.11.27: actual inventory overlay on product photos, opposite Etsy qty.
+   Always based on saved on_hand (never replenishment demand or Etsy quantity). */
+.product-photo .photo-stock-badge{
+ position:absolute;top:10px;right:10px;z-index:1;
+ display:flex;flex-direction:column;gap:3px;
+ width:min(55%,205px);max-width:calc(100% - 120px);
+ min-width:0;padding:8px 9px;
+ border:1px solid #bbcdc1;border-radius:9px;
+ background:#f8fcf8f2;color:#37594a;
+ box-shadow:0 2px 10px #283c2a20;
+ pointer-events:none;
+ font-size:11px;line-height:1.24;
+}
+.product-photo .photo-stock-badge>b{display:block;font-size:11px;font-weight:750;letter-spacing:.1px;margin-bottom:2px}
+.photo-stock-line{display:flex;align-items:baseline;gap:4px;min-width:0}
+.photo-stock-line>strong{flex:none;color:#294e3e;white-space:nowrap;font-weight:750}
+.photo-stock-line>span{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.photo-stock-badge>small{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#5c7667;margin-top:2px}
+html[data-theme="dark"] .product-photo .photo-stock-badge{
+ background:#243e34f2;color:#e0f0e5;border-color:#789a84;box-shadow:0 2px 10px #0006;
+}
+html[data-theme="dark"] .photo-stock-line>strong{color:#e9f7ed}
+html[data-theme="dark"] .photo-stock-badge>small{color:#bdd3c4}
+@media(max-width:420px){
+ .product-photo .photo-stock-badge{right:9px;top:9px;padding:7px 8px;width:min(56%,190px);font-size:10px}
+ .photo-stock-line{gap:3px}
+}

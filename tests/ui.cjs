@@ -52,6 +52,24 @@ assert(logoPixels.corner<40&&logoPixels.corner2<40,'logo background must be tran
 assert(logoPixels.opaque>1000,'logo artwork must stay opaque');
 assert(logoPixels.transparent>12000,'most of the photo background must disappear');
 
+// Real image overlay: Etsy quantity stays on left; actual local stock is on right.
+const imageBadges=page.locator('[data-product="102"] .product-photo');
+assert.equal(await imageBadges.locator('.etsy-total').count(),1);
+assert.equal(await imageBadges.locator('.photo-stock-badge').count(),1);
+assert.equal(await imageBadges.locator('.photo-stock-line').count(),3);
+assert((await imageBadges.locator('.photo-stock-badge').textContent()).includes('+ 781 weitere Varianten'));
+const badgeExamples=await page.evaluate(()=>{
+ const mk=(label,on_hand,need=99,etsy_qty=0)=>({label,on_hand,need,etsy_qty});
+ const p={items:[mk('Farbe: Weiß',2),mk('Farbe: Schwarz',3),mk('Farbe: Beige',null),
+                  mk('Farbe: Kupfer',0)]};
+ const raw=photoStockBadge(p);
+ const template=document.createElement('template');template.innerHTML=raw;
+ return template.content.textContent;
+});
+assert(badgeExamples.includes('3 ×Schwarz'),'must show counted inventory, not print need');
+assert(badgeExamples.includes('2 ×Weiß'));
+assert(badgeExamples.includes('Noch zählenBeige'));
+assert(badgeExamples.includes('+ 1 weitere Variante'));
 await page.locator('.printer-mini').first().waitFor();
 assert.equal((await page.locator('#printer-strip .eyebrow').textContent()).trim(),'PRODUKTION · LIVE');
 assert.equal((await page.locator('#orders-shell .eyebrow').textContent()).trim(),'ETSY · DEIN SHOP');
@@ -83,9 +101,9 @@ assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
 assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el).mixBlendMode),'normal');
 await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
-await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.26'));
+await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.27'));
 assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.26');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.27');
 await page.locator('[data-close="settings"]').click();
 
 
@@ -333,6 +351,16 @@ await page.waitForFunction(()=>document.querySelector('.workspace-tabs').scrollL
 assert.equal(await page.locator('[data-workspace="printers"]').getAttribute('aria-pressed'),'true');
 await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('[data-workspace="production"]').getAttribute('aria-pressed'),'true');
+// Ensure the two image badges do not collide on an iPhone-sized display.
+const badgeGeometry=await page.locator('[data-product="102"] .product-photo').evaluate(photo=>{
+ const a=photo.querySelector('.etsy-total').getBoundingClientRect();
+ const b=photo.querySelector('.photo-stock-badge').getBoundingClientRect();
+ const image=photo.getBoundingClientRect();
+ return {noOverlap:a.right<=b.left+1,within:b.right<=image.right+1,rows:photo.querySelectorAll('.photo-stock-line').length};
+});
+assert(badgeGeometry.noOverlap,'Etsy badge must not overlap actual stock');
+assert(badgeGeometry.within,'stock badge must remain inside product photo');
+assert(badgeGeometry.rows>=1&&badgeGeometry.rows<=3,'stock badge should show 1–3 rows');
 await page.screenshot({path:'/tmp/lager-mobile.png',fullPage:true});
 assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));// Exercise real multi-variant stock writes via the new card buttons.
 await page.unroute('**/api/status');
@@ -341,6 +369,8 @@ const realCard=page.locator('[data-product="102"]');
 assert.equal(await realCard.locator('.stock-variant').count(),2);
 assert((await realCard.locator('.stock-overview').textContent()).includes('0 ×Beige'));
 assert((await realCard.locator('.stock-overview').textContent()).includes('Schwarz · noch nicht gezählt'));
+assert((await realCard.locator('.photo-stock-badge').textContent()).includes('Noch zählenSchwarz'));
+assert((await realCard.locator('.photo-stock-badge').textContent()).includes('0 ×Beige'));
 await realCard.locator('.stock-variant[data-show-variant="102-black"]').click();
 assert.equal(await realCard.locator('.variant').getAttribute('data-variant'),'102-black');
 await realCard.locator('[data-expand]').click();
@@ -361,12 +391,16 @@ assert.equal(await page.locator('#quantity-confirm').isEnabled(),true);
  assert.equal(await page.locator('#quantity-initial-stock').evaluate(el=>el.required),true);
 await page.locator('[data-close="quantity"]').click();
 await page.request.post('http://127.0.0.1:8099/api/stock',{data:{id:black.id,action:'set',quantity:2,revision:black.revision}});
-await page.reload();await realCard.locator('[data-print-action="finish"]').click();
+await page.reload();
+assert((await realCard.locator('.photo-stock-badge').textContent()).includes('2 ×Schwarz'));
+await realCard.locator('[data-print-action="finish"]').click();
 await page.locator('#quantity-value').fill('3');await page.locator('#quantity-confirm').click();
 await page.waitForFunction(()=>document.querySelector('[data-product="102"] .running-print').textContent.includes('1 ×'));
 realState=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
 black=realState.products.find(p=>p.id==='102').items.find(i=>i.id==='102-black');
 assert.equal(black.on_hand,5);assert.equal(black.in_print,1);
+assert((await realCard.locator('.photo-stock-badge').textContent()).includes('5 ×Schwarz'),
+ 'badge must update immediately when confirmed print increases actual stock');
 await realCard.locator('[data-print-action="cancel"]').click();await page.locator('#quantity-confirm').click();
 await realCard.locator('.running-print').waitFor({state:'detached'});
 assert.deepEqual(errors,[]);console.log('UI PASS: badges stacked; +/undo; printing/partial finish/cancel; variants; search; count; persistence; settings; mobile width; no JS errors.');await browser.close();})().catch(e=>{console.error(e);process.exit(1)});

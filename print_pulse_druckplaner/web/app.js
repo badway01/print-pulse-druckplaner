@@ -195,9 +195,35 @@ function stockOverview(p){
  const unknown=p.items.filter(i=>i.on_hand===null).length;
  return `<section class="stock-overview" aria-label="Lagerbestand nach Variante"><b>Im Lager</b><div class="stock-variants">${visible.map(i=>`<button class="stock-variant" data-show-variant="${esc(i.id)}" data-listing="${esc(p.id)}"><strong>${i.on_hand===null?'?':i.on_hand+' ×'}</strong><span>${esc(shortVariant(i.label))}${i.on_hand===null?' · noch nicht gezählt':''}</span></button>`).join('')}</div>${p.items.length>8?`<small>${[empty?empty+' Varianten ohne Bestand':'',unknown?unknown+' Varianten noch nicht gezählt':''].filter(Boolean).join(' · ')}</small>`:''}</section>`;
 }
+/* Small read-only stock summary over the product image: use only physical
+   on_hand from this item's variants. Do not confuse it with Etsy quantity,
+   print demand, reserved pieces or running prints. */
+function photoStockBadge(p){
+ const items=Array.isArray(p.items)?p.items:[];
+ if(!items.length)return '<div class="photo-stock-badge" aria-label="Noch keine Varianten"><b>Im Lager</b><span class="photo-stock-line">Noch zählen</span></div>';
+ // For short lists, keep the familiar variant order. On large listings surface
+ // stocked variants first so an uncounted/empty combination list cannot bury them.
+ const ranked=items.length<=3?items:[...items].sort((a,b)=>{
+  const group=i=>Number.isInteger(i.on_hand)&&i.on_hand>0?0:i.on_hand===null?1:2;
+  return group(a)-group(b)||
+   (group(a)===0?b.on_hand-a.on_hand:0)||
+   String(a.label).localeCompare(String(b.label),'de');
+ });
+ const shown=ranked.slice(0,3);
+ const rest=ranked.length-shown.length;
+ const lines=shown.map(i=>{
+  const name=shortVariant(String(i.label||'Variante'));
+  const count=i.on_hand===null?'Noch zählen':Number.isInteger(i.on_hand)?i.on_hand+' ×':'Noch zählen';
+  return '<span class="photo-stock-line" title="'+esc(i.label)+'"><strong>'+esc(count)+
+   '</strong><span>'+esc(name)+'</span></span>';
+ }).join('');
+ return '<div class="photo-stock-badge" aria-label="Tatsächlicher Lagerbestand nach Variante">'+
+   '<b>Im Lager</b>'+lines+
+   (rest?'<small>+ '+rest+' weitere Variante'+(rest===1?'':'n')+'</small>':'')+'</div>';
+}
 function card(p){
  const image=thumbnail(p.image),open=expanded.has(p.id)||p.items.length===1;
- return `<article class="product ${p.level}" data-product="${esc(p.id)}"><div class="product-photo">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:'<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}<span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span></div><div class="product-body"><h2 title="${esc(p.title)}">${esc(p.title)}</h2><div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span><span><b>${p.sold30}</b> / 30 Tage</span>${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}</div>
+ return `<article class="product ${p.level}" data-product="${esc(p.id)}"><div class="product-photo">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:'<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}<span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span>${photoStockBadge(p)}</div><div class="product-body"><h2 title="${esc(p.title)}">${esc(p.title)}</h2><div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span><span><b>${p.sold30}</b> / 30 Tage</span>${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}</div>
  ${notices([p.inventory_error,p.unmatched?`${p.unmatched} bestellte Stück noch keiner Variante zugeordnet. Bedarf zusätzlich in Etsy prüfen.`:'',p.review?`${p.review} Stück mit Erstattung oder unklarem Zahlungsstatus: in Etsy prüfen.`:''],'product-'+p.id)}
  ${p.items.length>1?printOverview(p):''}
  ${toolSummary(p)}

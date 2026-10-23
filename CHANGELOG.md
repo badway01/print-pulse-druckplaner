@@ -1,3 +1,12 @@
+# 0.11.27 · Lagerbestand direkt auf Produktfotos
+
+- Oben links bleibt die Etsy-Menge unverändert sichtbar; oben rechts erscheint ein dezentes Feld **Im Lager** mit den tatsächlich gezählten Beständen je Variante.
+- Der Bildhinweis zeigt bis zu drei Varianten; bei zahlreichen Varianten erscheinen bevorzugt vorhandene Bestände und ein kompakter „+ weitere Varianten“-Hinweis.
+- Noch nicht gezählte Varianten erhalten **Noch zählen** statt einer irreführenden Null. Erfasste Nullbestände werden korrekt als **0 ×** angezeigt.
+- Grundlage ist ausschließlich der lokale, tatsächlich erfasste Lagerbestand (`on_hand`), nicht der Etsy-Katalogbestand, laufende Drucke oder die Nachdruckmenge.
+- Aktualisierung unmittelbar nach Lageränderungen oder dem Fertigmelden von Drucken. Die bisherigen ausführlichen Varianten- und Nachdruckbereiche bleiben erhalten.
+- Mobil- und Dark-Mode-Darstellung sowie Browser-Tests für die überlagerungsfreie Positionierung und Live-Aktualisierung.
+
 # 0.11.26 · Etsy-Bestandswarnung nach Prozent statt fixer Stückzahl
 
 - Warnbanner bewertet den *Etsy*-Katalogbestand ab einer einstellbaren Restquote (Standard 25 %), aufgerundet auf die nächste ganze Stückzahl und inklusive der errechneten Grenze.
