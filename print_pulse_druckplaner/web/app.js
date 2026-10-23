@@ -375,7 +375,7 @@ function renderEtsyStockBanner(){
   low+' Artikel mit niedrigem Etsy-Bestand';
  $('etsy-alert-subtitle').textContent=empty?
   (low?low+' weitere Artikel knapp · ':'')+'Etsy-Verfügbarkeit jetzt prüfen':
-  'Bei diesen Artikeln liegt die verfügbare Etsy-Menge unter '+model.etsy_alert_threshold+' Stück';
+  'Bei diesen Artikeln liegt die Etsy-Menge bei höchstens '+(model.etsy_alert_percent??25)+' % der gemerkten Etsy-Menge (aufgerundet)';
  $('etsy-alert-updated').textContent=model.last_catalog_sync?
   'Stand: '+new Date(model.last_catalog_sync*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Berlin'})+' · Katalogabgleich täglich':
   'Etsy-Katalogdaten noch nicht geladen';
@@ -387,12 +387,15 @@ function renderEtsyStockBanner(){
   const empty=item.severity==='empty',amount=item.etsy_qty;
   const qty=Number.isInteger(amount)?amount+' Stk. bei Etsy':item.state==='sold_out'?'Bei Etsy ausverkauft':'Etsy-Gesamtmenge unbekannt';
   const variants=item.variants||[];
+  const reference=Number.isInteger(item.etsy_reference_qty)&&Number.isInteger(item.warning_at)?
+   ' · Referenz '+item.etsy_reference_qty+' Stk. · Warnung bis '+item.warning_at+' Stk.':'';
   return '<article class="etsy-alert-item '+(empty?'empty':'low')+'">'+
    '<div class="etsy-alert-item-text"><b title="'+esc(item.title)+'">'+esc(item.title)+'</b>'+
-   '<span class="etsy-alert-qty">'+esc(qty)+'</span>'+
+   '<span class="etsy-alert-qty">'+esc(qty)+(variants.length?'':esc(reference))+'</span>'+
    (item.state==='sold_out'?'<small>Dieses Listing ist bei Etsy als ausverkauft markiert.</small>':'')+
    (variants.length?'<div class="etsy-alert-variants">'+variants.map(v=>
-    '<span><strong>'+esc(v.etsy_qty)+' ×</strong> '+esc(v.label)+'</span>').join('')+
+    '<span><strong>'+esc(v.etsy_qty)+' Stk.</strong> '+esc(v.label)+
+     ' <small>(von '+esc(v.etsy_reference_qty)+' · Warnung bis '+esc(v.warning_at)+')</small></span>').join('')+
     (item.more_variants?'<small>+ '+item.more_variants+' weitere betroffene Variante'+(item.more_variants===1?'':'n')+'</small>':'')+
     '</div>':'')+
    '</div><button type="button" class="secondary small" data-etsy-alert-to="'+esc(item.listing_id)+'" data-etsy-alert-variant="'+esc(variants[0]?.id||'')+'">Zur Produktkarte ↗</button>'+
@@ -791,8 +794,8 @@ for(const b of document.querySelectorAll('[data-filter]'))b.addEventListener('cl
 for(const b of document.querySelectorAll('[data-close]'))b.addEventListener('click',() => $(b.dataset.close).close());
 $('undo').addEventListener('click',()=>mutate('undo',{id:model.undo}));
 $('sync').addEventListener('click',async()=>{try{await api('sync',{});await load();}catch(err){flash(err.message,true);await load();}});
-$('settings-open').addEventListener('click',()=>{if(!model)return;$('days').value=model.days;$('etsy-alert-threshold').value=model.etsy_alert_threshold??3;$('settings').showModal();});
-$('settings-form').addEventListener('submit',async event=>{event.preventDefault();try{setModel(await api('settings',{days:Number($('days').value),etsy_alert_threshold:Number($('etsy-alert-threshold').value)}),true);$('settings').close();flash('Vorratsziel gespeichert.');}catch(err){flash(err.message,true);}});
+$('settings-open').addEventListener('click',()=>{if(!model)return;$('days').value=model.days;$('etsy-alert-percent').value=model.etsy_alert_percent??25;$('settings').showModal();});
+$('settings-form').addEventListener('submit',async event=>{event.preventDefault();try{setModel(await api('settings',{days:Number($('days').value),etsy_alert_percent:Number($('etsy-alert-percent').value)}),true);$('settings').close();flash('Einstellungen gespeichert.');}catch(err){flash(err.message,true);}});
 $('config-form').addEventListener('submit',async event=>{event.preventDefault();try{await api('config',Object.fromEntries(new FormData(event.target)));event.target.reset();flash('Zugangsdaten gespeichert. Jetzt Etsy-Freigabe öffnen.');}catch(err){flash(err.message,true);}});
 $('authorize').addEventListener('click',async()=>{try{const {url}=await api('oauth/start',{});const link=$('oauth-link');link.href=url;link.hidden=false;link.focus();}catch(err){flash(err.message,true);}});
 $('finish-form').addEventListener('submit',async event=>{event.preventDefault();const button=event.target.querySelector('button');button.disabled=true;try{await api('oauth/finish',Object.fromEntries(new FormData(event.target)));event.target.reset();$('settings').close();await load();flash('Etsy verbunden. Produkte werden geladen.');}catch(err){flash(err.message,true);}finally{button.disabled=false;}});
