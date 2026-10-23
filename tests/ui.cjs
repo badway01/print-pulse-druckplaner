@@ -43,6 +43,20 @@ await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().
 
 await page.locator('.printer-mini').first().waitFor();
 assert.equal(await page.locator('.printer-mini').count(),4);
+
+ // Ungezählte Variante: Bestätigen ist erreichbar, fehlender Anfangsbestand wird im Dialog abgefragt.
+ await page.evaluate(()=>{const found=findItem('combination-2');found.i.in_print=2;quantityDialog(found.i.id,'finish');});
+ assert.equal(await page.locator('#quantity-initial-stock').isVisible(),true);
+ assert.equal(await page.locator('#quantity-confirm').isEnabled(),true);
+ await page.locator('#quantity-value').fill('2');
+ await page.locator('#quantity-confirm').click();
+ assert.equal(await page.locator('#quantity').evaluate(el=>el.open),true);
+ assert.equal(await page.locator('#quantity-initial-stock').evaluate(el=>el.validity.valueMissing),true);
+ const closeSize=await page.locator('[data-close="quantity"]').boundingBox();
+ assert(closeSize.width>=44&&closeSize.height>=44);
+ await page.locator('[data-close="quantity"]').click();
+ assert.equal(await page.locator('#quantity').evaluate(el=>el.open),false);
+
 assert.equal(await page.locator('#etsy-stock-banner').isVisible(),true);
 assert((await page.locator('#etsy-alert-title').textContent()).includes('1 Artikel ausverkauft'));
 assert.equal(await page.locator('#etsy-alert-list').isVisible(),false);
