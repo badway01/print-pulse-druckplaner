@@ -142,35 +142,47 @@ function componentLineHTML(line){
   return '<p class="hint">Vorproduktion ist eingeschaltet. Bitte zuerst im Produktkatalog Bauteile anlegen.</p>';
  }
  const rows=line.components.map(part=>{
-  const notReady=part.kind==='stock'
-   ?Math.max(0,part.required-part.booked)
-   :Math.max(0,part.required-part.printing-part.finished);
-  const available=part.kind==='stock'?Math.min(notReady,part.stock):notReady;
-  const readyText=part.kind==='stock'
-   ?part.available+' reserviert · '+part.stock+' frei im Bauteillager'
-   :part.available+' fertig · '+part.printing+' im Druck';
+  const stock=part.kind==='stock';
+  const required=Math.max(0,Number(part.required)||0);
+  const missing=stock?Math.max(0,required-(Number(part.booked)||0)):
+   Math.max(0,required-(Number(part.printing)||0)-(Number(part.finished)||0));
+  const available=stock?Math.min(missing,Math.max(0,Number(part.stock)||0)):missing;
+  const status=part.error?'Prüfen':
+   stock?(missing===0?'Zugeordnet':available>0?'Vorrat vorhanden':'Vorrat fehlt'):
+   missing>0?'Drucken':(Number(part.printing)||0)>0?'Im Druck':'Fertig';
+  const statusClass=part.error||stock&&missing>available?'needs-attention':
+   !stock&&missing>0?'to-print':
+   !stock&&(Number(part.printing)||0)>0?'in-print':'is-ready';
+  const readyText=stock
+   ?(Number(part.booked)||0)+' reserviert · '+(Number(part.stock)||0)+' frei im Bauteillager'
+   :(Number(part.finished)||0)+' fertig · '+(Number(part.printing)||0)+' im Druck';
   let buttons='';
   if(!part.error){
-   if(part.kind==='stock'){
+   if(stock){
     if(available>0)buttons+=componentButton(line,part,'book',available,available+' × Aus Bauteillager');
     if(part.booked>part.consumed)buttons+=componentButton(line,part,'release',part.booked-part.consumed,'Zurück ins Lager');
    }else{
-    if(notReady>0)buttons+=componentButton(line,part,'start',notReady,notReady+' × Drucken');
+    if(missing>0)buttons+=componentButton(line,part,'start',missing,missing+' × Drucken');
     if(part.printing>0){
      buttons+=componentButton(line,part,'finish',part.printing,'✓ '+part.printing+' × Fertig');
      buttons+=componentButton(line,part,'cancel',part.printing,'Fehldruck / Abbruch');
     }
    }
   }
-  return '<div class="component-order-piece"><strong>'+esc(part.name+(part.label?' · '+part.label:''))+'</strong>'+
-   '<small>'+part.required+' benötigt · '+esc(readyText)+'</small>'+
+  return '<div class="component-order-piece">'+
+   '<div class="component-piece-heading"><div class="component-piece-title">'+
+   '<small>'+ (stock?'VORPRODUZIERT':'NACH BESTELLUNG DRUCKEN') +'</small>'+
+   '<strong>'+esc(part.name)+'</strong>'+
+   (part.label?'<span class="component-piece-color">'+esc(part.label)+'</span>':'')+
+   '</div><span class="component-piece-status '+statusClass+'">'+esc(status)+'</span></div>'+
+   '<div class="component-piece-numbers"><b>'+required+' benötigt</b><span>'+esc(readyText)+'</span></div>'+
    (part.error?'<small class="component-error">'+esc(part.error)+'</small>':'')+
    '<div class="component-order-buttons">'+buttons+'</div></div>';
  }).join('');
  const ready=componentReadyUnits(line);
- return '<div class="component-order-list"><small>Bauteile für diese Bestellung · '+(line.assembled||0)+' montiert</small>'+
+ return '<div class="component-order-list"><span class="component-order-kicker">BAUTEILE · '+(line.assembled||0)+' MONTIERT</span>'+
   rows+(ready?componentButton(line,null,'assemble',ready,'✓ '+ready+' × Produkt montiert – fertig'):
-   '<small>Montage nach Bereitstellung aller Bauteile abschließen.</small>')+'</div>';
+   '<small class="component-order-instruction">Montage nach Bereitstellung aller Bauteile abschließen.</small>')+'</div>';
 }
 orderLineActions=function(line){
  if(line.components_enabled&&line.item_id&&!componentLegacyJob(line))return componentLineHTML(line);
