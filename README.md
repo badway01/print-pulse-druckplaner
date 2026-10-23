@@ -1,3 +1,7 @@
+## Version 0.11.44 · Bestellungen auf einen Blick
+
+Unter **Aktuelle Bestellungen → Details** stehen ab sofort die eigentliche Produktionsaufgabe, die bestellte Farbe beziehungsweise Variante und die nächsten Schritte deutlich im Vordergrund. Bei Vorproduktion wird zwischen **Aus Bauteillager**, **Drucken**, **Im Druck**, **Vorrat fehlt** und **Montieren** unterschieden. Nur tatsächlich angelegte Bauteile werden als Druck- oder Lageraufgabe dargestellt; eine Etsy-Auswahl allein erzeugt keine erfundene Stückliste. Die Bestandsbuchungen bleiben wie bisher. Die Oberfläche passt sich auch Mac-Split-View und dem 11-Zoll-Tablet an.
+
 ## Version 0.11.43 · Schnelle Lageränderungen
 
 Auf den Produktkarten kannst du Bestände per Plus/Minus oder Mengeneingabe ändern, ohne dass der komplette Druckplaner ausgegraut wird. Während der Buchung steht dezent „Änderung wird gespeichert …“; doppelte Buchungen bleiben verhindert. Anschließend wird die Gesamtansicht nur einmal aktualisiert. Unveränderte Karten, Fotos und Buttons werden beim Hintergrundabgleich nicht erneut aufgebaut.
