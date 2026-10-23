@@ -1270,3 +1270,9 @@ html[data-theme="dark"] .component-photo-mode{
  .component-card-qty{min-width:75px}
  .component-card-qty strong{font-size:21px}
 }
+
+.component-card-kicker{
+ display:block;color:var(--green);font-size:10px;letter-spacing:1.2px;
+ font-weight:800;margin:1px 0 8px;
+}
+html[data-theme="dark"] .component-card-kicker{color:#bbd9c4}
