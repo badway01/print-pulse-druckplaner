@@ -405,6 +405,64 @@ function orderLineActions(line){
   ${line.printing>0?`<button type="button" class="text-button" data-order-line="${esc(line.transaction_id)}" data-job-action="cancel">Abbruch / Teilmenge</button>`:''}
  </div>`;
 }
+
+/* A workshop-first order view: variant values and next physical steps are
+   visible before the administrative details and booking instructions. */
+function orderVariantLabels(variant){
+ const text=String(variant||'').trim();
+ if(!text)return '';
+ return '<div class="order-work-variants" aria-label="Bestellte Ausführung">'+
+  text.split(/\s+[·|]\s+/).filter(Boolean).map(entry=>{
+   const colon=entry.indexOf(':');
+   if(colon<0)return '<span class="order-work-variant"><b>'+esc(entry.trim())+'</b></span>';
+   return '<span class="order-work-variant"><small>'+esc(entry.slice(0,colon).trim())+
+    '</small><b>'+esc(entry.slice(colon+1).trim())+'</b></span>';
+  }).join('')+'</div>';
+}
+function orderProductionSummary(line){
+ const remaining=Math.max(0,Number(line.remaining)||0);
+ if(!line.item_id)return '<strong class="order-work-step needs-attention">Variante nicht eindeutig zugeordnet – bitte prüfen</strong>';
+ if(!remaining)return '<strong class="order-work-step is-ready">Für diesen Auftrag fertig</strong>';
+ const components=Array.isArray(line.components)?line.components:[];
+ const legacy=typeof componentLegacyJob==='function'&&componentLegacyJob(line);
+ const steps=[];
+ const add=(kind,message)=>steps.push('<strong class="order-work-step '+kind+'">'+esc(message)+'</strong>');
+ if(line.components_enabled&&!legacy){
+  if(!components.length)add('needs-attention','Bauteile noch nicht eingerichtet');
+  for(const part of components){
+   const required=Math.max(0,Number(part.required)||0);
+   const name=String(part.name||'Bauteil')+(part.label?' · '+part.label:'');
+   if(part.error){add('needs-attention',name+': Zuordnung prüfen');continue;}
+   if(part.kind==='stock'){
+    const missing=Math.max(0,required-(Number(part.booked)||0));
+    const ready=Math.min(missing,Math.max(0,Number(part.stock)||0));
+    if(ready)add('from-stock',ready+' × '+name+' aus Bauteillager');
+    if(missing>ready)add('needs-attention',(missing-ready)+' × '+name+' im Vorrat fehlen');
+   }else{
+    const inPrint=Math.max(0,Number(part.printing)||0);
+    const toPrint=Math.max(0,required-inPrint-(Number(part.finished)||0));
+    if(toPrint)add('to-print',toPrint+' × '+name+' DRUCKEN');
+    if(inPrint)add('in-print',inPrint+' × '+name+' im Druck');
+   }
+  }
+  if(!steps.length){
+   const ready=typeof componentReadyUnits==='function'?componentReadyUnits(line):0;
+   add(ready?'is-ready':'in-print',ready?ready+' × Produkt montieren':'Auf Bereitstellung der Bauteile warten');
+  }
+ }else{
+  const stock=Math.min(remaining,stockForOrder(line));
+  const printing=Math.max(0,Number(line.printing)||0);
+  if(stock)add('from-stock',stock+' × fertigen Artikel aus Lager');
+  if(remaining-stock)add('to-print',(remaining-stock)+' × Artikel DRUCKEN');
+  if(printing)add('in-print',printing+' × im Druck');
+ }
+ return '<div class="order-work-steps" aria-label="Nächste Produktionsschritte">'+steps.join('')+'</div>';
+}
+function orderShortProductTitle(value){
+ const main=String(value||'Artikel').split(/\s[–—|]\s/)[0].trim();
+ return main.length>75?main.slice(0,72)+'…':main;
+}
+
 function showOrder(id){
  const o=(model.orders||[]).find(order=>order.id===id);
  if(!o)return;
@@ -412,12 +470,28 @@ function showOrder(id){
  const printProgress=orderPrintProgress(o);
  $('order-details').dataset.orderId=o.id;
  $('order-details-title').textContent='Etsy-Bestellung #'+o.id;
- updateHTML($('order-details-content'),`<p><b>${esc(o.customer)}</b> · ${esc(shortDate(o.created))}</p>
- <div class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</div>
+ updateHTML($('order-details-content'),`<div class="order-work-meta">
+  <div><strong>${esc(o.customer)}</strong><small>Bestellt am ${esc(shortDate(o.created))}</small></div>
+  <div class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</div>
+ </div>
  ${orderPrintMarker(printProgress)}
- <div class="order-modal-lines">${o.items.map(i=>`<div class="order-line"><b>${i.quantity} × ${esc(i.title)}</b>${i.variant?`<small>${esc(i.variant)}</small>`:''}
- ${orderLineActions(i)}</div>`).join('')}</div>
- <p class="hint">„Aus Lager“ bucht sofort auf diesen Auftrag; fertige Auftragsdrucke bleiben für ihren Auftrag reserviert. „Drucken“ erfasst nur den Druckstart. Beim Etsy-Versand erfolgt keine doppelte Lagerabbuchung.</p>`);
+ <section class="order-worklist" aria-label="Produktionsübersicht">
+  <div class="order-worklist-heading"><span>AUF EINEN BLICK</span><h3>Für diesen Auftrag</h3></div>
+  ${(o.items||[]).map(line=>{
+   const image=thumbnail(line.image||'');
+   return `<article class="order-work-item">
+    <div class="order-work-product">
+     ${image?`<img src="${esc(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}
+     <div><small>BESTELLT · ${Math.max(0,Number(line.quantity)||0)} STÜCK</small>
+      <h4 title="${esc(line.title)}">${esc(orderShortProductTitle(line.title))}</h4></div>
+    </div>
+    ${orderVariantLabels(line.variant)}
+    ${orderProductionSummary(line)}
+    <div class="order-work-booking">${orderLineActions(line)}</div>
+   </article>`;
+  }).join('')}
+ </section>
+ <details class="order-work-help"><summary>Hinweise zur Lagerbuchung</summary><p class="hint">„Aus Lager“ bucht sofort auf diesen Auftrag; fertige Auftragsdrucke bleiben für ihren Auftrag reserviert. „Drucken“ erfasst nur den Druckstart. Beim Etsy-Versand erfolgt keine doppelte Lagerabbuchung.</p></details>`);
  if(!$('order-details').open)$('order-details').showModal();
 }
 let lastShippingDay=berlinDay(Date.now());
