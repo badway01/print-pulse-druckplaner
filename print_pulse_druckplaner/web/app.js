@@ -59,7 +59,7 @@ async function loadVersionHistory(){
  if(historyLoaded)return;
  try{
   const result=await api('versions');
-  $('app-version').textContent='v'+String(result.version||'0.11.23');
+  $('app-version').textContent='v'+String(result.version||'0.11.30');
   const entries=Array.isArray(result.releases)?result.releases:[];
   if(!entries.length){$('release-history-content').textContent='Noch keine Versionshistorie vorhanden.';historyLoaded=true;return;}
   $('release-history-content').innerHTML=entries.map(entry=>
@@ -172,11 +172,11 @@ function setModel(data,resort=false){model=data;if(resort||!order.length)order=d
 function scheduleSort(){clearTimeout(sortTimer);sortTimer=setTimeout(()=>{if(busy||$('quantity').open||$('settings').open){scheduleSort();return;}order=model.products.map(p=>p.id);render();},5000);}
 function variant(p,i){
  const unknown=i.on_hand===null;
- let recommendation=unknown?'Einmal zählen – danach übernimmt deine Lagerübersicht.':i.need?`${i.need} Stück nachdrucken${i.reserved?' · '+i.reserved+' für Bestellungen benötigt':''}`:i.in_print?'Laufende Drucke decken den Bedarf.':p.made_to_order?'Fertigung nach Bestellung.':'Vorrat ausreichend.';
+ let recommendation=unknown?(p.made_to_order?'Fertigung nach Bestellung. Vorhandene fertige Stücke kannst du bei Bedarf eintragen.':'Einmal zählen – danach übernimmt deine Lagerübersicht.'):i.need?`${i.need} Stück nachdrucken${i.reserved?' · '+i.reserved+' für Bestellungen benötigt':''}`:i.in_print?'Laufende Drucke decken den Bedarf.':p.made_to_order?'Fertigung nach Bestellung.':'Vorrat ausreichend.';
  const coverage=i.coverage===null?'':` · frei für ca. ${i.coverage.toLocaleString('de-DE')} Tage`;
  return `<div class="variant" data-variant="${esc(i.id)}"><div class="variant-heading"><b>${esc(i.label)}</b>${!i.enabled?'<small>Variante inaktiv</small>':''}<span>Etsy: ${i.etsy_qty??'–'}</span></div>
- <div class="stock-label">Tatsächlicher Bestand</div><div class="stock-row"><button data-action="adjust" data-id="${esc(i.id)}" data-delta="-1" class="step" ${unknown||i.on_hand===0?'disabled':''} aria-label="Ein Stück weniger, ${esc(i.label)}">−</button><button data-action="set" data-id="${esc(i.id)}" class="stock-number" aria-label="Bestand direkt eingeben, ${esc(i.label)}">${unknown?'Zählen':i.on_hand}</button><button data-action="adjust" data-id="${esc(i.id)}" data-delta="1" class="step" ${unknown?'disabled':''} aria-label="Ein Stück mehr, ${esc(i.label)}">+</button></div>
- <p class="availability">${unknown?'Noch nicht erfasst':`${i.reserved} bestellt · ${i.free} frei${coverage}`}</p>
+ <div class="stock-label">Tatsächlicher Bestand</div><div class="stock-row"><button data-action="adjust" data-id="${esc(i.id)}" data-delta="-1" class="step" ${unknown||i.on_hand===0?'disabled':''} aria-label="Ein Stück weniger, ${esc(i.label)}">−</button><button data-action="set" data-id="${esc(i.id)}" class="stock-number" aria-label="Bestand direkt eingeben, ${esc(i.label)}">${unknown?(p.made_to_order?'Eintragen':'Zählen'):i.on_hand}</button><button data-action="adjust" data-id="${esc(i.id)}" data-delta="1" class="step" ${unknown?'disabled':''} aria-label="Ein Stück mehr, ${esc(i.label)}">+</button></div>
+ <p class="availability">${unknown?(p.made_to_order?'Bestand optional – noch nicht erfasst':'Noch nicht erfasst'):`${i.reserved} bestellt · ${i.free} frei${coverage}`}</p>
  <div class="recommend ${i.level}"><span class="dot"></span>${esc(recommendation)}</div>
  <div class="print-row"><button class="secondary small" data-action="printing" data-id="${esc(i.id)}" ${unknown?'disabled':''}>+ Im Druck ${i.in_print?`(${i.in_print})`:''}</button>${i.in_print>(i.order_printing||0)?`<button class="primary print-finish-large" data-action="finish" data-id="${esc(i.id)}">✓ Fertig</button><button class="text-button small" data-action="cancel" data-id="${esc(i.id)}">Abbruch</button>`:''}<button class="text-button small minimum" data-action="minimum" data-id="${esc(i.id)}">Minimum ${i.minimum}</button></div>${i.order_printing?`<p class="hint">Davon ${i.order_printing} für Etsy-Aufträge · Fertigmelden in der Bestellung.</p>`:''}
  ${notices([i.notice],'variant-'+i.id)}</div>`;
@@ -197,23 +197,25 @@ function stockOverview(p){
  });
  const counted=p.items.filter(i=>i.on_hand!==null).length;
  const uncounted=p.items.length-counted;
+ const stockStatus=p.made_to_order?(counted?counted+' Bestandseinträge · freiwillig':'Bestand optional'):counted+' gezählt'+(uncounted?' · '+uncounted+' noch zählen':'');
  return `<section class='stock-overview' id='stock-panel-${esc(p.id)}' aria-label='Alle Lagerbestände nach Variante'>
-  <div class='stock-overview-title'><b>Alle ${p.items.length} Varianten</b><small>${counted} gezählt${uncounted?' · '+uncounted+' noch zählen':''}</small></div>
-  <div class='stock-variants'>${items.map(i=>`<button type='button' class='stock-variant' data-show-variant='${esc(i.id)}' data-listing='${esc(p.id)}' title='${esc(i.label)}'><strong>${i.on_hand===null?'Noch zählen':i.on_hand+' ×'}</strong><span>${esc(shortVariant(i.label))}</span></button>`).join('')}</div>
-  <small>Variante antippen, um den Bestand zu bearbeiten.</small>
+  <div class='stock-overview-title'><b>Alle ${p.items.length} Varianten</b><small>${stockStatus}</small></div>
+  <div class='stock-variants'>${items.map(i=>`<button type='button' class='stock-variant' data-show-variant='${esc(i.id)}' data-listing='${esc(p.id)}' title='${esc(i.label)}'><strong>${i.on_hand===null?(p.made_to_order?'—':'Noch zählen'):i.on_hand+' ×'}</strong><span>${esc(shortVariant(i.label))}</span></button>`).join('')}</div>
+  <small>${p.made_to_order?'Bei Bedarf Variante antippen und vorhandene Stückzahl eintragen.':'Variante antippen, um den Bestand zu bearbeiten.'}</small>
  </section>`;
 }
 /* Show physical stock only for variants in open orders, never Etsy quantity or print demand.
    A one-variant product shows its stock even if no order is open. */
 function stockQuickView(p){
  const ordered=p.items.filter(i=>Number(i.reserved||0)>0).sort((a,b)=>b.reserved-a.reserved);
- const relevant=ordered.length?ordered:p.items.length===1?p.items:[];
+ const stocked=p.items.filter(i=>Number(i.on_hand)>0).sort((a,b)=>b.on_hand-a.on_hand);
+ const relevant=p.made_to_order?stocked:ordered.length?ordered:p.items.length===1?p.items:[];
  const parts=relevant.slice(0,2).map(i=>`<span class='stock-quick-item' title='${esc(i.label)}'><span>${esc(shortVariant(i.label))}</span><strong>${i.on_hand===null?'Noch zählen':i.on_hand+' ×'}</strong></span>`).join('');
- const rest=ordered.length>2?`<span class='stock-quick-extra'>+ ${ordered.length-2} weitere</span>`:'';
- const fallback=`<span class='stock-quick-empty'>Keine offenen Bestellvarianten</span>`;
+ const rest=relevant.length>2?`<span class='stock-quick-extra'>+ ${relevant.length-2} weitere</span>`:'';
+ const fallback=`<span class='stock-quick-empty'>${p.made_to_order?'Bei Bedarf eintragen':'Keine offenen Bestellvarianten'}</span>`;
  const isOpen=stockExpanded.has(p.id);
  return `<button type='button' class='stock-quick-toggle' data-stock-toggle='${esc(p.id)}' aria-expanded='${isOpen}' aria-label='Lagerübersicht für ${esc(p.title)} ${isOpen?'schließen':'öffnen'}'>
-  <span class='stock-quick-label'>${ordered.length?'Lager für Aufträge':'Im Lager'}</span>
+  <span class='stock-quick-label'>${p.made_to_order?'Lager optional':ordered.length?'Lager für Aufträge':'Im Lager'}</span>
   <span class='stock-quick-items'>${parts||fallback}${rest}</span>
   <span class='stock-quick-arrow' aria-hidden='true'>${isOpen?'▴':'▾'}</span>
  </button>`;
@@ -222,7 +224,7 @@ function card(p){
  const image=thumbnail(p.image),open=expanded.has(p.id)||p.items.length===1;
  return `<article class="product ${p.level}" data-product="${esc(p.id)}"><div class="product-photo">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:'<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}<span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span><button type="button" class="photo-stock-toggle" data-stock-toggle="${esc(p.id)}" aria-expanded="${stockExpanded.has(p.id)}" aria-label="Lagerbestand für ${esc(p.title)} anzeigen">Im Lager <span aria-hidden="true">${stockExpanded.has(p.id)?"▴":"▾"}</span></button></div><div class="product-body">${stockQuickView(p)}${stockExpanded.has(p.id)?stockOverview(p):""}<h2 title="${esc(p.title)}">${esc(p.title)}</h2><div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span><span><b>${p.sold30}</b> / 30 Tage</span>${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}</div>
  ${notices([p.inventory_error,p.unmatched?`${p.unmatched} bestellte Stück noch keiner Variante zugeordnet. Bedarf zusätzlich in Etsy prüfen.`:'',p.review?`${p.review} Stück mit Erstattung oder unklarem Zahlungsstatus: in Etsy prüfen.`:''],'product-'+p.id)}
- ${p.items.length>1?printOverview(p):''}
+ ${p.items.length>1&&!p.made_to_order?printOverview(p):''}
  ${toolSummary(p)}
  ${productPrintActions(p)}
  ${p.items.length>1?`<button class="variant-toggle" data-expand="${esc(p.id)}" aria-expanded="${open}"><span>${open?'Varianten schließen':'Bestände bearbeiten'} · ${p.items.length} Varianten</span><b>${open?'−':'+'}</b></button>`:''}
