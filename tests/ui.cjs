@@ -74,7 +74,7 @@ await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
 await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.23'));
 assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.23');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.24');
 await page.locator('[data-close="settings"]').click();
 
 
