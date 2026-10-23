@@ -1,3 +1,11 @@
+# 0.11.38 · Bauteile und Vorproduktion für jedes Produkt
+
+- Jedes aktive Etsy-Produkt besitzt im Produktkatalog den zunächst ausgeschalteten Schalter „Vorproduktion verwenden“. Erst nach Aktivierung werden Bauteile und Bauteilbestände sichtbar.
+- Standardbauteile haben einen gemeinsamen, von Etsy-Varianten unabhängigen Vorrat. Andere Bauteile können erst nach Bestellung gedruckt und über eine Etsy-Eigenschaft, etwa „Buchfarbe“, benannt werden.
+- Optionale Setgrößen-Zuordnung berücksichtigt z. B. „Setgröße: 3er-Set“, ohne alle Etsy-Farbkombinationen als eigene Lagerartikel anzulegen. Unbekannte Eigenschaften blockieren die Zuordnung statt zu raten.
+- Bestellung: Vorratsbauteile reservieren, variable Teile drucken/fertigmelden und nach Montage den kompletten Artikel als fertig bestätigen. Vorproduzierte und fertig montierte Einheiten werden nicht doppelt im Fertigwarenlager gezählt.
+- Bereits bestehende Lager-, Druck-, Etsy- und 3MF-Einträge bleiben unangetastet. Alle Bauteildaten liegen updatefest in SQLite; die Nutzung ist optional und standardmäßig deaktiviert.
+
 # 0.11.37 · Einfachere Etsy-Auftragsaktionen mit verbindlicher Lagerzuordnung
 
 - Bestellkarten zeigen die nächste sinnvolle Aktion: „X × Aus Lager“, „X × Drucken“ oder „✓ X × Fertig“. Bei mehreren gleichzeitig offenen Positionen bleibt die eindeutige Positionsauswahl in „Details“.
