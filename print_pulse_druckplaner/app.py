@@ -504,7 +504,7 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
             if newly_shipped:
                 # Assigned pieces still being printed have never entered physical
                 # stock. Deduct only the shipped pieces that were booked into it.
-                linked=db.execute('SELECT item_id,printing,allocated FROM stock_order_prints WHERE transaction_id=?',(tid,)).fetchone()
+                linked=db.execute('SELECT item_id,printing,allocated,assembled FROM stock_order_prints WHERE transaction_id=?',(tid,)).fetchone()
                 target=(prior['item_id'] if prior else None) or (linked['item_id'] if linked else None) or iid
                 # Already allocated from finished stock was debited when booked.
                 # Running prints never entered stock. Never debit either twice.
