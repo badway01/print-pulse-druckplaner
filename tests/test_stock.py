@@ -1,6 +1,8 @@
 """Synthetic inventory, sync, migration and ingress tests. No live shop data."""
 import importlib.util
 import json
+import io
+import zipfile
 import os
 from pathlib import Path
 import tempfile
@@ -435,6 +437,17 @@ class StockTests(unittest.TestCase):
                 self.assertEqual(priority_asset.status,200)
                 self.assertEqual(priority_asset.headers.get_content_type(),'application/javascript')
                 self.assertIn(b'priorityCandidates',priority_asset.read())
+                audit=json.load(urllib.request.urlopen(base+'/api/audit?limit=25'))
+                self.assertIn('events',audit)
+                backup=urllib.request.urlopen(base+'/api/backup')
+                self.assertEqual(backup.headers.get_content_type(),'application/zip')
+                self.assertIn('attachment;',backup.headers.get('Content-Disposition'))
+                with zipfile.ZipFile(io.BytesIO(backup.read())) as z:
+                    self.assertIn('production.sqlite3',z.namelist())
+                    self.assertIn('manifest.json',z.namelist())
+                    manifest=json.loads(z.read('manifest.json'))
+                    self.assertEqual(manifest['format'],'print-pulse-backup')
+                    self.assertTrue(manifest['contains_credentials'])
                 payload=json.dumps({'id':'101-default','action':'set','quantity':8,'revision':0}).encode()
                 request=urllib.request.Request(base+'/api/stock',data=payload,headers={'Content-Type':'application/json','Sec-Fetch-Site':'same-origin'})
                 result=json.load(urllib.request.urlopen(request))
