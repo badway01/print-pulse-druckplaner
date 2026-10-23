@@ -1,3 +1,11 @@
+## Version 0.11.43 · Schnelle Lageränderungen
+
+Auf den Produktkarten kannst du Bestände per Plus/Minus oder Mengeneingabe ändern, ohne dass der komplette Druckplaner ausgegraut wird. Während der Buchung steht dezent „Änderung wird gespeichert …“; doppelte Buchungen bleiben verhindert. Anschließend wird die Gesamtansicht nur einmal aktualisiert. Unveränderte Karten, Fotos und Buttons werden beim Hintergrundabgleich nicht erneut aufgebaut.
+
+Die Anzeige prüft alle 15 Sekunden auf neue Daten und einmal beim erneuten Öffnen des Tabs. Während eines Eingabedialogs bleibt die Eingabe ungestört. Der eigentliche Etsy-Bestellabgleich bleibt weiterhin alle 15 Minuten, der Produktkatalog täglich. Bereits laufende alte Statusabfragen können neuere Lageränderungen nicht überschreiben.
+
+Auch bei Artikeln mit sehr vielen Varianten verarbeitet der Browser Änderungen effizienter; serverseitig werden vorhandene Bestellungen und Druckjobs indiziert statt für jede Variante neu durchsucht. Das Update verändert keine gespeicherten Etsy-Aufträge, Bestände, Filamente, Bauteile oder Master-3MF-Dateien.
+
 ## Version 0.11.42 · Buchungsverlauf und Sicherungsprüfung
 
 Unter **Einstellungen → Buchungsverlauf & Datensicherung** findest du einen kompakten Verlauf aller **ab dem Update** vorgenommenen Bestands- und Auftragsbuchungen. Das Protokoll zeigt alte/neue Mengen und verändert nichts am Lager. Ein Etsy-Abgleich kann dieselbe Bestellung mehrfach verarbeiten, ohne montierte und bereits zugeordnete Mengen nochmals abzuziehen.
