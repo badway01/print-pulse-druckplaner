@@ -1,3 +1,13 @@
+## Version 0.11.42 · Buchungsverlauf und Sicherungsprüfung
+
+Unter **Einstellungen → Buchungsverlauf & Datensicherung** findest du einen kompakten Verlauf aller **ab dem Update** vorgenommenen Bestands- und Auftragsbuchungen. Das Protokoll zeigt alte/neue Mengen und verändert nichts am Lager. Ein Etsy-Abgleich kann dieselbe Bestellung mehrfach verarbeiten, ohne montierte und bereits zugeordnete Mengen nochmals abzuziehen.
+
+Über **Sicherung als ZIP herunterladen** erzeugt die App bei Bedarf eine **konsistente SQLite-Datenbankkopie** inklusive Einstellungen, Etsy-Tokens, Lager-, Bauteil-, Auftrags- und Auditdaten sowie **sämtlichen Master-3MF-Dateien** aus `/share/print-pulse/masterdateien`. Die ZIP enthält `production.sqlite3`, `masterdateien/` und `manifest.json` (SHA-256-Prüfsummen). Ein fehlender registrierter 3MF-Eintrag verhindert den Export. Die App extrahiert das ZIP vor dem Ausliefern testweise in ein **temporäres Verzeichnis**, prüft jede Datei und führt `PRAGMA integrity_check` auf der Kopie aus.
+
+**Wichtig zur Wiederherstellung:** Die App bietet absichtlich keinen Ein-Klick-Restore. Bewahre die ZIP sicher außerhalb von Home Assistant auf, da die Datenbank **Etsy-Zugangsdaten** enthält. Für eine tatsächliche Rücksicherung: Home-Assistant-App zuerst stoppen, zuvor ein zusätzliches Backup der vorhandenen Dateien erstellen, die geprüfte `production.sqlite3` unter `/data/production.sqlite3` und den Inhalt von `masterdateien/` unter `/share/print-pulse/masterdateien/` wiederherstellen. SQLite-Journaldateien (`-wal`/`-shm`) einer alten Installation dürfen dabei nicht mit der neuen Datenbank vermischt werden. Danach App wieder starten und Bestände, Etsy-Aufträge und Masterdateien kontrollieren. Bei Unsicherheit die Wiederherstellung zunächst auf einer Testinstallation durchführen.
+
+Das neue Sicherheitsprotokoll ist updatefest in SQLite gespeichert. Die vorhandenen Home-Assistant-Backupfunktionen bleiben davon unabhängig.
+
 ## Version 0.11.41 · Automatische Druckprioritäten
 
 Direkt **unter deinen Etsy-Bestellungen** findest du auf der Produktionsseite „Als Nächstes drucken“. Zuerst kommen Kundenaufträge (unter Berücksichtigung bereits zugeordneter Bestände und laufender Drucke), danach gemeinsame Vorratsbauteile mit selbst festgelegtem **Auffüllziel**, anschließend sinnvoller Fertigwaren-Nachdruck anhand der letzten 30 Tage. Die drei wichtigsten Positionen bleiben sichtbar; weitere können aufgeklappt werden. **Die Schaltflächen öffnen den passenden Auftrag, Bauteile-Dialog oder die richtige Druckvariante** – sie starten nicht eigenständig Drucker.
