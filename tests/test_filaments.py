@@ -91,6 +91,52 @@ class FilamentTests(unittest.TestCase):
         app.filament_mutate({'action':'cart','id':id,'delta':1})
         self.assertEqual(app.filament_overview()['cart_missing_prices'],1)
 
+    def test_open_spool_moves_one_full_to_open_without_weighing(self):
+        id=self.add(stock_qty=3,price='14,50')
+        app.filament_mutate({'action':'open','id':id})
+        app.filament_mutate({'action':'open','id':id})
+        row=app.filament_overview()['filaments'][0]
+        self.assertEqual((row['stock_qty'],row['open_qty'],row['price_cents']),(1,2,1450))
+        app.filament_mutate({'action':'empty','id':id})
+        row=app.filament_overview()['filaments'][0]
+        self.assertEqual((row['stock_qty'],row['open_qty']),(1,1))
+        app.filament_mutate({'action':'cart','id':id,'delta':1})
+        app.filament_mutate({'action':'receive','id':id})
+        row=app.filament_overview()['filaments'][0]
+        self.assertEqual((row['stock_qty'],row['open_qty'],row['cart_qty']),(2,1,0))
+
+    def test_opening_empty_and_invalid_counts_are_rejected_atomically(self):
+        id=self.add(stock_qty=1)
+        with self.assertRaisesRegex(ValueError,'angeb(rochene|rochen)'):
+            app.filament_mutate({'action':'empty','id':id})
+        app.filament_mutate({'action':'open','id':id})
+        with self.assertRaisesRegex(ValueError,'volle'):
+            app.filament_mutate({'action':'open','id':id})
+        app.filament_mutate({'action':'empty','id':id})
+        with self.assertRaises(ValueError):
+            app.filament_mutate({'action':'empty','id':id})
+        self.assertEqual((app.filament_overview()['filaments'][0]['stock_qty'],
+                          app.filament_overview()['filaments'][0]['open_qty']),(0,0))
+
+    def test_manual_open_count_and_existing_client_preserve_open_spools(self):
+        id=self.add(stock_qty=2,open_qty=3)
+        self.assertEqual(app.filament_overview()['filaments'][0]['open_qty'],3)
+        app.filament_mutate({'action':'save','id':id,'brand':'Bambu Lab',
+            'color':'Weiß','material':'PLA Matte','color_hex':'#ffffff',
+            'stock_qty':1,'price':'19,90','purchase_url':''})
+        self.assertEqual(app.filament_overview()['filaments'][0]['open_qty'],3)
+        for invalid in (-1,True,'4',100001):
+            with self.subTest(invalid=invalid),self.assertRaises(ValueError):
+                app.filament_mutate({'action':'save','id':id,'brand':'Bambu Lab',
+                    'color':'Weiß','material':'PLA Matte','color_hex':'#ffffff',
+                    'stock_qty':1,'open_qty':invalid,'price':'19,90','purchase_url':''})
+        app.filament_mutate({'action':'save','id':id,'brand':'Bambu Lab',
+            'color':'Weiß','material':'PLA Matte','color_hex':'#ffffff',
+            'stock_qty':1,'open_qty':5,'price':'19,90','purchase_url':''})
+        self.assertEqual(app.filament_overview()['filaments'][0]['open_qty'],5)
+        app.init_db()
+        self.assertEqual(app.filament_overview()['filaments'][0]['open_qty'],5)
+
     def test_schema_migrates_without_touching_stock_and_is_idempotent(self):
         with app.connect() as db:
             db.execute("INSERT INTO config(k,value) VALUES('sentinel','kept')")
