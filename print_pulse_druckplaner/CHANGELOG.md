@@ -1,3 +1,9 @@
+# 0.11.25 · Logo direkt ins Dashboard eingebettet
+
+- Ursprüngliches Print-&-Pulse-Logo erhält einen transparenten Bildhintergrund ohne weißen Kasten.
+- Heller Kopfbereich leicht salbeigrün, Logo passt sich im hellen und dunklen Modus an.
+- Browser-Test prüft echte Pixeltransparenz und Erhalt der Logoelemente.
+
 # 0.11.24 · Mobilnavigation und klare Status-Texte
 
 - Produktionsbereich: „PRODUKTION · LIVE“ statt „WERKSTATT · LIVE AUS HOME ASSISTANT“.
