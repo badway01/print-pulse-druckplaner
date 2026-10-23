@@ -415,7 +415,7 @@ function orderVariantLabels(variant){
   text.split(/\s+[·|]\s+/).filter(Boolean).map(entry=>{
    const colon=entry.indexOf(':');
    if(colon<0)return '<span class="order-work-variant"><b>'+esc(entry.trim())+'</b></span>';
-   return '<span class="order-work-variant"><small>'+esc(entry.slice(0,colon).trim())+
+   return '<span class="order-work-variant"><small>'+esc(entry.slice(0,colon).trim())+':'+
     '</small><b>'+esc(entry.slice(colon+1).trim())+'</b></span>';
   }).join('')+'</div>';
 }
