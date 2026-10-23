@@ -335,7 +335,7 @@ const dayChange=await page.evaluate(()=>{
 assert.notEqual(dayChange.before,dayChange.after);
 await page.locator('[data-workspace="filament"]').click();
 assert.equal(await page.locator('#filament-stock-summary').isVisible(),true);
-assert.equal(await page.locator('#filament-stock-spools').textContent(),'0 volle Spulen');
+assert.equal(await page.locator('#filament-stock-spools').textContent(),'0 volle Spulen · 0 angebrochen');
 assert((await page.locator('#filament-stock-value').textContent()).includes('0,00'));
 await page.locator('#filament-add').click();
 assert.equal(await page.locator('#filament-form [name="stock_qty"]').getAttribute('inputmode'),'numeric');
@@ -371,7 +371,7 @@ assert.equal(await page.evaluate(()=>localStorage.getItem('pp-filament-sort')),'
 await page.locator('#filament-sort').selectOption('stock-asc');
 assert.equal(await page.locator('#filament-sort').inputValue(),'stock-asc');
 await page.locator('#filament-sort').selectOption('default');
-assert((await page.locator('.filament-line').textContent()).includes('1 Spule'));
+assert((await page.locator('.filament-line .filament-meta').textContent()).includes('1 voll · 0 angebrochen'));
 assert.equal(await page.locator('#filament-stock-spools').textContent(),'1 volle Spule · 0 angebrochen');
 assert((await page.locator('#filament-stock-value').textContent()).includes('19,90'));
 await page.locator('#filament-add').click();
