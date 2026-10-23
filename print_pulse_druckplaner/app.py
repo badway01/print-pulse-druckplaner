@@ -23,9 +23,13 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
+try:
+    from . import components
+except ImportError:
+    import components
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.11.37'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.11.38'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -248,6 +252,7 @@ def init_db():
           bytes INTEGER NOT NULL,created INTEGER NOT NULL);
         CREATE INDEX IF NOT EXISTS master_files_listing ON master_files(listing_id);
         """)
+        components.schema(db)
         # Previously stored order-print records must survive all add-on updates.
         print_columns={col['name'] for col in db.execute("PRAGMA table_info(stock_order_prints)")}
         if 'allocated' not in print_columns:
@@ -498,7 +503,7 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
                 target=(prior['item_id'] if prior else None) or (linked['item_id'] if linked else None) or iid
                 # Already allocated from finished stock was debited when booked.
                 # Running prints never entered stock. Never debit either twice.
-                stock_debit=max(0,qty-(linked['printing'] if linked else 0)-(linked['allocated'] if linked else 0))
+                stock_debit=max(0,qty-(linked['printing'] if linked else 0)-(linked['allocated'] if linked else 0)-(linked['assembled'] if linked else 0))
                 if target and stock_debit:
                     stock=db.execute('SELECT on_hand FROM stock_items WHERE id=?',(target,)).fetchone()
                     if stock and stock['on_hand'] is not None:
@@ -507,9 +512,13 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
             db.execute('''INSERT INTO stock_transactions VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
               receipt_id=excluded.receipt_id,listing_id=excluded.listing_id,item_id=excluded.item_id,
               qty=excluded.qty,created=excluded.created,status=excluded.status''',(tid,rid,lid,iid,qty,created,status))
+        for tid,_,_,_,_,_,_,status in transactions:
+            if status not in ('open','shipped'):
+                components.recover_cancelled(db,tid)
         # Removed positions release reservations, never imply shipment.
         for tid,previous in old.items():
             if previous['receipt_id'] in receipt_ids and tid not in observed:
+                components.recover_cancelled(db,tid)
                 db.execute("UPDATE stock_transactions SET status='excluded' WHERE id=?",(tid,))
         if orders is not None:
             # Replace only receipts confirmed in this complete Etsy snapshot.
@@ -682,7 +691,7 @@ def overview():
             item['sold7']=sum(t['qty'] for t in lines if t['created']>=now-7*86400)
             item['sold30']=sum(t['qty'] for t in lines if t['created']>=now-30*86400)
             # Pieces already transferred out of stock are no longer reservations.
-            item['reserved']=sum(max(0,t['qty']-prints_by_tx.get(t['id'],{}).get('allocated',0))
+            item['reserved']=sum(max(0,t['qty']-prints_by_tx.get(t['id'],{}).get('allocated',0)-prints_by_tx.get(t['id'],{}).get('assembled',0))
                                  for t in lines if t['status']=='open')
             item['order_jobs']=[{'transaction_id':j['transaction_id'],'receipt_id':j['receipt_id'],
                                  'printing':j['printing'],'finished':j['finished'],
@@ -717,12 +726,14 @@ def overview():
                 line['printing']=job['printing'] if job else 0
                 line['finished']=job['finished'] if job else 0
                 line['allocated']=job['allocated'] if job else 0
-                line['remaining']=max(0,tx['qty']-line['printing']-line['finished']-line['allocated'])
+                line['assembled']=job['assembled'] if job else 0
+                line['remaining']=max(0,tx['qty']-line['printing']-line['finished']-line['allocated']-line['assembled'])
             else:
                 line['item_id']=None
                 line['printing']=0
                 line['finished']=0
                 line['allocated']=0
+                line['assembled']=0
                 line['remaining']=0
             line['image']=images.get(line['listing_id'],'')
             # Receipt titles follow the buyer's language. Use our cached shop title.
@@ -730,6 +741,8 @@ def overview():
         orders.append({'id':receipt['id'],'customer':receipt['customer'],
                        'created':receipt['created'],'ship_by':receipt['ship_by'],
                        'items':lines,'quantity':sum(line['quantity'] for line in lines)})
+    with connect() as db:
+        components.snapshot(db,listings,orders)
     with STATUS_LOCK: status=dict(STATUS)
     return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'etsy_alert_percent':etsy_percent,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'version':'0.1'}
 
@@ -795,10 +808,16 @@ def mutate_order_print(data):
         printing=previous['printing'] if previous else 0
         finished=previous['finished'] if previous else 0
         allocated=previous['allocated'] if previous else 0
+        assembled=previous['assembled'] if previous else 0
+        if action in ('allocate','printing'):
+            chosen=db.execute('SELECT components_enabled FROM stock_listings WHERE id=?',(tx['listing_id'],)).fetchone()
+            if assembled or (chosen and chosen['components_enabled'] and
+                    db.execute('SELECT 1 FROM pp_components WHERE listing_id=? LIMIT 1',(tx['listing_id'],)).fetchone()):
+                raise ValueError('Bauteilfertigung ist für diesen Auftrag aktiviert. Bitte Bauteile im Auftrag bearbeiten.')
         if action=='allocate':
             if tx['status']!='open':
                 raise ValueError('Nur offene Etsy-Aufträge können Lagerbestand erhalten.')
-            qty=integer(data.get('quantity'),1,tx['qty']-printing-finished-allocated)
+            qty=integer(data.get('quantity'),1,tx['qty']-printing-finished-allocated-assembled)
             if row['on_hand'] is None:
                 raise ValueError('Lagerbestand noch nicht erfasst. Erst vorhandene Stückzahl eintragen.')
             # Physical stock contains finished prints reserved for other open
@@ -827,7 +846,7 @@ def mutate_order_print(data):
         elif action=='printing':
             if tx['status']!='open':
                 raise ValueError('Nur offene bezahlte Etsy-Bestellungen können neue Auftragsdrucke erhalten.')
-            qty=integer(data.get('quantity'),1,tx['qty']-printing-finished-allocated)
+            qty=integer(data.get('quantity'),1,tx['qty']-printing-finished-allocated-assembled)
             new_stock=row['on_hand']
             new_print=integer(row['in_print']+qty)
             printing+=qty
@@ -1720,6 +1739,11 @@ class Handler(BaseHTTPRequestHandler):
             if path=='/api/filament':
                 filament_mutate(data)
                 return self.send(200,filament_overview())
+            if path=='/api/components':
+                with connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    components.mutate(db,data,integer)
+                return self.send(200,overview())
             if path=='/api/stock':
                 mutate_stock(data)
                 return self.send(200,overview())
