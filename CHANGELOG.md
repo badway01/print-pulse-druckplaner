@@ -1,3 +1,10 @@
+# 0.11.40 · Vorproduktion direkt auf der Produktkarte
+
+- Für Produkte mit aktiviertem Schalter „Vorproduktion verwenden“ werden statt der langen Etsy-Farbvariantenliste die gemeinsamen Bauteile und deren tatsächliche Lagerbestände angezeigt. Variable Teile erscheinen als „Nach Auftrag“.
+- Bauteile und Vorrat sind direkt über die Produktionskarte bearbeitbar. Klassische Fertigvarianten bleiben nur auf Wunsch aufklappbar und vollständig erhalten.
+- Nachdruckzahlen, Druckfilter und „Im Druck“ berücksichtigen bei Bauteilprodukten offene Bauteildrucke statt irreführender fehlender Fertigvariantenbestände.
+- Unveränderte Darstellung für Produkte ohne aktivierte Vorproduktion.
+
 # 0.11.39 · Fehlerkorrektur: Vorproduktions-Schalter fehlt
 
 - Home Assistant liefert `components-ui.js` jetzt korrekt als JavaScript aus. Die neue Vorproduktion war in 0.11.38 eingebaut, aber durch die fehlende Freigabe der Skriptdatei in der Oberfläche nicht sichtbar.
