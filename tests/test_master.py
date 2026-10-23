@@ -77,18 +77,18 @@ class MasterTests(unittest.TestCase):
 
     def test_corrupted_profile_is_readable_without_rewriting_database(self):
         with app.connect() as db:
-            db.execute("""INSERT INTO print_profiles(listing_id,variant_id,printer,sources_json,updated)
+            db.execute("""INSERT INTO pp_master_filament_profiles(listing_id,variant_id,printer,sources_json,updated)
                           VALUES('123','','H2D','{broken-json',0)""")
         summary=app.print_tools_overview()
         self.assertEqual(len(summary['profiles']),1)
         self.assertEqual(summary['profiles'][0]['sources'],[])
         with app.connect() as db:
-            raw=db.execute("SELECT sources_json FROM print_profiles WHERE listing_id='123'").fetchone()[0]
+            raw=db.execute("SELECT sources_json FROM pp_master_filament_profiles WHERE listing_id='123'").fetchone()[0]
         self.assertEqual(raw,'{broken-json')
 
     def test_malformed_slots_cannot_break_all_saved_profiles(self):
         with app.connect() as db:
-            db.execute("""INSERT INTO print_profiles(listing_id,variant_id,printer,sources_json,updated)
+            db.execute("""INSERT INTO pp_master_filament_profiles(listing_id,variant_id,printer,sources_json,updated)
                         VALUES('123','','H2D',?,0)""",
                        ('[{"label":"AMS", "slots":"oops"},{"label":"Extern","slots":[null]}]',))
         result=app.print_tools_overview('123')
@@ -122,6 +122,53 @@ class MasterTests(unittest.TestCase):
         app.init_db()
         row=app.filament_overview()['filaments'][0]
         self.assertEqual((row['brand'],row['internal_code'],row['notes']),('Bambu Lab','',''))
+
+
+    def test_legacy_conflicting_profile_schema_survives_and_new_profiles_work(self):
+        # Reproduce the actual HA log: an existing table named print_profiles
+        # has no listing_id, while the new master-3MF feature expects it.
+        with app.connect() as db:
+            db.execute("DROP TABLE pp_master_filament_profiles")
+            db.execute("""CREATE TABLE print_profiles(
+                profile_id INTEGER PRIMARY KEY, printer_name TEXT NOT NULL,
+                preset TEXT NOT NULL)""")
+            db.execute("""INSERT INTO print_profiles(profile_id,printer_name,preset)
+                          VALUES(7,'Altgerät','Unverändert')""")
+        app.init_db()
+        self.assertEqual(app.print_tools_overview(),{'profiles':[],'files':[]})
+        fid=self.spool()
+        saved=app.save_print_profile({'listing_id':'123','variant_id':'variant1','printer':'H2D',
+                 'sources':[{'type':'external','slots':[fid]}]})
+        self.assertEqual(len(saved['profiles']),1)
+        self.assertEqual(saved['profiles'][0]['colors'][0]['color'],'Weiß')
+        app.init_db()
+        self.assertEqual(len(app.print_tools_overview('123')['profiles']),1)
+        with app.connect() as db:
+            self.assertEqual(db.execute("SELECT * FROM print_profiles").fetchall()[0]['preset'],
+                             'Unverändert')
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM pp_master_filament_profiles").fetchone()[0],1)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM stock_items").fetchone()[0],1)
+
+    def test_compatible_old_master_profiles_copy_without_replacing_new_changes(self):
+        with app.connect() as db:
+            db.execute("""CREATE TABLE print_profiles(
+                listing_id TEXT NOT NULL,variant_id TEXT NOT NULL DEFAULT '',
+                printer TEXT NOT NULL,sources_json TEXT NOT NULL DEFAULT '[]',
+                updated INTEGER NOT NULL,PRIMARY KEY(listing_id,variant_id,printer))""")
+            db.execute("""INSERT INTO print_profiles(listing_id,variant_id,printer,sources_json,updated)
+                          VALUES('123','variant1','H2D','[]',100)""")
+        app.init_db()
+        self.assertEqual(len(app.print_tools_overview('123')['profiles']),1)
+        app.save_print_profile({'listing_id':'123','variant_id':'variant1',
+                                'printer':'H2D','sources':[{'type':'external','slots':[None]}]})
+        app.init_db()  # repeat must never overwrite a newer profile
+        with app.connect() as db:
+            new=db.execute("""SELECT sources_json FROM pp_master_filament_profiles
+                              WHERE listing_id='123'""").fetchone()[0]
+            old=db.execute("""SELECT sources_json FROM print_profiles
+                              WHERE listing_id='123'""").fetchone()[0]
+            self.assertIn('external',new)
+            self.assertEqual(old,'[]')
 
 
 if __name__=='__main__':

@@ -229,7 +229,9 @@ def init_db():
           stock_qty INTEGER NOT NULL DEFAULT 0 CHECK(stock_qty>=0),
           cart_qty INTEGER NOT NULL DEFAULT 0 CHECK(cart_qty>=0),
           created INTEGER NOT NULL, updated INTEGER NOT NULL);
-        CREATE TABLE IF NOT EXISTS print_profiles(
+        -- Dedicated table: older planner databases may already contain an
+        -- unrelated print_profiles table with an incompatible column layout.
+        CREATE TABLE IF NOT EXISTS pp_master_filament_profiles(
           listing_id TEXT NOT NULL,variant_id TEXT NOT NULL DEFAULT '',
           printer TEXT NOT NULL,sources_json TEXT NOT NULL DEFAULT '[]',
           updated INTEGER NOT NULL,PRIMARY KEY(listing_id,variant_id,printer));
@@ -244,6 +246,17 @@ def init_db():
             db.execute("ALTER TABLE filament_spools ADD COLUMN internal_code TEXT NOT NULL DEFAULT ''")
         if 'notes' not in columns:
             db.execute("ALTER TABLE filament_spools ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
+        # Preserve legacy data: migrate compatible master assignments once.
+        # Incompatible print_profiles tables remain entirely untouched.
+        old_columns={col['name'] for col in db.execute("PRAGMA table_info(print_profiles)")}
+        expected={'listing_id','variant_id','printer','sources_json','updated'}
+        if expected.issubset(old_columns):
+            db.execute("""INSERT OR IGNORE INTO pp_master_filament_profiles
+                (listing_id,variant_id,printer,sources_json,updated)
+                SELECT listing_id,variant_id,printer,sources_json,updated
+                FROM print_profiles""")
+        elif old_columns:
+            log.info('Alte print_profiles-Tabelle hat anderes Schema; bleibt unverändert erhalten.')
         os.chmod(DB_PATH, 0o600)
 
 
@@ -920,7 +933,7 @@ def print_tools_overview(listing_id=None):
         where=' WHERE listing_id=?' if listing_id else ''
         args=(listing_id,) if listing_id else ()
         profiles=[dict(r) for r in db.execute(
-            'SELECT * FROM print_profiles'+where+' ORDER BY listing_id,printer,variant_id',args)]
+            'SELECT * FROM pp_master_filament_profiles'+where+' ORDER BY listing_id,printer,variant_id',args)]
         files=[dict(r) for r in db.execute(
             'SELECT id,listing_id,variant_id,printer,filename,bytes,created FROM master_files'
             +where+' ORDER BY created DESC,id DESC',args)]
@@ -1005,7 +1018,7 @@ def save_print_profile(data):
         for fid in ids:
             if not db.execute('SELECT 1 FROM filament_spools WHERE id=?',(fid,)).fetchone():
                 raise ValueError('Ein ausgewähltes Filament existiert nicht mehr.')
-        db.execute("""INSERT INTO print_profiles(listing_id,variant_id,printer,sources_json,updated)
+        db.execute("""INSERT INTO pp_master_filament_profiles(listing_id,variant_id,printer,sources_json,updated)
           VALUES(?,?,?,?,?) ON CONFLICT(listing_id,variant_id,printer)
           DO UPDATE SET sources_json=excluded.sources_json,updated=excluded.updated""",
           (lid,variant,printer,json.dumps(clean,ensure_ascii=False),int(time.time())))
