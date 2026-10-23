@@ -122,7 +122,7 @@ def mutate(db,data,whole):
             if not data['enabled']:
                 pending=db.execute("""SELECT 1 FROM pp_component_orders w
                     JOIN pp_components p ON p.id=w.component_id
-                    WHERE p.listing_id=? AND (w.booked>0 OR w.printing>0 OR w.finished>w.consumed)
+                    WHERE p.listing_id=? AND (w.booked>w.consumed OR w.printing>0 OR w.finished>w.consumed)
                     LIMIT 1""",(listing_id,)).fetchone()
                 if pending: raise ValueError('Zuerst offene Bauteilbuchungen abschließen oder zurückgeben.')
             db.execute('UPDATE stock_listings SET components_enabled=? WHERE id=?',
