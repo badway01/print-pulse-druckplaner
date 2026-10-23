@@ -40,6 +40,17 @@ await page.route('**/api/printers*',async route=>{
  await route.fulfill({response,json:data});
 });
 await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().waitFor();assert.equal(await page.locator('.brand-logo').count(),1);await page.waitForFunction(()=>{const image=document.querySelector('.brand-logo');return image&&image.complete&&image.naturalWidth>0;},{timeout:10000});assert.equal(await page.locator('.product').count(),4);
+const logoPixels=await page.locator('.brand-logo').evaluate(img=>{
+ const canvas=document.createElement('canvas');canvas.width=440;canvas.height=228;
+ const context=canvas.getContext('2d',{willReadFrequently:true});context.drawImage(img,0,0,440,228);
+ const rgba=context.getImageData(0,0,440,228).data;
+ let opaque=0,transparent=0;
+ for(let i=3;i<rgba.length;i+=4){if(rgba[i]>200)opaque++;if(rgba[i]<40)transparent++;}
+ return {corner:rgba[3],corner2:rgba[(10*440+430)*4+3],opaque,transparent};
+});
+assert(logoPixels.corner<40&&logoPixels.corner2<40,'logo background must be transparent, not a white rectangle');
+assert(logoPixels.opaque>1000,'logo artwork must stay opaque');
+assert(logoPixels.transparent>12000,'most of the photo background must disappear');
 
 await page.locator('.printer-mini').first().waitFor();
 assert.equal((await page.locator('#printer-strip .eyebrow').textContent()).trim(),'PRODUKTION · LIVE');
@@ -55,7 +66,7 @@ assert.equal(await page.locator('.printer-mini').count(),4);
 assert.equal(await page.locator('[data-theme-mode]').count(),3);
 await page.locator('[data-theme-mode="dark"]').click();
 assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
-assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el).mixBlendMode),'screen');
+assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el).mixBlendMode),'normal');
 assert.equal(await page.evaluate(()=>localStorage.getItem('pp-theme-mode')),'dark');
 assert.equal(await page.locator('[data-theme-mode="dark"]').getAttribute('aria-pressed'),'true');
 const darkBackground=await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundImage);
@@ -69,12 +80,12 @@ assert.equal(await page.locator('[data-theme-mode="auto"]').getAttribute('aria-p
 await page.unroute('**/api/theme');
 await page.locator('[data-theme-mode="light"]').click();
 assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
-assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el).mixBlendMode),'multiply');
+assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el).mixBlendMode),'normal');
 await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
-await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.24'));
+await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.25'));
 assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.24');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.25');
 await page.locator('[data-close="settings"]').click();
 
 

@@ -187,9 +187,9 @@ class MasterTests(unittest.TestCase):
 
     def test_changelog_exposes_real_version_and_release_notes(self):
         result=app.version_history()
-        self.assertEqual(result['version'],'0.11.24')
+        self.assertEqual(result['version'],'0.11.25')
         self.assertTrue(result['releases'])
-        self.assertEqual(result['releases'][0]['version'],'0.11.24')
+        self.assertEqual(result['releases'][0]['version'],'0.11.25')
         self.assertTrue(result['releases'][0]['changes'])
         self.assertLessEqual(len(result['releases']),12)
 
