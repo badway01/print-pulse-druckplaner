@@ -25,6 +25,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent
+APP_VERSION = os.environ.get('PP_VERSION') or '0.11.23'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -1481,6 +1482,39 @@ def printer_dashboard(force=False):
             'candidates':candidates,'auto_assigned':assigned,
             'updated':int(time.time()) if connected else None}
 
+def theme_sun_state():
+    """Expose only day/night; never expose HA credentials or other entities."""
+    try:
+        states=homeassistant_states()
+        sun=states.get('sun.sun')
+        value=sun.get('state') if isinstance(sun,dict) else None
+        if value=='above_horizon':
+            return {'theme':'light','source':'sun.sun'}
+        if value=='below_horizon':
+            return {'theme':'dark','source':'sun.sun'}
+    except RuntimeError:
+        pass
+    return {'theme':None,'source':'system'}
+
+
+def version_history():
+    """Read only the packaged, public changelog; return compact release notes."""
+    entries=[]
+    try:
+        lines=(ROOT/'CHANGELOG.md').read_text(encoding='utf-8').splitlines()
+    except OSError:
+        lines=[]
+    for line in lines:
+        heading=re.fullmatch(r'#\s+(\d+\.\d+\.\d+)\s*[·–-]\s*(.+)',line.strip())
+        if heading:
+            if len(entries)>=12:
+                break
+            entries.append({'version':heading.group(1),'title':heading.group(2)[:160],'changes':[]})
+        elif line.startswith('- ') and entries and len(entries[-1]['changes'])<5:
+            entries[-1]['changes'].append(line[2:][:320].replace('`',''))
+    return {'version':APP_VERSION,'releases':entries}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version='PrintPulseLager/0.1'
 
@@ -1508,6 +1542,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
         path=urllib.parse.urlsplit(self.path).path
         if path=='/api/status': return self.send(200,overview())
+        if path=='/api/theme': return self.send(200,theme_sun_state())
+        if path=='/api/versions': return self.send(200,version_history())
         if path=='/api/filaments': return self.send(200,filament_overview())
         if path=='/api/printers':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)

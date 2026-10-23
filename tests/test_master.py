@@ -171,5 +171,28 @@ class MasterTests(unittest.TestCase):
             self.assertEqual(old,'[]')
 
 
+    def test_theme_reads_only_home_assistant_sun_with_system_fallback(self):
+        from unittest.mock import patch
+        for state,theme in [('above_horizon','light'),('below_horizon','dark'),
+                            ('unavailable',None)]:
+            with self.subTest(state=state),patch.object(app,'homeassistant_states',
+                      return_value={'sun.sun':{'state':state}}):
+                result=app.theme_sun_state()
+                self.assertEqual(result['theme'],theme)
+                self.assertEqual(result['source'],'sun.sun' if theme else 'system')
+        with patch.object(app,'homeassistant_states',return_value={}):
+            self.assertEqual(app.theme_sun_state(),{'theme':None,'source':'system'})
+        with patch.object(app,'homeassistant_states',side_effect=RuntimeError('offline')):
+            self.assertEqual(app.theme_sun_state(),{'theme':None,'source':'system'})
+
+    def test_changelog_exposes_real_version_and_release_notes(self):
+        result=app.version_history()
+        self.assertEqual(result['version'],'0.11.23')
+        self.assertTrue(result['releases'])
+        self.assertEqual(result['releases'][0]['version'],'0.11.23')
+        self.assertTrue(result['releases'][0]['changes'])
+        self.assertLessEqual(len(result['releases']),12)
+
+
 if __name__=='__main__':
     unittest.main()

@@ -44,6 +44,31 @@ await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().
 await page.locator('.printer-mini').first().waitFor();
 assert.equal(await page.locator('.printer-mini').count(),4);
 
+// Theme switch: real toggle, sun auto, saved choice, and dynamic release history.
+assert.equal(await page.locator('[data-theme-mode]').count(),3);
+await page.locator('[data-theme-mode="dark"]').click();
+assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
+assert.equal(await page.evaluate(()=>localStorage.getItem('pp-theme-mode')),'dark');
+assert.equal(await page.locator('[data-theme-mode="dark"]').getAttribute('aria-pressed'),'true');
+const darkBackground=await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundImage);
+assert(darkBackground.includes('gradient'),'dark theme must style the whole page');
+await page.reload();await page.locator('.product').first().waitFor();
+assert.equal(await page.locator('html').getAttribute('data-theme'),'dark','persist on refresh');
+await page.route('**/api/theme',route=>route.fulfill({json:{theme:'light',source:'sun.sun'}}));
+await page.locator('[data-theme-mode="auto"]').click();
+await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');
+assert.equal(await page.locator('[data-theme-mode="auto"]').getAttribute('aria-pressed'),'true');
+await page.unroute('**/api/theme');
+await page.locator('[data-theme-mode="light"]').click();
+assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
+await page.locator('#settings-open').click();
+await page.locator('#release-history summary').click();
+await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.23'));
+assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.23');
+await page.locator('[data-close="settings"]').click();
+
+
  // Ungezählte Variante: Bestätigen ist erreichbar, fehlender Anfangsbestand wird im Dialog abgefragt.
  await page.evaluate(()=>{const found=findItem('combination-2');found.i.in_print=2;quantityDialog(found.i.id,'finish');});
  assert.equal(await page.locator('#quantity-initial-stock').isVisible(),true);
