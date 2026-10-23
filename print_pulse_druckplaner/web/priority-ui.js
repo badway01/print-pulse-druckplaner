@@ -110,6 +110,9 @@ function priorityCandidates(snapshot){
   for(const item of product.items||[]){
    const qty=Math.max(0,Number(item.need)||0);
    if(!item.enabled||item.on_hand===null||!qty||orderedVariantIds.has(String(item.id)))continue;
+   // A selling product can still contain a slow, unpurchased colour.
+   // Replenish only variants with their own confirmed recent demand.
+   if(Number(item.sold30||0)<=0&&Number(item.sold7||0)<=0)continue;
    out.push({tier:3,type:'variant',listingId:String(product.id),itemId:String(item.id),
     title:product.title,note:String(item.label||''),qty,
     sold7:Number(item.sold7)||Number(product.sold7)||0,
