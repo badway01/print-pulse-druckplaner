@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css"><script src="app.js" defer></script><script src="components-ui.js" defer></script></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css"><script src="app.js" defer></script><script src="components-ui.js" defer></script><script src="priority-ui.js" defer></script></head>
 <body>
 <header><a class="brand" href="./" aria-label="Print &amp; Pulse Startseite"><img class="brand-logo" src="brand.svg" width="190" height="98" alt="Print &amp; Pulse – Designs mit Herz"></a><div class="theme-switch" role="group" aria-label="Darstellung wählen">
  <button type="button" class="theme-option" data-theme-mode="light" aria-label="Heller Modus" title="Hell" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
@@ -34,6 +34,13 @@
  <div class="orders-heading"><div><span class="eyebrow">ETSY · DEIN SHOP</span><h2>Aktuelle Bestellungen <span id="order-count" class="orders-count">0 offen</span></h2></div>
  <div class="orders-tools" role="group" aria-label="Bestellungen sortieren"><button type="button" data-order-sort="ship" class="selected" aria-pressed="true">Versand zuerst</button><button type="button" data-order-sort="new" aria-pressed="false">Neueste zuerst</button><button type="button" id="orders-prev" class="orders-arrow" aria-label="Nach links blättern">‹</button><button type="button" id="orders-next" class="orders-arrow" aria-label="Nach rechts blättern">›</button></div></div>
  <div id="orders" class="orders-carousel" tabindex="0" aria-label="Offene Bestellungen seitlich wischen"></div>
+</section>
+<section id="priority-shell" class="priority-shell" aria-label="Nächste sinnvolle Drucke">
+ <div class="priority-head"><div><span class="eyebrow">DEIN DRUCKPLAN</span><h2>Als Nächstes drucken</h2>
+ <p>Erst offene Etsy-Aufträge, dann Bauteilvorrat, danach sinnvolle Lagerauffüllung.</p></div>
+ <span id="priority-count" class="priority-count" aria-live="polite"></span></div>
+ <div id="priority-list" class="priority-list" aria-live="off"></div>
+ <button type="button" id="priority-more" class="priority-more text-button" aria-expanded="false" hidden>Alle Vorschläge anzeigen</button>
 </section>
 <section id="product-toolbar" class="toolbar" aria-label="Produkte filtern"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Produkt oder Variante suchen" aria-label="Produkt oder Variante suchen"></label><div class="filters"><button data-filter="all" class="selected">Alle Produkte</button><button data-filter="need">Nachdrucken</button><button data-filter="printing">Im Druck</button><button data-filter="uncounted">Noch zählen</button></div><button id="undo" class="text-button" disabled>↶ Rückgängig</button></section>
 <div id="product-sort-note" class="sort-note">Dringende Produkte zuerst · Etsy-Mengen werden nicht verändert.</div>
@@ -111,6 +118,7 @@
    <option value="demand">Erst nach Bestellung drucken</option></select></label>
   <label id="components-property-wrap">Etsy-Eigenschaft für die Variante (optional)<input id="components-property" maxlength="100" placeholder="z. B. Buchfarbe"></label>
   <label>Bauteile je Verkaufseinheit<input id="components-units" type="number" inputmode="numeric" min="1" max="100" step="1" value="1" required></label>
+  <label id="components-target-wrap">Auffüllziel (optional – 0 bedeutet kein Vorschlag)<input id="components-target" type="number" inputmode="numeric" min="0" max="100000" step="1" value="0"></label>
   <label>Setgröße aus Etsy-Eigenschaft (optional)<input id="components-quantity-property" maxlength="100" placeholder="z. B. Setgröße"></label>
   <p class="hint">Beispiel: „Setgröße: 3er-Set“ multipliziert 1 Geist je Einheit mit 3. Die Eigenschaft muss in der Etsy-Bestellung exakt so heißen; unklare Werte werden nicht geraten.</p>
   <div class="components-form-actions"><button type="submit" class="primary">Bauteil speichern</button><button type="button" id="components-reset" class="secondary">Neu / Abbrechen</button></div>
