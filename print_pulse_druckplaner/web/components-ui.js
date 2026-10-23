@@ -204,8 +204,21 @@ async function componentOrderAction(button){
  if(busy)return;
  const job=findOrderJob(button.dataset.componentTid);
  const action=button.dataset.componentAction;
- const count=Number(button.dataset.componentQty);
+ let count=Number(button.dataset.componentQty);
  if(!job||!Number.isSafeInteger(count)||count<1)return;
+ // A partial successful print must never be counted as a fully finished batch.
+ if(count>1&&['finish','cancel','assemble'].includes(action)){
+  const label=action==='finish'?'Wie viele Bauteile sind erfolgreich gedruckt?':
+    action==='cancel'?'Wie viele Bauteile sind fehlgeschlagen oder abgebrochen?':
+    'Wie viele vollständige Produkte sind montiert und geprüft?';
+  const chosen=prompt(label,String(count));
+  if(chosen===null)return;
+  const value=Number(chosen);
+  if(!Number.isSafeInteger(value)||value<1||value>count){
+   flash('Bitte eine ganze Menge zwischen 1 und '+count+' eingeben.',true);return;
+  }
+  count=value;
+ }
  if(action==='assemble'&&!confirm(count+' Produkt(e) zusammengesetzt und geprüft?'))return;
  if(action==='finish'&&!confirm(count+' Bauteil(e) erfolgreich gedruckt?'))return;
  const saved=await mutate('components',{action,transaction_id:button.dataset.componentTid,
