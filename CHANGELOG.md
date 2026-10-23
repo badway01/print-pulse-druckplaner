@@ -1,3 +1,11 @@
+# 0.11.34 · Dezentes Fertig-Lesezeichen ohne größere Bestellkarten
+
+- Statt des großen grünen Balkens zeigt eine vollständig bediente Etsy-Bestellung jetzt ein kleines, leicht angewinkeltes, hellgrünes Papier-Lesezeichen „✓ FERTIG“ an der rechten oberen Kartenecke.
+- Das Lesezeichen ist rein informativ, kein Button. Es ragt knapp über den Kartenrand und verdeckt weder Bilder noch Bestellpositionen.
+- Fertige, teilweise fertige und offene Bestellkarten behalten dieselbe Höhe. Auch die verkürzte Teilfertig-Anzeige „1/2 fertig“ liegt außerhalb des Inhalts.
+- Die ausführliche Fertigmeldung in den Bestelldetails bleibt erhalten; Lagerzuordnung, Druckbuchungen und Etsy-Abgleich werden nicht verändert.
+- Browserprüfung für die korrekte Position, Nicht-Klickbarkeit, unveränderte Bildposition und identische Kartenhöhen ergänzt.
+
 # 0.11.33 · Fertige Lagerware direkt einer Etsy-Bestellung zuordnen
 
 - Hat eine passende Etsy-Bestellvariante fertigen Lagerbestand, heißt die Hauptaktion auf der Bestellung „Aus Lager“ statt „Drucken“.
