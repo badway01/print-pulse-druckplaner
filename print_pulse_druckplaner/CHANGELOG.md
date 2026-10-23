@@ -1,3 +1,13 @@
+# 0.11.42 · Punkt 3: Buchungssicherheit, Verlauf und verifizierte Datensicherung
+
+- Etsy-Versandabgleich korrigiert: Der SELECT der Auftragsdruck-Buchung berücksichtigt jetzt auch `assembled`. Dadurch werden bereits montierte Kundenaufträge nicht erneut vom Fertigwarenbestand abgebucht und der Abgleich bricht nicht mehr wegen eines fehlenden Feldes ab.
+- Änderungen an Fertigwarenbestand, Bauteilvorrat, laufenden Druckmengen, Auftragsteilen, Montage sowie Etsy-Auftragsstatus werden ab diesem Update direkt innerhalb derselben SQLite-Transaktion in `pp_audit` erfasst; zurückgerollte Buchungen hinterlassen keinen falschen Verlauf.
+- Im Menü **Einstellungen → Buchungsverlauf & Datensicherung** stehen die neuesten 80 Buchungen mit Vorher-/Nachherwerten und eine Schaltfläche **Sicherung als ZIP herunterladen** zur Verfügung.
+- Die ZIP enthält eine konsistente SQLite-Sicherung per Backup-API, die registrierten und zusätzlichen Master-3MF-Dateien, eine Prüfsummenliste und ein Manifest. Bei fehlenden registrierten 3MF-Dateien bricht der Download ab statt eine unvollständige Sicherung auszugeben.
+- Vor dem Download werden alle Dateiprüfsummen geprüft, die Datenbankintegrität kontrolliert und die komplette Sicherung probeweise in ein separates temporäres Verzeichnis wiederhergestellt. Es gibt bewusst **keine** automatische Rücksicherung in die laufende Datenbank.
+- Archiv und Datenbank enthalten Etsy-Zugangs-/Refresh-Daten: heruntergeladene ZIP vertraulich aufbewahren. Keine Änderungen an vorhandenen Beständen oder 3MF-Dateien; die SQLite-Migration ist wiederholbar.
+- Regressionstests für idempotente Etsy-Versandabbuchungen, Journal/Rollback, Sicherung/Wiederherstellung, fehlende 3MF-Dateien und die geschützte HTTP-Ausgabe ergänzt.
+
 # 0.11.41 · Dein nächster Druck – priorisierte Produktionsübersicht
 
 - Auf der Produktionsseite steht unter den aktuellen Etsy-Bestellungen und vor den Produktkarten eine kompakte Liste „Als Nächstes drucken“.
