@@ -25,15 +25,20 @@ orderPrintProgress=function(o){
   ...line,finished:(Number(line.finished)||0)+(Number(line.assembled)||0)
  }))});
 };
+function componentLegacyJob(line){
+ // Existing prints/allocations created before switching the product to
+ // component manufacturing must stay finishable in the classic workflow.
+ return !line?.assembled&&(Number(line?.printing)||Number(line?.finished)||Number(line?.allocated));
+}
 orderNextAction=function(line){
- if(line?.components_enabled&&line.components?.length)return null;
+ if(line?.components_enabled&&line.components?.length&&!componentLegacyJob(line))return null;
  return originalOrderNextAction(line);
 };
 orderCard=function(o){
  const html=originalOrderCard(o);
  if(o.items?.length!==1)return html;
  const line=o.items[0];
- if(!line.components_enabled||!line.item_id)return html;
+ if(!line.components_enabled||!line.item_id||componentLegacyJob(line))return html;
  const qty=componentReadyUnits(line);
  const action=qty?componentButton(line,null,'assemble',qty,'✓ '+qty+' × Montiert'):
   '<button type="button" class="primary order-print" data-order-open="'+esc(o.id)+'">Bauteile ›</button>';
@@ -76,7 +81,7 @@ function componentLineHTML(line){
    '<small>Montage nach Bereitstellung aller Bauteile abschließen.</small>')+'</div>';
 }
 orderLineActions=function(line){
- if(line.components_enabled&&line.item_id)return componentLineHTML(line);
+ if(line.components_enabled&&line.item_id&&!componentLegacyJob(line))return componentLineHTML(line);
  return originalOrderLineActions(line);
 };
 renderCatalog=function(){
