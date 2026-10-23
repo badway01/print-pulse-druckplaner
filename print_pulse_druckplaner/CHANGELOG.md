@@ -1,3 +1,10 @@
+# 0.11.21 · Auftragsdruck per Touch zuverlässig fertigmelden
+
+- Bei noch nicht erfasstem Bestand bisherigen Lagerbestand direkt im Dialog eingeben, danach Fertigmeldung atomar buchen.
+- Kein scheinbar reaktionsloser Bestätigen-Button; Speichern und Fehlermeldungen deutlicher.
+- Größeres X für das Schließen auf iPhone und Wandtablet.
+- Bestehende Lagerbestände bleiben unangetastet.
+
 # 0.11.20 · P1S New: Bambu-Sensoren korrekt zuordnen
 
 - Deutsch benannte Bambu-HA-Drucksensoren für P1S New automatisch zuordnen, sofern tatsächlich vorhanden.
