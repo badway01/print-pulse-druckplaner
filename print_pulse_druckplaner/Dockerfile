@@ -7,6 +7,7 @@ LABEL io.hass.version="${BUILD_VERSION}" \
 RUN apk add --no-cache python3 tzdata
 WORKDIR /opt/print-pulse
 COPY app.py ./app.py
+COPY components.py ./components.py
 COPY web ./web
 COPY CHANGELOG.md ./CHANGELOG.md
 ENV PP_VERSION=${BUILD_VERSION}
