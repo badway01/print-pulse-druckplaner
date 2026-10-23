@@ -1,3 +1,10 @@
+# 0.11.30 · Auftragsfertigung und Bestellübersicht
+
+- Bei „Auf Bestellung“ entfallen störende „Noch zählen“-Hinweise in der Hauptkarte und Lager-Variantenübersicht.
+- Vorhandene fertige Stücke werden weiterhin angezeigt und können jederzeit manuell eingetragen werden; die Auftrags- und Etsy-Buchungslogik bleibt unverändert.
+- „Aktuelle Bestellungen“ wird als gesamte Karte mit grünem Rahmen, klarerem Hintergrund und dezenter Schattenwirkung hervorgehoben, auch im Dunkelmodus.
+- Zusätzliche UI-Prüfungen sichern diese Darstellung ab.
+
 # 0.11.29 · Filament-Gesamtwert und Zahlentastaturen
 
 - Im Filamentlager zeigt „Meine Farben“ den Wert der erfassten vollen Spulen: Anzahl × hinterlegter Spulenpreis.
