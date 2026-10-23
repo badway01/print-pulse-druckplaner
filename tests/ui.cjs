@@ -129,9 +129,9 @@ assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
 assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el).mixBlendMode),'normal');
 await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
-await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.36'));
-assert((await page.locator('#release-history-content').textContent()).includes('Filament-Buttons'),'latest packaged release is displayed');
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.36');
+await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.37'));
+assert((await page.locator('#release-history-content').textContent()).includes('Auftragsaktionen'),'latest packaged release is displayed');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.37');
 await page.locator('[data-close="settings"]').click();
 
 
@@ -251,7 +251,7 @@ assert(Math.abs(bookmark.cardHeight-baseOrderGeometry.cardHeight)<=1,'finished c
 const orderHeights=await page.locator('.order-card').evaluateAll(cards=>cards.map(c=>c.getBoundingClientRect().height));
 assert(orderHeights.every(h=>Math.abs(h-orderHeights[0])<=1),'all cards must have equal height');
 
-assert.equal(await doneCard.locator('.order-print').isDisabled(),true);
+assert.equal(await doneCard.locator('[data-order-quick]').count(),0,'a completed order has no redundant action');
 await doneCard.locator('[data-order-open]').click();
 assert.equal(await page.locator('#order-details-content .order-print-complete').count(),1);
 await page.locator('[data-close="order-details"]').click();
@@ -279,16 +279,12 @@ await page.evaluate(()=>{
  renderOrders();
 });
 const allocationCard=page.locator('[data-order-card="502"]');
-assert.equal(await allocationCard.locator('[data-order-action="allocate"]').count(),1);
+assert.equal(await allocationCard.locator('[data-quick-action="allocate"]').count(),1);
 assert((await allocationCard.locator('.order-print').textContent()).includes('Aus Lager'));
-await allocationCard.locator('.order-print').click();
-assert((await page.locator('#quantity-title').textContent()).includes('aus Lager zuordnen'));
-assert((await page.locator('#quantity-label').textContent()).includes('Weiß'));
-assert.equal(await page.locator('#quantity-value').getAttribute('max'),'1');
-assert((await page.locator('#quantity-help').textContent()).includes('nicht erneut beim Versand'));
-await page.locator('[data-close="quantity"]').click();
+assert.equal(await allocationCard.locator('[data-quick-qty]').getAttribute('data-quick-qty'),'1');
+assert.equal(await allocationCard.locator('[data-quick-action="allocate"]').count(),1,'one-click allocation is offered');
 await allocationCard.locator('[data-order-open]').click();
-assert.equal(await page.locator('#order-details-content [data-job-action="allocate"]').count(),1);
+assert.equal(await page.locator('#order-details-content [data-quick-action="allocate"]').count(),1);
 assert.equal(await page.locator('#order-details-content [data-job-action="printing"]').count(),1);
 await page.locator('[data-close="order-details"]').click();
 await page.evaluate(()=>{
@@ -297,7 +293,7 @@ await page.evaluate(()=>{
  renderOrders();
 });
 assert.equal(await allocationCard.locator('.order-print-complete').count(),1);
-assert.equal(await allocationCard.locator('.order-print').isDisabled(),true);
+assert.equal(await allocationCard.locator('[data-order-quick]').count(),0,'fully allocated order has no extra action');
 await allocationCard.locator('[data-order-open]').click();
 assert.equal(await page.locator('#order-details-content [data-job-action="release"]').count(),1);
 await page.locator('[data-close="order-details"]').click();
