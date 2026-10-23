@@ -1,3 +1,11 @@
+# 0.11.41 · Priorisierte Druckliste direkt in der Produktion
+
+- „Als Nächstes drucken“ zwischen Etsy-Bestellungen und Produktkarten mit den drei wichtigsten Druckempfehlungen und aufklappbarem Rest.
+- Reihenfolge: offene Kundenaufträge, gezielte Bauteil-Vorproduktion, sinnvoller Fertigwaren-Nachdruck. Direkter Sprung zur passenden Bestellung, Bauteilverwaltung oder Druckvariante.
+- Bestehende Fertigwaren, laufende Druckaufträge und separat markierte Vorratsbauteile im Druck werden abgezogen, um Doppelempfehlungen zu vermeiden.
+- Pro Vorratsbauteil optionales Auffüllziel sowie „Im Druck“, „Fertig“ und „Abbruch“, ohne Etsy-Varianten- oder Produktlager zu vermischen.
+- Optimierte Darstellung für Mac Split View und Tablet; andere Bereiche unverändert.
+
 # 0.11.40 · Vorproduktion direkt auf der Produktkarte
 
 - Für Produkte mit aktiviertem Schalter „Vorproduktion verwenden“ werden statt der langen Etsy-Farbvariantenliste die gemeinsamen Bauteile und deren tatsächliche Lagerbestände angezeigt. Variable Teile erscheinen als „Nach Auftrag“.
