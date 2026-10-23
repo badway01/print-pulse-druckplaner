@@ -159,9 +159,12 @@ assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
 assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el).mixBlendMode),'normal');
 await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
-await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.43'));
-assert((await page.locator('#release-history-content').textContent()).includes('Lagerbearbeitung'),'latest packaged release is displayed');
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.43');
+await page.locator('#release-history-content .release-entry').first().waitFor();
+const installedVersion=(await page.locator('#app-version').textContent()).trim();
+const latestRelease=await page.locator('#release-history-content .release-entry').first().textContent();
+assert.match(installedVersion,/^v\d+\.\d+\.\d+$/);
+assert(latestRelease.includes(installedVersion.slice(1)),'latest packaged release matches app version');
+assert(latestRelease.includes('Produktionsübersicht'),'new production overview is documented');
 await page.locator('[data-close="settings"]').click();
 
 
@@ -589,6 +592,10 @@ assert.equal(await page.locator('.order-card').first().getAttribute('data-order-
 await page.locator('[data-order-card="503"] [data-order-open]').click();
 assert((await page.locator('#order-details-title').textContent()).includes('#503'));
 assert((await page.locator('#order-details-content').textContent()).includes('Farbe: Schwarz'));
+assert.equal(await page.locator('#order-details-content .order-work-item').count(),1);
+assert.equal((await page.locator('#order-details-content .order-work-variant b').first().textContent()).trim(),'Schwarz');
+const variantFont=await page.locator('#order-details-content .order-work-variant b').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
+assert(variantFont>=17,'ordered color must be prominent and legible');
 assert.equal(await page.locator('#order-details-content .order-countdown').count(),1);
 await page.locator('[data-close="order-details"]').click();
 await page.locator('[data-order-sort="ship"]').click();
