@@ -61,7 +61,7 @@ async function loadVersionHistory(){
  if(historyLoaded)return;
  try{
   const result=await api('versions');
-  $('app-version').textContent='v'+String(result.version||'0.11.40');
+  $('app-version').textContent='v'+String(result.version||'0.11.41');
   const entries=Array.isArray(result.releases)?result.releases:[];
   if(!entries.length){$('release-history-content').textContent='Noch keine Versionshistorie vorhanden.';historyLoaded=true;return;}
   $('release-history-content').innerHTML=entries.map(entry=>
@@ -857,7 +857,7 @@ function showWorkspace(value){
   }
  }
  const production=value==='production';
- for(const id of ['orders-shell','product-toolbar','product-sort-note','products'])$(id).hidden=!production;
+ for(const id of ['orders-shell','priority-shell','product-toolbar','product-sort-note','products'])$(id).hidden=!production;
  renderEtsyStockBanner();
  $('printer-strip').hidden=!production;
  $('filament-shell').hidden=value!=='filament';
