@@ -25,7 +25,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.11.25'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.11.26'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -204,6 +204,10 @@ def init_db():
           on_hand INTEGER CHECK(on_hand>=0),in_print INTEGER NOT NULL DEFAULT 0 CHECK(in_print>=0),
           minimum INTEGER NOT NULL DEFAULT 2 CHECK(minimum>=0),
           revision INTEGER NOT NULL DEFAULT 0,notice TEXT NOT NULL DEFAULT '');
+        CREATE TABLE IF NOT EXISTS etsy_stock_reference(
+          listing_id TEXT NOT NULL,variant_id TEXT NOT NULL DEFAULT '',
+          peak_qty INTEGER NOT NULL CHECK(peak_qty>=0),updated INTEGER NOT NULL,
+          PRIMARY KEY(listing_id,variant_id));
         CREATE TABLE IF NOT EXISTS stock_transactions(
           id TEXT PRIMARY KEY,receipt_id TEXT NOT NULL,listing_id TEXT NOT NULL,item_id TEXT,
           qty INTEGER NOT NULL,created INTEGER NOT NULL,status TEXT NOT NULL);
@@ -249,6 +253,14 @@ def init_db():
             db.execute("ALTER TABLE filament_spools ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
         # Preserve legacy data: migrate compatible master assignments once.
         # Incompatible print_profiles tables remain entirely untouched.
+        # Idempotent first-run bootstrap: only Etsy catalog quantities, never local stock.
+        db.execute("""INSERT OR IGNORE INTO etsy_stock_reference(listing_id,variant_id,peak_qty,updated)
+            SELECT id,'',etsy_qty,updated FROM stock_listings
+            WHERE typeof(etsy_qty)='integer' AND etsy_qty>=0""")
+        db.execute("""INSERT OR IGNORE INTO etsy_stock_reference(listing_id,variant_id,peak_qty,updated)
+            SELECT i.listing_id,i.id,i.etsy_qty,l.updated FROM stock_items i
+            JOIN stock_listings l ON l.id=i.listing_id
+            WHERE typeof(i.etsy_qty)='integer' AND i.etsy_qty>=0""")
         old_columns={col['name'] for col in db.execute("PRAGMA table_info(print_profiles)")}
         expected={'listing_id','variant_id','printer','sources_json','updated'}
         if expected.issubset(old_columns):
@@ -447,12 +459,21 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
               image=CASE WHEN excluded.image='' THEN stock_listings.image ELSE excluded.image END,
               etsy_qty=excluded.etsy_qty,state=excluded.state,inventory_error=excluded.inventory_error,updated=excluded.updated''',
               (lid,html.unescape(str(listing.get('title') or 'Produkt')),image,qty,str(listing.get('state') or 'active'),error,now))
+            if qty is not None and qty>=0:
+                db.execute("""INSERT INTO etsy_stock_reference(listing_id,variant_id,peak_qty,updated)
+                    VALUES(?,'',?,?) ON CONFLICT(listing_id,variant_id) DO UPDATE SET
+                    peak_qty=MAX(peak_qty,excluded.peak_qty),updated=excluded.updated""",(lid,qty,now))
             if valid:
                 db.execute('UPDATE stock_items SET enabled=0 WHERE listing_id=?',(lid,))
                 for row in rows:
                     db.execute('''INSERT INTO stock_items(id,listing_id,product_id,label,signature,etsy_qty,enabled)
                       VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET product_id=excluded.product_id,
                       label=excluded.label,etsy_qty=excluded.etsy_qty,enabled=excluded.enabled''',row)
+                    if type(row[5]) is int and row[5]>=0:
+                        db.execute("""INSERT INTO etsy_stock_reference(listing_id,variant_id,peak_qty,updated)
+                          VALUES(?,?,?,?) ON CONFLICT(listing_id,variant_id) DO UPDATE SET
+                          peak_qty=MAX(peak_qty,excluded.peak_qty),updated=excluded.updated""",
+                          (lid,row[0],row[5],now))
         old={r['id']:dict(r) for r in db.execute('SELECT * FROM stock_transactions')}
         items=[dict(r) for r in db.execute('SELECT * FROM stock_items')]
         observed=set()
@@ -553,39 +574,49 @@ def recommendation(stock, printing, demand, sold7, sold30, minimum, days, made_t
 
 
 
-def etsy_stock_alerts(listings, threshold=3):
-    """Flag quantities buyers can order on Etsy, never local on_hand or print jobs.
-
-    Etsy inventory is a catalog snapshot, not a real-time counter. Keep alerts
-    grouped by listing to avoid flooding the dashboard for hundreds of variants.
-    """
+def etsy_stock_alerts(listings, percent=25):
+    """Etsy-only 25%-style alerts, compared with the highest observed Etsy count."""
     result=[]
     for listing in listings:
         if listing.get('state') not in ('active','sold_out'):
             continue
         total=listing.get('etsy_qty')
         total=total if type(total) is int and total>=0 else None
+        baseline=listing.get('etsy_reference_qty')
+        baseline=baseline if type(baseline) is int and baseline>=0 else None
+        threshold=math.ceil(baseline*percent/100) if baseline is not None else None
         sold_out=listing.get('state')=='sold_out'
-        listing_low=total is not None and total<threshold
+        valid_variants=[v for v in listing.get('items',[]) if v.get('enabled') and
+                        type(v.get('etsy_qty')) is int and v['etsy_qty']>=0]
+        # Use listing quantity as a fallback only: variants can have independent Etsy stock.
+        use_total=not valid_variants
+        listing_low=use_total and total is not None and threshold is not None and total<=threshold
         variants=[]
-        for item in listing.get('items',[]):
-            qty=item.get('etsy_qty')
-            if not item.get('enabled') or type(qty) is not int or qty<0 or qty>=threshold:
+        for item in valid_variants:
+            qty=item['etsy_qty']
+            base=item.get('etsy_reference_qty')
+            base=base if type(base) is int and base>=0 else qty
+            limit=math.ceil(base*percent/100)
+            if qty>limit:
                 continue
             variants.append({'id':str(item['id']),'label':str(item['label']),
-                             'etsy_qty':qty,'sold30':int(item.get('sold30') or 0)})
+                             'etsy_qty':qty,'etsy_reference_qty':base,
+                             'warning_at':limit,'sold30':int(item.get('sold30') or 0)})
         if not (sold_out or listing_low or variants):
             continue
         variants.sort(key=lambda v:(v['etsy_qty'],-v['sold30'],v['label'].casefold()))
-        has_zero=sold_out or total==0 or any(v['etsy_qty']==0 for v in variants)
+        has_zero=sold_out or (use_total and total==0) or any(v['etsy_qty']==0 for v in variants)
         result.append({
             'listing_id':str(listing['id']),
             'title':str(listing['title']),
             'state':listing['state'],
             'etsy_qty':total,
+            'etsy_reference_qty':baseline,
+            'warning_at':threshold,
             'severity':'empty' if has_zero else 'low',
             'affected_variants':len(variants),
-            'variants':[{'id':v['id'],'label':v['label'],'etsy_qty':v['etsy_qty']}
+            'variants':[{'id':v['id'],'label':v['label'],'etsy_qty':v['etsy_qty'],
+                         'etsy_reference_qty':v['etsy_reference_qty'],'warning_at':v['warning_at']}
                         for v in variants[:3]],
             'more_variants':max(0,len(variants)-3)
         })
@@ -603,7 +634,9 @@ def overview():
         receipt_rows=[dict(r) for r in db.execute('SELECT * FROM stock_receipts')]
         print_rows=[dict(r) for r in db.execute('SELECT * FROM stock_order_prints')]
         days=int(cfg(db,'stock_days','7'))
-        etsy_threshold=max(1,min(99,int(cfg(db,'etsy_alert_threshold','3'))))
+        etsy_percent=max(1,min(100,int(cfg(db,'etsy_alert_percent','25'))))
+        etsy_refs={(r['listing_id'],r['variant_id']):r['peak_qty']
+                   for r in db.execute('SELECT * FROM etsy_stock_reference')}
         sync_at=int(cfg(db,'stock_last_sync','0'))
         configured=bool(cfg(db,'keystring') and cfg(db,'callback'))
         authorized=bool(cfg(db,'access_token'))
@@ -619,6 +652,7 @@ def overview():
     tx_by_id={t['id']:t for t in txs}
     prints_by_tx={p['transaction_id']:p for p in print_rows}
     for listing in listings:
+        listing['etsy_reference_qty']=etsy_refs.get((listing['id'],''),listing['etsy_qty'])
         sales=[t for t in txs if t['listing_id']==listing['id'] and t['status'] in ('open','shipped')]
         listing['sold30']=sum(t['qty'] for t in sales if t['created']>=now-30*86400)
         listing['sold7']=sum(t['qty'] for t in sales if t['created']>=now-7*86400)
@@ -626,6 +660,7 @@ def overview():
         listing['review']=sum(t['qty'] for t in txs if t['listing_id']==listing['id'] and t['status']=='review')
         variants=[]
         for item in (i for i in items if i['listing_id']==listing['id']):
+            item['etsy_reference_qty']=etsy_refs.get((listing['id'],item['id']),item['etsy_qty'])
             lines=[t for t in sales if t['item_id']==item['id']]
             item['sold7']=sum(t['qty'] for t in lines if t['created']>=now-7*86400)
             item['sold30']=sum(t['qty'] for t in lines if t['created']>=now-30*86400)
@@ -648,7 +683,7 @@ def overview():
     top={p['id'] for p in eligible[:max(1,math.ceil(len(listings)*.2))]}
     for p in listings: p['bestseller']=p['id'] in top
     listings.sort(key=lambda p:({'red':0,'yellow':1,'unknown':2,'green':3}[p['level']],-p['need'],-p['sold7'],p['title'].casefold()))
-    low_etsy=etsy_stock_alerts(listings,etsy_threshold) if catalog_at else []
+    low_etsy=etsy_stock_alerts(listings,etsy_percent) if catalog_at else []
     images={p['id']:safe_etsy_image_url(p['image']) for p in listings}
     titles={p['id']:p['title'] for p in listings}
     orders=[]
@@ -674,7 +709,7 @@ def overview():
                        'created':receipt['created'],'ship_by':receipt['ship_by'],
                        'items':lines,'quantity':sum(line['quantity'] for line in lines)})
     with STATUS_LOCK: status=dict(STATUS)
-    return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'etsy_alert_threshold':etsy_threshold,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'version':'0.1'}
+    return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'etsy_alert_percent':etsy_percent,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'version':'0.1'}
 
 
 def mutate_stock(data):
@@ -1636,10 +1671,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,overview())
             if path=='/api/settings':
                 days=integer(data.get('days'),1,60)
-                threshold=integer(data.get('etsy_alert_threshold',3),1,99)
+                percent=integer(data.get('etsy_alert_percent',25),1,100)
                 with connect() as db:
                     put_cfg(db,'stock_days',days)
-                    put_cfg(db,'etsy_alert_threshold',threshold)
+                    put_cfg(db,'etsy_alert_percent',percent)
                 return self.send(200,overview())
             if path == "/api/config":
                 if IMPORT_LOCK.locked():
