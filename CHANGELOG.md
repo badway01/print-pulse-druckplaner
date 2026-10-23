@@ -1,3 +1,12 @@
+# 0.11.23 · Theme-Switch, Tag/Nacht-Automatik und klarere Oberfläche
+
+- Im Header ersetzt ein kompakter Dreifach-Switch die alte, falsche Anzeige „LAGER v0.1“: Sonne (Hell), Halbmond (Dunkel), Auto.
+- Auto nutzt den Home-Assistant-Sonnenstand `sun.sun` für Sonnenaufgang und Sonnenuntergang, bei fehlenden HA-Daten die Geräteeinstellung. Regelmäßige Aktualisierung und sofortige Prüfung beim Wiederöffnen der App.
+- Gewählter Modus bleibt auf dem jeweiligen Gerät gespeichert. Alle Ansichten einschließlich Filamentlager, Drucker, Warnungen und Dialoge erhalten ein angepasstes dunkles Design.
+- Heller Modus mit weißerem Hintergrund und dezent kräftigeren Kartenrahmen; auch iPhone- und Tablet-Layouts berücksichtigt.
+- Die echte installierte Version und eine aufklappbare Änderungshistorie stehen jetzt unter Einstellungen → Version & Änderungen.
+- Die neue Funktion liest HA-Zustände ausschließlich serverseitig und ändert keine Drucker, Etsy-Daten, Lagerbestände oder Master-3MF-Dateien.
+
 # 0.11.22 · HTTP 500 beim Abruf von 3MF-Druckprofilen beheben
 
 - Ursache im Home-Assistant-Protokoll: bereits vorhandene SQLite-Tabelle `print_profiles` ohne Spalte `listing_id` (`sqlite3.OperationalError`).
