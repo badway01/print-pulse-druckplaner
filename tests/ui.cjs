@@ -752,4 +752,46 @@ assert((await realCard.locator('.stock-overview').textContent()).includes('5 ×S
  'open stock panel must update immediately when confirmed print increases actual stock');
 await realCard.locator('[data-print-action="cancel"]').click();await page.locator('#quantity-confirm').click();
 await realCard.locator('.running-print').waitFor({state:'detached'});
-assert.deepEqual(errors,[]);console.log('UI PASS: compact stock drawer; +/undo; printing/partial finish/cancel; variants; search; count; persistence; settings; mobile width; no JS errors.');await browser.close();})().catch(e=>{console.error(e);process.exit(1)});
+// Performance regression: identical snapshots must not repaint the grid.
+const unchanged=await page.evaluate(()=>{
+ const original=render;let calls=0;
+ render=function(){calls++;return original()};
+ try{setModel(structuredClone(model));}
+ finally{render=original;}
+ return calls;
+});
+assert.equal(unchanged,0,'identical background status snapshots must skip repaint');
+
+// DOM matching must reuse buttons and images in large variant inventories.
+const stablePatch=await page.evaluate(()=>{
+ const host=document.createElement('div');
+ const html='<button data-action="adjust" data-id="first" data-delta="1">1</button>'+
+            '<button data-action="adjust" data-id="second" data-delta="1">2</button>';
+ updateHTML(host,html);
+ const first=host.firstElementChild,second=host.lastElementChild;
+ updateHTML(host,html);
+ const unchanged=host.firstElementChild===first&&host.lastElementChild===second;
+ updateHTML(host,'<button data-action="adjust" data-id="second" data-delta="1">2</button>'+
+             '<button data-action="adjust" data-id="first" data-delta="1">1</button>');
+ return {unchanged,reverse:host.firstElementChild===second&&host.lastElementChild===first};
+});
+assert(stablePatch.unchanged&&stablePatch.reverse,'DOM patch must preserve existing controls when unchanged or reordered');
+
+// Deliberately slow down a real stock POST. The other cards must remain active
+// and a visible saving notice must remain until confirmation is returned.
+await page.route('**/api/stock',async route=>{
+ await new Promise(resolve=>setTimeout(resolve,900));
+ const response=await route.fetch();
+ await route.fulfill({response});
+});
+const initial=Number(await page.locator('[data-product="101"] .stock-number').textContent());
+await page.locator('[data-product="101"] [data-action="adjust"][data-delta="1"]').click();
+await page.waitForFunction(()=>busy,{timeout:3000});
+assert.equal(await page.locator('[data-product="102"] [data-stock-toggle]').isEnabled(),true,
+ 'another product must not be disabled during a stock request');
+assert((await page.locator('#toast').textContent()).includes('wird gespeichert'));
+await page.waitForFunction(expected=>!busy&&
+ Number(document.querySelector('[data-product="101"] .stock-number').textContent)===expected,
+ initial+1,{timeout:10000});
+await page.unroute('**/api/stock');
+assert.deepEqual(errors,[]);console.log('UI PASS: compact stock drawer; responsive stock edits; unchanged snapshot cache; stable DOM; orders; backup; mobile widths; no JS errors.');await browser.close();})().catch(e=>{console.error(e);process.exit(1)});
