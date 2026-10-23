@@ -35,6 +35,9 @@ def schema(db):
     orders={col['name'] for col in db.execute('PRAGMA table_info(stock_order_prints)')}
     if 'assembled' not in orders:
         db.execute('ALTER TABLE stock_order_prints ADD COLUMN assembled INTEGER NOT NULL DEFAULT 0 CHECK(assembled>=0)')
+    part_columns={col['name'] for col in db.execute('PRAGMA table_info(pp_components)')}
+    if 'target_stock' not in part_columns:
+        db.execute('ALTER TABLE pp_components ADD COLUMN target_stock INTEGER NOT NULL DEFAULT 0 CHECK(target_stock>=0)')
 
 
 def option(line, name):
@@ -136,6 +139,8 @@ def mutate(db,data,whole):
             prop=str(data.get('property_name') or '').strip()[:100]
             qty_prop=str(data.get('quantity_property') or '').strip()[:100]
             units=whole(data.get('units'),1,100)
+            target_stock=whole(data.get('target_stock',old['target_stock'] if old else 0),0,100000)
+            if kind=='demand': target_stock=0
             if not name or kind not in ('stock','demand'): raise ValueError('Bauteilname und Art fehlen.')
             if kind=='stock' and prop: raise ValueError('Ein Standardbauteil braucht keine Farbvariation.')
             if old:
@@ -146,13 +151,13 @@ def mutate(db,data,whole):
                     ('kind',kind),('property_name',prop),('quantity_property',qty_prop),('units',units)])):
                     raise ValueError('Dieses Bauteil wird bereits in Aufträgen genutzt. Die Stückliste bleibt unverändert.')
                 db.execute("""UPDATE pp_components SET name=?,kind=?,property_name=?,
-                    quantity_property=?,units=?,updated=? WHERE id=?""",
-                    (name,kind,prop,qty_prop,units,int(time.time()),cid))
+                    quantity_property=?,units=?,target_stock=?,updated=? WHERE id=?""",
+                    (name,kind,prop,qty_prop,units,target_stock,int(time.time()),cid))
             else:
                 db.execute("""INSERT INTO pp_components
-                    (id,listing_id,name,kind,property_name,quantity_property,units,stock,updated)
-                    VALUES(?,?,?,?,?,?,?,0,?)""",
-                    (secrets.token_hex(12),listing_id,name,kind,prop,qty_prop,units,int(time.time())))
+                    (id,listing_id,name,kind,property_name,quantity_property,units,stock,target_stock,updated)
+                    VALUES(?,?,?,?,?,?,?,0,?,?)""",
+                    (secrets.token_hex(12),listing_id,name,kind,prop,qty_prop,units,target_stock,int(time.time())))
         elif action=='delete':
             if not old: raise ValueError('Bauteil nicht gefunden.')
             if old['stock']>0:
