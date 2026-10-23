@@ -1,3 +1,11 @@
+# 0.11.40 · Bauteilvorrat direkt auf Produktionskarten
+
+- Wenn „Vorproduktion verwenden“ eingeschaltet ist, zeigt die Produktionskarte die tatsächlich gespeicherten Bauteile samt gemeinsamem Vorrat (z. B. „Geist Weiß – 8 × im Vorrat“) und variablen Bauteilen („Buch – Nach Auftrag“).
+- Die große Etsy-Variantenliste, „Noch zählen“, variantenspezifische Nachdruckhinweise und der allgemeine „In Druck“-Knopf verschwinden aus der normalen Kartenansicht dieses Produkts. Stattdessen öffnet ein großer Button direkt „Bauteile / Vorrat bearbeiten“.
+- Bereits gepflegte Fertigvarianten bleiben unter „Fertige Varianten (optional)“ erreichbar; nichts wird gelöscht oder zurückgesetzt. Ohne Vorproduktionsschalter bleibt die bisherige Produktkarte unverändert.
+- Produktionskennzahlen und Filter ignorieren die irreführenden Variantennachdrucke aktivierter Bauteilartikel und beziehen echten Bauteildruck für Etsy-Bestellungen ein. Etsy-Verfügbarkeitswarnungen bleiben bestehen.
+- Die vollständigen Produktfotos bleiben frei von zusätzlichen Lager-Overlays. Responsive für Home Assistant, Mac Split View und 11-Zoll-Tablet.
+
 # 0.11.39 · Vorproduktions-Schalter im Produktkatalog sichtbar
 
 - Der Home-Assistant-Webserver erlaubt jetzt auch die neue Datei `components-ui.js`. In 0.11.38 wurde sie zwar ausgeliefert, aber mit HTTP 404 blockiert. Deshalb fehlten die Vorproduktions-Schalter im Produktkatalog.
