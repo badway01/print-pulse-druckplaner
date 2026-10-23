@@ -1,3 +1,10 @@
+# 0.11.26 · Etsy-Verfügbarkeit prozentual überwachen
+
+- 25 % der höchsten gemerkten Etsy-Artikelmenge, aufgerundet, statt fixer Stückzahl; je Listing und Variante separat.
+- Mengen bleiben bei Verkäufen als Vergleichswert erhalten und steigen bei höherem Etsy-Bestand automatisch.
+- Einstellbarer Prozentsatz und verständliche Mengenanzeige in der Warnung.
+- Keine Verknüpfung mit dem lokalen Lagerbestand, keine Veränderungen an Etsy selbst.
+
 # 0.11.25 · Logo direkt ins Dashboard eingebettet
 
 - Ursprüngliches Print-&-Pulse-Logo erhält einen transparenten Bildhintergrund ohne weißen Kasten.
