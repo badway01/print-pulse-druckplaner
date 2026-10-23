@@ -107,6 +107,36 @@ assert((await page.locator('#sync-state').textContent()).includes('alle 15 Minut
 assert((await page.locator('#sync-state').textContent()).includes('Produktkatalog:'));
 assert.equal(await page.locator('html').getAttribute('lang'),'de');
 assert.equal(await page.locator('.printer-mini').count(),4);
+assert.equal(await page.locator('#priority-shell').isVisible(),true,'priority board belongs to production');
+const priorityChecks=await page.evaluate(()=>{
+ const data={products:[
+  {id:'g',title:'Lesender Geist',state:'active',components_enabled:1,sold7:4,sold30:9,
+   components:[{id:'white',name:'Geist Weiß',kind:'stock',stock:4,target_stock:8,printing_stock:2}],
+   items:[{id:'gv',need:99}]},
+  {id:'c',title:'Geldkarte',state:'active',components_enabled:0,sold7:4,sold30:8,
+   items:[{id:'gold',label:'Gold Edition',on_hand:1,allocatable:1,enabled:1,need:4,sold7:4,sold30:8}]}],
+ orders:[
+  {id:'a',ship_by:1790000000,created:1790000000,items:[
+   {listing_id:'g',item_id:'gv',transaction_id:'a1',remaining:3,
+    components_enabled:true,components:[{id:'white',kind:'stock',name:'Geist Weiß',required:3,booked:0}]}]},
+  {id:'b',ship_by:1791000000,created:1790000000,items:[
+   {listing_id:'c',item_id:'gold',transaction_id:'b1',remaining:2,components_enabled:false,variant:'Gold Edition'}]}
+ ]};
+ const items=priorityCandidates(data);
+ return {
+  customer:items.find(x=>x.tier===1&&x.title==='Geldkarte')?.qty,
+  reserve:items.find(x=>x.tier===2&&x.title==='Geist Weiß')?.qty,
+  duplicate:items.some(x=>x.tier===1&&x.title==='Geist Weiß'),
+  orderFirst:items[0]?.tier,
+  oldVariant:items.some(x=>x.tier===3&&x.title==='Geldkarte')
+ };
+});
+assert.equal(priorityChecks.customer,1,'available finished stock is used before a print suggestion');
+assert.equal(priorityChecks.reserve,5,'shared part refill subtracts orders and active printing');
+assert.equal(priorityChecks.duplicate,false,'in-progress part batches are not recommended again');
+assert.equal(priorityChecks.orderFirst,1,'customer work sorts before warehouse refills');
+assert.equal(priorityChecks.oldVariant,false,'same variant is never proposed twice');
+
 
 // Theme switch: real toggle, sun auto, saved choice, and dynamic release history.
 assert.equal(await page.locator('[data-theme-mode]').count(),3);
@@ -129,9 +159,9 @@ assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
 assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el).mixBlendMode),'normal');
 await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
-await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.40'));
-assert((await page.locator('#release-history-content').textContent()).includes('Bauteilvorrat'),'latest packaged release is displayed');
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.40');
+await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.41'));
+assert((await page.locator('#release-history-content').textContent()).includes('Druckprioritäten'),'latest packaged release is displayed');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.41');
 await page.locator('[data-close="settings"]').click();
 
 
