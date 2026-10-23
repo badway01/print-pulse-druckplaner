@@ -851,3 +851,26 @@ html[data-theme="dark"] .filament-stock-summary{background:var(--surface-soft);b
 html[data-theme="dark"] .filament-stock-summary b,
 html[data-theme="dark"] .filament-stock-amount strong{color:#c1e1ce}
 @media(max-width:520px){.filament-stock-amount{text-align:left}}
+
+/* v0.11.30: the entire Etsy orders area is a distinct production workspace. */
+.orders-shell{
+ background:linear-gradient(135deg,#e8f2e9 0%,#f0f5ed 100%);
+ border:2px solid #96baa5;
+ border-left:5px solid #477663;
+ box-shadow:0 7px 24px #2d533e2d,0 1px 3px #2d533e14;
+}
+.orders-heading{padding-bottom:7px;border-bottom:1px solid #c5d8c8}
+.orders-heading h2{color:#315240}
+.orders-count{background:#d7e9dc;border-color:#b9d5c4;color:#315e46}
+.orders-shell .order-card{border-color:#d1ded2;box-shadow:0 3px 11px #37533d14}
+html[data-theme="dark"] .orders-shell{
+ background:linear-gradient(135deg,#2c4738,#253a2e);
+ border-color:#719b80;
+ border-left-color:#a5cdb1;
+ box-shadow:0 8px 25px #060e0a80;
+}
+html[data-theme="dark"] .orders-heading{border-bottom-color:#51725c}
+html[data-theme="dark"] .orders-heading h2{color:var(--ink)}
+html[data-theme="dark"] .orders-shell .order-card{border-color:#486050}
+.stock-quick-label{line-height:1.3}
+
