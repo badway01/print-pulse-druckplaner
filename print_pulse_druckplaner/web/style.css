@@ -967,3 +967,61 @@ html[data-theme="dark"] .order-line-actions .order-allocate{
 html[data-theme="dark"] .orders-shell .order-card-actions .order-allocate:hover,
 html[data-theme="dark"] .order-line-actions .order-allocate:hover{background:#266142}
 
+/* v0.11.34 – finished orders: a tiny paper bookmark attached to the top
+   corner, not a button or a banner in the product information.
+   All order cards retain the same dimensions regardless of print status. */
+.orders-carousel{padding-top:24px;align-items:stretch}
+.orders-carousel .order-card{position:relative;align-self:stretch}
+.orders-carousel .order-card .order-print-complete,
+.orders-carousel .order-card .order-print-partial{
+ position:absolute;top:-21px;right:7px;left:auto;z-index:2;
+ display:inline-flex;align-items:center;justify-content:center;
+ gap:4px;box-sizing:border-box;
+ width:auto;max-width:calc(100% - 16px);min-height:0;height:25px;
+ margin:0;padding:4px 8px 6px;
+ border:1px solid #a6c7aa;border-bottom:0;
+ border-radius:5px 5px 0 0;
+ background:#e4f0e3;color:#2a6648;
+ box-shadow:1px -1px 3px #315b3720;
+ font-size:10px;line-height:1;letter-spacing:.15px;
+ transform:rotate(2deg);transform-origin:bottom right;
+ white-space:nowrap;pointer-events:none;cursor:default;
+}
+.orders-carousel .order-card .order-print-complete::after,
+.orders-carousel .order-card .order-print-partial::after{
+ content:"";position:absolute;right:0;top:0;
+ border-left:6px solid transparent;border-top:6px solid #b7d4b8;
+}
+.orders-carousel .order-card .order-print-complete strong,
+.orders-carousel .order-card .order-print-partial strong{
+ color:inherit;font-size:10px;font-weight:800;line-height:1;
+ letter-spacing:.15px;white-space:nowrap;
+}
+.orders-carousel .order-card .order-print-check{
+ display:inline-block;flex:0 0 auto;
+ width:auto;height:auto;min-width:0;min-height:0;
+ margin:0;padding:0;border:0;border-radius:0;
+ background:transparent;color:inherit;box-shadow:none;
+ font-size:14px;line-height:1;font-weight:900;
+}
+.orders-carousel .order-card .order-print-partial{
+ background:#f1f0e7;color:#71683a;border-color:#d5d0b4;
+}
+.orders-carousel .order-card .order-print-partial::after{border-top-color:#d8d3b6}
+.orders-carousel .order-card .order-print-partial span{font-size:13px;line-height:1}
+html[data-theme="dark"] .orders-carousel .order-card .order-print-complete{
+ background:#334b3c;color:#d5efdc;border-color:#699776;box-shadow:1px -1px 3px #0003;
+}
+html[data-theme="dark"] .orders-carousel .order-card .order-print-complete::after{
+ border-top-color:#52785b;
+}
+html[data-theme="dark"] .orders-carousel .order-card .order-print-check{
+ background:transparent;color:inherit;
+}
+html[data-theme="dark"] .orders-carousel .order-card .order-print-partial{
+ background:#544b35;color:#f0dfb5;border-color:#91845d;
+}
+html[data-theme="dark"] .orders-carousel .order-card .order-print-partial::after{
+ border-top-color:#86764e;
+}
+
