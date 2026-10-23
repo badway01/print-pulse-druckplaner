@@ -970,11 +970,11 @@ html[data-theme="dark"] .order-line-actions .order-allocate:hover{background:#26
 /* v0.11.34 – finished orders: a tiny paper bookmark attached to the top
    corner, not a button or a banner in the product information.
    All order cards retain the same dimensions regardless of print status. */
-.orders-carousel{padding-top:24px;align-items:stretch}
+.orders-carousel{padding-top:29px;align-items:stretch}
 .orders-carousel .order-card{position:relative;align-self:stretch}
 .orders-carousel .order-card .order-print-complete,
 .orders-carousel .order-card .order-print-partial{
- position:absolute;top:-21px;right:7px;left:auto;z-index:2;
+ position:absolute;top:-25px;right:7px;left:auto;z-index:2;
  display:inline-flex;align-items:center;justify-content:center;
  gap:4px;box-sizing:border-box;
  width:auto;max-width:calc(100% - 16px);min-height:0;height:25px;
