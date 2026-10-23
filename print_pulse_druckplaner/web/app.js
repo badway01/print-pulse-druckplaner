@@ -99,21 +99,29 @@ function patchNode(current,next){
  if(current.tagName==='SELECT'&&current.value!==next.value)current.value=next.value;
 }
 function patchChildren(current,next){
- const available=[...current.childNodes];
+ // Large Etsy variant lists used to scan every sibling for every child.
+ // Keep ordered buckets by node identity: O(n) matching even with 784 variants.
+ const siblings=new Map();
+ const keyFor=node=>node.nodeType+':'+node.nodeName+':'+nodeKey(node);
+ for(const node of current.childNodes){
+  const key=keyFor(node);
+  if(!siblings.has(key))siblings.set(key,[]);
+  siblings.get(key).push(node);
+ }
  let cursor=current.firstChild;
- for(const wanted of [...next.childNodes]){
-  const key=nodeKey(wanted);
-  const found=available.find(node=>node.nodeType===wanted.nodeType&&node.nodeName===wanted.nodeName&&nodeKey(node)===key);
+ for(const wanted of next.childNodes){
+  const key=keyFor(wanted);
+  const bucket=siblings.get(key);
+  const found=bucket?.length?bucket.shift():null;
   if(found){
-   available.splice(available.indexOf(found),1);
    if(found!==cursor)current.insertBefore(found,cursor);
    patchNode(found,wanted);
    cursor=found.nextSibling;
   }else{
-   const added=wanted.cloneNode(true);current.insertBefore(added,cursor);
+   current.insertBefore(wanted.cloneNode(true),cursor);
   }
  }
- for(const node of available)node.remove();
+ for(const bucket of siblings.values())for(const unused of bucket)unused.remove();
 }
 // Keeping a markup fingerprint per container avoids rebuilding all 76 product
 // cards on every poll when neither Etsy nor local stock actually changed.
@@ -944,6 +952,11 @@ async function mutate(path,data){
  if(busy)return false;
  busy=true;
  modelEpoch++; // invalidate any in-flight pre-mutation status refresh
+ // Visible feedback without disabling unrelated product cards.
+ clearTimeout(flash.timer);
+ $('toast').textContent='Änderung wird gespeichert …';
+ $('toast').classList.remove('error');
+ $('toast').hidden=false;
  let saved=false,updated=null;
  try{
   // Never disable the entire product grid: even a long-running request must
