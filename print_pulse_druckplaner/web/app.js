@@ -61,7 +61,7 @@ async function loadVersionHistory(){
  if(historyLoaded)return;
  try{
   const result=await api('versions');
-  $('app-version').textContent='v'+String(result.version||'0.11.37');
+  $('app-version').textContent='v'+String(result.version||'0.11.38');
   const entries=Array.isArray(result.releases)?result.releases:[];
   if(!entries.length){$('release-history-content').textContent='Noch keine Versionshistorie vorhanden.';historyLoaded=true;return;}
   $('release-history-content').innerHTML=entries.map(entry=>
