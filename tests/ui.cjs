@@ -786,7 +786,7 @@ await page.route('**/api/stock',async route=>{
 });
 const initial=Number(await page.locator('[data-product="101"] .stock-number').textContent());
 await page.locator('[data-product="101"] [data-action="adjust"][data-delta="1"]').click();
-await page.waitForFunction(()=>busy,{timeout:3000});
+await page.waitForFunction(()=>busy,null,{timeout:3000});
 assert.equal(await page.locator('[data-product="102"] [data-stock-toggle]').isEnabled(),true,
  'another product must not be disabled during a stock request');
 assert((await page.locator('#toast').textContent()).includes('wird gespeichert'));
