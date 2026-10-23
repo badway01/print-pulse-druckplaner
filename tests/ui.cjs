@@ -42,12 +42,20 @@ await page.route('**/api/printers*',async route=>{
 await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().waitFor();assert.equal(await page.locator('.brand-logo').count(),1);await page.waitForFunction(()=>{const image=document.querySelector('.brand-logo');return image&&image.complete&&image.naturalWidth>0;},{timeout:10000});assert.equal(await page.locator('.product').count(),4);
 
 await page.locator('.printer-mini').first().waitFor();
+assert.equal((await page.locator('#printer-strip .eyebrow').textContent()).trim(),'PRODUKTION · LIVE');
+assert.equal((await page.locator('#orders-shell .eyebrow').textContent()).trim(),'ETSY · DEIN SHOP');
+// Last actual Etsy sync time is still displayed independently of the copy changes.
+assert((await page.locator('#sync-state').textContent()).includes('Bestellungen:'));
+assert((await page.locator('#sync-state').textContent()).includes('alle 15 Minuten'));
+assert((await page.locator('#sync-state').textContent()).includes('Produktkatalog:'));
+assert.equal(await page.locator('html').getAttribute('lang'),'de');
 assert.equal(await page.locator('.printer-mini').count(),4);
 
 // Theme switch: real toggle, sun auto, saved choice, and dynamic release history.
 assert.equal(await page.locator('[data-theme-mode]').count(),3);
 await page.locator('[data-theme-mode="dark"]').click();
 assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
+assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el).mixBlendMode),'screen');
 assert.equal(await page.evaluate(()=>localStorage.getItem('pp-theme-mode')),'dark');
 assert.equal(await page.locator('[data-theme-mode="dark"]').getAttribute('aria-pressed'),'true');
 const darkBackground=await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundImage);
@@ -61,6 +69,7 @@ assert.equal(await page.locator('[data-theme-mode="auto"]').getAttribute('aria-p
 await page.unroute('**/api/theme');
 await page.locator('[data-theme-mode="light"]').click();
 assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
+assert.equal(await page.locator('.brand-logo').evaluate(el=>getComputedStyle(el).mixBlendMode),'multiply');
 await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
 await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.23'));
@@ -293,7 +302,26 @@ await page.waitForTimeout(300);
 assert.equal(await page.locator('#products').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),3);
 assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
 await page.screenshot({path:'/tmp/lager-tablet.png',fullPage:true});
-await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/tmp/lager-mobile.png',fullPage:true});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));// Exercise real multi-variant stock writes via the new card buttons.
+await page.setViewportSize({width:390,height:844});
+const mobileTabs=await page.locator('.workspace-tabs').evaluate(el=>({
+ wrap:getComputedStyle(el).flexWrap,
+ x:getComputedStyle(el).overflowX,
+ scrollWidth:el.scrollWidth,
+ width:el.clientWidth,
+ pageWidth:document.documentElement.scrollWidth,
+ viewport:innerWidth
+}));
+assert.equal(mobileTabs.wrap,'nowrap');
+assert.equal(mobileTabs.x,'auto');
+assert(mobileTabs.scrollWidth>mobileTabs.width,'all navigation tabs should be horizontally scrollable');
+assert(mobileTabs.pageWidth<=mobileTabs.viewport,'no whole-page horizontal scrolling');
+await page.locator('[data-workspace="printers"]').click();
+await page.waitForFunction(()=>document.querySelector('.workspace-tabs').scrollLeft>0);
+assert.equal(await page.locator('[data-workspace="printers"]').getAttribute('aria-pressed'),'true');
+await page.locator('[data-workspace="production"]').click();
+assert.equal(await page.locator('[data-workspace="production"]').getAttribute('aria-pressed'),'true');
+await page.screenshot({path:'/tmp/lager-mobile.png',fullPage:true});
+assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));// Exercise real multi-variant stock writes via the new card buttons.
 await page.unroute('**/api/status');
 await page.reload();await page.locator('[data-product="102"]').waitFor();
 const realCard=page.locator('[data-product="102"]');
