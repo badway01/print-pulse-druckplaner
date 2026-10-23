@@ -77,6 +77,27 @@ assert((await cardMany.locator('.stock-overview').textContent()).includes('Noch 
 assert((await cardMany.locator('.stock-overview .stock-variants').evaluate(el=>getComputedStyle(el).maxHeight))==='250px');
 await cardMany.locator('.stock-quick-toggle').click();
 assert.equal(await cardMany.locator('.stock-overview').count(),0);
+// Made-to-order listings must not ask for counting before a customer orders.
+// Manual entry and all variant stock details still remain available.
+const onDemandPreview=await page.evaluate(()=>{
+ const p={...model.products.find(item=>item.id==='102'),made_to_order:true};
+ return {card:card(p),details:stockOverview(p),variant:variant(p,p.items.find(item=>item.on_hand===null))};
+});
+assert(onDemandPreview.card.includes('Lager optional'));
+assert(!onDemandPreview.card.includes('Noch zählen'));
+assert(!onDemandPreview.card.includes('Nachdruckbedarf'));
+assert(onDemandPreview.card.includes('Bestände bearbeiten'));
+assert(onDemandPreview.details.includes('Bestandseinträge · freiwillig'));
+assert(!onDemandPreview.details.includes('noch zählen'));
+assert(onDemandPreview.details.includes('—'));
+assert(onDemandPreview.variant.includes('Eintragen'),'manual stock entry must remain available');
+assert(onDemandPreview.variant.includes('Bestand optional'));
+const ordersAccent=await page.locator('#orders-shell').evaluate(el=>{
+ const css=getComputedStyle(el);
+ return {left:parseFloat(css.borderLeftWidth),shadow:css.boxShadow};
+});
+assert(ordersAccent.left>=5,'whole orders area needs an accent border');
+assert(ordersAccent.shadow!=='none','whole orders area needs subtle elevation');
 await page.locator('.printer-mini').first().waitFor();
 assert.equal((await page.locator('#printer-strip .eyebrow').textContent()).trim(),'PRODUKTION · LIVE');
 assert.equal((await page.locator('#orders-shell .eyebrow').textContent()).trim(),'ETSY · DEIN SHOP');
@@ -110,7 +131,7 @@ await page.locator('#settings-open').click();
 await page.locator('#release-history summary').click();
 await page.waitForFunction(()=>document.querySelector('#release-history-content')?.textContent.includes('0.11.27'));
 assert((await page.locator('#release-history-content').textContent()).includes('Theme-Switch'));
-assert.equal(await page.locator('#app-version').textContent(),'v0.11.29');
+assert.equal(await page.locator('#app-version').textContent(),'v0.11.30');
 await page.locator('[data-close="settings"]').click();
 
 
