@@ -6,6 +6,95 @@ const originalOrderCard=orderCard;
 const originalOrderLineActions=orderLineActions;
 const originalOrderNextAction=orderNextAction;
 const originalOrderProgress=orderPrintProgress;
+const originalProductCard=card;
+// A product using parts must no longer look like 84 separate finished goods.
+// The original variant stock remains stored and can be opened only on demand.
+function componentPartOrders(productId){
+ return (model?.orders||[]).flatMap(order=>(order.items||[]).filter(
+  line=>String(line.listing_id)===String(productId)&&line.components_enabled));
+}
+function componentProductCard(p){
+ const image=thumbnail(p.image);
+ const parts=Array.isArray(p.components)?p.components:[];
+ const lines=componentPartOrders(p.id);
+ const legacy=p.items.filter(i=>i.on_hand!==null||Number(i.in_print)>0||Number(i.order_printing)>0);
+ const oldInPrint=p.items.some(i=>Number(i.in_print)>0);
+ const legacyOpen=expanded.has(p.id);
+ const pendingOrders=lines.filter(i=>Number(i.remaining)>0).length;
+ const legacyVariantPanel=legacy.length?`
+  <div class="component-legacy">
+   <button type="button" class="variant-toggle" data-expand="${esc(p.id)}" aria-expanded="${legacyOpen}">
+    <span>Fertige Varianten (optional) · ${legacy.length} erfasst</span>
+    <b>${legacyOpen?'−':'+'}</b>
+   </button>
+   ${legacyOpen?(p.items.length>1?variantPicker(p):variant(p,p.items[0])):''}
+  </div>`:'';
+ const partRows=parts.map(part=>{
+  const stock=part.kind==='stock';
+  const jobs=lines.flatMap(line=>line.components||[]).filter(job=>job.id===part.id);
+  const missing=jobs.filter(job=>job.error).length;
+  const running=jobs.reduce((n,job)=>n+(Number(job.printing)||0),0);
+  const needed=jobs.reduce((n,job)=>n+Math.max(0,(Number(job.required)||0)-
+   (stock?Number(job.booked)||0:(Number(job.printing)||0)+(Number(job.finished)||0))),0);
+  return `<div class="component-card-part">
+   <div class="component-card-part-text">
+    <strong>${esc(part.name)}</strong>
+    <small>${stock?'Gemeinsamer Vorrat für alle Varianten':
+     'Erst nach Bestellung'+(part.property_name?' · '+esc(part.property_name):'')}
+    </small>
+    ${running?`<small class="component-card-printing">${running} im Druck</small>`:''}
+    ${needed?`<small>${needed} für offene Aufträge noch nicht ${stock?'zugeordnet':'zum Druck eingeplant'}</small>`:''}
+    ${missing?`<small class="component-card-warning">${missing} Auftrag/Aufträge mit unklarer Etsy-Variante</small>`:''}
+   </div>
+   <div class="component-card-qty ${stock?'is-stock':'is-demand'}">
+    ${stock?`<strong>${Number(part.stock)||0} ×</strong><small>im Vorrat</small>`:
+      '<span>Nach Auftrag</span>'}
+   </div>
+  </div>`;
+ }).join('');
+ return `<article class="product component-product" data-product="${esc(p.id)}">
+  <div class="product-photo">
+    ${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:
+      '<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}
+    <span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span>
+    <span class="component-photo-mode">Bauteilfertigung</span>
+  </div>
+  <div class="product-body">
+   <h2 title="${esc(p.title)}">${esc(p.title)}</h2>
+   <div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span>
+    <span><b>${p.sold30}</b> / 30 Tage</span>
+    ${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}
+   </div>
+   ${notices([p.inventory_error,p.unmatched?`${p.unmatched} Stück ohne eindeutige Etsy-Variante. Bitte prüfen.`:'' ,p.review?`${p.review} Stück mit unklarem Zahlungsstatus. Bitte Etsy prüfen.`:'' ],'product-'+p.id)}
+   <section class="component-card-panel" aria-label="Bauteilvorrat ${esc(p.title)}">
+     <div class="component-card-panel-heading">
+       <b>Bauteilvorrat</b>
+       ${pendingOrders?`<small>${pendingOrders} offene Auftragsposition${pendingOrders===1?'':'en'}</small>`:
+        '<small>Gemeinsam statt einzelner Etsy-Farbvarianten</small>'}
+     </div>
+     ${partRows||'<p class="component-card-empty">Noch keine Bauteile eingerichtet. Lege zuerst gemeinsame Vorratsteile und Teile nach Bestellung an.</p>'}
+   </section>
+   ${toolSummary(p)}
+   <button type="button" class="primary component-card-manage" data-product-components-open="${esc(p.id)}">
+    ${parts.length?'Bauteile / Vorrat bearbeiten':'Bauteile einrichten'}
+   </button>
+   ${legacyVariantPanel}
+   ${oldInPrint?'<p class="hint">Bereits begonnene klassische Druckaufträge bleiben über die bisherige Druckverwaltung verfügbar.</p>':''}
+   <div class="card-bottom">
+    <span class="component-card-footer"><span class="dot"></span> Vorproduktion aktiv</span>
+    <div class="badges">${p.bestseller?'<span class="badge best">Bestseller</span>':''}</div>
+   </div>
+  </div>
+ </article>`;
+}
+card=function(p){
+ return p.components_enabled?componentProductCard(p):originalProductCard(p);
+};
+$('products').addEventListener('click',event=>{
+ const button=event.target.closest('[data-product-components-open]');
+ if(button&&!busy)componentOpen(button.dataset.productComponentsOpen);
+});
+
 
 function componentReadyUnits(line){
  if(!line?.components_enabled||!Array.isArray(line.components)||!line.components.length||!line.remaining)return 0;
