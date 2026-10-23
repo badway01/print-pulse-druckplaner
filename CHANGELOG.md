@@ -1,3 +1,8 @@
+# 0.11.39 · Fehlerkorrektur: Vorproduktions-Schalter fehlt
+
+- Home Assistant liefert `components-ui.js` jetzt korrekt als JavaScript aus. Die neue Vorproduktion war in 0.11.38 eingebaut, aber durch die fehlende Freigabe der Skriptdatei in der Oberfläche nicht sichtbar.
+- Alle aktiven Produkte bekommen den standardmäßig ausgeschalteten Schalter „Vorproduktion verwenden“ im Produktkatalog. Vorhandene Lager- und Etsy-Daten bleiben erhalten.
+
 # 0.11.38 · Bauteile und Vorproduktion für jedes Produkt
 
 - Jedes aktive Etsy-Produkt besitzt im Produktkatalog den zunächst ausgeschalteten Schalter „Vorproduktion verwenden“. Erst nach Aktivierung werden Bauteile und Bauteilbestände sichtbar.
