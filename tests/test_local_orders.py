@@ -41,7 +41,7 @@ class LocalOrderTests(unittest.TestCase):
         app.DB_PATH=self.old
         self.temp.cleanup()
 
-    def payload(self,lines=None,request_key='local-test-key-123456',direct=False):
+    def payload(self,lines=None,request_key='test-order-123',direct=False):
         if lines is None: lines=[{'listing_id':'101','item_id':'small','quantity':1,
                                  'color':'','personalization':'','note':''}]
         day=(dt.datetime.now(app.ZoneInfo('Europe/Berlin')).date()+dt.timedelta(days=5)).isoformat()
@@ -127,7 +127,7 @@ class LocalOrderTests(unittest.TestCase):
             self.call(app.local_orders.create,self.payload([
               {'listing_id':'101','item_id':'small','quantity':4,
                'color':'','personalization':'','note':''}
-            ],request_key='new-direct-sale-key-123',direct=True))
+            ],request_key='sale-order-124',direct=True))
         self.assertEqual(self.stock(),3)
 
     def test_normal_pickup_allocations_and_printed_stock_never_double_debit(self):
