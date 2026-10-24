@@ -52,6 +52,67 @@ assert(logoPixels.corner<40&&logoPixels.corner2<40,'logo background must be tran
 assert(logoPixels.opaque>1000,'logo artwork must stay opaque');
 assert(logoPixels.transparent>12000,'most of the photo background must disappear');
 
+// Product print bookmarks take their colour straight from the product card,
+ // not from an independent threshold or a duplicate status calculation.
+const postitChecks=await page.evaluate(()=>{
+ const original=model.products.find(p=>p.items?.length&&(!p.components_enabled));
+ const markup=productPrintBadge({...original,need:14,components_enabled:false});
+ const noNeed=productPrintBadge({...original,need:0,components_enabled:false});
+ const fixture=document.createElement('template');
+ fixture.innerHTML=card({...original,level:'red',need:14});
+ const realMarkupMatches=fixture.content.querySelector('.product-need-postit strong')?.textContent==='14';
+ const host=document.querySelector('#products');
+ const rows=[];
+ for(const status of ['red','yellow','green']){
+  const card=document.createElement('article');
+  card.className='product '+status;
+  card.dataset.product='colour-test-'+status;
+  card.innerHTML=markup+'<div class="product-photo"></div>';
+  host.appendChild(card);
+  const badge=card.querySelector('.product-need-postit');
+  const border=getComputedStyle(card).borderTopColor;
+  const background=getComputedStyle(badge).backgroundColor;
+  const c=card.getBoundingClientRect(),b=badge.getBoundingClientRect(),photo=card.querySelector('.product-photo').getBoundingClientRect();
+  rows.push({status,border,background,colourMatches:border===background,
+   aboveImage:b.bottom<photo.top,atTop:b.bottom<=c.top+4,
+   pointerEvents:getComputedStyle(badge).pointerEvents});
+  card.remove();
+ }
+ const component=document.createElement('article');
+ component.className='product component-product';
+ component.innerHTML=markup+'<div class="product-photo"></div>';
+ host.appendChild(component);
+ const greenComponent=getComputedStyle(component).borderTopColor===
+  getComputedStyle(component.querySelector('.product-need-postit')).backgroundColor;
+ component.remove();
+ const example={id:'sample-component',components_enabled:true,
+  components:[{id:'white',kind:'stock',stock:1}],need:999};
+ model.orders.push({items:[{listing_id:'sample-component',components_enabled:true,
+  components:[{id:'white',kind:'stock',required:4,booked:0}]}]});
+ const componentMarkup=productPrintBadge(example);
+ model.orders.pop();
+ return {realMarkupMatches,noNeed,rows,greenComponent,
+  componentAmount:(componentMarkup.match(/<strong>(\d+)<\/strong>/)||[])[1]};
+});
+assert(postitChecks.realMarkupMatches,'ordinary product bookmark must show the sum of print needs');
+assert.equal(postitChecks.noNeed,'','zero print need must not have a post-it');
+assert.equal(postitChecks.componentAmount,'3',
+ 'component product post-it must count real component shortage, not legacy variant need');
+assert(postitChecks.greenComponent,'component post-it must use component card accent');
+for(const row of postitChecks.rows){
+ assert(row.colourMatches,'post-it must share card accent colour for '+row.status);
+ assert(row.aboveImage&&row.atTop,'post-it must sit above the product photo for '+row.status);
+ assert.equal(row.pointerEvents,'none','post-it must not block click targets');
+}
+assert.equal(await page.locator('#product-toolbar [data-filter]').count(),4);
+assert.equal(await page.locator('#product-toolbar [data-filter="all"] .product-filter-count').textContent(),'4');
+assert.equal(await page.locator('#product-toolbar [data-filter="all"]').getAttribute('aria-pressed'),'true');
+assert.equal(await page.locator('#product-toolbar [data-filter="need"]').getAttribute('aria-pressed'),'false');
+await page.locator('#product-toolbar [data-filter="need"]').click();
+assert.equal(await page.locator('#product-toolbar [data-filter="need"]').getAttribute('aria-pressed'),'true');
+assert.equal(await page.locator('#product-toolbar [data-filter="all"]').getAttribute('aria-pressed'),'false');
+await page.locator('#product-toolbar [data-filter="all"]').click();
+
 // The product photo stays free of large stock overlays; the details open below it.
 const imageBadges=page.locator('[data-product="102"] .product-photo');
 const cardMany=page.locator('[data-product="102"]');
