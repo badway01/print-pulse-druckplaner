@@ -61,6 +61,42 @@ class ComponentTests(unittest.TestCase):
     def state(self):
         return app.overview()
 
+    def test_quick_stock_and_atomic_bulk_save_share_one_source(self):
+        ids=self.configure()
+        first=ids['Geist Weiß']
+        self.change(action='stock-adjust',listing_id='101',id=first,delta=1)
+        self.change(action='stock-adjust',listing_id='101',id=first,delta=1)
+        parts={p['name']:p for p in self.state()['products'][0]['components']}
+        self.assertEqual(parts['Geist Weiß']['stock'],2)
+        with self.assertRaisesRegex(ValueError,'negativ'):
+            self.change(action='stock-adjust',listing_id='101',id=first,delta=-1)
+            self.change(action='stock-adjust',listing_id='101',id=first,delta=-1)
+            self.change(action='stock-adjust',listing_id='101',id=first,delta=-1)
+        # The failed transaction must not change the already committed zero.
+        self.assertEqual(next(p for p in self.state()['products'][0]['components'] if p['id']==first)['stock'],0)
+        self.change(action='save',listing_id='101',name='Grundplatte',kind='stock',
+                    units=1,property_name='',quantity_property='')
+        parts={p['name']:p for p in self.state()['products'][0]['components']}
+        second=parts['Grundplatte']['id']
+        self.change(action='stock-bulk',listing_id='101',entries=[
+            {'id':first,'stock':5,'expected_stock':0},
+            {'id':second,'stock':3,'expected_stock':0},
+        ])
+        parts={p['name']:p for p in self.state()['products'][0]['components']}
+        self.assertEqual((parts['Geist Weiß']['stock'],parts['Grundplatte']['stock']),(5,3))
+        with self.assertRaisesRegex(ValueError,'inzwischen geändert'):
+            self.change(action='stock-bulk',listing_id='101',entries=[
+                {'id':first,'stock':9,'expected_stock':5},
+                {'id':second,'stock':9,'expected_stock':0},
+            ])
+        parts={p['name']:p for p in self.state()['products'][0]['components']}
+        self.assertEqual((parts['Geist Weiß']['stock'],parts['Grundplatte']['stock']),(5,3))
+        with self.assertRaisesRegex(ValueError,'Vorratsbauteil'):
+            self.change(action='stock-adjust',listing_id='101',id=ids['Buch'],delta=1)
+        self.change(action='stock-adjust',listing_id='101',id=second,delta=-1)
+        parts={p['name']:p for p in self.state()['products'][0]['components']}
+        self.assertEqual(parts['Grundplatte']['stock'],2)
+
     def test_refill_goal_and_running_batches_are_safe(self):
         ids=self.configure()
         gid=ids['Geist Weiß']
