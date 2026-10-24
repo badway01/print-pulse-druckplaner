@@ -124,7 +124,7 @@ def stock_patch(db,data):
         ids=[str(data.get('id') or '')]
     placeholders=','.join('?' for _ in ids)
     rows=[dict(row) for row in db.execute(
-        'SELECT id,stock,printing_stock FROM pp_components WHERE listing_id=? AND id IN ('+
+        'SELECT id,stock,printing_stock,updated FROM pp_components WHERE listing_id=? AND id IN ('+
         placeholders+')',(listing_id,*ids))]
     if len(rows)!=len(ids):
         raise ValueError('Bauteilbestand konnte nicht vollständig bestätigt werden.')
