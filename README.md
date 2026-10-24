@@ -1,3 +1,11 @@
+## Version 0.11.46 · Vorproduktion bei der Produktsuche sichtbar
+
+Die Suche im **Produktkatalog & 3MF** zeigt bei jedem Treffer weiterhin **Vorproduktion verwenden** und, wenn aktiviert, **Bauteile verwalten**. Auch nach dem Entfernen des Suchbegriffs bleibt die Schalteranzeige erhalten. Ein Wechsel zur Produktion und zurück ist nicht mehr erforderlich. Dies ist eine reine Darstellungsreparatur; Bestände, Zuordnungen und 3MF-Dateien werden nicht verändert.
+
+## Version 0.11.45 · Etsy-Produktimport über Einstellungen
+
+Unter **Einstellungen → Etsy-Produktimport** können neue aktive Etsy-Artikel als Vorschläge gesucht und einzeln oder gesammelt importiert werden. Bekannte Etsy-IDs werden nicht doppelt angelegt. Die Produktionsoberfläche bleibt frei von Importvorschlägen.
+
 ## Version 0.11.44 · Bestellungen auf einen Blick
 
 Unter **Aktuelle Bestellungen → Details** stehen ab sofort die eigentliche Produktionsaufgabe, die bestellte Farbe beziehungsweise Variante und die nächsten Schritte deutlich im Vordergrund. Bei Vorproduktion wird zwischen **Aus Bauteillager**, **Drucken**, **Im Druck**, **Vorrat fehlt** und **Montieren** unterschieden. Nur tatsächlich angelegte Bauteile werden als Druck- oder Lageraufgabe dargestellt; eine Etsy-Auswahl allein erzeugt keine erfundene Stückliste. Die Bestandsbuchungen bleiben wie bisher. Die Oberfläche passt sich auch Mac-Split-View und dem 11-Zoll-Tablet an.
