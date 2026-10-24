@@ -1,3 +1,11 @@
+## Version 0.12.5 · A4-PDF für lokale Kundenaufträge
+
+Lokale Bestellkarten und ihre Detailansicht erhalten den Button **„Auftrag A4 · PDF“**. Der Druckplaner erzeugt damit direkt eine druckfertige A4-PDF-Datei mit Print-&-Pulse-Kopf, Kundennamen, Einzelaufträgen, jeweiliger Auftragsnummer, Fertigstellungstermin und Übergabeart sowie **allen Positionen** mit Stückzahl, Produkt, Variante, Wunschfarbe und Personalisierung. Das PDF eignet sich auch für längere, mehrseitige Aufträge.
+
+Beim Anklicken eines offenen lokalen Auftrags werden **alle anderen offenen lokalen Aufträge mit demselben Kundennamen** mit aufgenommen (Groß-/Kleinschreibung und Mehrfachleerzeichen werden ignoriert). Jeder Auftrag behält seine eigene Referenz und seinen Termin. Etsy-Aufträge, andere Kunden und bereits übergebene/stornierte lokale Aufträge sind ausgeschlossen. Da es derzeit keine eigenen Kunden-IDs gibt, werden gleichlautende Kundennamen als derselbe Kunde behandelt. Kundennamen sollten deshalb eindeutig angelegt sein.
+
+Das PDF wird nur bei Bedarf **im Arbeitsspeicher** erzeugt, nicht dauerhaft gespeichert. Es enthält keine internen Bestell-/Positionsnotizen und keine Lager-/Produktionssteuerung. Weil in lokalen Aufträgen bisher keine Verkaufspreise erfasst werden, ist es ausdrücklich **keine Rechnung**. Die PDF-Erzeugung läuft innerhalb des Home-Assistant-Add-ons mit ReportLab und DejaVu-Schrift (Umlaute, Euro-Zeichen). Drucke die heruntergeladene Datei über deinen üblichen PDF-Viewer aus.
+
 ## Version 0.12.4 · Nachdruck-Post-its im Kartenstatus
 
 Die Produktfilter **Alle Produkte**, **Nachdrucken**, **Im Druck** und **Noch zählen** sind deutlicher als Bedienelemente erkennbar und zeigen jeweils die Anzahl passender Artikel.

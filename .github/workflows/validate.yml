@@ -23,7 +23,9 @@ jobs:
           python-version: "3.13"
 
       - name: Python-Code pruefen
-        run: python -m py_compile print_pulse_druckplaner/app.py
+        run: |
+          python -m py_compile print_pulse_druckplaner/app.py print_pulse_druckplaner/local_order_pdf.py
+          python -m pip install 'reportlab>=3.6,<6'
 
       - name: JavaScript auf Syntax prüfen
         run: |

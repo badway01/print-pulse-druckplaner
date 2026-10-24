@@ -192,6 +192,55 @@ class LocalOrderTests(unittest.TestCase):
         etsy_get.assert_not_called()
         self.assertEqual(app.overview()['orders'][0]['id'],oid)
 
+    def test_customer_a4_groups_only_open_local_orders_and_is_a_real_pdf(self):
+        first=self.call(app.local_orders.create,self.payload(
+            request_key='pdf-first-123'))['id']
+        second_body=self.payload([
+            {'listing_id':'101','item_id':'large','quantity':2,
+             'color':'Jadeweiß','personalization':'Für Lotte',
+             'note':'INTERNAL-LINE-NOTE-NOT-FOR-CUSTOMER'}
+        ],request_key='pdf-second-123')
+        second_body['customer']='FRAU   MUSTER'
+        second_body['notes']='PRIVATE-ORDER-NOTE-NOT-FOR-CUSTOMER'
+        second=self.call(app.local_orders.create,second_body)['id']
+        third_body=self.payload(request_key='pdf-third-123')
+        third_body['customer']='Frau Musterfrau'
+        third=self.call(app.local_orders.create,third_body)['id']
+        with app.connect() as db:
+            snapshot=app.local_order_pdf.customer_snapshot(db,first)
+        self.assertEqual({o['id'] for o in snapshot['orders']},{first,second})
+        self.assertNotIn(third,str(snapshot))
+        self.assertEqual(sum(line['quantity'] for order in snapshot['orders']
+                             for line in order['items']),3)
+        self.assertEqual(next(o for o in snapshot['orders'] if o['id']==second)['items'][0]['color'],'Jadeweiß')
+        self.assertEqual(next(o for o in snapshot['orders'] if o['id']==second)['items'][0]['personalization'],'Für Lotte')
+        self.assertNotIn('PRIVATE-ORDER-NOTE',str(snapshot))
+        self.assertNotIn('INTERNAL-LINE-NOTE',str(snapshot))
+        pdf=app.local_order_pdf.render_pdf(snapshot)
+        self.assertTrue(pdf.startswith(b'%PDF-'))
+        self.assertGreater(len(pdf),2500)
+        self.assertIn('.pdf',app.local_order_pdf.safe_filename('Frau Müller'))
+        with app.connect() as db:
+            db.execute("UPDATE pp_local_orders SET status='completed' WHERE id=?",(second,))
+        with app.connect() as db:
+            fresh=app.local_order_pdf.customer_snapshot(db,first)
+        self.assertEqual([o['id'] for o in fresh['orders']],[first])
+        with app.connect() as db:
+            with self.assertRaisesRegex(ValueError,'nicht mehr offen'):
+                app.local_order_pdf.customer_snapshot(db,second)
+
+    def test_customer_a4_handles_many_lines_and_long_personalization(self):
+        lines=[{'listing_id':'101','item_id':'small','quantity':1,
+                'color':'Bordeaux','personalization':'Ärger über Überraschung & <test> '+('A'*300),
+                'note':''} for _ in range(25)]
+        oid=self.call(app.local_orders.create,self.payload(
+            lines,request_key='pdf-many-123'))['id']
+        with app.connect() as db:
+            snap=app.local_order_pdf.customer_snapshot(db,oid)
+        pdf=app.local_order_pdf.render_pdf(snap)
+        self.assertGreater(len(pdf),3500)
+        self.assertTrue(pdf.startswith(b'%PDF-'))
+
     def test_invalid_variant_and_missing_deadline_do_not_create_any_order(self):
         bad=self.payload()
         bad['lines'][0]['item_id']='not-real'

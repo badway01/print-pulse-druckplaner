@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders
+    from . import components, safety, local_orders, local_order_pdf
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -39,9 +39,12 @@ except ImportError:
     _local_spec=importlib.util.spec_from_file_location('pp_local_orders',Path(__file__).with_name('local_orders.py'))
     local_orders=importlib.util.module_from_spec(_local_spec)
     _local_spec.loader.exec_module(local_orders)
+    _pdf_spec=importlib.util.spec_from_file_location('pp_local_order_pdf',Path(__file__).with_name('local_order_pdf.py'))
+    local_order_pdf=importlib.util.module_from_spec(_pdf_spec)
+    _pdf_spec.loader.exec_module(local_order_pdf)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.12.4'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.12.5'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -1853,6 +1856,37 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/local-orders':
             with connect() as db:
                 return self.send(200,{'orders':local_orders.history(db)})
+        if path=='/api/local-order-pdf':
+            params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            order_id=(params.get('id') or [''])[0]
+            if not re.fullmatch(r'LOK-[A-Z0-9-]{7,50}',order_id):
+                return self.send(400,{'error':'Ungültige lokale Bestellnummer.'})
+            try:
+                with connect() as db:
+                    db.execute('BEGIN')
+                    snapshot=local_order_pdf.customer_snapshot(db,order_id)
+                document=local_order_pdf.render_pdf(snapshot)
+                if len(document)>10*1024*1024:
+                    return self.send(413,{'error':'PDF zu groß. Bitte weniger Positionen auswählen.'})
+                filename=local_order_pdf.safe_filename(snapshot['customer'])
+                self.send_response(200)
+                self.send_header('Content-Type','application/pdf')
+                self.send_header('Content-Length',str(len(document)))
+                self.send_header('Content-Disposition',"attachment; filename*=UTF-8''"+urllib.parse.quote(filename))
+                self.send_header('Cache-Control','private, no-store')
+                self.send_header('X-Content-Type-Options','nosniff')
+                self.send_header('Referrer-Policy','no-referrer')
+                self.end_headers()
+                self.wfile.write(document)
+                return
+            except (ValueError,json.JSONDecodeError):
+                return self.send(404,{'error':'Offener Kundenauftrag nicht verfügbar. Bitte Liste neu laden.'})
+            except (sqlite3.Error,ImportError,OSError):
+                log.exception('Lokales Kunden-PDF nicht verfügbar')
+                return self.send(503,{'error':'Kunden-PDF derzeit nicht verfügbar. Bitte App-Protokoll prüfen.'})
+            except Exception:
+                log.exception('Kunden-PDF konnte nicht erstellt werden')
+                return self.send(500,{'error':'Kunden-PDF konnte nicht erstellt werden.'})
         if path=='/api/audit':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             try:

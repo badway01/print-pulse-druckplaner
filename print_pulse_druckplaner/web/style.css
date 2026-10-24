@@ -1866,3 +1866,23 @@ html[data-theme="dark"] #product-toolbar .filters button.selected .product-filte
  #product-toolbar .filters button{flex:1 1 auto;min-height:44px;padding:9px 10px;font-size:12px}
  #products.grid{padding-top:29px}
 }
+
+/* v0.12.5: Local-order customer A4 document action. */
+.local-order-pdf-row{margin-top:auto;padding:8px 0 0}
+.local-order-pdf{
+ display:inline-flex;align-items:center;justify-content:center;gap:7px;
+ min-height:39px;padding:8px 12px;width:100%;
+ border-radius:9px;border:1px solid #b9cfc1;background:#e8f0e9;
+ color:#285940;text-decoration:none;font-size:12px;font-weight:750;
+ white-space:normal;text-align:center;
+}
+.local-order-pdf:hover,.local-order-pdf:focus-visible{
+ background:#d9e8de;border-color:#7ba18a;color:#204a35
+}
+.local-order-pdf>span{font-size:17px;line-height:1}
+.local-detail-actions .local-order-pdf{min-height:44px;width:auto;flex:1 1 190px}
+html[data-theme="dark"] .local-order-pdf{
+ background:#2c493b;border-color:#668b71;color:#d7ecdc;
+}
+html[data-theme="dark"] .local-order-pdf:hover{background:#395c49;color:#fff}
+@media(max-width:600px){.local-order-pdf-row .local-order-pdf{min-height:44px}}
