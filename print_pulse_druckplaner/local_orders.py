@@ -19,7 +19,8 @@ def schema(db):
       id TEXT PRIMARY KEY,customer TEXT NOT NULL,fulfillment TEXT NOT NULL,
       notes TEXT NOT NULL DEFAULT '',created INTEGER NOT NULL,
       due INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'open',
-      completed INTEGER NOT NULL DEFAULT 0
+      completed INTEGER NOT NULL DEFAULT 0,
+      request_key TEXT UNIQUE
     );
     CREATE TABLE IF NOT EXISTS pp_local_custom_jobs(
       transaction_id TEXT PRIMARY KEY,printing INTEGER NOT NULL DEFAULT 0
@@ -86,6 +87,10 @@ def create(db,data):
     if type(direct) is not bool: raise ValueError('Ungültiger Direktverkauf.')
     if direct and any(line['local_custom'] for line in lines):
         raise ValueError('Direktverkauf nur ohne Gravur oder Sonderfarbe.')
+    request_key=clean(data.get('request_key'),'Anfragekennung',120,True)
+    if len(request_key)<12: raise ValueError('Anfragekennung ungültig.')
+    previous=db.execute('SELECT id,status FROM pp_local_orders WHERE request_key=?',(request_key,)).fetchone()
+    if previous: return {'id':previous['id'],'status':previous['status']}
     now=int(time.time())
     oid='LOK-'+dt.datetime.now(BERLIN).strftime('%y%m%d')+'-'+secrets.token_hex(3).upper()
     prepared=[]
@@ -109,8 +114,10 @@ def create(db,data):
             db.execute('UPDATE stock_items SET on_hand=on_hand-?,revision=revision+1 WHERE id=?',
                        (qty,iid))
     status='completed' if direct else 'open'
-    db.execute('INSERT INTO pp_local_orders VALUES(?,?,?,?,?,?,?,?)',
-               (oid,customer,fulfillment,notes,now,due,status,now if direct else 0))
+    db.execute('''INSERT INTO pp_local_orders
+        (id,customer,fulfillment,notes,created,due,status,completed,request_key)
+        VALUES(?,?,?,?,?,?,?,?,?)''',
+        (oid,customer,fulfillment,notes,now,due,status,now if direct else 0,request_key))
     for i,line in enumerate(lines):
         tid='LOKLINE-'+secrets.token_hex(12)
         entry={k:v for k,v in line.items() if k!='title'}
