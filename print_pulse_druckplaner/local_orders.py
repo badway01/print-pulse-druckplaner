@@ -164,7 +164,7 @@ def custom_action(db,data):
         printing=excluded.printing,finished=excluded.finished''',(tid,printing,finished))
     return {'id':tx['receipt_id'],'transaction_id':tid}
 
-def close(db,data):
+def close(db,data,components):
     oid=str(data.get('id') or '')
     row=db.execute("SELECT * FROM pp_local_orders WHERE id=? AND status='open'",(oid,)).fetchone()
     if not row: raise ValueError('Lokale Bestellung nicht offen.')
@@ -204,7 +204,6 @@ def close(db,data):
                 db.execute('UPDATE stock_items SET on_hand=on_hand+?,revision=revision+1 WHERE id=?',
                            (allocated,tx['item_id']))
             # Restore booked, unconsumed component stock, transactionally.
-            from . import components
             components.recover_cancelled(db,tx['id'])
         db.execute("UPDATE stock_transactions SET status=? WHERE id=?",
                    ('shipped' if action=='complete' else 'review',tx['id']))
