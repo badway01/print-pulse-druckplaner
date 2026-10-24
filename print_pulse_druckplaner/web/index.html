@@ -48,7 +48,7 @@
  <div id="priority-list" class="priority-list" aria-live="off"></div>
  <button type="button" id="priority-more" class="priority-more text-button" aria-expanded="false" hidden>Alle Vorschläge anzeigen</button>
 </section>
-<section id="product-toolbar" class="toolbar" aria-label="Produkte filtern"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Produkt oder Variante suchen" aria-label="Produkt oder Variante suchen"></label><div class="filters"><button data-filter="all" class="selected">Alle Produkte</button><button data-filter="need">Nachdrucken</button><button data-filter="printing">Im Druck</button><button data-filter="uncounted">Noch zählen</button></div><button id="undo" class="text-button" disabled>↶ Rückgängig</button></section>
+<section id="product-toolbar" class="toolbar" aria-label="Produkte filtern"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Produkt oder Variante suchen" aria-label="Produkt oder Variante suchen"></label><div class="filters" role="group" aria-label="Produktstatus filtern"><button type="button" data-filter="all" class="selected" aria-pressed="true">Alle Produkte <span class="product-filter-count">0</span></button><button type="button" data-filter="need" aria-pressed="false">Nachdrucken <span class="product-filter-count">0</span></button><button type="button" data-filter="printing" aria-pressed="false">Im Druck <span class="product-filter-count">0</span></button><button type="button" data-filter="uncounted" aria-pressed="false">Noch zählen <span class="product-filter-count">0</span></button></div><button id="undo" class="text-button" disabled>↶ Rückgängig</button></section>
 <div id="product-sort-note" class="sort-note">Dringende Produkte zuerst · Etsy-Mengen werden nicht verändert.</div>
 <section id="products" class="grid" aria-label="Produkte"></section>
 <section id="printers-shell" class="printers-shell" hidden aria-label="Drucker-Monitor">
@@ -82,7 +82,7 @@
   <div id="etsy-import-rows" class="etsy-import-rows"><p class="hint">Vorschläge werden geladen …</p></div>
   <p class="hint">Es werden nur Artikel aus deinem eigenen Etsy-Shop gelesen. Deine Etsy-Bestände, Lagerbuchungen, Bauteile und 3MF-Dateien werden beim Import nicht zurückgesetzt.</p>
  </details>
- <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.12.3</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
+ <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.12.4</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
 <details id="audit-panel" class="audit-panel">
  <summary>Buchungsverlauf &amp; Datensicherung</summary>
  <p class="hint">Hier siehst du Änderungen an Fertigwaren, Bauteilen und Etsy-Auftragsbuchungen. Das Protokoll erfasst neue Vorgänge ab Version 0.11.42.</p>
