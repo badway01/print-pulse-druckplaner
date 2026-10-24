@@ -162,14 +162,14 @@ function notices(messages,key){
 function showAlert(messages){const html=notices(messages,'global');updateHTML($('alert'),html);$('alert').hidden=!html;}
 const stateNames={active:'Aktiv',sold_out:'Bei Etsy ausverkauft',inactive:'Inaktiv',draft:'Entwurf',expired:'Abgelaufen'};
 function flash(message,error=false){$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;clearTimeout(flash.timer);flash.timer=setTimeout(()=>$('toast').hidden=true,error?9000:3500);}
-async function api(path,body){
+async function api(path,body,signal){
  // Safari reports misleading "string did not match expected pattern" when an
  // ingress or upstream error returns HTML instead of the expected JSON.
  const response=await fetch('api/'+path,{
   method:body===undefined?'GET':'POST',
   headers:body===undefined?{}:{'Content-Type':'application/json'},
   body:body===undefined?undefined:JSON.stringify(body),
-  credentials:'same-origin'
+  credentials:'same-origin',signal
  });
  const raw=await response.text();
  let data;
@@ -1089,9 +1089,11 @@ async function filamentAction(data,trigger=null){
  status.textContent=filamentActionLabels[data.action]||'Filamentdaten werden gespeichert …';
  status.hidden=false;
  $('filament-shell').setAttribute('aria-busy','true');
+ const controller=new AbortController();
+ const timeout=setTimeout(()=>controller.abort(),20000);
  try{
   const before=filamentData?.filaments?.find(f=>f.id===data.id);
-  filamentData=await api('filament',data);
+  filamentData=await api('filament',data,controller.signal);
   renderFilaments();
   const after=filamentData?.filaments?.find(f=>f.id===data.id);
   const automaticallyListed=(data.action==='open'||data.action==='save')&&
@@ -1100,13 +1102,19 @@ async function filamentAction(data,trigger=null){
   flash(automaticallyListed?'Letzte volle Spule: automatisch 1 Rolle auf die Einkaufsliste gesetzt.':'Filamentliste gespeichert.');
   return true;
  }catch(err){
-  // A request may have been committed despite a lost response. Refresh before
-  // letting the user try again; never automatically repeat a stock mutation.
-  try{filamentData=await api('filaments');renderFilaments();}
+  // A request may have committed despite a lost response. Refresh, NEVER retry
+  // the POST automatically: that would be a double stock/cart booking.
+  status.textContent='Speicherstand wird überprüft …';
+  const refresh=new AbortController();
+  const refreshTimeout=setTimeout(()=>refresh.abort(),10000);
+  try{filamentData=await api('filaments',undefined,refresh.signal);renderFilaments();}
   catch{}
-  flash(err.message+' Bitte Bestand und Einkaufsliste prüfen, bevor du erneut klickst.',true);
+  finally{clearTimeout(refreshTimeout);}
+  flash((err.name==='AbortError'?'Keine rechtzeitige Antwort vom Druckplaner.':err.message)+
+    ' Bitte Bestand und Einkaufsliste prüfen, bevor du erneut klickst.',true);
   return false;
  }finally{
+  clearTimeout(timeout);
   filamentBusy=false;
   for(const [button,disabled] of prior)if(button.isConnected)button.disabled=disabled;
   if(trigger)trigger.classList.remove('filament-waiting');
