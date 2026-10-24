@@ -1371,7 +1371,9 @@ async function copyMasterPath(){
  try{await navigator.clipboard.writeText(path);flash('Netzwerkordner-Pfad kopiert. In Windows-Explorer einfügen.');}
  catch{window.prompt('Diesen Pfad im Windows-Explorer öffnen:',path);}
 }
-$('catalog-search').addEventListener('input',renderCatalog);
+// Resolve the current catalog renderer at event time: components-ui.js
+// overrides renderCatalog after this script runs to include preproduction controls.
+$('catalog-search').addEventListener('input',()=>renderCatalog());
 for(const box of ['products','catalog-rows'])$(box).addEventListener('click',event=>{
  const b=event.target.closest('[data-master-open]');if(b)openMasterEditor(b.dataset.masterOpen);
 });
