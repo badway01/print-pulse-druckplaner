@@ -1,3 +1,12 @@
+# 0.11.47 · Bauteilvorrat direkt auf der Produktionskarte ändern
+
+- Jede Vorratsposition auf einer Vorproduktionskarte hat jetzt kleine **− / Menge / +**-Bedienelemente. Plus und Minus buchen jeweils genau ein Teil atomar in derselben lokalen Bauteildatenbank wie die ausführliche Bearbeitung.
+- Antippen der angezeigten Menge öffnet direkt in der Kartenzeile ein numerisches Eingabefeld. Enter oder das grüne Häkchen speichert; beim Verlassen des Zahlenfeldes wird die Änderung ebenfalls übernommen.
+- Im Fenster **Bauteile / Vorrat bearbeiten** gibt es jetzt den Button **Alle geänderten Bestände speichern**. Mehrere Zahlen können damit in einer einzigen atomaren Buchung gespeichert werden; vorher mussten sie einzeln bestätigt werden.
+- Absolutbuchungen verhindern das unbemerkte Überschreiben zwischenzeitlich veränderter Bestände; Plus/Minus ist gegen negative Lagerbestände abgesichert.
+- Die Produktionskarte liest nach jeder Bestandsbuchung unmittelbar dieselben gespeicherten Mengen. Etsy-Angebotsmengen, fertige Produktvarianten, Bauteildefinitionen, laufende Aufträge und Master-3MF-Dateien werden nicht zurückgesetzt.
+- Synthetische Funktionstests und Browsertests für direkte Mengenänderung, gespeicherte Werte und gemeinsame Bestandsquelle ergänzt.
+
 # 0.11.46 · Vorproduktions-Schalter bleibt bei der Katalogsuche sichtbar
 
 - Behoben: Beim Tippen in die Suche des Produktkatalogs wurden die Bauteil-/Vorproduktions-Schalter ausgeblendet; beim Löschen des Suchbegriffs blieben sie bis zum Tabwechsel verschwunden.
