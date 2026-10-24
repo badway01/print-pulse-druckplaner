@@ -814,17 +814,21 @@ def overview():
     from collections import defaultdict
     sales_by_listing=defaultdict(list)
     sales_by_item=defaultdict(list)
+    local_reservations_by_item=defaultdict(list)
     review_by_listing=defaultdict(int)
     items_by_listing=defaultdict(list)
     jobs_by_item=defaultdict(list)
     for item in items:
         items_by_listing[item['listing_id']].append(item)
     for transaction in txs:
-        if transaction['status'] in ('open','shipped'):
+        is_local=str(transaction['receipt_id']).startswith('LOK-')
+        if transaction['status'] in ('open','shipped') and not is_local:
             sales_by_listing[transaction['listing_id']].append(transaction)
             if transaction['item_id']:
                 sales_by_item[transaction['item_id']].append(transaction)
-        elif transaction['status']=='review':
+        elif transaction['status']=='open' and is_local and transaction['item_id']:
+            local_reservations_by_item[transaction['item_id']].append(transaction)
+        elif transaction['status']=='review' and not is_local:
             review_by_listing[transaction['listing_id']]+=transaction['qty']
     for job in print_rows:
         if job['printing']>0:
@@ -851,7 +855,7 @@ def overview():
             item['sold30']=sum(t['qty'] for t in lines if t['created']>=now-30*86400)
             # Pieces already transferred out of stock are no longer reservations.
             item['reserved']=sum(max(0,t['qty']-prints_by_tx.get(t['id'],{}).get('allocated',0)-prints_by_tx.get(t['id'],{}).get('assembled',0))
-                                 for t in lines if t['status']=='open')
+                                 for t in (*lines,*local_reservations_by_item[item['id']]) if t['status']=='open')
             item['order_jobs']=[{'transaction_id':j['transaction_id'],'receipt_id':j['receipt_id'],
                                  'printing':j['printing'],'finished':j['finished'],
                                  'status':tx_by_id.get(j['transaction_id'],{}).get('status','unknown')}
