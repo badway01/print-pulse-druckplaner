@@ -104,6 +104,33 @@ def snapshot(db,products,orders):
     return products,orders
 
 
+
+# Lightweight response after a committed component stock adjustment. The caller
+# performs the same validated mutation and audit trigger as before; only the
+# expensive complete stock/order overview is skipped for these actions.
+STOCK_QUICK_ACTIONS=frozenset({
+    'stock','stock-adjust','stock-bulk','stock-print','stock-finish','stock-cancel'
+})
+
+
+def stock_patch(db,data):
+    action=str(data.get('action') or '')
+    if action not in STOCK_QUICK_ACTIONS:
+        raise ValueError('Keine schnelle Bestandsaktion.')
+    listing_id=str(data.get('listing_id') or '')
+    if action=='stock-bulk':
+        ids=[str(entry['id']) for entry in data['entries']]
+    else:
+        ids=[str(data.get('id') or '')]
+    placeholders=','.join('?' for _ in ids)
+    rows=[dict(row) for row in db.execute(
+        'SELECT id,stock,printing_stock FROM pp_components WHERE listing_id=? AND id IN ('+
+        placeholders+')',(listing_id,*ids))]
+    if len(rows)!=len(ids):
+        raise ValueError('Bauteilbestand konnte nicht vollständig bestätigt werden.')
+    return {'listing_id':listing_id,'parts':rows}
+
+
 def recover_cancelled(db,tid):
     """Return unused reserved physical parts when Etsy cancels a transaction."""
     rows=db.execute("""SELECT w.component_id,w.booked,w.consumed,p.kind FROM pp_component_orders w
