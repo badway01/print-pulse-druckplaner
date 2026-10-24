@@ -175,6 +175,8 @@ async function localAction(data){
  try{
   const result=await api('local-order',data);
   setModel(result.overview);
+  if(data.action==='custom-job'&&$('order-details').open&&$('order-details').dataset.orderId)
+    showOrder($('order-details').dataset.orderId);
   flash(data.action==='complete'?'Bestellung übergeben.':data.action==='cancel'&&data.transaction_id===undefined?
    'Lokale Bestellung storniert.':'Produktionsstand gespeichert.');
   if(data.action==='complete'||data.action==='cancel'&&!data.transaction_id)
