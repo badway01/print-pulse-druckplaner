@@ -74,7 +74,8 @@ const postitChecks=await page.evaluate(()=>{
   const background=getComputedStyle(badge).backgroundColor;
   const c=card.getBoundingClientRect(),b=badge.getBoundingClientRect(),photo=card.querySelector('.product-photo').getBoundingClientRect();
   rows.push({status,border,background,colourMatches:border===background,
-   aboveImage:b.bottom<photo.top,atTop:b.bottom<=c.top+4,
+   top:getComputedStyle(badge).top,position:getComputedStyle(badge).position,
+   photoClipped:getComputedStyle(card.querySelector('.product-photo')).overflow==='hidden',
    pointerEvents:getComputedStyle(badge).pointerEvents});
   card.remove();
  }
@@ -101,7 +102,9 @@ assert.equal(postitChecks.componentAmount,'3',
 assert(postitChecks.greenComponent,'component post-it must use component card accent');
 for(const row of postitChecks.rows){
  assert(row.colourMatches,'post-it must share card accent colour for '+row.status);
- assert(row.aboveImage&&row.atTop,'post-it must sit above the product photo for '+row.status);
+ assert.equal(row.position,'absolute','post-it must float without changing card height');
+ assert.equal(row.top,'-25px','post-it must attach above the product top border');
+ assert(row.photoClipped,'product images keep their own clipped container');
  assert.equal(row.pointerEvents,'none','post-it must not block click targets');
 }
 assert.equal(await page.locator('#product-toolbar [data-filter]').count(),4);
