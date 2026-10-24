@@ -1468,3 +1468,75 @@ html[data-theme="dark"] .component-piece-status.in-print{background:#35465d;colo
 .etsy-import-row small{display:block;margin-top:4px;color:var(--muted);font-size:11px}
 .etsy-import-row button{flex-shrink:0}
 @media(max-width:520px){.etsy-import-row{align-items:stretch;flex-direction:column}.etsy-import-row button{width:100%}}
+
+
+/* Compact, direct Bauteilvorrat booking. One shared server-side stock record
+   powers this card and the extended component editor. */
+.component-card-qty.is-stock{
+ min-width:142px;max-width:56%;gap:3px;
+}
+.component-card-stock-actions{
+ display:flex;align-items:center;justify-content:flex-end;gap:3px;width:100%;
+}
+.component-card-stock-actions button{
+ flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+ border-radius:8px;border:1px solid #d4e3d7;
+ background:var(--surface,#fff);color:var(--green);
+ padding:0;width:29px;height:34px;min-height:34px;
+ font-size:20px;font-weight:650;line-height:1;
+}
+.component-card-stock-actions button:disabled{opacity:.35}
+.component-card-stock-actions .component-card-stock-value{
+ border-color:transparent;background:transparent;
+ width:auto;min-width:46px;height:38px;
+ padding:0 2px;color:#356b4e;
+ font-size:22px;font-weight:750;letter-spacing:-.6px;
+ font-variant-numeric:tabular-nums;
+ white-space:nowrap;
+}
+.component-card-stock-actions .component-card-stock-value:hover,
+.component-card-stock-actions .component-card-stock-value:focus-visible{
+ background:#e4efe5;border-color:#c3d7c6;
+}
+.component-card-stock-inline{
+ display:flex;justify-content:flex-end;align-items:center;
+ gap:4px;width:100%;margin:0;
+}
+.component-card-stock-inline input{
+ display:block;width:70px;max-width:100%;height:37px;
+ padding:6px 5px;text-align:center;
+ font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;
+}
+.component-card-stock-inline button{
+ width:29px;height:35px;padding:0;
+ display:grid;place-items:center;font-size:17px;line-height:1;
+ background:var(--surface,#fff);border:1px solid var(--line);
+}
+.component-card-stock-inline button[type=submit]{
+ background:var(--green);border-color:var(--green);color:#fff;
+}
+.component-bulk-tools{
+ display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+ margin:12px 0 18px;
+}
+.component-bulk-tools button{min-height:42px}
+.component-bulk-tools small{font-size:11px;color:var(--muted);line-height:1.5}
+html[data-theme="dark"] .component-card-stock-actions button{
+ background:var(--surface);color:#c1e1ce;border-color:var(--line);
+}
+html[data-theme="dark"] .component-card-stock-actions .component-card-stock-value{
+ background:transparent;color:#c1e1ce;border-color:transparent;
+}
+html[data-theme="dark"] .component-card-stock-inline button{
+ background:var(--surface);color:var(--ink);
+}
+html[data-theme="dark"] .component-card-stock-inline button[type=submit]{
+ background:var(--green);color:white;
+}
+@media(max-width:580px){
+ .component-card-qty.is-stock{min-width:125px;max-width:58%}
+ .component-card-stock-actions button{width:26px;height:33px}
+ .component-card-stock-actions .component-card-stock-value{font-size:21px;min-width:42px}
+ .component-card-stock-inline input{width:60px}
+ .component-card-stock-inline button{width:25px}
+}
