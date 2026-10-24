@@ -154,12 +154,29 @@ function variantPicker(p,controlsOnly=false){
  return `<div class="variant-picker">${controls}<small>${controlsOnly?'Wähle die Variante für diesen Druck.':'Bestand gilt für die ausgewählte Kombination.'}</small></div>${controlsOnly?'':variant(p,item)}`;
 }
 
-let openNotices=new Set();
+let openNotices=new Set(),noticesInitialized=false;
 function notices(messages,key){
  const unique=[...new Set(messages.filter(Boolean))];
  return unique.length?`<details class="notices" data-notice-key="${esc(key)}" ${openNotices.has(key)?'open':''}><summary>Hinweise (${unique.length})</summary>${unique.map(message=>`<p class="warning">${esc(message)}</p>`).join('')}</details>`:'';
 }
 function showAlert(messages){const html=notices(messages,'global');updateHTML($('alert'),html);$('alert').hidden=!html;}
+// KPI cards navigate to actual existing work rather than being decorative.
+$('summary').addEventListener('click',event=>{
+ const jump=event.target.closest('[data-dashboard-jump]')?.dataset.dashboardJump;
+ if(jump==='need'){
+  showWorkspace('production');
+  filter='need';
+  order=model.products.map(p=>p.id);
+  render();
+  $('product-toolbar').scrollIntoView({behavior:'smooth',block:'start'});
+ }else if(jump==='critical'){
+  showWorkspace('production');
+  orderSort='ship';
+  try{localStorage.setItem('pp-order-sort','ship');}catch{}
+  renderOrders();
+  $('orders-shell').scrollIntoView({behavior:'smooth',block:'start'});
+ }
+});
 const stateNames={active:'Aktiv',sold_out:'Bei Etsy ausverkauft',inactive:'Inaktiv',draft:'Entwurf',expired:'Abgelaufen'};
 function flash(message,error=false){$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;clearTimeout(flash.timer);flash.timer=setTimeout(()=>$('toast').hidden=true,error?9000:3500);}
 async function api(path,body,signal){
@@ -255,7 +272,7 @@ function applyComponentStockPatch(patch){
   }
  }
  const after=componentProductDue(product);
- const summary=$('summary').children[1]?.querySelector('b');
+ const summary=$('summary').querySelector('[data-summary="need"] .dashboard-kpi-value');
  if(summary&&before!==after){
   const previous=Number.parseInt(summary.textContent,10);
   if(Number.isFinite(previous))summary.textContent=Math.max(0,previous+after-before)+' Stk.';
@@ -702,6 +719,7 @@ $('etsy-alert-list').addEventListener('click',event=>{
 
 function render(){if(!model)return;
  openNotices=new Set([...document.querySelectorAll('[data-notice-key][open]')].map(el=>el.dataset.noticeKey));
+ if(!noticesInitialized){openNotices.add('global');noticesInitialized=true;}
  const products=model.products.filter(p=>p.state==='active');
  const visibleProducts=model.products.filter(p=>p.state==='active'||(p.id===etsyAlertFocused&&p.state==='sold_out'));
  renderEtsyStockBanner();
@@ -752,7 +770,11 @@ function render(){if(!model)return;
    (p.components||[]).reduce((n,part)=>n+(part.kind==='stock'?(Number(part.printing_stock)||0):0),0):0);
  const due=products.reduce((n,p)=>n+dueFor(p),0);
  const inProgress=products.reduce((n,p)=>n+runningFor(p),0);
- updateHTML($('summary'),[['Produkte',products.length],['Nachdrucken',due+' Stk.'],['Im Druck',inProgress+' Stk.'],['Versandkritisch',critical+' Aufträge']].map(([label,value],index)=>`<div ${index===3&&critical?'class="summary-urgent"':''}><span>${label}</span><b>${value}</b></div>`).join(''));
+ updateHTML($('summary'),
+  '<button type="button" class="dashboard-kpi dashboard-kpi-need" data-summary="need" data-dashboard-jump="need" aria-label="Nachdruckbedarf anzeigen: '+due+' Stück">'+
+  '<span class="dashboard-kpi-icon" aria-hidden="true">▤</span><span class="dashboard-kpi-copy"><span>Nachdrucken</span><b class="dashboard-kpi-value">'+due+' Stk.</b></span><span class="dashboard-kpi-arrow" aria-hidden="true">›</span></button>'+
+  '<button type="button" class="dashboard-kpi dashboard-kpi-critical'+(critical?' has-critical':'')+'" data-summary="critical" data-dashboard-jump="critical" aria-label="Kritische Bestellungen anzeigen: '+critical+' Aufträge">'+
+  '<span class="dashboard-kpi-icon" aria-hidden="true">!</span><span class="dashboard-kpi-copy"><span>Versand kritisch</span><b class="dashboard-kpi-value">'+critical+' Aufträge</b></span><span class="dashboard-kpi-arrow" aria-hidden="true">›</span></button>');
  renderOrders();
  renderCatalog();
  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('selected',b.dataset.filter===filter));
