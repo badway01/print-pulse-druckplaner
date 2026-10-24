@@ -228,7 +228,7 @@ class ComponentTests(unittest.TestCase):
                 audit_count=db.execute('SELECT COUNT(*) FROM pp_audit').fetchone()[0]
             self.assertEqual(persisted['stock'],4)
             self.assertGreaterEqual(audit_count,2)
-            self.assertEqual(self.state()['products'][0]['components'][0]['stock'],4)
+            self.assertEqual(next(x['stock'] for x in self.state()['products'][0]['components'] if x['id']==part_id),4)
         finally:
             server.shutdown()
             server.server_close()
