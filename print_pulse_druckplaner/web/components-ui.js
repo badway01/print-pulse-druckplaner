@@ -1,6 +1,35 @@
 'use strict';
 /* Optional component workflows. Loaded after app.js; existing stock paths stay intact. */
 let componentEditorProduct=null;
+let componentStockEditing=null;
+let componentStockOperations=Promise.resolve();
+// Serialize rapid component-stock taps. The server applies relative changes
+// atomically; an absolute correction rejects stale source values.
+function componentQueueStock(data){
+ componentStockOperations=componentStockOperations.catch(()=>{}).then(()=>mutate('components',data));
+ return componentStockOperations;
+}
+function componentProductPart(listingId,id){
+ const product=model?.products.find(p=>p.id===listingId);
+ const part=product?.components?.find(p=>p.id===id);
+ return part?.kind==='stock'?part:null;
+}
+function componentStockSubmit(listingId,id,value){
+ const part=componentProductPart(listingId,id);
+ const quantity=Number(value);
+ if(!part||String(value).trim()===''||!Number.isSafeInteger(quantity)||quantity<0||quantity>100000){
+  flash('Bitte einen gültigen Bestand von 0 bis 100000 eintragen.',true);
+  return false;
+ }
+ if(componentStockEditing?.id===id&&componentStockEditing?.listingId===listingId){
+  componentStockEditing=null;
+ }
+ if(quantity===part.stock){render();return true;}
+ componentQueueStock({action:'stock',listing_id:listingId,id,stock:quantity,
+  expected_stock:part.stock}).then(()=>render());
+ return true;
+}
+
 const originalCatalog=renderCatalog;
 const originalOrderCard=orderCard;
 const originalOrderLineActions=orderLineActions;
@@ -50,7 +79,24 @@ function componentProductCard(p){
     ${missing?`<small class="component-card-warning">${missing} Auftrag/Aufträge mit unklarer Etsy-Variante</small>`:''}
    </div>
    <div class="component-card-qty ${stock?'is-stock':'is-demand'}">
-    ${stock?`<strong>${Number(part.stock)||0} ×</strong><small>im Vorrat</small>`:
+    ${stock?(componentStockEditing?.listingId===p.id&&componentStockEditing?.id===part.id?
+      `<form class="component-card-stock-inline" data-component-stock-form="${esc(part.id)}" data-component-listing-id="${esc(p.id)}">
+        <input type="number" inputmode="numeric" min="0" max="100000" step="1"
+          data-component-stock-input="${esc(part.id)}" value="${esc(componentStockEditing.draft)}"
+          aria-label="Neuer Bauteilbestand für ${esc(part.name)}" required>
+        <button type="submit" aria-label="Bestand speichern" title="Speichern">✓</button>
+        <button type="button" data-component-stock-cancel="${esc(part.id)}" aria-label="Änderung verwerfen" title="Abbrechen">×</button>
+       </form>`:
+      `<div class="component-card-stock-actions">
+         <button type="button" data-component-stock-delta="-1" data-component-stock-id="${esc(part.id)}"
+          data-component-listing-id="${esc(p.id)}" aria-label="${esc(part.name)}: Bestand um eins reduzieren"
+          ${!part.stock?'disabled':''}>−</button>
+         <button type="button" class="component-card-stock-value" data-component-stock-open="${esc(part.id)}"
+          data-component-listing-id="${esc(p.id)}" aria-label="${esc(part.name)}: Bestand ${Number(part.stock)||0} bearbeiten"
+          title="Menge direkt eingeben">${Number(part.stock)||0} ×</button>
+         <button type="button" data-component-stock-delta="1" data-component-stock-id="${esc(part.id)}"
+          data-component-listing-id="${esc(p.id)}" aria-label="${esc(part.name)}: Bestand um eins erhöhen">+</button>
+       </div>`)+`<small>im Vorrat</small>`:
       '<span>Nach Auftrag</span>'}
    </div>
   </div>`;
@@ -97,6 +143,55 @@ $('products').addEventListener('click',event=>{
  const button=event.target.closest('[data-product-components-open]');
  if(button&&!busy)componentOpen(button.dataset.productComponentsOpen);
 });
+$('products').addEventListener('click',event=>{
+ const adjustment=event.target.closest('[data-component-stock-delta]');
+ if(adjustment){
+  const id=adjustment.dataset.componentStockId;
+  const listingId=adjustment.dataset.componentListingId;
+  if(!componentProductPart(listingId,id))return;
+  componentQueueStock({action:'stock-adjust',listing_id:listingId,id,
+   delta:Number(adjustment.dataset.componentStockDelta)});
+  return;
+ }
+ const cancel=event.target.closest('[data-component-stock-cancel]');
+ if(cancel){
+  componentStockEditing=null;render();return;
+ }
+ const button=event.target.closest('[data-component-stock-open]');
+ if(!button)return;
+ const id=button.dataset.componentStockOpen;
+ const listingId=button.dataset.componentListingId;
+ const part=componentProductPart(listingId,id);
+ if(!part)return;
+ componentStockEditing={listingId,id,draft:String(part.stock)};
+ render();
+ const input=[...$('products').querySelectorAll('[data-component-stock-input]')]
+  .find(node=>node.dataset.componentStockInput===id);
+ if(input){input.focus();input.select();}
+});
+$('products').addEventListener('input',event=>{
+ const input=event.target.closest('[data-component-stock-input]');
+ if(input&&componentStockEditing?.id===input.dataset.componentStockInput)
+  componentStockEditing.draft=input.value;
+});
+$('products').addEventListener('submit',event=>{
+ const form=event.target.closest('[data-component-stock-form]');
+ if(!form)return;
+ event.preventDefault();
+ const input=form.querySelector('[data-component-stock-input]');
+ componentStockSubmit(form.dataset.componentListingId,form.dataset.componentStockForm,input?.value??'');
+});
+$('products').addEventListener('focusout',event=>{
+ const input=event.target.closest('[data-component-stock-input]');
+ if(!input)return;
+ const form=input.closest('[data-component-stock-form]');
+ if(!form||form.contains(event.relatedTarget))return;
+ // Leaving the field commits the new number, so the next row can be edited
+ // immediately without an explicit extra Save tap.
+ if(componentStockEditing?.id!==form.dataset.componentStockForm)return;
+ componentStockSubmit(form.dataset.componentListingId,form.dataset.componentStockForm,input.value);
+});
+
 
 
 function componentReadyUnits(line){
@@ -228,6 +323,7 @@ function componentRenderEditor(){
  if(!p)return;
  $('components-title').textContent='Bauteile · '+p.title;
  const parts=p.components||[];
+ $('components-stock-bulk').hidden=!parts.some(part=>part.kind==='stock');
  updateHTML($('components-list'),parts.length?parts.map(part=>
   '<div class="component-management-row" data-component-row="'+esc(part.id)+'">'+
   '<div class="component-management-name"><strong>'+esc(part.name)+'</strong>'+
@@ -325,6 +421,26 @@ $('components-list').addEventListener('click',async event=>{
   }
  }
 });
+$('components-stock-bulk').addEventListener('click',async()=>{
+ if(busy||!componentEditorProduct)return;
+ const p=model.products.find(x=>x.id===componentEditorProduct);
+ if(!p)return;
+ const entries=[];
+ for(const input of $('components-list').querySelectorAll('[data-component-count]')){
+  const part=p.components?.find(x=>x.id===input.dataset.componentCount);
+  if(!part||part.kind!=='stock')continue;
+  if(input.value.trim()===''||!Number.isSafeInteger(Number(input.value))||
+     Number(input.value)<0||Number(input.value)>100000){
+   input.focus();flash('Bitte alle Bauteilbestände korrekt eingeben.',true);return;
+  }
+  if(Number(input.value)!==part.stock)
+   entries.push({id:part.id,stock:Number(input.value),expected_stock:part.stock});
+ }
+ if(!entries.length){flash('Alle Bestände sind bereits gespeichert.');return;}
+ const saved=await mutate('components',{action:'stock-bulk',listing_id:componentEditorProduct,entries});
+ if(saved){componentRenderEditor();flash(entries.length+' Bauteilbestände gespeichert.');}
+});
+
 $('components-form').addEventListener('submit',async event=>{
  event.preventDefault();
  if(busy||!componentEditorProduct)return;
