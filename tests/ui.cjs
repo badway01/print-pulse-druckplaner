@@ -103,7 +103,9 @@ const dashboardStructure=await page.evaluate(()=>{
   return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width}};
  return {
   hero:rect('.dashboard-hero'),summary:rect('#summary'),title:rect('.dashboard-hero-copy'),
-  alert:rect('#alert'),tabs:rect('.workspace-tabs'),printers:rect('#printer-strip'),
+  alert:rect('#alert'),tabs:rect('.workspace-tabs'),
+  alertPrecedesTabs:!!(document.querySelector('#alert').compareDocumentPosition(document.querySelector('.workspace-tabs'))&Node.DOCUMENT_POSITION_FOLLOWING),
+  printers:rect('#printer-strip'),
   orders:rect('#orders-shell'),
   labels:[...document.querySelectorAll('#summary .dashboard-kpi-copy>span')].map(el=>el.textContent),
   tabs:[...document.querySelectorAll('.workspace-tabs button')].map(b=>({
@@ -114,8 +116,8 @@ assert.deepEqual(dashboardStructure.labels,['Nachdrucken','Versand kritisch'],
  'top summary must only show actionable production/shipping figures');
 assert(dashboardStructure.summary.x>dashboardStructure.title.x,
  'actionable figures belong to the right of the title on desktop');
-assert(dashboardStructure.alert.bottom===0||dashboardStructure.tabs.y>=dashboardStructure.alert.bottom-2,
- 'visible warnings must appear before the workspace navigation; hidden warnings are allowed');
+assert(dashboardStructure.alertPrecedesTabs,
+ 'warning container must precede the navigation independently of viewport scroll');
 assert(dashboardStructure.printers.y>=dashboardStructure.tabs.bottom-2,
  'printer live status belongs directly after the navigation');
 assert(dashboardStructure.orders.y>=dashboardStructure.printers.bottom-2,
