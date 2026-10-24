@@ -320,6 +320,13 @@ footer{color:#84786a}
 .filament-hex-preview input{width:75px!important;height:38px!important;flex-shrink:0}
 .filament-hex-preview output{font-family:monospace;font-size:14px;color:var(--green);font-weight:700}
 #filament-hex-status{color:var(--muted);font-size:10px}
+.filament-code-details{display:flex;gap:7px 16px;flex-wrap:wrap;margin-top:7px;font-size:11px;color:var(--muted);font-weight:600}
+.filament-code-details output{font:700 12px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink)}
+.filament-suggest-item>.filament-suggest-codes{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px;text-align:right;max-width:45%}
+.filament-suggest-codes small{display:block;color:var(--muted);font:600 10px ui-monospace,SFMono-Regular,Consolas,monospace}
+.filament-identity .filament-identity-codes{font:600 10px ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+@media(max-width:480px){.filament-suggest-item>.filament-suggest-codes{max-width:44%}.filament-suggest-codes small{font-size:9px}}
+
 .filament-duplicate{font-size:12px;background:#fff0e9;color:#983f32;padding:10px 12px;border-radius:9px}
 .filament-existing{width:100%;min-height:44px}
 
