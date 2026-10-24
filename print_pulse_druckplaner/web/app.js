@@ -201,6 +201,75 @@ function setModel(data,resort=false){
  }
  render();
 }
+// Count the component production need for one listing, using the same rules
+// as the complete dashboard. This lets a stock-only patch update its summary.
+function componentProductDue(p){
+ if(!p.components_enabled)return 0;
+ const waiting=new Map();
+ let due=0;
+ for(const order of model.orders||[]){
+  for(const line of order.items||[]){
+   if(String(line.listing_id)!==String(p.id)||!line.components_enabled)continue;
+   for(const part of line.components||[]){
+    if(part.error)continue;
+    if(part.kind==='demand'){
+     due+=Math.max(0,(Number(part.required)||0)-(Number(part.printing)||0)-(Number(part.finished)||0));
+    }else if(part.kind==='stock'){
+     waiting.set(part.id,(waiting.get(part.id)||0)+
+      Math.max(0,(Number(part.required)||0)-(Number(part.booked)||0)));
+    }
+   }
+  }
+ }
+ for(const part of p.components||[]){
+  if(part.kind==='stock')due+=Math.max(0,(waiting.get(part.id)||0)-(Number(part.stock)||0));
+ }
+ return due;
+}
+// Stock-only mutations return confirmed part quantities instead of an expensive
+// complete model snapshot. All unrelated product cards and form inputs stay put.
+function applyComponentStockPatch(patch){
+ const id=String(patch?.listing_id||'');
+ const product=model?.products?.find(p=>String(p.id)===id);
+ const rows=patch?.parts;
+ if(!product||!Array.isArray(rows)||!rows.length){load();return;}
+ const byId=new Map((product.components||[]).map(p=>[String(p.id),p]));
+ if(rows.some(row=>!byId.has(String(row.id))||
+     !Number.isSafeInteger(row.stock)||row.stock<0||
+     !Number.isSafeInteger(row.printing_stock)||row.printing_stock<0)){
+  load();return;
+ }
+ const before=componentProductDue(product);
+ for(const row of rows){
+  const part=byId.get(String(row.id));
+  part.stock=row.stock;
+  part.printing_stock=row.printing_stock;
+  if(Number.isSafeInteger(row.updated))part.updated=row.updated;
+ }
+ // Open order details use an independent copy of component stock.
+ for(const order of model.orders||[])for(const line of order.items||[]){
+  if(String(line.listing_id)!==id)continue;
+  for(const part of line.components||[]){
+   const fresh=byId.get(String(part.id));
+   if(fresh&&part.kind==='stock')part.stock=fresh.stock;
+  }
+ }
+ const after=componentProductDue(product);
+ const summary=$('summary').children[1]?.querySelector('b');
+ if(summary&&before!==after){
+  const previous=Number.parseInt(summary.textContent,10);
+  if(Number.isFinite(previous))summary.textContent=Math.max(0,previous+after-before)+' Stk.';
+ }
+ modelEpoch++; // An earlier background request must not overwrite this booking.
+ lastModelSignature=JSON.stringify(model);
+ if(typeof componentRerenderCard==='function')componentRerenderCard(id);
+ else render();
+ if(typeof renderPriorityUI==='function')renderPriorityUI();
+ if($('order-details').open){
+  const order=(model.orders||[]).find(o=>String(o.id)===$('order-details').dataset.orderId);
+  if(order?.items?.some(line=>String(line.listing_id)===id))showOrder(order.id);
+ }
+}
 function scheduleSort(){clearTimeout(sortTimer);sortTimer=setTimeout(()=>{if(busy||$('quantity').open||$('settings').open){scheduleSort();return;}order=model.products.map(p=>p.id);render();},5000);}
 function variant(p,i){
  const unknown=i.on_hand===null;
@@ -1079,12 +1148,13 @@ async function mutate(path,data){
   busy=false;
   // Exactly one render after the network request, not once while busy
   // and again after unlocking the whole interface.
-  if(updated)setModel(updated);
+  if(updated?.stock_patch)applyComponentStockPatch(updated.stock_patch);
+  else if(updated)setModel(updated);
   else $('undo').disabled=!model?.undo;
  }
  if(saved){
   flash('Gespeichert.');
-  scheduleSort();
+  if(!updated?.stock_patch)scheduleSort();
  }
  return saved;
 }

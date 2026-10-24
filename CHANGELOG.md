@@ -1,3 +1,9 @@
+# 0.11.49 · Bauteilvorrat direkt und ohne Komplett-Neuladen ändern
+
+- Schnelle, bestätigte Bauteilbuchungen mit kompakter Serverantwort statt vollem Etsy-, Auftrags- und Produktstatus.
+- Direkte Bestandsfelder öffnen ohne Neuberechnung aller Produktkarten; nach Buchungen werden betroffene Karten, Druckprioritäten und relevante Auftragsdetails aktualisiert.
+- Keine Änderung am dauerhaften SQLite-Bestand, Sicherheits-/Audit-Triggern, Etsy-Import und Masterdateien; zusätzliche Regressionstests.
+
 # 0.11.44 · Etsy-Aufträge: Farben und Druckaufgaben sofort sehen
 
 - Bestell-Details beginnen jetzt mit einer gut lesbaren Produktionsübersicht statt mit langen Artikeltiteln und kleinen Variantenzeilen.

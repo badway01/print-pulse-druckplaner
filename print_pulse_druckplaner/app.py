@@ -38,7 +38,7 @@ except ImportError:
     _safety_spec.loader.exec_module(safety)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.11.48'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.11.49'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -1938,6 +1938,13 @@ class Handler(BaseHTTPRequestHandler):
                 with connect() as db:
                     db.execute('BEGIN IMMEDIATE')
                     components.mutate(db,data,integer)
+                    # Return only verified affected rows for simple component stock
+                    # actions; never rebuild every Etsy order and product card.
+                    patch=(components.stock_patch(db,data)
+                           if data.get('action') in components.STOCK_QUICK_ACTIONS else None)
+                # Transaction is committed before the response is sent.
+                if patch is not None:
+                    return self.send(200,{'stock_patch':patch})
                 return self.send(200,overview())
             if path=='/api/stock':
                 mutate_stock(data)

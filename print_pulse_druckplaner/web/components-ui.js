@@ -14,6 +14,18 @@ function componentProductPart(listingId,id){
  const part=product?.components?.find(p=>p.id===id);
  return part?.kind==='stock'?part:null;
 }
+// Patch one visible product card instead of rebuilding the complete production
+// grid. Safe for both direct quantity entry and background booking responses.
+function componentRerenderCard(listingId){
+ const product=model?.products?.find(p=>String(p.id)===String(listingId));
+ const cardNode=[...$('products').querySelectorAll('[data-product]')]
+  .find(node=>node.dataset.product===String(listingId));
+ if(!product||!cardNode)return;
+ const template=document.createElement('template');
+ template.innerHTML=card(product);
+ const replacement=template.content.firstElementChild;
+ if(replacement)patchNode(cardNode,replacement);
+}
 function componentStockSubmit(listingId,id,value){
  const part=componentProductPart(listingId,id);
  const quantity=Number(value);
@@ -24,9 +36,9 @@ function componentStockSubmit(listingId,id,value){
  if(componentStockEditing?.id===id&&componentStockEditing?.listingId===listingId){
   componentStockEditing=null;
  }
- if(quantity===part.stock){render();return true;}
+ if(quantity===part.stock){componentRerenderCard(listingId);return true;}
  componentQueueStock({action:'stock',listing_id:listingId,id,stock:quantity,
-  expected_stock:part.stock}).then(()=>render());
+  expected_stock:part.stock}).then(saved=>{if(!saved)componentRerenderCard(listingId);});
  return true;
 }
 
@@ -158,7 +170,10 @@ $('products').addEventListener('click',event=>{
  }
  const cancel=event.target.closest('[data-component-stock-cancel]');
  if(cancel){
-  componentStockEditing=null;render();return;
+  const listingId=componentStockEditing?.listingId;
+  componentStockEditing=null;
+  if(listingId)componentRerenderCard(listingId);
+  return;
  }
  const button=event.target.closest('[data-component-stock-open]');
  if(!button)return;
@@ -167,7 +182,7 @@ $('products').addEventListener('click',event=>{
  const part=componentProductPart(listingId,id);
  if(!part)return;
  componentStockEditing={listingId,id,draft:String(part.stock)};
- render();
+ componentRerenderCard(listingId);
  const input=[...$('products').querySelectorAll('[data-component-stock-input]')]
   .find(node=>node.dataset.componentStockInput===id);
  if(input){input.focus();input.select();}

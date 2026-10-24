@@ -1,3 +1,7 @@
+## Version 0.11.49 · Schneller Bauteilvorrat
+
+Direkte Plus-/Minus-Buchungen und das Speichern von Bauteilvorräten benötigen jetzt keinen vollständigen Neuaufbau sämtlicher Etsy-Produkte und Bestellungen mehr. Die API liefert nur bestätigte geänderte Bauteile zurück; die Oberfläche aktualisiert zielgenau die zugehörige Produktkarte und abhängige Druckhinweise. Die direkte Mengeneingabe öffnet ebenfalls ohne Komplett-Render. Sammelbuchungen, Bestandsprüfungen, das SQLite-Buchungsprotokoll, bestehende Etsy-Aufträge und die Master-3MF-Dateien funktionieren weiterhin unverändert.
+
 ## Version 0.11.48 · Farbnummern & numerische Filamentsortierung
 
 Unter **Filament & Einkauf → Meine Farben** gibt es jetzt drei zusätzliche Sortierungen: **Interner Farbcode (numerisch)**, **Hersteller-Farbnummer** und **HEX-Farbcode**. Interne Nummern werden natürlich numerisch sortiert (2 vor 10), Einträge ohne Code kommen zuletzt. Gesucht werden kann auch nach Farbnummer und HEX-Wert. Die gewünschte Sortierung bleibt auf diesem Gerät gespeichert.

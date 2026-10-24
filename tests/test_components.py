@@ -6,6 +6,10 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+import threading
+import urllib.request
+import urllib.error
+from unittest import mock
 
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('component_test_app',ROOT/'print_pulse_druckplaner'/'app.py')
@@ -188,6 +192,47 @@ class ComponentTests(unittest.TestCase):
         self.change(action='book',transaction_id='tx1',component_id=ids['Geist Weiß'],quantity=1)
         part=next(p for p in self.state()['products'][0]['components'] if p['id']==ids['Geist Weiß'])
         self.assertEqual(part['stock'],0)
+
+
+    def test_http_stock_quick_patch_preserves_transaction_and_audit(self):
+        ids=self.configure()
+        part_id=ids['Geist Weiß']
+        server=app.ThreadingHTTPServer(('127.0.0.1',0),app.Handler)
+        thread=threading.Thread(target=server.serve_forever,daemon=True)
+        thread.start()
+        def request(data):
+            body=json.dumps(data).encode('utf-8')
+            req=urllib.request.Request(
+                'http://127.0.0.1:'+str(server.server_port)+'/api/components',
+                data=body,headers={'Content-Type':'application/json'},method='POST')
+            with urllib.request.urlopen(req,timeout=5) as reply:
+                return json.load(reply)
+        try:
+            with mock.patch.object(app,'INGRESS_PEER','127.0.0.1'), \
+                 mock.patch.object(app,'overview',side_effect=AssertionError('Full overview forbidden on stock quick path')):
+                first=request({'action':'stock-adjust','listing_id':'101','id':part_id,'delta':1})
+                self.assertEqual(list(first),['stock_patch'])
+                self.assertEqual(first['stock_patch']['listing_id'],'101')
+                self.assertEqual(first['stock_patch']['parts'][0]['stock'],1)
+                self.assertEqual(first['stock_patch']['parts'][0]['id'],part_id)
+                self.assertIn('updated',first['stock_patch']['parts'][0])
+                bulk=request({'action':'stock-bulk','listing_id':'101','entries':[
+                    {'id':part_id,'stock':4,'expected_stock':1}]})
+                self.assertEqual(bulk['stock_patch']['parts'][0]['stock'],4)
+                with self.assertRaises(urllib.error.HTTPError) as raised:
+                    request({'action':'stock','listing_id':'101','id':part_id,
+                             'stock':9,'expected_stock':0})
+                self.assertEqual(raised.exception.code,400)
+            with app.connect() as db:
+                persisted=db.execute('SELECT stock FROM pp_components WHERE id=?',(part_id,)).fetchone()
+                audit_count=db.execute('SELECT COUNT(*) FROM pp_audit').fetchone()[0]
+            self.assertEqual(persisted['stock'],4)
+            self.assertGreaterEqual(audit_count,2)
+            self.assertEqual(next(x['stock'] for x in self.state()['products'][0]['components'] if x['id']==part_id),4)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
 
 if __name__=='__main__':
