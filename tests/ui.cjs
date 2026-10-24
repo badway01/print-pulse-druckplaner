@@ -321,7 +321,7 @@ assert.equal(await componentCard.locator('.photo-stock-toggle').count(),0);
 assert.equal(await componentCard.locator('.component-legacy .variant-toggle').count(),1,'historical complete variants stay accessible only if requested');
 assert.equal(await componentCard.locator('.component-legacy .variant').count(),0,'do not render hundreds of variations by default');
 assert.equal(await componentCard.locator('.product-photo').count(),1,'product photo area remains visible with or without preview images');
-const afterCompSum=await page.locator('#summary b').nth(1).textContent();
+const afterCompSum=await page.locator('[data-summary="need"] .dashboard-kpi-value').textContent();
 const expectedCompDue=await page.evaluate(()=>model.products
  .filter(p=>p.state==='active'&&!p.components_enabled).reduce((n,p)=>n+p.need,0));
 assert.equal(Number.parseInt(afterCompSum,10),expectedCompDue,'variant-level demand from component products is excluded');
@@ -337,7 +337,7 @@ await page.evaluate(()=>{
 assert.equal(await componentCard.locator('.stock-quick-toggle').count(),1,'normal variant inventory returns when switch off');
 
 assert.equal((await page.locator('#order-count').textContent()).trim(),'3 offen');
-assert.equal((await page.locator('.summary-urgent b').textContent()).trim(),'2 Aufträge');
+assert.equal((await page.locator('[data-summary="critical"] .dashboard-kpi-value').textContent()).trim(),'2 Aufträge');
 assert.equal(await page.locator('.order-card').count(),3);
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'501');
 assert((await page.locator('[data-order-card="501"] .order-ship-date').textContent()).includes('Versand bis '));
@@ -706,7 +706,8 @@ assert(await page.locator('#orders').evaluate(el=>el.scrollLeft>0));
 await page.setViewportSize({width:1440,height:1100});
 
 assert.equal(await page.locator('[data-product="inactive-cat"]').count(),0);
-assert.equal(await page.locator('#summary b').first().textContent(),'4');
+assert.equal(await page.locator('#summary .dashboard-kpi').count(),2);
+assert.equal(await page.locator('.product').count(),4);
 await page.locator('#search').fill('Inaktive Katze');
 assert.equal(await page.locator('.product').count(),0);
 await page.locator('#search').fill('');
