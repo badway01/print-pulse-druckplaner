@@ -1453,3 +1453,18 @@ html[data-theme="dark"] .component-piece-status.in-print{background:#35465d;colo
  .order-work-variant b{font-size:17px}
  .component-piece-heading{align-items:flex-start}
 }
+
+
+/* Etsy import suggestions remain inside settings instead of adding dashboard cards. */
+.etsy-import-panel{margin:18px 0;padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.etsy-import-panel>summary{font-weight:700;cursor:pointer;padding:7px 0;list-style-position:inside}
+.etsy-import-panel .hint{font-size:12px}
+.import-count{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:16px;background:var(--green);color:white;font-size:11px;font-weight:700}
+.import-actions{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+.etsy-import-rows{display:grid;gap:8px;max-height:310px;overflow:auto;scrollbar-gutter:stable}
+.etsy-import-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px}
+.etsy-import-row>div{min-width:0;overflow-wrap:anywhere}
+.etsy-import-row b{display:block;font-size:13px;line-height:1.4}
+.etsy-import-row small{display:block;margin-top:4px;color:var(--muted);font-size:11px}
+.etsy-import-row button{flex-shrink:0}
+@media(max-width:520px){.etsy-import-row{align-items:stretch;flex-direction:column}.etsy-import-row button{width:100%}}
