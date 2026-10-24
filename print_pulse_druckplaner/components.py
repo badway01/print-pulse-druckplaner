@@ -119,7 +119,7 @@ def recover_cancelled(db,tid):
 def mutate(db,data,whole):
     action=str(data.get('action') or '')
     listing_id=str(data.get('listing_id') or '')
-    if action in ('toggle','save','delete','stock','stock-print','stock-finish','stock-cancel'):
+    if action in ('toggle','save','delete','stock','stock-adjust','stock-bulk','stock-print','stock-finish','stock-cancel'):
         listing=db.execute('SELECT * FROM stock_listings WHERE id=?',(listing_id,)).fetchone()
         if not listing: raise ValueError('Produkt nicht gefunden.')
         if action=='toggle':
@@ -169,6 +169,38 @@ def mutate(db,data,whole):
             if db.execute('SELECT 1 FROM pp_component_orders WHERE component_id=? LIMIT 1',(cid,)).fetchone():
                 raise ValueError('Bauteil ist bereits mit Aufträgen verknüpft und kann nicht gelöscht werden.')
             db.execute('DELETE FROM pp_components WHERE id=?',(cid,))
+        elif action=='stock-bulk':
+            entries=data.get('entries')
+            if not isinstance(entries,list) or not 1<=len(entries)<=150:
+                raise ValueError('Bitte 1 bis 150 Bauteilbestände auswählen.')
+            seen=set()
+            updates=[]
+            for entry in entries:
+                if not isinstance(entry,dict):
+                    raise ValueError('Ungültige Bauteilbuchung.')
+                part_id=str(entry.get('id') or '')
+                if not part_id or part_id in seen:
+                    raise ValueError('Bauteil fehlt oder ist doppelt eingetragen.')
+                seen.add(part_id)
+                part=db.execute('SELECT kind,stock FROM pp_components WHERE id=? AND listing_id=?',
+                                (part_id,listing_id)).fetchone()
+                if not part or part['kind']!='stock':
+                    raise ValueError('Vorratsbauteil nicht gefunden.')
+                expected=whole(entry.get('expected_stock'),0,100000)
+                qty=whole(entry.get('stock'),0,100000)
+                if expected!=part['stock']:
+                    raise ValueError('Ein Bauteilbestand wurde inzwischen geändert. Bitte neu laden.')
+                updates.append((qty,int(time.time()),part_id))
+            db.executemany('UPDATE pp_components SET stock=?,updated=? WHERE id=?',updates)
+        elif action=='stock-adjust':
+            if not old or old['kind']!='stock':
+                raise ValueError('Vorratsbauteil nicht gefunden.')
+            delta=whole(data.get('delta'),-1,1)
+            if delta==0: raise ValueError('Keine Bestandsänderung angegeben.')
+            if not 0<=old['stock']+delta<=100000:
+                raise ValueError('Der Bauteilbestand darf nicht negativ werden.')
+            db.execute('UPDATE pp_components SET stock=stock+?,updated=? WHERE id=?',
+                       (delta,int(time.time()),cid))
         elif action=='stock':
             if not old or old['kind']!='stock': raise ValueError('Vorratsbauteil nicht gefunden.')
             if 'expected_stock' in data and whole(data['expected_stock'],0,100000)!=old['stock']:
