@@ -153,7 +153,7 @@ def custom_action(db,data):
     job=db.execute('SELECT * FROM pp_local_custom_jobs WHERE transaction_id=?',(tid,)).fetchone()
     printing=job['printing'] if job else 0
     finished=job['finished'] if job else 0
-    action=data.get('action')
+    action=data.get('action_type')
     qty=data.get('quantity')
     if type(qty) is not int or not 1<=qty<=1000:
         raise ValueError('Bitte eine gültige Stückzahl eingeben.')
