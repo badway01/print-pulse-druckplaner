@@ -1,3 +1,11 @@
+# 0.12.0 · Lokale Aufträge mit Varianten und Personalisierung
+
+- **+ Lokale Bestellung** führt Produkt-Vorschläge beim Tippen und die tatsächlich gespeicherten Varianten direkt aus dem Katalog zusammen. Verschiedene Größen/Farben können als mehrere Auftragspositionen angelegt werden.
+- Pro Position Stückzahl, Wunschfarbe, Gravur/Personalisierung und Hinweis. Kundendaten, Abholung/Versand, Datum und Auftragsnotiz für den gesamten Auftrag.
+- Offene lokale und Etsy-Aufträge erscheinen in denselben Dringlichkeits- und Produktionsansichten; Sonderfertigungen werden ohne automatisches falsches Lagerbuchen separat geführt.
+- Fertigmeldung, Übergabe, Stornierung, Sofortverkauf mit Transaktionsschutz, Endterminänderung und dauerhafter lokaler Historie.
+- Updatefeste separate Datensätze, ohne Änderungen an Etsy-Zugang oder Master-3MF-Dateien.
+
 # 0.11.49 · Bauteilvorrat direkt und schneller bearbeiten
 
 - Plus/Minus, direkte Mengeneingabe, Sammeländerungen sowie Start/Fertig/Abbruch von Vorratsdruckmengen erhalten nach der bestehenden transaktionalen SQLite-Buchung nur noch die bestätigten geänderten Bauteile. Die teure vollständige Etsy-/Produktübersicht wird für diese Aktionen nicht mehr pro Klick neu berechnet.
