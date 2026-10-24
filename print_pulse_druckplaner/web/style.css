@@ -1601,3 +1601,27 @@ html[data-theme="dark"] .component-card-stock-inline button[type=submit]{
  .orders-tools{flex-wrap:wrap}
  .local-detail-actions button{flex:1 1 140px}
 }
+
+
+/* A clearly perceptible response to stock/cart requests, including on tablets. */
+.filament-action-status{
+ display:flex;align-items:center;gap:10px;width:fit-content;max-width:100%;
+ margin:8px 0 14px;padding:9px 13px;border-radius:9px;
+ background:#e8efe7;border:1px solid #9eb9a8;color:#315748;
+ font-size:13px;font-weight:650;
+}
+.filament-action-status::before,
+.filament-waiting::before{
+ content:"";flex:0 0 15px;width:15px;height:15px;border:2.5px solid currentColor;
+ border-right-color:transparent;border-radius:50%;
+ animation:filament-rotate .75s linear infinite;
+}
+.filament-waiting{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.filament-waiting:disabled{opacity:1}
+#filament-shell[aria-busy="true"] .filament-cart-button:disabled:not(.filament-waiting),
+#filament-shell[aria-busy="true"] .filament-step:disabled:not(.filament-waiting){opacity:.55}
+html[data-theme="dark"] .filament-action-status{background:#244537;color:#d0edda;border-color:#608c70}
+@keyframes filament-rotate{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){
+ .filament-action-status::before,.filament-waiting::before{animation:none;border-style:dashed}
+}
