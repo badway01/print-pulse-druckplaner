@@ -1,3 +1,11 @@
+## Version 0.12.2 · Filament-Einkauf und Cent-Preisfeld
+
+Das Filamentlager zeigt während **Einkaufsliste**, **Rolle öffnen/leeren**, **Speichern** und **Erhalten** einen Spinner mit klarer Statusmeldung. Bei ungewöhnlich langer Wartezeit wird die blockierte Anfrage beendet und der letzte bestätigte Zustand neu abgefragt – niemals wird eine stockverändernde Anfrage blind wiederholt. Fehlgeschlagene Speichervorgänge lassen das Bearbeitungsformular offen.
+
+**Preis pro Spule:** Das Feld funktioniert wie ein Kassenterminal. Ziffern werden von rechts als Cent erfasst, z. B. `1` → `0,01`, `1990` → `19,90`, `459` → `4,59`. Einfügen von `19,90` bleibt möglich; leere Preise bleiben weiterhin erlaubt. Der Preis wird wie bisher als exakte Euro-/Cent-Zahl gespeichert.
+
+**Automatische Einkaufsliste:** Wird beim Öffnen die letzte volle Rolle (1 → 0) angebrochen, merkt der Druckplaner exakt **eine Ersatzrolle** vor, sofern die Farbe noch nicht auf der Einkaufsliste steht. Dieselbe Regel greift bei einer manuellen Lagerkorrektur von einer positiven auf null volle Rollen. Existierende manuelle Einkaufsmengen werden nie erhöht; erneutes Öffnen bei null wird abgewiesen. Der Einkauf wird nicht automatisch durchgeführt. Alte Nullbestände werden nicht rückwirkend vorgemerkt.
+
 ## Version 0.12.1 · Interne Farbcodes mit Abstufungen
 
 Bei **Filament & Einkauf → Filament bearbeiten → Interner Farbcode** lassen sich jetzt Hauptfarben und einzelne Farbtöne als hierarchische Nummern speichern, beispielsweise **Weiß 2**, **Jade-Weiß 2.1**, **Elfenbeinweiß 2.2** und **weiteres Weiß 2.10**. Das Feld zeigt auf iPhone/Tablet eine Dezimaltastatur; eingegebene deutsche Kommas werden beim Speichern zu Punkten normalisiert. Die Codes werden als **Text** gespeichert, damit `2.1` und `2.10` nicht versehentlich denselben Wert ergeben. Erlaubt sind Ziffern und höchstens ein Punkt mit nachfolgenden Ziffern.
