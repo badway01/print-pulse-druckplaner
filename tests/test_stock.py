@@ -215,7 +215,7 @@ class StockTests(unittest.TestCase):
             if path.endswith('/inventory'):return inventory
             raise AssertionError(path)
         with patch.object(app,'pages',side_effect=lambda path,params:[listing] if params['state']=='active' else []),patch.object(app,'api_request',side_effect=request),patch.object(app.time,'sleep'):
-            result,warning=app.fetch_catalog('501')
+            result,warning,candidates=app.fetch_catalog('501')
         self.assertFalse(warning)
         row=result[0][3][0]
         self.assertEqual(row[3],'Farbe: Weiß')
@@ -235,7 +235,7 @@ class StockTests(unittest.TestCase):
             if path.endswith('/images'):return {'results':[]}
             raise RuntimeError('Etsy API meldet HTTP 403')
         with patch.object(app,'pages',side_effect=paged),patch.object(app,'api_request',side_effect=request),patch.object(app.time,'sleep'):
-            result,warning=app.fetch_catalog('501')
+            result,warning,candidates=app.fetch_catalog('501')
         self.assertIn('erneut verbinden',warning)
         self.assertFalse(result[0][4])
         self.assertIn('erneut verbinden',result[0][2])
