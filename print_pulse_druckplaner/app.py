@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety
+    from . import components, safety, local_orders
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -36,9 +36,12 @@ except ImportError:
     _safety_spec=importlib.util.spec_from_file_location('pp_safety',Path(__file__).with_name('safety.py'))
     safety=importlib.util.module_from_spec(_safety_spec)
     _safety_spec.loader.exec_module(safety)
+    _local_spec=importlib.util.spec_from_file_location('pp_local_orders',Path(__file__).with_name('local_orders.py'))
+    local_orders=importlib.util.module_from_spec(_local_spec)
+    _local_spec.loader.exec_module(local_orders)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.11.49'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.12.0'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -264,6 +267,7 @@ def init_db():
         CREATE INDEX IF NOT EXISTS master_files_listing ON master_files(listing_id);
         """)
         components.schema(db)
+        local_orders.schema(db)
         # Previously stored order-print records must survive all add-on updates.
         print_columns={col['name'] for col in db.execute("PRAGMA table_info(stock_order_prints)")}
         if 'allocated' not in print_columns:
@@ -782,7 +786,9 @@ def overview():
         listings=[dict(r) for r in db.execute('SELECT * FROM stock_listings')]
         items=[dict(r) for r in db.execute('SELECT * FROM stock_items')]
         txs=[dict(r) for r in db.execute('SELECT * FROM stock_transactions')]
-        receipt_rows=[dict(r) for r in db.execute('SELECT * FROM stock_receipts')]
+        receipt_rows=[dict(r) for r in db.execute('''SELECT r.* FROM stock_receipts r
+          LEFT JOIN pp_local_orders o ON o.id=r.id
+          WHERE o.id IS NULL OR o.status='open' ''')]
         print_rows=[dict(r) for r in db.execute('SELECT * FROM stock_order_prints')]
         days=int(cfg(db,'stock_days','7'))
         etsy_percent=max(1,min(100,int(cfg(db,'etsy_alert_percent','25'))))
@@ -896,6 +902,7 @@ def overview():
                        'items':lines,'quantity':sum(line['quantity'] for line in lines)})
     with connect() as db:
         components.snapshot(db,listings,orders)
+        local_orders.enrich(db,orders)
     with STATUS_LOCK: status=dict(STATUS)
     return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'etsy_alert_percent':etsy_percent,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'version':'0.1'}
 
@@ -1821,6 +1828,9 @@ class Handler(BaseHTTPRequestHandler):
         path=urllib.parse.urlsplit(self.path).path
         if path=='/api/status': return self.send(200,overview())
         if path=='/api/import-candidates': return self.send(200,import_overview())
+        if path=='/api/local-orders':
+            with connect() as db:
+                return self.send(200,{'orders':local_orders.history(db)})
         if path=='/api/audit':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             try:
@@ -1890,7 +1900,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except (ValueError,FileNotFoundError):
                 return self.send(404,{'error':'Datei nicht verfügbar.'})
-        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
+        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
@@ -1927,6 +1937,17 @@ class Handler(BaseHTTPRequestHandler):
             data=json.loads(self.rfile.read(length))
             if not isinstance(data,dict): raise ValueError('JSON-Objekt erforderlich.')
             path=urllib.parse.urlsplit(self.path).path
+            if path=='/api/local-order':
+                action=data.get('action')
+                with connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    if action=='create': result=local_orders.create(db,data)
+                    elif action=='update': result=local_orders.update(db,data)
+                    elif action in ('complete','cancel'):
+                        result=local_orders.close(db,data,components)
+                    elif action=='custom-job': result=local_orders.custom_action(db,data)
+                    else:raise ValueError('Unbekannte lokale Bestellaktion.')
+                return self.send(200,{'result':result,'overview':overview()})
             if path=='/api/printer-config':
                 return self.send(200,save_printer_bindings(data))
             if path=='/api/print-profile':
