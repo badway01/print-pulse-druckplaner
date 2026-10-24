@@ -1,3 +1,9 @@
+## Version 0.12.3 · Neues Dashboard und sicherer Etsy-Abgleich lokaler Aufträge
+
+Die obere Übersicht folgt dem abgestimmten Print-&-Pulse-Aufbau: Rechts neben „Dein Lager im Blick“ stehen nur noch **Nachdrucken** und **Versand kritisch**, beide als direkt anwählbare Karten. Die Zahl der Produkte und „Im Druck“ wurden oben bewusst entfernt. Darunter liegen aufgeräumte, zunächst ausgeklappte Hinweise, eine kontrastreiche Bereichsnavigation mit Icons für Produktion, Produktkatalog & 3MF, Filament & Einkauf und Drucker sowie **direkt darunter der kompakte Live-Druckerstatus**. Anschließend folgen wie bisher aktuelle Bestellungen, Druckprioritäten und Produktkarten. Tablet, Mac-Split-View und Telefon sind berücksichtigt; Druckkarten und die übrigen Abläufe bleiben unverändert.
+
+**Wichtig: Etsy-Fehler beseitigt.** Lokale Belege mit `LOK-…` werden nicht mehr als Etsy-Receipt bei der API angefragt. Die lokalen Aufträge bleiben weiterhin in der SQLite-Datenbank erhalten; der Etsy-API-Abgleich berücksichtigt ausschließlich echte numerische Etsy-Bestellnummern. Der Fix verhindert den daraus verursachten HTTP-400-Fehler, ersetzt aber nicht die Prüfung anderer möglicher Etsy-Zugriffsfehler.
+
 ## Version 0.12.2 · Filament-Einkauf und Cent-Preisfeld
 
 Das Filamentlager zeigt während **Einkaufsliste**, **Rolle öffnen/leeren**, **Speichern** und **Erhalten** einen Spinner mit klarer Statusmeldung. Bei ungewöhnlich langer Wartezeit wird die blockierte Anfrage beendet und der letzte bestätigte Zustand neu abgefragt – niemals wird eine stockverändernde Anfrage blind wiederholt. Fehlgeschlagene Speichervorgänge lassen das Bearbeitungsformular offen.
