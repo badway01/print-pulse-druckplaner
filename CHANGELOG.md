@@ -1,3 +1,10 @@
+# 0.12.4 · Bessere Produktfilter und farbgleiche Nachdruck-Post-its
+
+- Gut erkennbare Produktfilter-Tabs mit Live-Zählern und klar markiertem aktiven Filter.
+- Kompaktes Post-it oben rechts am Produktkartenrand mit ausschließlich der Anzahl nachzudruckender Stücke; verschwindet bei null.
+- Exakt derselbe Farbakzent wie die jeweilige Karte, **ohne eigene Mengen-Schwellen** oder unabhängige Farben. Auch Bauteilprodukte und Dunkelmodus berücksichtigt.
+- Post-it verdeckt weder Produktfotos noch den Lagerbutton; bestehende Druck-/Lagerbuchungen und Etsy-Bestände bleiben unverändert.
+
 # 0.12.3 · Dashboard-Kopf wie Vorlage & lokaler Etsy-Sync-Fix
 
 - Neue kompakte Titelzeile mit genau zwei klaren, klickbaren Kennzahlen: **Nachdrucken** und **Versand kritisch**. „Produkte“ und „Im Druck“ entfallen aus dem Kopfbereich. Der Etsy-Abgleichszeitpunkt und Aktualisieren bleiben sichtbar.
