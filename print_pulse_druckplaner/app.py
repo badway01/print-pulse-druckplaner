@@ -38,7 +38,7 @@ except ImportError:
     _safety_spec.loader.exec_module(safety)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.11.44'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.11.45'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -210,6 +210,8 @@ def init_db():
           id TEXT PRIMARY KEY,title TEXT NOT NULL,image TEXT NOT NULL DEFAULT '',
           etsy_qty INTEGER,state TEXT NOT NULL,inventory_error TEXT NOT NULL DEFAULT '',
           made_to_order INTEGER NOT NULL DEFAULT 0,updated INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS stock_import_candidates(
+          id TEXT PRIMARY KEY,title TEXT NOT NULL,discovered INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS stock_items(
           id TEXT PRIMARY KEY,listing_id TEXT NOT NULL REFERENCES stock_listings(id),
           product_id TEXT NOT NULL,label TEXT NOT NULL,signature TEXT NOT NULL,
@@ -343,18 +345,8 @@ def receipt_status(receipt):
     return 'shipped' if receipt.get('is_shipped') or receipt.get('was_shipped') or status=='completed' else 'open'
 
 
-def fetch_catalog(shop):
-    """Listings persist even if inventory permissions need renewed authorization."""
-    listings=[]
-    warning=''
-    try:
-        for state in ('active','sold_out','inactive','draft','expired'):
-            listings.extend(pages(f'/application/shops/{shop}/listings',{'state':state}))
-    except RuntimeError as exc:
-        if 'HTTP 403' not in str(exc):
-            raise
-        listings=pages(f'/application/shops/{shop}/listings/active')
-        warning='Für alle Varianten und inaktive Produkte bitte Etsy unter Einstellungen erneut verbinden (Leseberechtigung).'
+def fetch_listing_details(listings):
+    """Load images and variants only for listings already approved for production."""
     result=[]
     inventory_forbidden=False
     for index, listing in enumerate(listings):
@@ -408,7 +400,126 @@ def fetch_catalog(shop):
             products=None
         result.append((listing,image,error,rows,products is not None))
         time.sleep(.3)
-    return result,warning
+    return result
+
+
+def fetch_catalog(shop):
+    """Refresh known products; stage unknown active Etsy listings for manual import."""
+    listings=[]
+    active_ids=set()
+    warning=''
+    try:
+        for state in ('active','sold_out','inactive','draft','expired'):
+            group=pages(f'/application/shops/{shop}/listings',{'state':state})
+            listings.extend(group)
+            if state=='active':
+                active_ids.update(str(x.get('listing_id') or '') for x in group)
+    except RuntimeError as exc:
+        if 'HTTP 403' not in str(exc):
+            raise
+        listings=pages(f'/application/shops/{shop}/listings/active')
+        active_ids={str(x.get('listing_id') or '') for x in listings}
+        warning='Für alle Varianten und inaktive Produkte bitte Etsy unter Einstellungen erneut verbinden (Leseberechtigung).'
+    with connect() as db:
+        known={r['id'] for r in db.execute('SELECT id FROM stock_listings')}
+    new=[{'id':str(x['listing_id']),'title':html.unescape(str(x.get('title') or 'Neuer Etsy-Artikel'))}
+         for x in listings if str(x.get('listing_id') or '') in active_ids
+         and str(x.get('listing_id') or '') not in known
+         and str(x.get('listing_id') or '').isdigit()]
+    existing=[x for x in listings if str(x.get('listing_id') or '') in known]
+    return fetch_listing_details(existing),warning,new
+
+
+def save_import_candidates(db,found,now):
+    """Replace only the proposal list, never already imported production records."""
+    known={r['id'] for r in db.execute('SELECT id FROM stock_listings')}
+    proposals={}
+    for row in found:
+        lid=str(row.get('id') or '')
+        if lid.isdigit() and len(lid)<=32 and lid not in known:
+            proposals[lid]=str(row.get('title') or 'Neuer Etsy-Artikel')[:500]
+    db.execute('DELETE FROM stock_import_candidates WHERE id NOT IN ('
+               + (','.join('?' for _ in proposals) or "''") + ')',tuple(proposals))
+    for lid,title in proposals.items():
+        db.execute("""INSERT INTO stock_import_candidates(id,title,discovered)
+            VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title""",
+            (lid,title,now))
+    put_cfg(db,'stock_last_import_scan',now)
+
+
+def import_overview():
+    with connect() as db:
+        items=[dict(x) for x in db.execute(
+            'SELECT id,title,discovered FROM stock_import_candidates ORDER BY discovered DESC,title COLLATE NOCASE')]
+        scanned=int(cfg(db,'stock_last_import_scan','0'))
+    return {'items':items,'count':len(items),'last_scan':scanned}
+
+
+def scan_new_listings():
+    check_cooldown()
+    if not IMPORT_LOCK.acquire(blocking=False):
+        raise ValueError('Ein Etsy-Abgleich läuft bereits. Bitte danach erneut suchen.')
+    try:
+        with connect() as db:
+            shop=cfg(db,'shop_id')
+        if not shop.isdigit():
+            raise ValueError('Bitte Etsy unter Einstellungen verbinden.')
+        active=pages(f'/application/shops/{shop}/listings/active')
+        found=[{'id':str(x.get('listing_id') or ''),
+                'title':html.unescape(str(x.get('title') or 'Neuer Etsy-Artikel'))}
+               for x in active]
+        with connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            save_import_candidates(db,found,int(time.time()))
+            # A known listing may have been marked inactive by an older partial
+            # catalog refresh. Restore only IDs confirmed active by Etsy.
+            for x in active:
+                lid=str(x.get('listing_id') or '')
+                if lid.isdigit():
+                    db.execute("""UPDATE stock_listings SET state='active',title=?
+                        WHERE id=? AND state!='active'""",
+                        (html.unescape(str(x.get('title') or 'Produkt')),lid))
+        return import_overview()
+    finally:
+        IMPORT_LOCK.release()
+
+
+def import_new_listings(ids):
+    if not isinstance(ids,list) or not 1<=len(ids)<=20:
+        raise ValueError('Bitte 1 bis 20 neue Artikel pro Import auswählen.')
+    ids=[str(x) for x in ids]
+    if len(set(ids))!=len(ids) or any(not lid.isdigit() or len(lid)>32 for lid in ids):
+        raise ValueError('Ungültige oder doppelte Etsy-Artikel-ID.')
+    check_cooldown()
+    if not IMPORT_LOCK.acquire(blocking=False):
+        raise ValueError('Ein Etsy-Abgleich läuft bereits. Bitte danach erneut importieren.')
+    try:
+        with connect() as db:
+            pending={r['id'] for r in db.execute('SELECT id FROM stock_import_candidates')}
+            imported={r['id'] for r in db.execute('SELECT id FROM stock_listings')}
+        if any(lid not in pending or lid in imported for lid in ids):
+            raise ValueError('Artikelauswahl ist nicht mehr aktuell. Bitte die Vorschläge neu laden.')
+        listings=[]
+        for lid in ids:
+            listing=api_request(f'/application/listings/{lid}')
+            if str(listing.get('listing_id') or '')!=lid or listing.get('state')!='active':
+                raise ValueError('Ein ausgewählter Artikel ist bei Etsy nicht mehr aktiv. Bitte erneut suchen.')
+            listings.append(listing)
+        details=fetch_listing_details(listings)
+        for listing,_,error,_,valid in details:
+            if not valid:
+                title=html.unescape(str(listing.get('title') or 'Artikel'))
+                raise ValueError('Import von '+title[:100]+' nicht möglich: '+(error or 'Varianten fehlen.'))
+        now=int(time.time())
+        with connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            write_catalog_listings(db,details,now)
+            db.executemany('DELETE FROM stock_import_candidates WHERE id=?',[(lid,) for lid in ids])
+        result=import_overview()
+        result['imported']=len(ids)
+        return result
+    finally:
+        IMPORT_LOCK.release()
 
 
 def fetch_receipts(shop, include_orders=False):
@@ -461,7 +572,37 @@ def fetch_receipts(shop, include_orders=False):
     return (result,set(receipts),orders) if include_orders else (result,set(receipts))
 
 
-def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
+def write_catalog_listings(db,catalog,now):
+    """Insert/update Etsy metadata without resetting stock, production or 3MF data."""
+    for listing,image,error,rows,valid in (catalog or []):
+        lid=str(listing['listing_id'])
+        qty=listing.get('quantity')
+        if type(qty) is not int: qty=None
+        db.execute('''INSERT INTO stock_listings(id,title,image,etsy_qty,state,inventory_error,updated)
+          VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,
+          image=CASE WHEN excluded.image='' THEN stock_listings.image ELSE excluded.image END,
+          etsy_qty=excluded.etsy_qty,state=excluded.state,inventory_error=excluded.inventory_error,updated=excluded.updated''',
+          (lid,html.unescape(str(listing.get('title') or 'Produkt')),image,qty,str(listing.get('state') or 'active'),error,now))
+        if qty is not None and qty>=0:
+            db.execute("""INSERT INTO etsy_stock_reference(listing_id,variant_id,peak_qty,updated)
+                VALUES(?,'',?,?) ON CONFLICT(listing_id,variant_id) DO UPDATE SET
+                peak_qty=MAX(peak_qty,excluded.peak_qty),updated=excluded.updated""",(lid,qty,now))
+        if valid:
+            db.execute('UPDATE stock_items SET enabled=0 WHERE listing_id=?',(lid,))
+            for row in rows:
+                db.execute('''INSERT INTO stock_items(id,listing_id,product_id,label,signature,etsy_qty,enabled)
+                  VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET product_id=excluded.product_id,
+                  label=excluded.label,etsy_qty=excluded.etsy_qty,enabled=excluded.enabled''',row)
+                if type(row[5]) is int and row[5]>=0:
+                    db.execute("""INSERT INTO etsy_stock_reference(listing_id,variant_id,peak_qty,updated)
+                      VALUES(?,?,?,?) ON CONFLICT(listing_id,variant_id) DO UPDATE SET
+                      peak_qty=MAX(peak_qty,excluded.peak_qty),updated=excluded.updated""",
+                      (lid,row[0],row[5],now))
+    db.executemany('DELETE FROM stock_import_candidates WHERE id=?',
+                   [(str(entry[0]['listing_id']),) for entry in catalog])
+
+
+def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None, candidates=None):
     now=int(time.time())
     with connect() as db:
         db.execute('BEGIN IMMEDIATE')
@@ -472,31 +613,10 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None):
             for existing in db.execute('SELECT id FROM stock_listings').fetchall():
                 if existing['id'] not in returned:
                     db.execute("UPDATE stock_listings SET state='removed' WHERE id=?",(existing['id'],))
-        # All stock/print fields survive sync. Never derive physical stock from Etsy.
-        for listing,image,error,rows,valid in (catalog or []):
-            lid=str(listing['listing_id'])
-            qty=listing.get('quantity')
-            if type(qty) is not int: qty=None
-            db.execute('''INSERT INTO stock_listings(id,title,image,etsy_qty,state,inventory_error,updated)
-              VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,
-              image=CASE WHEN excluded.image='' THEN stock_listings.image ELSE excluded.image END,
-              etsy_qty=excluded.etsy_qty,state=excluded.state,inventory_error=excluded.inventory_error,updated=excluded.updated''',
-              (lid,html.unescape(str(listing.get('title') or 'Produkt')),image,qty,str(listing.get('state') or 'active'),error,now))
-            if qty is not None and qty>=0:
-                db.execute("""INSERT INTO etsy_stock_reference(listing_id,variant_id,peak_qty,updated)
-                    VALUES(?,'',?,?) ON CONFLICT(listing_id,variant_id) DO UPDATE SET
-                    peak_qty=MAX(peak_qty,excluded.peak_qty),updated=excluded.updated""",(lid,qty,now))
-            if valid:
-                db.execute('UPDATE stock_items SET enabled=0 WHERE listing_id=?',(lid,))
-                for row in rows:
-                    db.execute('''INSERT INTO stock_items(id,listing_id,product_id,label,signature,etsy_qty,enabled)
-                      VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET product_id=excluded.product_id,
-                      label=excluded.label,etsy_qty=excluded.etsy_qty,enabled=excluded.enabled''',row)
-                    if type(row[5]) is int and row[5]>=0:
-                        db.execute("""INSERT INTO etsy_stock_reference(listing_id,variant_id,peak_qty,updated)
-                          VALUES(?,?,?,?) ON CONFLICT(listing_id,variant_id) DO UPDATE SET
-                          peak_qty=MAX(peak_qty,excluded.peak_qty),updated=excluded.updated""",
-                          (lid,row[0],row[5],now))
+        # Only approved products receive inventory records; new Etsy IDs wait in settings.
+        write_catalog_listings(db,catalog or [],now)
+        if candidates is not None:
+            save_import_candidates(db,candidates,now)
         old={r['id']:dict(r) for r in db.execute('SELECT * FROM stock_transactions')}
         items=[dict(r) for r in db.execute('SELECT * FROM stock_items')]
         observed=set()
@@ -564,13 +684,13 @@ def synchronize():
         return
     with STATUS_LOCK: STATUS['message']='Täglichen Produktkatalog abrufen …'
     try:
-        catalog,warning=fetch_catalog(shop)
+        catalog,warning,candidates=fetch_catalog(shop)
     except Exception:
         # Commit fully verified orders even if the costly catalog refresh fails.
         # No listing is disabled or any counted stock overwritten.
         apply_snapshot(None,transactions,receipts,orders=orders)
         raise
-    apply_snapshot(catalog,transactions,receipts,warning,orders)
+    apply_snapshot(catalog,transactions,receipts,warning,orders,candidates)
 
 
 def run_sync():
@@ -1694,6 +1814,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
         path=urllib.parse.urlsplit(self.path).path
         if path=='/api/status': return self.send(200,overview())
+        if path=='/api/import-candidates': return self.send(200,import_overview())
         if path=='/api/audit':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             try:
@@ -1893,6 +2014,10 @@ class Handler(BaseHTTPRequestHandler):
                 save_tokens(tokens)
                 run_sync()
                 return self.respond(200, {"ok": True})
+            if path == "/api/import-scan":
+                return self.send(200,scan_new_listings())
+            if path == "/api/import-products":
+                return self.send(200,import_new_listings(data.get('ids')))
             if path == "/api/sync":
                 if not run_sync():
                     return self.respond(200, {"ok": True,"running":True})
