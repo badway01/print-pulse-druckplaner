@@ -114,6 +114,7 @@ function componentProductCard(p){
   </div>`;
  }).join('');
  return `<article class="product component-product" data-product="${esc(p.id)}">
+  ${productPrintBadge(p)}
   <div class="product-photo">
     ${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:
       '<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}
