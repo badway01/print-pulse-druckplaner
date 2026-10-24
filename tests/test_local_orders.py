@@ -88,12 +88,12 @@ class LocalOrderTests(unittest.TestCase):
 
     def test_custom_color_and_engraving_are_separate_from_inventory(self):
         line={'listing_id':'101','item_id':'large','quantity':2,
-              'color':'Jadeweiß','personalization':'Für Niclas','note':'Mit Holzständer'}
+              'color':'Jadeweiß','personalization':'Für Alex','note':'Mit Holzständer'}
         oid=self.call(app.local_orders.create,self.payload([line]))['id']
         shown=app.overview()['orders'][0]['items'][0]
         self.assertTrue(shown['local_custom'])
         self.assertEqual(shown['color'],'Jadeweiß')
-        self.assertEqual(shown['personalization'],'Für Niclas')
+        self.assertEqual(shown['personalization'],'Für Alex')
         self.assertIsNone(shown['item_id'])
         tid=shown['transaction_id']
         self.call(app.local_orders.custom_action,{'transaction_id':tid,'action_type':'start','quantity':2})
