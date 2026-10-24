@@ -1,3 +1,9 @@
+## Version 0.12.4 · Nachdruck-Post-its im Kartenstatus
+
+Die Produktfilter **Alle Produkte**, **Nachdrucken**, **Im Druck** und **Noch zählen** sind deutlicher als Bedienelemente erkennbar und zeigen jeweils die Anzahl passender Artikel.
+
+Produktkarten mit tatsächlichem Nachdruckbedarf zeigen jetzt ein kleines **Post-it oben rechts am Kartenrand** mit ausschließlich der erforderlichen Stückzahl. Bei null wird kein Post-it angezeigt. Es gibt **keine zweite Ampellogik**: Der Post-it-Hintergrund übernimmt denselben Akzentfarbwert wie der obere Rand seiner Produktkarte (rot, gelb, grün, bei Bauteilprodukten das bisherige Bauteilgrün), auch beim Wechsel des Status und im Dunkelmodus. Das Post-it ist rein informativ, nicht anklickbar, verdeckt weder das Produktbild noch die Lagersteuerung und verändert nicht die Höhe der Karten. Der Bedarf normaler Produkte kommt aus der vorhandenen Nachdrucksumme; für Bauteilprodukte wird die vorhandene Bauteilbedarfsberechnung genutzt.
+
 ## Version 0.12.3 · Neues Dashboard und sicherer Etsy-Abgleich lokaler Aufträge
 
 Die obere Übersicht folgt dem abgestimmten Print-&-Pulse-Aufbau: Rechts neben „Dein Lager im Blick“ stehen nur noch **Nachdrucken** und **Versand kritisch**, beide als direkt anwählbare Karten. Die Zahl der Produkte und „Im Druck“ wurden oben bewusst entfernt. Darunter liegen aufgeräumte, zunächst ausgeklappte Hinweise, eine kontrastreiche Bereichsnavigation mit Icons für Produktion, Produktkatalog & 3MF, Filament & Einkauf und Drucker sowie **direkt darunter der kompakte Live-Druckerstatus**. Anschließend folgen wie bisher aktuelle Bestellungen, Druckprioritäten und Produktkarten. Tablet, Mac-Split-View und Telefon sind berücksichtigt; Druckkarten und die übrigen Abläufe bleiben unverändert.
