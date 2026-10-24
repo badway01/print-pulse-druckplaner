@@ -219,7 +219,7 @@ await page.locator('[data-close="printer-config-dialog"]').click();
 // Optional component switches exist for every active catalog listing and
 // stay off until the owner enables a particular product.
 await page.locator('[data-workspace="catalog"]').click();
-assert.equal(await page.locator('[data-components-toggle]').count(),3);
+assert.equal(await page.locator('[data-components-toggle]').count(),4);
 assert.equal(await page.locator('[data-components-open]').count(),0);
 await page.evaluate(()=>{
  const p=model.products.find(item=>item.id==='101');
