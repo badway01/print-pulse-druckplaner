@@ -75,7 +75,7 @@
   <div id="etsy-import-rows" class="etsy-import-rows"><p class="hint">Vorschläge werden geladen …</p></div>
   <p class="hint">Es werden nur Artikel aus deinem eigenen Etsy-Shop gelesen. Deine Etsy-Bestände, Lagerbuchungen, Bauteile und 3MF-Dateien werden beim Import nicht zurückgesetzt.</p>
  </details>
- <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.12.0</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
+ <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.12.1</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
 <details id="audit-panel" class="audit-panel">
  <summary>Buchungsverlauf &amp; Datensicherung</summary>
  <p class="hint">Hier siehst du Änderungen an Fertigwaren, Bauteilen und Etsy-Auftragsbuchungen. Das Protokoll erfasst neue Vorgänge ab Version 0.11.42.</p>
@@ -130,7 +130,7 @@
  <span class="filament-hex-preview"><input name="color_hex" id="filament-color-hex" type="color" value="#ffffff" aria-label="Farbmuster manuell ändern"><output id="filament-hex-code">#FFFFFF</output></span>
  <small id="filament-hex-status">Farbcode wird bei bekannten Farben übernommen.</small><div class="filament-code-details"><span>Hersteller-Nr.: <output id="filament-manufacturer-preview">—</output></span><span>Intern: <output id="filament-internal-preview">—</output></span></div></label>
  <label>Hersteller-Farbnummer<input name="manufacturer_code" id="filament-manufacturer-code" type="text" inputmode="numeric" maxlength="24" autocomplete="off" placeholder="z. B. 10100 (Bambu Lab)"></label>
-  <label>Interner Farbcode<input name="internal_code" id="filament-internal-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="24" autocomplete="off" placeholder="z. B. 1 oder 25"></label>
+  <label>Interner Farbcode<input name="internal_code" id="filament-internal-code" type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" maxlength="24" autocomplete="off" placeholder="z. B. 2, 2.1 oder 2.10"><small>Hauptfarbe 2, Farbtöne 2.1, 2.2, 2.10. Punkt oder Komma möglich; jeder Code bleibt eindeutig als Text erhalten.</small></label>
  <label>Volle Spulen im Regal<input name="stock_qty" type="number" inputmode="numeric" min="0" max="100000" step="1" value="0" required></label>
  <label>Angebrochene Spulen (nur Anzahl)<input name="open_qty" type="number" inputmode="numeric" min="0" max="100000" step="1" value="0" required></label>
  <label>Preis pro Spule (€)<input name="price" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="z. B. 19,90"></label>
