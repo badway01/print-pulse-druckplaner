@@ -540,7 +540,7 @@ assert.deepEqual(sortedVariants,{most:['high','low','empty'],least:['empty','low
 const shadeCodes=await page.evaluate(()=>sortFilamentRows(
  ['3','2.10','2.2','2.1','2','2.11',''].map((internal_code,i)=>({
   id:String(i),internal_code,brand:'Bambu Lab',color:'Weiß '+i
- }))),'internal-code').map(x=>x.internal_code));
+ })),'internal-code').map(x=>x.internal_code));
 assert.deepEqual(shadeCodes,['2','2.1','2.2','2.10','2.11','3',''],
  'codes sort as hierarchical integers, not decimal floating-point numbers');
 await page.locator('#filament-sort').selectOption('internal-code');
