@@ -4,11 +4,12 @@ ARG BUILD_ARCH
 LABEL io.hass.version="${BUILD_VERSION}" \
       io.hass.type="app" \
       io.hass.arch="${BUILD_ARCH}"
-RUN apk add --no-cache python3 tzdata
+RUN apk add --no-cache python3 tzdata py3-reportlab font-dejavu
 WORKDIR /opt/print-pulse
 COPY app.py ./app.py
 COPY components.py ./components.py
 COPY local_orders.py ./local_orders.py
+COPY local_order_pdf.py ./local_order_pdf.py
 COPY safety.py ./safety.py
 COPY web ./web
 COPY CHANGELOG.md ./CHANGELOG.md
