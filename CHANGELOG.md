@@ -1,3 +1,10 @@
+# 0.12.2 · Ladefeedback, Preis-Tastatur und automatische Filament-Einkaufsliste
+
+- Filament- und Einkaufsbuchungen zeigen einen sichtbaren Spinner, eine passende Statusmeldung und eine Zeitbegrenzung mit sicherem Lesen des aktuellen Stands statt einem erneuten Schreibversuch.
+- Preis pro Spule: fortlaufende Ziffern werden als Cent interpretiert und automatisch in Euro mit Dezimalkomma dargestellt (1990 → 19,90).
+- Bei der letzten vollen Spule auf null (Öffnen einer Rolle oder manuelle Bestandskorrektur) genau 1 Rolle auf die Einkaufsliste, sofern dort noch keine Menge steht. Bestehende Wunschmengen, Preise und Spulenbestände nicht überschreiben.
+- Zusätzliche Backend- und Browser-Regressionstests für Einzelbuchung, Warteanzeige, Cent-Eingabe und Bestandserhalt.
+
 # 0.12.1 · Filament-Farbtöne über interne Untercodes
 
 - Interne Filamentcodes mit einem Untercode (z. B. 2, 2.1, 2.2, 2.10) als Text speichern; bei deutscher Kommaeingabe 2,10 den Code 2.10 speichern, ohne Nullen zu verlieren.
