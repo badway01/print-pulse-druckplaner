@@ -1,3 +1,11 @@
+# 0.11.45 · Etsy-Produktimport über Einstellungen
+
+- **Einstellungen → Etsy-Produktimport**: neue aktive Etsy-Listings stehen als Vorschläge mit Titel und ID bereit. Einzelimport oder Sammelimport (maximal 20 pro Vorgang), ohne zusätzliche Dashboard-Karten.
+- **Neue Etsy-Artikel suchen** fragt die aktiven Shop-Listings direkt bei Etsy ab. Ein täglicher Katalogabgleich erkennt ebenfalls unbekannte Etsy-IDs und legt sie in der Importliste ab.
+- Bestehende Produkte werden anhand der Etsy-Listing-ID beim Katalogabgleich weiterhin aktualisiert; neue Produkte erscheinen erst nach bewusst bestätigtem Import in Produktion und Produktkatalog. Bereits importierte IDs werden nicht doppelt angelegt.
+- Ein Import muss gültige Varianten bei Etsy erhalten; sonst bleiben die Vorschläge erhalten. Vorhandene Lagerbestände, Bauteile, Etsy-Auftragsbuchungen und Master-3MF-Dateien werden nicht zurückgesetzt.
+- Die Produktsuche kann bekannte, auf Etsy aktive Produkte nach einem veralteten lokalen Status wieder sichtbar machen. API-Limits und laufende Synchronisationen bleiben geschützt.
+
 # 0.11.44 · Produktionsübersicht mit sichtbaren Farben
 
 - Etsy-Bestelldetails zeigen direkt den bestellten Artikel, die gewählten Ausführungen und Farbwerte in gut lesbaren Feldern.
