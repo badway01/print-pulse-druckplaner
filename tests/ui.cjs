@@ -114,8 +114,8 @@ assert.deepEqual(dashboardStructure.labels,['Nachdrucken','Versand kritisch'],
  'top summary must only show actionable production/shipping figures');
 assert(dashboardStructure.summary.x>dashboardStructure.title.x,
  'actionable figures belong to the right of the title on desktop');
-assert(dashboardStructure.tabs.y>=dashboardStructure.alert.y,
- 'warnings should appear before the prominent workspace navigation');
+assert(dashboardStructure.alert.bottom===0||dashboardStructure.tabs.y>=dashboardStructure.alert.bottom-2,
+ 'visible warnings must appear before the workspace navigation; hidden warnings are allowed');
 assert(dashboardStructure.printers.y>=dashboardStructure.tabs.bottom-2,
  'printer live status belongs directly after the navigation');
 assert(dashboardStructure.orders.y>=dashboardStructure.printers.bottom-2,
