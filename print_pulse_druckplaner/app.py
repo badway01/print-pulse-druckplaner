@@ -271,6 +271,8 @@ def init_db():
         columns={col['name'] for col in db.execute("PRAGMA table_info(filament_spools)")}
         if 'internal_code' not in columns:
             db.execute("ALTER TABLE filament_spools ADD COLUMN internal_code TEXT NOT NULL DEFAULT ''")
+        if 'manufacturer_code' not in columns:
+            db.execute("ALTER TABLE filament_spools ADD COLUMN manufacturer_code TEXT NOT NULL DEFAULT ''")
         if 'notes' not in columns:
             db.execute("ALTER TABLE filament_spools ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
         if 'open_qty' not in columns:
@@ -1113,12 +1115,16 @@ def filament_mutate(data):
             fields[key]=val.strip()
         fields['brand']=filament_brand(fields['brand'])
         internal_code=data.get('internal_code','')
+        manufacturer_code=data.get('manufacturer_code','')
         notes=data.get('notes','')
         if not isinstance(internal_code,str) or len(internal_code.strip())>24:
             raise ValueError('Interner Farbcode darf maximal 24 Zeichen haben.')
+        if not isinstance(manufacturer_code,str) or len(manufacturer_code.strip())>24 or (manufacturer_code.strip() and not re.fullmatch(r'[A-Za-z0-9._/-]+',manufacturer_code.strip())):
+            raise ValueError('Hersteller-Farbnummer darf maximal 24 Zeichen aus Buchstaben, Ziffern, Punkt, Bindestrich, Unterstrich oder Schrägstrich haben.')
         if not isinstance(notes,str) or len(notes.strip())>1500:
             raise ValueError('Filamentnotiz darf maximal 1500 Zeichen haben.')
         internal_code=internal_code.strip()
+        manufacturer_code=manufacturer_code.strip()
         notes=notes.strip()
         stock_qty=integer(data.get('stock_qty'),0,100000)
         # Existing clients that do not send open_qty must preserve the count.
@@ -1158,15 +1164,15 @@ def filament_mutate(data):
                     raise ValueError('Filament bereits vorhanden: '+existing['brand']+' · '+existing['material']+' · '+existing['color']+'. Bitte vorhandenen Eintrag bearbeiten.')
             if rowid is None:
                 db.execute("""INSERT INTO filament_spools
-                   (brand,color,material,color_hex,price_cents,purchase_url,stock_qty,open_qty,internal_code,notes,created,updated)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-                   (fields['brand'],fields['color'],fields['material'],color_hex,price_cents,url,stock_qty,open_qty or 0,internal_code,notes,now,now))
+                   (brand,color,material,color_hex,price_cents,purchase_url,stock_qty,open_qty,internal_code,manufacturer_code,notes,created,updated)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   (fields['brand'],fields['color'],fields['material'],color_hex,price_cents,url,stock_qty,open_qty or 0,internal_code,manufacturer_code,notes,now,now))
             else:
                 changed=db.execute("""UPDATE filament_spools
                    SET brand=?,color=?,material=?,color_hex=?,price_cents=?,purchase_url=?,stock_qty=?,
-                       open_qty=COALESCE(?,open_qty),internal_code=?,notes=?,updated=?
+                       open_qty=COALESCE(?,open_qty),internal_code=?,manufacturer_code=?,notes=?,updated=?
                    WHERE id=?""",(fields['brand'],fields['color'],fields['material'],color_hex,
-                   price_cents,url,stock_qty,open_qty,internal_code,notes,now,rowid))
+                   price_cents,url,stock_qty,open_qty,internal_code,manufacturer_code,notes,now,rowid))
                 if not changed.rowcount: raise ValueError('Filament nicht gefunden.')
         return
     rowid=integer(data.get('id'),1,999999999)
