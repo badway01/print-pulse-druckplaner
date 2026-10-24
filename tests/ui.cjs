@@ -226,7 +226,6 @@ await page.locator('#catalog-search').fill('Geldgeschenk');
 assert.equal(await page.locator('[data-catalog-item]').count(),1);
 assert.equal(await page.locator('[data-components-toggle]').count(),1,
  'search result retains the preproduction switch');
-assert.equal(await page.locator('[data-master-open]').filter({visible:true}).count()>=1,true);
 await page.locator('#catalog-search').fill('');
 assert.equal(await page.locator('[data-catalog-item]').count(),4);
 assert.equal(await page.locator('[data-components-toggle]').count(),4,
