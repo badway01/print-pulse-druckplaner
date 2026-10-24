@@ -6,7 +6,7 @@ let order=[];
 let orderSort='ship';
 let workspace='production',filamentView='colors',filamentData=null,filamentBusy=false,filamentLoading=false;
 let filamentSort='default';
-try{const saved=localStorage.getItem('pp-filament-sort');if(['default','stock-desc','stock-asc'].includes(saved))filamentSort=saved;}catch{}
+try{const saved=localStorage.getItem('pp-filament-sort');if(['default','stock-desc','stock-asc','internal-code','manufacturer-code','hex-code'].includes(saved))filamentSort=saved;}catch{}
 let printTools={profiles:[],files:[]}, masterContext=null,masterSources=[],masterBusy=false;
 let printerLive=null,printerLoading=false,printerEntities=[],printerConfigId=null,printerConfigBusy=false;
 let etsyAlertExpanded=false,etsyAlertFocused=null;
@@ -755,6 +755,13 @@ const filamentMaterials=['PLA','PLA Basic','PLA Matte','PLA Silk','PLA+','PLA Si
 const normFilament=s=>String(s||'').trim().toLocaleLowerCase('de')
  .replace(/ß/g,'ss').replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue')
  .normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\+/g,'plus').replace(/[^a-z0-9]/g,'');
+// Eindeutig bekannte Bambu-Materialfarbnummern; andere Farben bleiben ohne automatische Nummer.
+const bambuColorNumbers={
+ 'plabasic|jadeweiss':'10100','plabasic|schwarz':'10101',
+ 'plabasic|silber':'10102','plabasic|grau':'10103',
+ 'plabasic|beige':'10201','plabasic|braun':'10800',
+ 'plamatte|elfenbeinweiss':'11100','plamatte|kohleschwarz':'11101'
+};
 function canonicalFilamentBrand(s){
  const key=normFilament(s);
  if(key==='bambu'||key==='bambulab')return 'Bambu Lab';
@@ -774,6 +781,12 @@ function filamentUniqueIdentity(brand,material,color){
  }
  return [b,m,c].join('|');
 }
+function filamentManufacturerCode(f){
+ const stored=String(f.manufacturer_code||'').trim();
+ if(stored)return stored;
+ if(normFilament(canonicalFilamentBrand(f.brand))!=='bambulab')return '';
+ return bambuColorNumbers[normFilamentMaterial(f.material)+'|'+normFilament(f.color)]||'';
+}
 function filamentSuggestions(field){
  const form=$('filament-form');
  const brand=canonicalFilamentBrand(form.elements.brand.value);
@@ -783,7 +796,9 @@ function filamentSuggestions(field){
  function add(name,hex='',source='',family='',aliases=[]){
   const key=normFilament(name)+'|'+normFilamentMaterial(family);
   if(!name||seen.has(key))return;
-  seen.add(key);result.push({name,hex,source,family,aliases});
+  const existing=field==='color'?records.find(f=>filamentUniqueIdentity(f.brand,f.material,f.color)===filamentUniqueIdentity(brand,family,name)):null;
+  const manufacturer_code=existing?.manufacturer_code||filamentManufacturerCode({brand,material:family,color:name});
+  seen.add(key);result.push({name,hex,source,family,aliases,manufacturer_code,internal_code:existing?.internal_code||''});
  }
  if(field==='brand'){
   filamentBrands.forEach(name=>add(name));
@@ -810,7 +825,7 @@ function filamentSuggestions(field){
 }
 function matchingFilamentSuggestion(field,query){
  const key=normFilament(query);
- return filamentSuggestions(field).filter(o=>!key||[o.name,...o.aliases].some(x=>normFilament(x).includes(key))).slice(0,12);
+ return filamentSuggestions(field).filter(o=>!key||[o.name,...o.aliases,o.manufacturer_code,o.internal_code].some(x=>normFilament(x).includes(key))).slice(0,12);
 }
 let filamentSuggestOptions={brand:[],material:[],color:[]},filamentAutoHex=false;
 function showFilamentSuggestions(field){
@@ -820,7 +835,7 @@ function showFilamentSuggestions(field){
  menu.innerHTML=options.map((o,i)=>`<button type="button" class="filament-suggest-item" role="option" data-suggest-field="${field}" data-suggest-index="${i}">
  ${o.hex?`<span class="filament-swatch" style="background:${esc(o.hex)}" aria-hidden="true"></span>`:''}
  <span><strong>${esc(o.name)}</strong>${o.family?`<small>${esc(o.family)} · ${esc(o.source)}</small>`:''}</span>
- ${o.hex?`<code>${esc(o.hex.toUpperCase())}</code>`:''}</button>`).join('');
+ ${o.hex||o.manufacturer_code||o.internal_code?`<span class="filament-suggest-codes">${o.hex?`<code>${esc(o.hex.toUpperCase())}</code>`:''}${o.manufacturer_code?`<small>Hersteller ${esc(o.manufacturer_code)}</small>`:''}${o.internal_code?`<small>Intern ${esc(o.internal_code)}</small>`:''}</span>`:''}</button>`).join('');
  menu.hidden=!options.length;
  fieldEl.setAttribute('aria-expanded',String(!!options.length));
 }
@@ -834,6 +849,8 @@ function closeFilamentSuggestions(except=''){
 function filamentHexPreview(source=''){
  const value=$('filament-color-hex').value.toUpperCase();
  $('filament-hex-code').textContent=value;
+ $('filament-manufacturer-preview').textContent=$('filament-manufacturer-code').value.trim()||'—';
+ $('filament-internal-preview').textContent=$('filament-internal-code').value.trim()||'—';
  $('filament-hex-status').textContent=source||(filamentAutoHex?'Herstellerfarbcode übernommen':'Farbcode selbst gewählt oder später anpassbar');
 }
 function applyFilamentSuggestion(field,item){
@@ -845,6 +862,7 @@ function applyFilamentSuggestion(field,item){
   form.elements.material.value=item.family;
   form.elements.color_hex.value=item.hex;
   filamentAutoHex=item.source==='Herstellerfarbcode';
+  form.elements.manufacturer_code.value=item.manufacturer_code||'';
   filamentHexPreview(item.source==='Bereits angelegt'?'Farbcode aus deinem Lager übernommen':'Herstellerfarbcode automatisch übernommen');
  }
  closeFilamentSuggestions();
@@ -887,7 +905,8 @@ const filamentSpoolCart='<svg class="spool-cart" viewBox="0 0 32 32" fill="none"
 function filamentLine(f,inCart){
  const name=esc(f.brand)+' · '+esc(f.color);
  const swatch=`<span class="filament-swatch" style="background:${esc(f.color_hex)}" aria-hidden="true"></span>`;
- const intro=`<div class="filament-identity">${swatch}<div><strong>${esc(f.color)}${f.internal_code?` <em class="filament-internal-code">#${esc(f.internal_code)}</em>`:""}</strong><small>${esc(f.brand)} · ${esc(f.material)}</small>${f.notes?`<small title="${esc(f.notes)}">Notiz: ${esc(f.notes)}</small>`:""}</div></div>`;
+ const code=filamentManufacturerCode(f);
+ const intro=`<div class="filament-identity">${swatch}<div><strong>${esc(f.color)}${f.internal_code?` <em class="filament-internal-code">Intern ${esc(f.internal_code)}</em>`:""}</strong><small>${esc(f.brand)} · ${esc(f.material)}</small><small class="filament-identity-codes">HEX ${esc((f.color_hex||'').toUpperCase())}${code?` · Hersteller ${esc(code)}`:''} </small>${f.notes?`<small title="${esc(f.notes)}">Notiz: ${esc(f.notes)}</small>`:""}</div></div>`;
  const shop=f.purchase_url?`<a class="filament-shop" href="${esc(f.purchase_url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Shop ↗</a>`:
   (inCart?'':`<span class="filament-shop filament-shop-placeholder" aria-hidden="true"></span>`);
  const opened=Number(f.open_qty)||0;
@@ -900,6 +919,15 @@ function filamentLine(f,inCart){
 }
 function sortFilamentRows(rows,mode=filamentSort){
  if(mode==='default')return rows;
+ if(['internal-code','manufacturer-code','hex-code'].includes(mode)){
+  const collator=new Intl.Collator('de',{numeric:true,sensitivity:'base'});
+  const code=f=>String(mode==='internal-code'?f.internal_code:mode==='manufacturer-code'?filamentManufacturerCode(f):f.color_hex||'').trim();
+  return [...rows].sort((a,b)=>{
+   const av=code(a),bv=code(b);
+   if(!av||!bv){if(!av&&!bv)return (a.brand+' '+a.color).localeCompare(b.brand+' '+b.color,'de');return av?-1:1;}
+   return collator.compare(av,bv)||(a.brand+' '+a.color).localeCompare(b.brand+' '+b.color,'de');
+  });
+ }
  const multiplier=mode==='stock-desc'?-1:1;
  return [...rows].sort((a,b)=>
   multiplier*(Number(a.stock_qty||0)-Number(b.stock_qty||0)) ||
@@ -927,7 +955,7 @@ function renderFilaments(){
  $('filament-sort-wrap').hidden=filamentView==='cart';
  $('filament-sort').value=filamentSort;
  const query=$('filament-search').value.trim().toLocaleLowerCase('de');
- const visible=filamentView==='cart'?cart:sortFilamentRows(rows.filter(f=>(f.brand+' '+f.color+' '+f.material+' '+(f.internal_code||'')+' '+(f.notes||'')).toLocaleLowerCase('de').includes(query)));
+ const visible=filamentView==='cart'?cart:sortFilamentRows(rows.filter(f=>(f.brand+' '+f.color+' '+f.material+' '+(f.internal_code||'')+' '+filamentManufacturerCode(f)+' '+(f.color_hex||'')+' '+(f.notes||'')).toLocaleLowerCase('de').includes(query)));
 
  $('filament-message').textContent=filamentView==='cart'?
   'Spulen für deinen nächsten Einkauf. „Erhalten“ bucht gelieferte Spulen ins Regal.':
@@ -997,9 +1025,10 @@ function openFilamentEditor(id){
  const f=(filamentData?.filaments||[]).find(x=>x.id===id);
  const form=$('filament-form');form.reset();
  form.elements.id.value=f?.id||'';
- for(const name of ['brand','color','material','color_hex','stock_qty','open_qty','purchase_url','internal_code','notes']){
+ for(const name of ['brand','color','material','color_hex','stock_qty','open_qty','purchase_url','internal_code','manufacturer_code','notes']){
   form.elements[name].value=f?f[name]:(name==='color_hex'?'#ffffff':name==='material'?'PLA':['stock_qty','open_qty'].includes(name)?0:'');
  }
+ if(f&&!f.manufacturer_code)form.elements.manufacturer_code.value=filamentManufacturerCode(f);
  form.elements.price.value=f&&f.price_cents!==null?(f.price_cents/100).toFixed(2).replace('.',','):'';
  $('filament-title').textContent=f?'Filament bearbeiten':'Filament anlegen';
  $('filament-delete').hidden=!f;
@@ -1222,6 +1251,7 @@ $('filament-existing').addEventListener('click',()=>{
  if(id){$('filament-editor').close();openFilamentEditor(id);}
 });
 $('filament-color-hex').addEventListener('input',()=>{filamentAutoHex=false;filamentHexPreview('Manuell gewählter Farbcode');});
+for(const id of ['filament-manufacturer-code','filament-internal-code'])$(id).addEventListener('input',()=>filamentHexPreview());
 document.addEventListener('click',event=>{
  if(!event.target.closest('.filament-autocomplete'))closeFilamentSuggestions();
 });
@@ -1233,7 +1263,7 @@ $('filament-form').addEventListener('submit',async event=>{
  updateFilamentDuplicate();
  if($('filament-save').disabled)return;
  const values=Object.fromEntries(new FormData(event.target).entries());
- const payload={action:'save',id:values.id?Number(values.id):null,brand:values.brand,color:values.color,material:values.material,color_hex:values.color_hex,stock_qty:Number(values.stock_qty),open_qty:Number(values.open_qty),price:values.price.trim(),purchase_url:values.purchase_url,internal_code:values.internal_code,notes:values.notes};
+ const payload={action:'save',id:values.id?Number(values.id):null,brand:values.brand,color:values.color,material:values.material,color_hex:values.color_hex,stock_qty:Number(values.stock_qty),open_qty:Number(values.open_qty),price:values.price.trim(),purchase_url:values.purchase_url,internal_code:values.internal_code,manufacturer_code:values.manufacturer_code,notes:values.notes};
  $('filament-editor').close();
  await filamentAction(payload);
 });
@@ -1329,7 +1359,7 @@ function renderMasterSources(){
  const filaments=filamentData?.filaments||[];
  updateHTML($('master-sources'),masterSources.length?masterSources.map((s,n)=>
   '<div class="master-source" data-master-source="'+n+'"><div class="master-source-title"><b>'+esc(s.label)+'</b><button type="button" class="text-button" data-master-remove="'+n+'">Entfernen</button></div><div class="master-slots">'+s.slots.map((fid,j)=>
-   '<label><span>Platz '+(j+1)+'</span><select data-master-source="'+n+'" data-master-slot="'+j+'"><option value="">Nicht belegt</option>'+filaments.map(f=>'<option value="'+f.id+'" '+(f.id===fid?'selected':'')+'>'+esc((f.internal_code?'#'+f.internal_code+' · ':'')+f.brand+' · '+f.color+' · '+f.material)+'</option>').join('')+'</select>'
+   '<label><span>Platz '+(j+1)+'</span><select data-master-source="'+n+'" data-master-slot="'+j+'"><option value="">Nicht belegt</option>'+filaments.map(f=>'<option value="'+f.id+'" '+(f.id===fid?'selected':'')+'>'+esc((f.internal_code?'Intern '+f.internal_code+' · ':'')+f.brand+' · '+f.color+' · '+f.material+' · HEX '+f.color_hex+(filamentManufacturerCode(f)?' · Hersteller '+filamentManufacturerCode(f):''))+'</option>').join('')+'</select>'
    +(fid?'<span class="master-slot-swatch" style="background:'+esc(filaments.find(f=>f.id===fid)?.color_hex||'#ffffff')+'"></span>':'')+'</label>').join('')+'</div></div>'
  ).join(''):'<p class="hint">Noch keine Filamentquelle zugeordnet. Füge ein AMS, AMS HT oder eine externe Spule hinzu.</p>');
 }
