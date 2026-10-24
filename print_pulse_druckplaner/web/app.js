@@ -381,8 +381,8 @@ function shortDate(timestamp){return timestamp?new Date(timestamp*1000).toLocale
 function shipInfo(o){
  const days=calendarDaysUntil(o.ship_by);
  if(days===null)return {date:'Versandfrist unbekannt',countdown:'',level:'unknown'};
- const date='Versand bis '+shortDate(o.ship_by);
- const countdown=days<0?`${Math.abs(days)} ${Math.abs(days)===1?'Tag':'Tage'} überfällig`:days===0?'Heute versenden':`Noch ${days} ${days===1?'Tag':'Tage'}`;
+ const date=(o.source==='local'?(o.fulfillment==='pickup'?'Abholung bis ':'Fertig bis '):'Versand bis ')+shortDate(o.ship_by);
+ const countdown=days<0?`${Math.abs(days)} ${Math.abs(days)===1?'Tag':'Tage'} überfällig`:days===0?(o.source==='local'?'Heute fertigstellen':'Heute versenden'):`Noch ${days} ${days===1?'Tag':'Tage'}`;
  return {date,countdown,level:days<=2?'red':days===3?'yellow':'green'};
 }
 function shippingMarkup(shipping){
@@ -542,7 +542,7 @@ function showOrder(id){
  const shipping=shipInfo(o);
  const printProgress=orderPrintProgress(o);
  $('order-details').dataset.orderId=o.id;
- $('order-details-title').textContent='Etsy-Bestellung #'+o.id;
+ $('order-details-title').textContent=(o.source==='local'?'Lokale Bestellung ':'Etsy-Bestellung #')+o.id;
  updateHTML($('order-details-content'),`<div class="order-work-meta">
   <div><strong>${esc(o.customer)}</strong><small>Bestellt am ${esc(shortDate(o.created))}</small></div>
   <div class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</div>
@@ -627,7 +627,7 @@ function orderPrintDialog(tid,action){
   stockAvailable+' fertig auf Lager · Buche die gewählte Menge auf Etsy-Auftrag #'+job.receiptId+'. Sie wird sofort aus dem Lager genommen und nicht erneut beim Versand abgezogen.':
   action==='release'?'Diese Menge wird von der Bestellung gelöst und sofort in den verfügbaren Lagerbestand zurückgebucht.':
   action==='printing'?
-  'Der Druck wird genau diesem Etsy-Auftrag zugeordnet und reduziert die offene Nachdruckempfehlung. Dein Lagerbestand bleibt bis „Fertig“ unverändert.':
+  'Der Druck wird genau diesem Auftrag zugeordnet und reduziert die offene Nachdruckempfehlung. Dein Lagerbestand bleibt bis „Fertig“ unverändert.':
   action==='finish'?(needsInitialStock?'Trage den bisher vorhandenen fertigen Bestand ein (0, falls keiner da ist). Die jetzt gedruckten Stücke kommen zusätzlich dazu.':job.status==='shipped'?'Bereits versendet: Fertigmelden erhöht den Lagerbestand nicht erneut.':'Erfolgreich gedruckte Stücke werden ins Lager gebucht. Etsy zieht sie beim Versand einmalig ab.'):'Fehldruck oder Abbruch: Die Menge wird aus „Im Druck“ entfernt.';
  (needsInitialStock?$('quantity-initial-stock'):field).focus();if(!needsInitialStock)field.select();
 }
