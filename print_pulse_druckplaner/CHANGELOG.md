@@ -1,3 +1,10 @@
+# 0.12.4 · Nachdruck-Post-its & Produktfilter
+
+- Produktkarten tragen ein kleines, nicht klickbares Post-it mit gesamter offener Nachdruckmenge.
+- Die Post-it-Farbe passt sich automatisch an die **vorhandene Karten-Akzentfarbe** an; keine zusätzliche Ampellogik und keine Anzeige bei null.
+- Bauteilprodukte zeigen ihren echten Nachdruckbedarf. Produktfilter sind kontrastreicher und erhalten Live-Zähler.
+- Keine Änderung an Etsy-API, physischen Lagerständen, Filamentverwaltung oder Druckbuchungslogik.
+
 # 0.12.3 · Dashboard umgestaltet und lokaler Etsy-Abgleich korrigiert
 
 - Hero-Kennzahlen reduzieren auf „Nachdrucken“ und „Versand kritisch“; direkte Navigation zu den betreffenden Produktions- und Bestellansichten.
