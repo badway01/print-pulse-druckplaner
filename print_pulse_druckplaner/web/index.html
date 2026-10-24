@@ -60,6 +60,7 @@
   <div class="filament-stock-amount"><strong id="filament-stock-value">0,00 €</strong><small id="filament-stock-missing">Menge × Preis pro Spule</small></div>
  </div>
  <div id="filament-message" class="filament-note">Deine Filamente werden geladen …</div>
+ <div id="filament-action-status" class="filament-action-status" role="status" aria-live="polite" aria-atomic="true" hidden>Filamentdaten werden gespeichert …</div>
  <div id="filament-rows" class="filament-rows"></div>
  <div id="filament-cart-summary" class="filament-cart-summary" hidden></div>
 </section>
@@ -75,7 +76,7 @@
   <div id="etsy-import-rows" class="etsy-import-rows"><p class="hint">Vorschläge werden geladen …</p></div>
   <p class="hint">Es werden nur Artikel aus deinem eigenen Etsy-Shop gelesen. Deine Etsy-Bestände, Lagerbuchungen, Bauteile und 3MF-Dateien werden beim Import nicht zurückgesetzt.</p>
  </details>
- <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.12.1</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
+ <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.12.2</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
 <details id="audit-panel" class="audit-panel">
  <summary>Buchungsverlauf &amp; Datensicherung</summary>
  <p class="hint">Hier siehst du Änderungen an Fertigwaren, Bauteilen und Etsy-Auftragsbuchungen. Das Protokoll erfasst neue Vorgänge ab Version 0.11.42.</p>
@@ -133,7 +134,7 @@
   <label>Interner Farbcode<input name="internal_code" id="filament-internal-code" type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" maxlength="24" autocomplete="off" placeholder="z. B. 2, 2.1 oder 2.10"><small>Hauptfarbe 2, Farbtöne 2.1, 2.2, 2.10. Punkt oder Komma möglich; jeder Code bleibt eindeutig als Text erhalten.</small></label>
  <label>Volle Spulen im Regal<input name="stock_qty" type="number" inputmode="numeric" min="0" max="100000" step="1" value="0" required></label>
  <label>Angebrochene Spulen (nur Anzahl)<input name="open_qty" type="number" inputmode="numeric" min="0" max="100000" step="1" value="0" required></label>
- <label>Preis pro Spule (€)<input name="price" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="z. B. 19,90"></label>
+ <label>Preis pro Spule (€)<input name="price" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="7" placeholder="0,00"><small>Einfach Ziffern tippen: 1990 → 19,90 €. Die letzten zwei Ziffern sind immer Cent.</small></label>
  </div>
  <p id="filament-duplicate" class="filament-duplicate" role="alert" hidden></p>
  <button type="button" id="filament-existing" class="secondary filament-existing" hidden>Vorhandenen Eintrag bearbeiten</button>
@@ -147,7 +148,7 @@
 <p id="filament-rolls-name" class="hint"></p>
 <div class="filament-rolls-counts"><div><strong id="filament-rolls-full">0</strong><span>Volle Spulen</span></div><div><strong id="filament-rolls-open">0</strong><span>Angebrochene Spulen</span></div></div>
 <div class="filament-rolls-actions"><button type="button" id="filament-roll-open" class="primary">Eine Rolle öffnen</button><button type="button" id="filament-roll-empty" class="secondary">Eine Rolle leer</button></div>
-<p class="hint">„Öffnen“ verschiebt eine volle Rolle zu den angebrochenen. „Leer“ entfernt eine aufgebrauchte Rolle. Ohne Wiegen, ohne Gramm.</p>
+<p class="hint">„Öffnen“ verschiebt eine volle Rolle zu den angebrochenen. Wenn es die letzte volle Rolle war, wird automatisch eine Spule auf die Einkaufsliste gesetzt (sofern noch keine vorgemerkt ist). „Leer“ entfernt eine aufgebrauchte Rolle. Ohne Wiegen, ohne Gramm.</p>
 <button type="button" id="filament-roll-edit" class="text-button">Bestände manuell korrigieren</button>
 </dialog>
 <dialog id="components-editor" class="components-editor">
