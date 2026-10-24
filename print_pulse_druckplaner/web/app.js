@@ -986,6 +986,23 @@ function filamentLine(f,inCart){
      `<button type="button" class="filament-cart-button" data-filament-cart="${f.id}" aria-label="${name} zur Einkaufsliste hinzufügen">${filamentSpoolCart}<span>Auf Liste ${f.cart_qty? `(${f.cart_qty})`:''}</span></button><button type="button" class="filament-roll-button" data-filament-rolls="${f.id}" aria-label="Volle und angebrochene Rollen für ${name} verwalten">Rollen</button><button type="button" class="filament-edit" data-filament-edit="${f.id}">Bearbeiten</button>`}
    </div></article>`;
 }
+// Hierarchical, integer-based identifiers rather than decimal numbers:
+ // '2' < '2.1' < '2.2' < '2.10' < '3'. Never parseFloat('2.10').
+function compareFilamentShadeCodes(left,right){
+ const valid=/^[0-9]+(?:\.[0-9]+)?$/;
+ if(!valid.test(left)||!valid.test(right)){
+  return new Intl.Collator('de',{numeric:true,sensitivity:'base'}).compare(left,right);
+ }
+ const a=left.split('.'),b=right.split('.');
+ for(let i=0;i<Math.max(a.length,b.length);i++){
+  if(i>=a.length)return -1;
+  if(i>=b.length)return 1;
+  const partA=BigInt(a[i]),partB=BigInt(b[i]);
+  if(partA!==partB)return partA<partB?-1:1;
+ }
+ // Values with leading zeroes may be numerically equal but remain separate IDs.
+ return left===right?0:left.localeCompare(right,'de');
+}
 function sortFilamentRows(rows,mode=filamentSort){
  if(mode==='default')return rows;
  if(['internal-code','manufacturer-code','hex-code'].includes(mode)){
@@ -994,7 +1011,7 @@ function sortFilamentRows(rows,mode=filamentSort){
   return [...rows].sort((a,b)=>{
    const av=code(a),bv=code(b);
    if(!av||!bv){if(!av&&!bv)return (a.brand+' '+a.color).localeCompare(b.brand+' '+b.color,'de');return av?-1:1;}
-   return collator.compare(av,bv)||(a.brand+' '+a.color).localeCompare(b.brand+' '+b.color,'de');
+   return (mode==='internal-code'?compareFilamentShadeCodes(av,bv):collator.compare(av,bv))||(a.brand+' '+a.color).localeCompare(b.brand+' '+b.color,'de');
   });
  }
  const multiplier=mode==='stock-desc'?-1:1;
