@@ -7,10 +7,16 @@
  <button type="button" class="theme-option theme-auto" data-theme-mode="auto" aria-label="Automatisch nach Sonnenaufgang und Sonnenuntergang" title="Auto · Sonnenaufgang/Sonnenuntergang" aria-pressed="false">Auto</button>
  </div><button id="settings-open" class="secondary">Einstellungen</button></header>
 <main>
-<section class="heading"><div><span class="eyebrow">WENIGER SUCHEN. MEHR DRUCKEN.</span><h1>Dein Lager im Blick<span>.</span></h1><p>Was fehlt, was läuft und was als Nächstes auf die Platte kommt.</p></div><button id="sync" class="primary">Bestellungen aktualisieren</button></section>
-<div id="sync-state" class="sync-state" role="status">Lager wird geladen …</div>
-<div id="alert" class="alert" role="alert" hidden></div>
-<div id="summary" class="summary"></div>
+<section class="heading dashboard-hero" aria-label="Übersicht und Handlungsbedarf">
+ <div class="dashboard-hero-copy">
+  <span class="eyebrow">WENIGER SUCHEN. MEHR DRUCKEN.</span>
+  <h1>Dein Lager im Blick<span>.</span></h1>
+  <p>Was fehlt, was läuft und was als Nächstes auf die Platte kommt.</p>
+  <div class="dashboard-sync-line"><div id="sync-state" class="sync-state" role="status">Lager wird geladen …</div><button id="sync" class="secondary small">↻ Bestellungen aktualisieren</button></div>
+ </div>
+ <div id="summary" class="summary dashboard-kpis" aria-label="Nachdruckbedarf und kritische Bestellungen"></div>
+</section>
+<div id="alert" class="alert dashboard-alert" role="alert" hidden></div>
 <section id="etsy-stock-banner" class="etsy-stock-banner" aria-label="Etsy-Bestandswarnung" hidden>
  <div class="etsy-alert-top">
   <span class="etsy-alert-icon" aria-hidden="true">!</span>
@@ -21,10 +27,10 @@
  <div class="etsy-alert-foot"><span id="etsy-alert-updated"></span><span>Grundlage: zuletzt erfasster Etsy-Bestand und höchste gemerkte Etsy-Menge – unabhängig vom Lagerbestand.</span></div>
 </section>
 <nav class="workspace-tabs" aria-label="Druckplaner-Bereiche – auf Mobilgeräten seitlich wischbar">
- <button type="button" data-workspace="production" class="selected" aria-pressed="true">Produktion</button>
- <button type="button" data-workspace="catalog" aria-pressed="false">Produktkatalog &amp; 3MF</button>
- <button type="button" data-workspace="filament" aria-pressed="false">Filament &amp; Einkauf <span id="filament-tab-count" class="workspace-count" hidden></span></button>
- <button type="button" data-workspace="printers" aria-pressed="false">Drucker</button>
+ <button type="button" data-workspace="production" class="selected" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20V9l6 4V9l6 4V4h5v16H3Z"/><path d="M8 17h2m4 0h2"/></svg><span>Produktion</span></button>
+ <button type="button" data-workspace="catalog" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z"/><path d="m3 7 9 5 9-5m-9 5v10"/></svg><span>Produktkatalog &amp; 3MF</span></button>
+ <button type="button" data-workspace="filament" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg><span>Filament &amp; Einkauf</span> <span id="filament-tab-count" class="workspace-count" hidden></span></button>
+ <button type="button" data-workspace="printers" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6zM18 12h1"/></svg><span>Drucker</span></button>
 </nav>
 <section id="printer-strip" class="printer-strip" aria-label="Druckerstatus">
  <div class="printer-strip-head"><div><span class="eyebrow">PRODUKTION · LIVE</span><h2>Druckerstatus</h2></div><button type="button" id="printer-strip-more" class="text-button">Alle Druckerdetails ↗</button></div>
@@ -76,7 +82,7 @@
   <div id="etsy-import-rows" class="etsy-import-rows"><p class="hint">Vorschläge werden geladen …</p></div>
   <p class="hint">Es werden nur Artikel aus deinem eigenen Etsy-Shop gelesen. Deine Etsy-Bestände, Lagerbuchungen, Bauteile und 3MF-Dateien werden beim Import nicht zurückgesetzt.</p>
  </details>
- <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.12.2</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
+ <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.12.3</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
 <details id="audit-panel" class="audit-panel">
  <summary>Buchungsverlauf &amp; Datensicherung</summary>
  <p class="hint">Hier siehst du Änderungen an Fertigwaren, Bauteilen und Etsy-Auftragsbuchungen. Das Protokoll erfasst neue Vorgänge ab Version 0.11.42.</p>
