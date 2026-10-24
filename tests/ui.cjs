@@ -267,7 +267,7 @@ assert.equal(await componentCard.locator('.stock-overview,.stock-quick-toggle,.v
 assert.equal(await componentCard.locator('.photo-stock-toggle').count(),0);
 assert.equal(await componentCard.locator('.component-legacy .variant-toggle').count(),1,'historical complete variants stay accessible only if requested');
 assert.equal(await componentCard.locator('.component-legacy .variant').count(),0,'do not render hundreds of variations by default');
-assert.equal(await componentCard.locator('.product-photo img').count(),1,'existing Etsy photo remains visible');
+assert.equal(await componentCard.locator('.product-photo').count(),1,'product photo area remains visible with or without preview images');
 const afterCompSum=await page.locator('#summary b').nth(1).textContent();
 const expectedCompDue=await page.evaluate(()=>model.products
  .filter(p=>p.state==='active'&&!p.components_enabled).reduce((n,p)=>n+p.need,0));
