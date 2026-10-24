@@ -100,7 +100,7 @@ assert(ordersAccent.left>=5,'whole orders area needs an accent border');
 assert(ordersAccent.shadow!=='none','whole orders area needs subtle elevation');
 await page.locator('.printer-mini').first().waitFor();
 assert.equal((await page.locator('#printer-strip .eyebrow').textContent()).trim(),'PRODUKTION · LIVE');
-assert.equal((await page.locator('#orders-shell .eyebrow').textContent()).trim(),'ETSY · DEIN SHOP');
+assert.equal((await page.locator('#orders-shell .eyebrow').textContent()).trim(),'ETSY & LOKAL · DEINE AUFTRÄGE');
 // Last actual Etsy sync time is still displayed independently of the copy changes.
 assert((await page.locator('#sync-state').textContent()).includes('Bestellungen:'));
 assert((await page.locator('#sync-state').textContent()).includes('alle 15 Minuten'));
