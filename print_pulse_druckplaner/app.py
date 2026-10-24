@@ -41,7 +41,7 @@ except ImportError:
     _local_spec.loader.exec_module(local_orders)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.12.2'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.12.3'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -536,9 +536,17 @@ def fetch_receipts(shop, include_orders=False):
     receipts={str(r['receipt_id']):r for r in recent+opened}
     # An absent open receipt may have shipped OR been canceled. Verify explicitly.
     with connect() as db:
-        tracked={r[0] for r in db.execute("SELECT DISTINCT receipt_id FROM stock_transactions WHERE status='open'")}
-        tracked.update(r[0] for r in db.execute("SELECT id FROM stock_receipts"))
-    for rid in tracked-receipts.keys():
+        # The same local SQLite tables also contain manually created orders.
+        # Never ask Etsy for a LOK- receipt, or for any non-Etsy identifier.
+        tracked={str(r[0]) for r in db.execute("""
+            SELECT DISTINCT t.receipt_id FROM stock_transactions t
+            LEFT JOIN pp_local_orders local ON local.id=t.receipt_id
+            WHERE t.status='open' AND local.id IS NULL""")}
+        tracked.update(str(r[0]) for r in db.execute("""
+            SELECT receipts.id FROM stock_receipts receipts
+            LEFT JOIN pp_local_orders local ON local.id=receipts.id
+            WHERE local.id IS NULL"""))
+    for rid in (rid for rid in tracked-receipts.keys() if rid.isdecimal()):
         receipts[rid]=api_request(base+'/'+rid)
         time.sleep(.3)
     result=[]
