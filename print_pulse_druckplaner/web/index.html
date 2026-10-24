@@ -66,6 +66,15 @@
 <footer>Gezählte Bestände enthalten auch bereits reservierte und gepackte Stücke. Etsy-Versand bucht sie automatisch aus.<br>Empfehlungen sind Schätzungen aus den letzten 7 und 30 Tagen, keine Vorhersage für die Saison.</footer>
 </main>
 <dialog id="settings"><form id="settings-form"><div class="dialog-heading"><h2>Einstellungen</h2><button type="button" data-close="settings" class="icon-button" aria-label="Schließen">×</button></div><label>Vorrat für die nächsten Tage<input name="days" id="days" type="number" min="1" max="60" required></label><label>Etsy-Warnung ab Restbestand von (% der Etsy-Referenzmenge)<input name="etsy_alert_percent" id="etsy-alert-percent" type="number" min="1" max="100" value="25" required></label><p class="hint">Standard: 25 %, aufgerundet. Beispiel: Etsy-Referenz 5 oder 8 Stück → Warnung ab 2 Stück. Referenz = höchste bisher erfasste Etsy-Menge je Artikel/Variante, unabhängig vom lokalen Lager. Etsy-Bestände werden nicht verändert.</p><p class="hint">Empfehlung: höherer Tagesdurchschnitt aus 7 oder 30 Tagen × Vorratstage, mindestens der eingestellte Mindestbestand.</p><button class="primary" type="submit">Speichern</button></form>
+ <details id="etsy-import-panel" class="etsy-import-panel">
+  <summary>Etsy-Produktimport <span id="etsy-import-count" class="import-count" hidden></span></summary>
+  <p class="hint">Der Druckplaner übernimmt vorhandene Produkte nicht doppelt. Neue aktive Etsy-Artikel werden hier vorgeschlagen und erst nach deiner Bestätigung in Produktion und Produktkatalog aufgenommen.</p>
+  <div class="import-actions"><button type="button" id="etsy-import-scan" class="secondary small">Neue Etsy-Artikel suchen</button><button type="button" id="etsy-import-all" class="secondary small" hidden>Alle fehlenden importieren</button></div>
+  <p class="hint" id="etsy-import-last">Noch keine Prüfung geladen.</p>
+  <p id="etsy-import-message" class="hint" role="status" aria-live="polite"></p>
+  <div id="etsy-import-rows" class="etsy-import-rows"><p class="hint">Vorschläge werden geladen …</p></div>
+  <p class="hint">Es werden nur Artikel aus deinem eigenen Etsy-Shop gelesen. Deine Etsy-Bestände, Lagerbuchungen, Bauteile und 3MF-Dateien werden beim Import nicht zurückgesetzt.</p>
+ </details>
  <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.11.44</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
 <details id="audit-panel" class="audit-panel">
  <summary>Buchungsverlauf &amp; Datensicherung</summary>
