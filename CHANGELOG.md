@@ -1,3 +1,10 @@
+# 0.12.0 · Lokale Bestellungen und Sofortverkauf
+
+- Lokale Aufträge mit Kundenbezeichnung, Abholung/Versand und Pflicht-Endtermin anlegen. Produktsuche schlägt während des Tippens vorhandene Etsy-Katalogartikel vor; mehrere Positionen mit jeweils eigener echter Variante, Stückzahl, Wunschfarbe, Gravur und Hinweisen möglich.
+- Standardvarianten werden über die bestehende sichere Auftragsdruck- und Lagerlogik abgewickelt. Gravuren und abweichende Wunschfarben erhalten einen eigenen Produktionsstatus, der keine unpassende Variante abbucht. Dringlichkeit folgt demselben Endterminprinzip wie Etsy-Aufträge.
+- Direktverkauf bucht nach Prüfung freier Bestände sofort ab. Abschluss prüft Vollständigkeit und verhindert doppelte Abbuchungen; Stornierung gibt bestehende Reservierungen frei. Bearbeitbare Termine und Kundendaten, dauerhafte Historie.
+- Separate updatefeste SQLite-Tabellen, von Etsy-Sync unabhängig. Bestehende Etsy-Aufträge, Bestände, Filamente und Master-3MF-Dateien unverändert; Regressionstests für Varianten, personalisierte Aufträge, Sync, Abschluss und Sofortverkauf.
+
 # 0.11.49 · Bauteilvorrat direkt und ohne Komplett-Neuladen ändern
 
 - Schnelle, bestätigte Bauteilbuchungen mit kompakter Serverantwort statt vollem Etsy-, Auftrags- und Produktstatus.
