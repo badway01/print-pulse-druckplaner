@@ -178,6 +178,20 @@ class LocalOrderTests(unittest.TestCase):
         self.assertEqual(len(order['items']),1)
         self.assertEqual(self.stock(),5)
 
+    def test_etsy_receipt_sync_never_requests_local_order_from_etsy(self):
+        """LOK receipts live in stock tables, but cannot be fetched from Etsy."""
+        oid=self.call(app.local_orders.create,self.payload())['id']
+        self.assertTrue(oid.startswith('LOK-'))
+        with mock.patch.object(app,'pages',return_value=[]) as pages_mock, \
+             mock.patch.object(app,'api_request') as etsy_get:
+            transactions,receipt_ids,orders=app.fetch_receipts('123',include_orders=True)
+        self.assertEqual(transactions,[])
+        self.assertEqual(receipt_ids,set())
+        self.assertEqual(orders,[])
+        self.assertEqual(pages_mock.call_count,2)
+        etsy_get.assert_not_called()
+        self.assertEqual(app.overview()['orders'][0]['id'],oid)
+
     def test_invalid_variant_and_missing_deadline_do_not_create_any_order(self):
         bad=self.payload()
         bad['lines'][0]['item_id']='not-real'
