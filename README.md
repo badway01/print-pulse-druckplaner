@@ -1,3 +1,11 @@
+## Version 0.11.48 · Farbnummern & numerische Filamentsortierung
+
+Unter **Filament & Einkauf → Meine Farben** gibt es jetzt drei zusätzliche Sortierungen: **Interner Farbcode (numerisch)**, **Hersteller-Farbnummer** und **HEX-Farbcode**. Interne Nummern werden natürlich numerisch sortiert (2 vor 10), Einträge ohne Code kommen zuletzt. Gesucht werden kann auch nach Farbnummer und HEX-Wert. Die gewünschte Sortierung bleibt auf diesem Gerät gespeichert.
+
+Im Filamentformular öffnet **Interner Farbcode** auf dem iPhone/Tablet den Ziffernblock, behält aber führende Nullen. Der Farbkreis zeigt seinen **HEX-Code direkt daneben**, darunter stehen **Hersteller-Farbnummer** und **interner Farbcode** in einer gemeinsamen Vorschau. Bei der Auswahl bekannter Bambu-Farben werden belegte Hersteller-Farbnummern automatisch vorgeschlagen (u. a. 10100, 10101, 10201, 10800, 11100, 11101); für andere Farben bleibt das Feld frei bearbeitbar. Die native System-Farbauswahl selbst kann keine zusätzlichen App-Beschriftungen aufnehmen – die Angaben stehen daher neben und unter der Farbprobe. Auch auf Filamentzeilen und bei der Druckprofil-Filamentzuordnung sind HEX und vorhandene Nummern sichtbar.
+
+Eine neue optionale SQLite-Spalte speichert die Hersteller-Farbnummer updatefest. Vorhandene Spulen, Preise, Codes, Bestände, Druckprofile und Master-3MF-Dateien bleiben erhalten. Die Eingabefelder werden nicht für Bestands- oder Etsy-Buchungen verwendet.
+
 ## Version 0.11.47 · Bauteilvorrat direkt buchen
 
 Im Bereich **Produktion** kannst du den Bestand jedes auf Vorrat gefertigten Bauteils auf der Produktkarte direkt über **− / Menge / +** ändern. Auf die Mengenanzeige klicken, neue Stückzahl eingeben und mit Enter oder Häkchen bestätigen; das Verlassen des Eingabefelds speichert ebenfalls. Die Buchung wird unmittelbar im Bauteillager übernommen, ohne den bisherigen Bearbeitungsdialog zu öffnen.
