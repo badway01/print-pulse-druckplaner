@@ -1,3 +1,11 @@
+# 0.12.5 · A4-Kundenaufträge als PDF
+
+- Lokale Bestellkarten und Details: „Auftrag A4 · PDF“ als Download-Button.
+- Bündelt alle offenen lokalen Aufträge zum selben Kundennamen, mit individuellen Auftragsnummern und Terminen sowie allen Positionen.
+- A4-Dokument mit Kopfzeile, sauber umgebrochenen Details und Seitenzahlen. Interne Notizen, Etsy-Aufträge und abgeschlossene Aufträge bleiben draußen.
+- Keine Rechnung: Verkaufspreise werden im lokalen Auftrag noch nicht gespeichert.
+- PDF nur während des Downloads im Speicher erstellt; kein dauerhaftes Ablegen von Kundendaten.
+
 # 0.12.4 · Nachdruck-Post-its & Produktfilter
 
 - Produktkarten tragen ein kleines, nicht klickbares Post-it mit gesamter offener Nachdruckmenge.
