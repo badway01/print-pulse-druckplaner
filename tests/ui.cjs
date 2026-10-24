@@ -819,4 +819,56 @@ await page.waitForFunction(expected=>!busy&&
  Number(document.querySelector('[data-product="101"] .stock-number').textContent)===expected,
  initial+1,{timeout:10000});
 await page.unroute('**/api/stock');
+// Real Home Assistant preview backend: changes made on the production card
+// and in the components editor must use the same persisted physical stock.
+const componentRequest=async data=>{
+ const response=await page.request.post('http://127.0.0.1:8099/api/components',{data});
+ assert.equal(response.status(),200,await response.text());
+};
+await componentRequest({action:'toggle',listing_id:'104',enabled:true});
+for(const name of ['Grundplatte','Figur'])
+ await componentRequest({action:'save',listing_id:'104',name,kind:'stock',units:1,
+  property_name:'',quantity_property:''});
+await page.reload();
+const partsCard=page.locator('[data-product="104"]');
+await partsCard.locator('.component-card-stock-value').first().waitFor();
+assert.equal(await partsCard.locator('[data-component-stock-open]').count(),2);
+await partsCard.locator('[data-component-stock-delta="1"]').first().click();
+await page.waitForFunction(()=>document.querySelector('[data-product="104"] .component-card-stock-value')?.textContent?.trim()==='1 ×');
+await partsCard.locator('[data-component-stock-open]').first().click();
+let stockInput=partsCard.locator('[data-component-stock-input]');
+assert.equal(await stockInput.count(),1,'clicking a quantity reveals inline editing');
+await stockInput.fill('4');
+await stockInput.press('Enter');
+await page.waitForFunction(()=>[...document.querySelectorAll('[data-product="104"] .component-card-stock-value')]
+ .some(x=>x.textContent.trim()==='4 ×'));
+await partsCard.locator('[data-component-stock-open]').nth(1).click();
+stockInput=partsCard.locator('[data-component-stock-input]');
+await stockInput.fill('2');
+// Leaving the field for the edit dialog must persist the change.
+await partsCard.locator('[data-product-components-open]').click();
+await page.waitForFunction(async()=>{
+ const res=await fetch('api/status');const state=await res.json();
+ const p=state.products.find(x=>x.id==='104');
+ return p?.components?.some(x=>x.stock===2);
+},null,{timeout:10000});
+const editor=page.locator('#components-editor');
+assert.equal(await editor.locator('[data-component-count]').count(),2);
+let savedBefore=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
+const mapBefore=Object.fromEntries(savedBefore.products.find(x=>x.id==='104').components.map(x=>[x.id,x]));
+for(const field of await editor.locator('[data-component-count]').all()){
+ const id=await field.getAttribute('data-component-count');
+ await field.fill(String(mapBefore[id].stock+1));
+}
+await editor.locator('#components-stock-bulk').click();
+await page.waitForFunction(()=>!busy);
+let savedAfter=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
+const mapAfter=Object.fromEntries(savedAfter.products.find(x=>x.id==='104').components.map(x=>[x.id,x]));
+for(const id of Object.keys(mapBefore))
+ assert.equal(mapAfter[id].stock,mapBefore[id].stock+1,'bulk edit and production card have one consistent stock');
+await editor.locator('[data-close="components-editor"]').click();
+const partsText=await partsCard.locator('.component-card-panel').textContent();
+assert(partsText.includes('5 ×')&&partsText.includes('3 ×'),
+ 'production card shows both saved component quantities without opening editor again');
+
 assert.deepEqual(errors,[]);console.log('UI PASS: compact stock drawer; responsive stock edits; unchanged snapshot cache; stable DOM; orders; backup; mobile widths; no JS errors.');await browser.close();})().catch(e=>{console.error(e);process.exit(1)});
