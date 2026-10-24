@@ -218,11 +218,21 @@ async function localHistory(){
 $('local-history-open').addEventListener('click',localHistory);
 // Hook into the existing Etsy card and order detail rendering *after*
 // components-ui.js and priority-ui.js have installed their overrides.
+function localPdfLink(order,label){
+ // Only selected local order ids are accepted by the backend, which gathers
+ // the other still-open local orders of the same customer.
+ const url='api/local-order-pdf?id='+encodeURIComponent(order.id);
+ return '<a class="local-order-pdf" href="'+esc(url)+'" download aria-label="'+esc(label+' für '+order.customer)+'">'+
+  '<span aria-hidden="true">▤</span> '+esc(label)+'</a>';
+}
 const standardOrderCard=orderCard;
 orderCard=function(o){
  const html=standardOrderCard(o);
- return o.source==='local'?html.replace('<div class="order-card-top"><b>',
-  '<div class="order-card-top"><b><span class="local-tag">LOKAL</span> '):html;
+ if(o.source!=='local')return html;
+ return html.replace('<div class="order-card-top"><b>',
+   '<div class="order-card-top"><b><span class="local-tag">LOKAL</span> ')
+  .replace('</article>',
+   '<div class="local-order-pdf-row">'+localPdfLink(o,'Auftrag A4 · PDF')+'</div></article>');
 };
 const standardOrderNextAction=orderNextAction;
 orderNextAction=function(line){
@@ -280,7 +290,8 @@ showOrder=function(id){
  const hint=host.querySelector('.order-work-help p');
  if(hint)hint.textContent='Lokale Aufträge werden unabhängig vom Etsy-Abgleich gespeichert. Standardvarianten nutzen die normalen Buchungen; bei Gravuren und Sonderfarben werden eigene Druckpositionen ohne automatische Lagerumbuchung geführt.';
  host.insertAdjacentHTML('beforeend',
-  '<div class="local-detail-actions"><button class="secondary" type="button" data-local-edit="'+esc(o.id)+'">Kunde / Endtermin bearbeiten</button>'+
+  '<div class="local-detail-actions">'+localPdfLink(o,'A4-Auftrag herunterladen')+
+  '<button class="secondary" type="button" data-local-edit="'+esc(o.id)+'">Kunde / Endtermin bearbeiten</button>'+
   '<button class="secondary" type="button" data-local-close="cancel" data-local-id="'+esc(o.id)+'">Stornieren</button>'+
   '<button class="primary" type="button" data-local-close="complete" data-local-id="'+esc(o.id)+'" '+(orderPrintProgress(o).complete?'':'disabled title="Zuerst alle Positionen fertigstellen"')+'>Bestellung übergeben</button></div>');
 };
