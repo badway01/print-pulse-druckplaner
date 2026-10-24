@@ -966,8 +966,11 @@ function filamentPriceFromDigits(raw){
  if(!digits)return '';
  return (Math.floor(Number(digits)/100))+','+digits.slice(-2).padStart(2,'0');
 }
-function filamentPriceMask(input){
- const value=filamentPriceFromDigits(input.value);
+function filamentPriceMask(input,event){
+ // When the last significant cent digit is erased, return to an empty field.
+ // Leaving the value as 0,00 would trap users in an endless Backspace loop.
+ const deleting=event?.inputType==='deleteContentBackward'||event?.inputType==='deleteContentForward';
+ const value=deleting&&!Number(input.value.replace(/\D/g,''))?'':filamentPriceFromDigits(input.value);
  input.value=value;
  // Keep subsequent keystrokes at the end; this behaves like a cash-register keypad.
  input.setSelectionRange(value.length,value.length);
@@ -1395,7 +1398,7 @@ $('filament-existing').addEventListener('click',()=>{
 });
 $('filament-color-hex').addEventListener('input',()=>{filamentAutoHex=false;filamentHexPreview('Manuell gewählter Farbcode');});
 for(const id of ['filament-manufacturer-code','filament-internal-code'])$(id).addEventListener('input',()=>filamentHexPreview());
-$('filament-form').elements.price.addEventListener('input',event=>filamentPriceMask(event.target));
+$('filament-form').elements.price.addEventListener('input',event=>filamentPriceMask(event.target,event));
 document.addEventListener('click',event=>{
  if(!event.target.closest('.filament-autocomplete'))closeFilamentSuggestions();
 });
