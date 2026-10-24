@@ -98,6 +98,35 @@ const ordersAccent=await page.locator('#orders-shell').evaluate(el=>{
 });
 assert(ordersAccent.left>=5,'whole orders area needs an accent border');
 assert(ordersAccent.shadow!=='none','whole orders area needs subtle elevation');
+const dashboardStructure=await page.evaluate(()=>{
+ const rect=id=>{const r=document.querySelector(id).getBoundingClientRect();
+  return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width}};
+ return {
+  hero:rect('.dashboard-hero'),summary:rect('#summary'),title:rect('.dashboard-hero-copy'),
+  alert:rect('#alert'),tabs:rect('.workspace-tabs'),
+  alertPrecedesTabs:!!(document.querySelector('#alert').compareDocumentPosition(document.querySelector('.workspace-tabs'))&Node.DOCUMENT_POSITION_FOLLOWING),
+  tabsPrecedePrinters:!!(document.querySelector('.workspace-tabs').compareDocumentPosition(document.querySelector('#printer-strip'))&Node.DOCUMENT_POSITION_FOLLOWING),
+  printersPrecedeOrders:!!(document.querySelector('#printer-strip').compareDocumentPosition(document.querySelector('#orders-shell'))&Node.DOCUMENT_POSITION_FOLLOWING),
+  printers:rect('#printer-strip'),
+  orders:rect('#orders-shell'),
+  labels:[...document.querySelectorAll('#summary .dashboard-kpi-copy>span')].map(el=>el.textContent),
+  tabs:[...document.querySelectorAll('.workspace-tabs button')].map(b=>({
+   name:b.textContent.trim(),icon:!!b.querySelector('svg'),height:b.getBoundingClientRect().height}))
+ };
+});
+assert.deepEqual(dashboardStructure.labels,['Nachdrucken','Versand kritisch'],
+ 'top summary must only show actionable production/shipping figures');
+assert(dashboardStructure.summary.x>dashboardStructure.title.x,
+ 'actionable figures belong to the right of the title on desktop');
+assert(dashboardStructure.alertPrecedesTabs,
+ 'warning container must precede the navigation independently of viewport scroll');
+assert(dashboardStructure.tabsPrecedePrinters,
+ 'printer live status must be directly after the navigation in document order');
+assert(dashboardStructure.printersPrecedeOrders,
+ 'open orders must follow compact live printer status in document order');
+assert(dashboardStructure.tabs.every(t=>t.icon&&t.height>=48),
+ 'all four navigation tabs need clear icons and touch-friendly height');
+assert.equal(await page.locator('#summary button').count(),2);
 await page.locator('.printer-mini').first().waitFor();
 assert.equal((await page.locator('#printer-strip .eyebrow').textContent()).trim(),'PRODUKTION · LIVE');
 assert.equal((await page.locator('#orders-shell .eyebrow').textContent()).trim(),'ETSY & LOKAL · DEINE AUFTRÄGE');
@@ -108,6 +137,14 @@ assert((await page.locator('#sync-state').textContent()).includes('Produktkatalo
 assert.equal(await page.locator('html').getAttribute('lang'),'de');
 assert.equal(await page.locator('.printer-mini').count(),4);
 assert.equal(await page.locator('#priority-shell').isVisible(),true,'priority board belongs to production');
+await page.locator('[data-dashboard-jump="need"]').click();
+assert.equal(await page.locator('[data-filter="need"]').getAttribute('class').then(x=>x.includes('selected')),true,
+ 'nachdrucken KPI should open actual print-needs filter');
+await page.locator('[data-filter="all"]').click();
+await page.locator('[data-dashboard-jump="critical"]').click();
+assert.equal(await page.locator('[data-order-sort="ship"]').getAttribute('aria-pressed'),'true',
+ 'critical shipments KPI should focus earliest shipments');
+
 const priorityChecks=await page.evaluate(()=>{
  const data={products:[
   {id:'g',title:'Lesender Geist',state:'active',components_enabled:1,sold7:4,sold30:9,
@@ -164,7 +201,7 @@ const installedVersion=(await page.locator('#app-version').textContent()).trim()
 const latestRelease=await page.locator('#release-history-content .release-entry').first().textContent();
 assert.match(installedVersion,/^v\d+\.\d+\.\d+$/);
 assert(latestRelease.includes(installedVersion.slice(1)),'latest packaged release matches app version');
-assert(latestRelease.includes('Filament-Einkaufsliste'),'new filament shopping enhancements are documented');
+assert(latestRelease.includes('Dashboard umgestaltet'),'dashboard and local Etsy sync release is documented');
 await page.locator('#etsy-import-panel summary').click();
 await page.locator('#etsy-import-rows').getByText('Keine neuen aktiven Artikel', {exact:false}).waitFor();
 await page.locator('[data-close="settings"]').click();
@@ -284,7 +321,7 @@ assert.equal(await componentCard.locator('.photo-stock-toggle').count(),0);
 assert.equal(await componentCard.locator('.component-legacy .variant-toggle').count(),1,'historical complete variants stay accessible only if requested');
 assert.equal(await componentCard.locator('.component-legacy .variant').count(),0,'do not render hundreds of variations by default');
 assert.equal(await componentCard.locator('.product-photo').count(),1,'product photo area remains visible with or without preview images');
-const afterCompSum=await page.locator('#summary b').nth(1).textContent();
+const afterCompSum=await page.locator('[data-summary="need"] .dashboard-kpi-value').textContent();
 const expectedCompDue=await page.evaluate(()=>model.products
  .filter(p=>p.state==='active'&&!p.components_enabled).reduce((n,p)=>n+p.need,0));
 assert.equal(Number.parseInt(afterCompSum,10),expectedCompDue,'variant-level demand from component products is excluded');
@@ -300,7 +337,7 @@ await page.evaluate(()=>{
 assert.equal(await componentCard.locator('.stock-quick-toggle').count(),1,'normal variant inventory returns when switch off');
 
 assert.equal((await page.locator('#order-count').textContent()).trim(),'3 offen');
-assert.equal((await page.locator('.summary-urgent b').textContent()).trim(),'2 Aufträge');
+assert.equal((await page.locator('[data-summary="critical"] .dashboard-kpi-value').textContent()).trim(),'2 Aufträge');
 assert.equal(await page.locator('.order-card').count(),3);
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'501');
 assert((await page.locator('[data-order-card="501"] .order-ship-date').textContent()).includes('Versand bis '));
@@ -669,7 +706,8 @@ assert(await page.locator('#orders').evaluate(el=>el.scrollLeft>0));
 await page.setViewportSize({width:1440,height:1100});
 
 assert.equal(await page.locator('[data-product="inactive-cat"]').count(),0);
-assert.equal(await page.locator('#summary b').first().textContent(),'4');
+assert.equal(await page.locator('#summary .dashboard-kpi').count(),2);
+assert.equal(await page.locator('.product').count(),4);
 await page.locator('#search').fill('Inaktive Katze');
 assert.equal(await page.locator('.product').count(),0);
 await page.locator('#search').fill('');

@@ -1,3 +1,10 @@
+# 0.12.3 · Dashboard umgestaltet und lokaler Etsy-Abgleich korrigiert
+
+- Hero-Kennzahlen reduzieren auf „Nachdrucken“ und „Versand kritisch“; direkte Navigation zu den betreffenden Produktions- und Bestellansichten.
+- Hinweise übersichtlicher; prominentere vier Bereiche mit Icons; Druckerstatus gleich darunter, vor den aktuellen Bestellungen.
+- Responsive Darstellung für Tablet, Mac-Split und Handy ohne Verlust der bisherigen Druckerinformationen.
+- Lokalaufträge `LOK-…` nicht mehr als Etsy-Receipts abrufen; dadurch keine HTTP-400-Abfrage für lokale Bestellnummern.
+
 # 0.12.2 · Filament-Einkaufsliste automatisieren
 
 - Einkaufsliste und Spulenverwaltung zeigen während eines laufenden Vorgangs Ladeanimation und Status; zeitlich begrenzte Anfragen lösen graue, lange Wartezustände und prüfen anschließend den Bestand.

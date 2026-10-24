@@ -1,3 +1,11 @@
+# 0.12.3 · Dashboard-Kopf wie Vorlage & lokaler Etsy-Sync-Fix
+
+- Neue kompakte Titelzeile mit genau zwei klaren, klickbaren Kennzahlen: **Nachdrucken** und **Versand kritisch**. „Produkte“ und „Im Druck“ entfallen aus dem Kopfbereich. Der Etsy-Abgleichszeitpunkt und Aktualisieren bleiben sichtbar.
+- Hinweise als aufgeräumter, standardmäßig geöffneter Bereich. Kräftigere vierteilige Navigation mit Icons und erhaltener Einkaufslisten-Anzahl. Live-Druckerstatus direkt nach der Navigation, vor den Auftragskarten, mit flachen kompakten Kacheln.
+- Responsive Ausführung für 11-Zoll-Tablet, Mac-Split-View, Mobilgerät sowie helle und dunkle Darstellung. Produktion und Auftragslogik darunter bleiben unverändert.
+- Etsy-Sync fordert keine manuellen LOK-Belegnummern mehr über die Etsy-API an; gezielter Regressionstest verhindert den HTTP-400-Fall aus der Dashboard-Warnung.
+- Browser-Regressionstests für Anordnung und interaktive Kennzahlen.
+
 # 0.12.2 · Ladefeedback, Preis-Tastatur und automatische Filament-Einkaufsliste
 
 - Filament- und Einkaufsbuchungen zeigen einen sichtbaren Spinner, eine passende Statusmeldung und eine Zeitbegrenzung mit sicherem Lesen des aktuellen Stands statt einem erneuten Schreibversuch.
