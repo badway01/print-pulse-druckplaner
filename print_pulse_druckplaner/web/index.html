@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css"><script src="app.js" defer></script><script src="components-ui.js" defer></script><script src="priority-ui.js" defer></script><script src="import-ui.js" defer></script></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css"><script src="app.js" defer></script><script src="components-ui.js" defer></script><script src="priority-ui.js" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js" defer></script></head>
 <body>
 <header><a class="brand" href="./" aria-label="Print &amp; Pulse Startseite"><img class="brand-logo" src="brand.svg" width="190" height="98" alt="Print &amp; Pulse – Designs mit Herz"></a><div class="theme-switch" role="group" aria-label="Darstellung wählen">
  <button type="button" class="theme-option" data-theme-mode="light" aria-label="Heller Modus" title="Hell" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
@@ -30,9 +30,9 @@
  <div class="printer-strip-head"><div><span class="eyebrow">PRODUKTION · LIVE</span><h2>Druckerstatus</h2></div><button type="button" id="printer-strip-more" class="text-button">Alle Druckerdetails ↗</button></div>
  <div id="printer-strip-row" class="printer-strip-grid" aria-live="off"><p class="hint">Druckerstatus wird geladen …</p></div>
 </section>
-<section id="orders-shell" class="orders-shell" aria-label="Aktuelle Etsy-Bestellungen">
- <div class="orders-heading"><div><span class="eyebrow">ETSY · DEIN SHOP</span><h2>Aktuelle Bestellungen <span id="order-count" class="orders-count">0 offen</span></h2></div>
- <div class="orders-tools" role="group" aria-label="Bestellungen sortieren"><button type="button" data-order-sort="ship" class="selected" aria-pressed="true">Versand zuerst</button><button type="button" data-order-sort="new" aria-pressed="false">Neueste zuerst</button><button type="button" id="orders-prev" class="orders-arrow" aria-label="Nach links blättern">‹</button><button type="button" id="orders-next" class="orders-arrow" aria-label="Nach rechts blättern">›</button></div></div>
+<section id="orders-shell" class="orders-shell" aria-label="Aktuelle Etsy- und lokale Bestellungen">
+ <div class="orders-heading"><div><span class="eyebrow">ETSY &amp; LOKAL · DEINE AUFTRÄGE</span><h2>Aktuelle Bestellungen <span id="order-count" class="orders-count">0 offen</span></h2></div>
+ <div class="orders-tools" role="group" aria-label="Bestellungen sortieren"><button type="button" id="local-order-new" class="primary">+ Lokale Bestellung</button><button type="button" id="local-history-open" class="secondary small">Lokale Historie</button><button type="button" data-order-sort="ship" class="selected" aria-pressed="true">Versand zuerst</button><button type="button" data-order-sort="new" aria-pressed="false">Neueste zuerst</button><button type="button" id="orders-prev" class="orders-arrow" aria-label="Nach links blättern">‹</button><button type="button" id="orders-next" class="orders-arrow" aria-label="Nach rechts blättern">›</button></div></div>
  <div id="orders" class="orders-carousel" tabindex="0" aria-label="Offene Bestellungen seitlich wischen"></div>
 </section>
 <section id="priority-shell" class="priority-shell" aria-label="Nächste sinnvolle Drucke">
@@ -75,7 +75,7 @@
   <div id="etsy-import-rows" class="etsy-import-rows"><p class="hint">Vorschläge werden geladen …</p></div>
   <p class="hint">Es werden nur Artikel aus deinem eigenen Etsy-Shop gelesen. Deine Etsy-Bestände, Lagerbuchungen, Bauteile und 3MF-Dateien werden beim Import nicht zurückgesetzt.</p>
  </details>
- <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.11.48</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
+ <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.12.0</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
 <details id="audit-panel" class="audit-panel">
  <summary>Buchungsverlauf &amp; Datensicherung</summary>
  <p class="hint">Hier siehst du Änderungen an Fertigwaren, Bauteilen und Etsy-Auftragsbuchungen. Das Protokoll erfasst neue Vorgänge ab Version 0.11.42.</p>
@@ -89,6 +89,29 @@
  </div>
 </details>
 <section class="connection"><h3>Etsy verbinden</h3><p class="hint">Bestehende Zugangsdaten bleiben beim Update erhalten. Für das Lesen deiner Varianten kann einmalig eine neue Etsy-Freigabe nötig sein.</p><button id="authorize" class="secondary">Etsy-Freigabe öffnen</button><a id="oauth-link" target="_blank" rel="noopener noreferrer" hidden>Jetzt bei Etsy freigeben ↗</a><form id="finish-form"><label>Vollständige Rückleitungsadresse nach der Freigabe<input name="redirected_url" type="url" autocomplete="off" required placeholder="https://…?code=…&amp;state=…"></label><button class="secondary">Verbindung abschließen</button></form><details><summary>Zugangsdaten einrichten / ändern</summary><form id="config-form"><label>Etsy Keystring<input name="keystring" autocomplete="off" required></label><label>Etsy Shared Secret<input name="shared_secret" type="password" autocomplete="off" required></label><label>Shop-ID<input name="shop_id" inputmode="numeric" pattern="[0-9]+" required></label><label>Registrierte HTTPS-Callback-URL<input name="callback" type="url" required></label><button class="secondary">Zugangsdaten speichern</button></form></details></section></dialog>
+<dialog id="local-order-dialog" class="local-order-dialog"><form id="local-order-form">
+ <div class="dialog-heading"><h2 id="local-order-title">Lokale Bestellung anlegen</h2><button type="button" data-close="local-order-dialog" class="icon-button" aria-label="Schließen">×</button></div>
+ <div class="local-order-main">
+  <label>Kunde / Bezeichnung<input id="local-customer" type="text" maxlength="120" required placeholder="z. B. Herr Müller oder Messeverkauf"></label>
+  <label>Übergabe<select id="local-fulfillment"><option value="pickup">Abholung</option><option value="shipping">Versand</option></select></label>
+  <label>Fertigstellungstermin<input id="local-due" type="date" required></label>
+  <label>Interne Bestellnotiz<textarea id="local-notes" rows="2" maxlength="1200" placeholder="z. B. Kundenabsprache, gewünschter Lieferort"></textarea></label>
+ </div>
+ <fieldset id="local-order-type"><legend>Art des Auftrags</legend>
+  <label><input type="radio" name="local-kind" value="normal" checked> Produktionsauftrag</label>
+  <label><input type="radio" name="local-kind" value="direct"> Sofortverkauf aus dem fertigen Lager</label>
+  <p class="hint">Beim Sofortverkauf wird der verfügbare Fertigwarenbestand direkt abgebucht. Sonderfarben und Gravuren gehören in den Produktionsauftrag.</p>
+ </fieldset>
+ <div id="local-lines-section">
+  <div class="local-lines-heading"><h3>Artikel &amp; Varianten</h3><button type="button" id="local-add-line" class="secondary small">+ Weitere Position</button></div>
+  <p class="hint">Produktnamen eintippen und einen Vorschlag antippen. Danach die passende Variante wählen, z. B. Klein oder Groß. Mehrere Varianten sind Positionen derselben Bestellung.</p>
+  <div id="local-order-lines"></div>
+  <p class="hint">Wunschfarbe und Gravur/Personalisierung sind optional. Sobald eines davon ausgefüllt ist, wird die Position als individuelle Fertigung behandelt – ohne automatische Entnahme einer möglicherweise unpassenden Lager-Variante.</p>
+ </div>
+ <p id="local-form-error" class="warning" role="alert" hidden></p>
+ <div class="local-form-actions"><button type="button" data-close="local-order-dialog" class="secondary">Abbrechen</button><button id="local-order-save" type="submit" class="primary">Bestellung speichern</button></div>
+ </form></dialog>
+<dialog id="local-history-dialog" class="local-history-dialog"><div class="dialog-heading"><h2>Lokale Bestellungen · Verlauf</h2><button type="button" data-close="local-history-dialog" class="icon-button" aria-label="Schließen">×</button></div><div id="local-history-list"><p class="hint">Verlauf wird geladen …</p></div></dialog>
 <dialog id="order-details"><div class="dialog-heading"><h2 id="order-details-title">Etsy-Bestellung</h2><button type="button" data-close="order-details" class="icon-button" aria-label="Schließen">×</button></div><div id="order-details-content"></div></dialog>
 <dialog id="quantity"><form id="quantity-form"><div class="dialog-heading"><h2 id="quantity-title">Bestand erfassen</h2><button type="button" data-close="quantity" class="icon-button" aria-label="Schließen">×</button></div><p id="quantity-label"></p><div id="quantity-variants" hidden></div><label id="quantity-caption">Stückzahl<input id="quantity-value" type="number" min="0" max="100000" required></label><label id="quantity-initial-stock-label" hidden>Bisheriger fertiger Lagerbestand<input id="quantity-initial-stock" type="number" min="0" max="100000" inputmode="numeric" placeholder="0, wenn nichts auf Lager ist"></label><p id="quantity-help" class="hint"></p><button id="quantity-confirm" type="submit" class="primary">Speichern</button></form></dialog>
 <dialog id="filament-editor"><form id="filament-form"><div class="dialog-heading"><h2 id="filament-title">Filament anlegen</h2><button type="button" data-close="filament-editor" class="icon-button" aria-label="Schließen">×</button></div>

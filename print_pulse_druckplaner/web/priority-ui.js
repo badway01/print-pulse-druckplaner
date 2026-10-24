@@ -14,7 +14,7 @@ function priorityCandidates(snapshot){
   (Number(a.ship_by)||Infinity)-(Number(b.ship_by)||Infinity)||
   (Number(a.created)||0)-(Number(b.created)||0));
  const available=new Map();
- const classic=new Map(),demand=new Map(),unmapped=new Map(),waiting=new Map();
+ const classic=new Map(),demand=new Map(),unmapped=new Map(),waiting=new Map(),custom=new Map();
  const firstShipment=new Map(),firstReceipt=new Map();
  const now=Date.now()/1000;
  function add(group,key,task,qty){
@@ -29,7 +29,21 @@ function priorityCandidates(snapshot){
  }
  for(const order of orders){
   for(const line of order.items||[]){
-   if(!line.item_id||Number(line.remaining)<=0)continue;
+   if(Number(line.remaining)<=0)continue;
+   if(line.local_custom){
+    const product=listings.get(String(line.listing_id));
+    if(!product)continue;
+    const key=String(line.transaction_id);
+    add(custom,key,{tier:1,type:'local-custom',listingId:String(product.id),
+     productTitle:product.title,orderId:String(order.id),lineId:key,
+     shipBy:Number(order.ship_by)||Infinity,created:Number(order.created)||0,
+     sold7:0,sold30:0,title:product.title,
+     note:[line.variant,line.color?'Wunschfarbe '+line.color:'',
+       line.personalization?'Gravur: '+line.personalization:''].filter(Boolean).join(' · ')},
+     Number(line.remaining));
+    continue;
+   }
+   if(!line.item_id)continue;
    const product=listings.get(String(line.listing_id));
    if(!product)continue;
    const common={listingId:String(product.id),productTitle:product.title,
@@ -72,7 +86,7 @@ function priorityCandidates(snapshot){
    }
   }
  }
- const out=[...classic.values(),...demand.values(),...unmapped.values()];
+ const out=[...classic.values(),...demand.values(),...unmapped.values(),...custom.values()];
  for(const pending of waiting.values()){
   const product=listings.get(pending.listingId);
   const part=(product?.components||[]).find(c=>String(c.id)===pending.partId);
@@ -130,7 +144,7 @@ function priorityCard(item,index){
  const isOrder=item.tier===1;
  const group=isOrder?'Kundenauftrag':item.tier===2?'Vorproduktion':'Fertigwarenlager';
  const details=item.type==='check'?'Bestand prüfen':isOrder?
-  'Für offene Etsy-Bestellungen · Versand '+(item.shipBy===Infinity?'prüfen':shortDate(item.shipBy)):
+  (item.type==='local-custom'?'Lokale Sonderanfertigung · Fertig bis ':'Für offene Bestellungen · Endtermin ')+(item.shipBy===Infinity?'prüfen':shortDate(item.shipBy)):
   item.tier===2?'Vorrat nach deinem Auffüllziel ergänzen':'Bestand nach Verkäufen auffüllen';
  const button=item.type==='part'?'Bauteil öffnen':item.type==='variant'?'Druck vorbereiten':
   'Auftrag öffnen';
@@ -178,9 +192,9 @@ function openPriority(item){
   const order=(model.orders||[]).find(o=>String(o.id)===item.orderId);
   if(!order)return;
   showOrder(order.id);
-  const candidates=[...$('order-details-content').querySelectorAll('[data-component-id],[data-order-quick],[data-order-line]')];
+  const candidates=[...$('order-details-content').querySelectorAll('[data-component-id],[data-order-quick],[data-order-line],[data-local-custom-action]')];
   const exact=candidates.find(b=>(b.dataset.componentId===item.partId&&
-    b.dataset.componentTid===item.lineId)||b.dataset.orderQuick===item.lineId||b.dataset.orderLine===item.lineId);
+    b.dataset.componentTid===item.lineId)||b.dataset.orderQuick===item.lineId||b.dataset.orderLine===item.lineId||b.dataset.localCustomAction===item.lineId);
   if(exact)exact.focus({preventScroll:true});
  }
 }

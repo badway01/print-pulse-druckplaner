@@ -100,7 +100,7 @@ assert(ordersAccent.left>=5,'whole orders area needs an accent border');
 assert(ordersAccent.shadow!=='none','whole orders area needs subtle elevation');
 await page.locator('.printer-mini').first().waitFor();
 assert.equal((await page.locator('#printer-strip .eyebrow').textContent()).trim(),'PRODUKTION · LIVE');
-assert.equal((await page.locator('#orders-shell .eyebrow').textContent()).trim(),'ETSY · DEIN SHOP');
+assert.equal((await page.locator('#orders-shell .eyebrow').textContent()).trim(),'ETSY & LOKAL · DEINE AUFTRÄGE');
 // Last actual Etsy sync time is still displayed independently of the copy changes.
 assert((await page.locator('#sync-state').textContent()).includes('Bestellungen:'));
 assert((await page.locator('#sync-state').textContent()).includes('alle 15 Minuten'));
@@ -164,7 +164,7 @@ const installedVersion=(await page.locator('#app-version').textContent()).trim()
 const latestRelease=await page.locator('#release-history-content .release-entry').first().textContent();
 assert.match(installedVersion,/^v\d+\.\d+\.\d+$/);
 assert(latestRelease.includes(installedVersion.slice(1)),'latest packaged release matches app version');
-assert(latestRelease.includes('Bauteilvorrat direkt'),'quick component stock booking is documented');
+assert(latestRelease.includes('Lokale Aufträge'),'local orders release is documented');
 await page.locator('#etsy-import-panel summary').click();
 await page.locator('#etsy-import-rows').getByText('Keine neuen aktiven Artikel', {exact:false}).waitFor();
 await page.locator('[data-close="settings"]').click();
