@@ -166,6 +166,56 @@ class FilamentTests(unittest.TestCase):
         self.assertEqual((after[0]['internal_code'],after[0]['stock_qty']),
                          (before['internal_code'],3))
 
+    def test_last_full_roll_automatically_adds_exactly_one_to_cart(self):
+        fid=self.add(color='Marineblau',stock_qty=2,open_qty=0)
+        app.filament_mutate({'action':'open','id':fid})
+        row=app.filament_overview()['filaments'][0]
+        self.assertEqual((row['stock_qty'],row['open_qty'],row['cart_qty']),(1,1,0))
+        app.filament_mutate({'action':'open','id':fid})
+        row=app.filament_overview()['filaments'][0]
+        self.assertEqual((row['stock_qty'],row['open_qty'],row['cart_qty']),(0,2,1))
+        self.assertEqual(app.filament_overview()['cart_count'],1)
+        # Emptying an already-open spool must not keep adding cart entries.
+        app.filament_mutate({'action':'empty','id':fid})
+        self.assertEqual(app.filament_overview()['filaments'][0]['cart_qty'],1)
+        with self.assertRaisesRegex(ValueError,'Keine volle Rolle'):
+            app.filament_mutate({'action':'open','id':fid})
+        self.assertEqual(app.filament_overview()['filaments'][0]['cart_qty'],1)
+
+    def test_auto_cart_never_adds_to_an_existing_manual_shopping_quantity(self):
+        fid=self.add(color='Marineblau',stock_qty=1,open_qty=0)
+        app.filament_mutate({'action':'cart','id':fid,'delta':1})
+        app.filament_mutate({'action':'cart','id':fid,'delta':1})
+        app.filament_mutate({'action':'open','id':fid})
+        row=app.filament_overview()['filaments'][0]
+        self.assertEqual((row['stock_qty'],row['open_qty'],row['cart_qty']),(0,1,2))
+        self.assertEqual(app.filament_overview()['cart_count'],2)
+
+    def test_manual_inventory_correction_to_zero_adds_one_but_not_twice(self):
+        fid=self.add(color='Marineblau',stock_qty=2)
+        before=app.filament_overview()['filaments'][0]
+        payload={'action':'save','id':fid,'brand':before['brand'],
+            'color':before['color'],'material':before['material'],
+            'color_hex':before['color_hex'],'stock_qty':0,'open_qty':1,
+            'price':'19,90','purchase_url':before['purchase_url']}
+        app.filament_mutate(payload)
+        result=app.filament_overview()
+        self.assertEqual((result['filaments'][0]['stock_qty'],
+                          result['filaments'][0]['cart_qty'],result['cart_count']),(0,1,1))
+        app.filament_mutate(payload)
+        self.assertEqual(app.filament_overview()['cart_count'],1)
+        # Restocking and then running low once more keeps the existing entry.
+        payload['stock_qty']=2
+        app.filament_mutate(payload)
+        payload['stock_qty']=0
+        app.filament_mutate(payload)
+        self.assertEqual(app.filament_overview()['cart_count'],1)
+
+    def test_new_empty_filament_does_not_create_an_unrequested_purchase(self):
+        self.add(color='Marineblau',stock_qty=0,open_qty=1)
+        row=app.filament_overview()['filaments'][0]
+        self.assertEqual((row['stock_qty'],row['open_qty'],row['cart_qty']),(0,1,0))
+
     def test_schema_migrates_without_touching_stock_and_is_idempotent(self):
         with app.connect() as db:
             db.execute("INSERT INTO config(k,value) VALUES('sentinel','kept')")
