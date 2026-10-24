@@ -1,3 +1,9 @@
+## Version 0.11.47 · Bauteilvorrat direkt buchen
+
+Im Bereich **Produktion** kannst du den Bestand jedes auf Vorrat gefertigten Bauteils auf der Produktkarte direkt über **− / Menge / +** ändern. Auf die Mengenanzeige klicken, neue Stückzahl eingeben und mit Enter oder Häkchen bestätigen; das Verlassen des Eingabefelds speichert ebenfalls. Die Buchung wird unmittelbar im Bauteillager übernommen, ohne den bisherigen Bearbeitungsdialog zu öffnen.
+
+Im Dialog **Bauteile / Vorrat bearbeiten** lassen sich jetzt mehrere eingetragene Mengen mit **Alle geänderten Bestände speichern** zusammen übernehmen. Bisher musste jede Zeile einzeln bestätigt werden; dadurch konnten nicht gespeicherte Eingabewerte wie ein falscher Lagerbestand wirken. Alle Ansichten lesen nun denselben bestätigten Datensatz. Bestehende Lager-, Etsy-, Druck- und 3MF-Daten werden nicht gelöscht.
+
 ## Version 0.11.46 · Vorproduktion bei der Produktsuche sichtbar
 
 Die Suche im **Produktkatalog & 3MF** zeigt bei jedem Treffer weiterhin **Vorproduktion verwenden** und, wenn aktiviert, **Bauteile verwalten**. Auch nach dem Entfernen des Suchbegriffs bleibt die Schalteranzeige erhalten. Ein Wechsel zur Produktion und zurück ist nicht mehr erforderlich. Dies ist eine reine Darstellungsreparatur; Bestände, Zuordnungen und 3MF-Dateien werden nicht verändert.
