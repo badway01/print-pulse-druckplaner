@@ -123,7 +123,7 @@ def create(db,data):
         entry={k:v for k,v in line.items() if k!='title'}
         entry['transaction_id']=tid
         prepared.append(entry)
-        db.execute('INSERT INTO stock_transactions VALUES(?,?,?,?,?,?,?,?)',
+        db.execute('INSERT INTO stock_transactions VALUES(?,?,?,?,?,?,?)',
                    (tid,oid,line['listing_id'],
                     None if line['local_custom'] else line['selected_variant_id'],
                     line['quantity'],now,'shipped' if direct else 'open'))
