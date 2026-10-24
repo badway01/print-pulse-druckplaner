@@ -41,7 +41,7 @@ except ImportError:
     _local_spec.loader.exec_module(local_orders)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.12.3'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.12.4'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
