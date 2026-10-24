@@ -1,3 +1,11 @@
+# 0.12.5 · Kundenauftrag A4-PDF und automatische Sammelausgabe
+
+- PDF-Button auf jeder lokalen Auftragskarte sowie in ihren Bestelldetails.
+- Erzeugt ein eigenständiges, mehrseitiges A4-PDF mit Print-&-Pulse-Layout, Auftragstiteln, individuellen Terminen, Stückzahlen, Varianten, Wunschfarben und Personalisierungen.
+- Automatische Bündelung **aller offenen lokalen Aufträge desselben Kundennamens**; Etsy, andere Kunden und abgeschlossene Aufträge werden ausgeschlossen. Groß-/Kleinschreibung und Leerzeichen werden bei der Zuordnung normalisiert; gleichnamige Kunden werden bis zu einer späteren Kunden-ID-Erweiterung als identisch behandelt.
+- Keine internen Notizen oder Preise; Auftragsübersicht, keine Rechnung. Kunden-PDF wird nicht auf der SD-Karte gespeichert, sondern nur bei Abruf erstellt und direkt heruntergeladen.
+- Getestet: Bündelung, Fremdkunden- und Abschluss-Ausschluss, A4-PDF, lange Sondertexte und PDF-Download aus der Bedienoberfläche.
+
 # 0.12.4 · Bessere Produktfilter und farbgleiche Nachdruck-Post-its
 
 - Gut erkennbare Produktfilter-Tabs mit Live-Zählern und klar markiertem aktiven Filter.
