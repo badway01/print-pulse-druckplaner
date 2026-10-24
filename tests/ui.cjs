@@ -105,6 +105,8 @@ const dashboardStructure=await page.evaluate(()=>{
   hero:rect('.dashboard-hero'),summary:rect('#summary'),title:rect('.dashboard-hero-copy'),
   alert:rect('#alert'),tabs:rect('.workspace-tabs'),
   alertPrecedesTabs:!!(document.querySelector('#alert').compareDocumentPosition(document.querySelector('.workspace-tabs'))&Node.DOCUMENT_POSITION_FOLLOWING),
+  tabsPrecedePrinters:!!(document.querySelector('.workspace-tabs').compareDocumentPosition(document.querySelector('#printer-strip'))&Node.DOCUMENT_POSITION_FOLLOWING),
+  printersPrecedeOrders:!!(document.querySelector('#printer-strip').compareDocumentPosition(document.querySelector('#orders-shell'))&Node.DOCUMENT_POSITION_FOLLOWING),
   printers:rect('#printer-strip'),
   orders:rect('#orders-shell'),
   labels:[...document.querySelectorAll('#summary .dashboard-kpi-copy>span')].map(el=>el.textContent),
@@ -118,10 +120,10 @@ assert(dashboardStructure.summary.x>dashboardStructure.title.x,
  'actionable figures belong to the right of the title on desktop');
 assert(dashboardStructure.alertPrecedesTabs,
  'warning container must precede the navigation independently of viewport scroll');
-assert(dashboardStructure.printers.y>=dashboardStructure.tabs.bottom-2,
- 'printer live status belongs directly after the navigation');
-assert(dashboardStructure.orders.y>=dashboardStructure.printers.bottom-2,
- 'open orders must follow the compact live printer status');
+assert(dashboardStructure.tabsPrecedePrinters,
+ 'printer live status must be directly after the navigation in document order');
+assert(dashboardStructure.printersPrecedeOrders,
+ 'open orders must follow compact live printer status in document order');
 assert(dashboardStructure.tabs.every(t=>t.icon&&t.height>=48),
  'all four navigation tabs need clear icons and touch-friendly height');
 assert.equal(await page.locator('#summary button').count(),2);
