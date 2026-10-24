@@ -98,6 +98,31 @@ const ordersAccent=await page.locator('#orders-shell').evaluate(el=>{
 });
 assert(ordersAccent.left>=5,'whole orders area needs an accent border');
 assert(ordersAccent.shadow!=='none','whole orders area needs subtle elevation');
+const dashboardStructure=await page.evaluate(()=>{
+ const rect=id=>{const r=document.querySelector(id).getBoundingClientRect();
+  return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width}};
+ return {
+  hero:rect('.dashboard-hero'),summary:rect('#summary'),title:rect('.dashboard-hero-copy'),
+  alert:rect('#alert'),tabs:rect('.workspace-tabs'),printers:rect('#printer-strip'),
+  orders:rect('#orders-shell'),
+  labels:[...document.querySelectorAll('#summary .dashboard-kpi-copy>span')].map(el=>el.textContent),
+  tabs:[...document.querySelectorAll('.workspace-tabs button')].map(b=>({
+   name:b.textContent.trim(),icon:!!b.querySelector('svg'),height:b.getBoundingClientRect().height}))
+ };
+});
+assert.deepEqual(dashboardStructure.labels,['Nachdrucken','Versand kritisch'],
+ 'top summary must only show actionable production/shipping figures');
+assert(dashboardStructure.summary.x>dashboardStructure.title.x,
+ 'actionable figures belong to the right of the title on desktop');
+assert(dashboardStructure.tabs.y>=dashboardStructure.alert.y,
+ 'warnings should appear before the prominent workspace navigation');
+assert(dashboardStructure.printers.y>=dashboardStructure.tabs.bottom-2,
+ 'printer live status belongs directly after the navigation');
+assert(dashboardStructure.orders.y>=dashboardStructure.printers.bottom-2,
+ 'open orders must follow the compact live printer status');
+assert(dashboardStructure.tabs.every(t=>t.icon&&t.height>=48),
+ 'all four navigation tabs need clear icons and touch-friendly height');
+assert.equal(await page.locator('#summary button').count(),2);
 await page.locator('.printer-mini').first().waitFor();
 assert.equal((await page.locator('#printer-strip .eyebrow').textContent()).trim(),'PRODUKTION · LIVE');
 assert.equal((await page.locator('#orders-shell .eyebrow').textContent()).trim(),'ETSY & LOKAL · DEINE AUFTRÄGE');
@@ -108,6 +133,14 @@ assert((await page.locator('#sync-state').textContent()).includes('Produktkatalo
 assert.equal(await page.locator('html').getAttribute('lang'),'de');
 assert.equal(await page.locator('.printer-mini').count(),4);
 assert.equal(await page.locator('#priority-shell').isVisible(),true,'priority board belongs to production');
+await page.locator('[data-dashboard-jump="need"]').click();
+assert.equal(await page.locator('[data-filter="need"]').getAttribute('class').then(x=>x.includes('selected')),true,
+ 'nachdrucken KPI should open actual print-needs filter');
+await page.locator('[data-filter="all"]').click();
+await page.locator('[data-dashboard-jump="critical"]').click();
+assert.equal(await page.locator('[data-order-sort="ship"]').getAttribute('aria-pressed'),'true',
+ 'critical shipments KPI should focus earliest shipments');
+
 const priorityChecks=await page.evaluate(()=>{
  const data={products:[
   {id:'g',title:'Lesender Geist',state:'active',components_enabled:1,sold7:4,sold30:9,
