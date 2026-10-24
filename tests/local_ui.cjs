@@ -39,9 +39,21 @@ const assert=require('node:assert/strict');
   assert.equal(local.items[1].personalization,'Gravur von Hand');
   assert.equal(local.items[1].local_custom,true);
   assert.equal(local.items[1].item_id,null,'A custom colour may not debit an Etsy stock variant');
+  const pdfResponse=await page.request.get('http://127.0.0.1:8099/api/local-order-pdf?id='+encodeURIComponent(local.id));
+  assert.equal(pdfResponse.status(),200,'active local customer PDF must download');
+  assert((pdfResponse.headers()['content-type']||'').startsWith('application/pdf'));
+  assert((pdfResponse.headers()['content-disposition']||'').includes('attachment'));
+  assert((await pdfResponse.body()).subarray(0,5).toString()==='%PDF-');
+  const absent=await page.request.get('http://127.0.0.1:8099/api/local-order-pdf?id=LOK-NOT-FOUND');
+  assert.equal(absent.status(),404,'unknown local orders must not leak customer data');
+
   await page.reload();
   const card=page.locator('.order-card').filter({hasText:local.id});
+  assert.equal(await card.locator('a.local-order-pdf[download]').count(),1,
+   'local card needs a directly accessible A4 print/PDF link');
+  assert((await card.locator('a.local-order-pdf').getAttribute('href')).includes(encodeURIComponent(local.id)));
   await card.locator('[data-order-open]').click();
+  assert.equal(await page.locator('#order-details-content a.local-order-pdf[download]').count(),1);
   assert((await page.locator('#order-details-content').textContent()).includes('Jadeweiß'));
   assert((await page.locator('#order-details-content').textContent()).includes('Gravur von Hand'));
   await page.locator('#order-details-content [data-local-edit]').click();
