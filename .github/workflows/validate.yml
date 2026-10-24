@@ -31,6 +31,9 @@ jobs:
           node --check print_pulse_druckplaner/web/components-ui.js
           node --check print_pulse_druckplaner/web/local-orders-ui.js
           node --check print_pulse_druckplaner/web/import-ui.js
+          node --check tests/ui.cjs
+          node --check tests/ui_safari.cjs
+          node --check tests/local_ui.cjs
 
       - name: Private Daten suchen
         run: python scripts/check_public.py
