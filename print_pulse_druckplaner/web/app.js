@@ -338,9 +338,16 @@ function stockQuickView(p){
   <span class='stock-quick-arrow' aria-hidden='true'>${isOpen?'▴':'▾'}</span>
  </button>`;
 }
+// The bookmark has no independent traffic-light thresholds. Its colour is
+// entirely derived from the very same product card status via CSS inheritance.
+function productPrintBadge(p){
+ const amount=p.components_enabled?componentProductDue(p):Number(p.need)||0;
+ const qty=Number.isFinite(amount)?Math.max(0,Math.trunc(amount)):0;
+ return qty?'<span class="product-need-postit" aria-label="'+qty+' Stück nachdrucken" title="'+qty+' Stück nachdrucken"><strong>'+qty+'</strong></span>':'';
+}
 function card(p){
  const image=thumbnail(p.image),open=expanded.has(p.id)||p.items.length===1;
- return `<article class="product ${p.level}" data-product="${esc(p.id)}"><div class="product-photo">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:'<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}<span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span><button type="button" class="photo-stock-toggle" data-stock-toggle="${esc(p.id)}" aria-expanded="${stockExpanded.has(p.id)}" aria-label="Lagerbestand für ${esc(p.title)} anzeigen">Im Lager <span aria-hidden="true">${stockExpanded.has(p.id)?"▴":"▾"}</span></button></div><div class="product-body">${stockQuickView(p)}${stockExpanded.has(p.id)?stockOverview(p):""}<h2 title="${esc(p.title)}">${esc(p.title)}</h2><div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span><span><b>${p.sold30}</b> / 30 Tage</span>${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}</div>
+ return `<article class="product ${p.level}" data-product="${esc(p.id)}">${productPrintBadge(p)}<div class="product-photo">${image?`<img src="${esc(image)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer">`:'<div class="placeholder">P<span>+</span>P<small>Produktbild folgt</small></div>'}<span class="etsy-total">Etsy-Menge <b>${p.etsy_qty??'–'}</b></span><button type="button" class="photo-stock-toggle" data-stock-toggle="${esc(p.id)}" aria-expanded="${stockExpanded.has(p.id)}" aria-label="Lagerbestand für ${esc(p.title)} anzeigen">Im Lager <span aria-hidden="true">${stockExpanded.has(p.id)?"▴":"▾"}</span></button></div><div class="product-body">${stockQuickView(p)}${stockExpanded.has(p.id)?stockOverview(p):""}<h2 title="${esc(p.title)}">${esc(p.title)}</h2><div class="sales"><span><b>${p.sold7}</b> verkauft / 7 Tage</span><span><b>${p.sold30}</b> / 30 Tage</span>${p.state!=='active'?`<span>${esc(stateNames[p.state]||p.state)}</span>`:''}</div>
  ${notices([p.inventory_error,p.unmatched?`${p.unmatched} bestellte Stück noch keiner Variante zugeordnet. Bedarf zusätzlich in Etsy prüfen.`:'',p.review?`${p.review} Stück mit Erstattung oder unklarem Zahlungsstatus: in Etsy prüfen.`:''],'product-'+p.id)}
  ${p.items.length>1&&!p.made_to_order?printOverview(p):''}
  ${toolSummary(p)}
@@ -777,7 +784,19 @@ function render(){if(!model)return;
   '<span class="dashboard-kpi-icon" aria-hidden="true">!</span><span class="dashboard-kpi-copy"><span>Versand kritisch</span><b class="dashboard-kpi-value">'+critical+' Aufträge</b></span><span class="dashboard-kpi-arrow" aria-hidden="true">›</span></button>');
  renderOrders();
  renderCatalog();
- document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('selected',b.dataset.filter===filter));
+ const filterCounts={
+  all:products.length,
+  need:products.filter(p=>dueFor(p)>0||p.unmatched>0).length,
+  printing:products.filter(p=>runningFor(p)>0).length,
+  uncounted:products.filter(p=>!p.components_enabled&&p.uninitialized>0).length
+ };
+ document.querySelectorAll('[data-filter]').forEach(b=>{
+  const active=b.dataset.filter===filter;
+  b.classList.toggle('selected',active);
+  b.setAttribute('aria-pressed',String(active));
+  const count=b.querySelector('.product-filter-count');
+  if(count)count.textContent=String(filterCounts[b.dataset.filter]||0);
+ });
  const search=$('search').value.trim().toLocaleLowerCase('de');
  const selected=order.map(id=>visibleProducts.find(p=>p.id===id)).filter(Boolean).filter(p=>
   (filter!=='need'||dueFor(p)>0||p.unmatched>0)&&
