@@ -1157,7 +1157,7 @@ for(const b of document.querySelectorAll('[data-filter]'))b.addEventListener('cl
 for(const b of document.querySelectorAll('[data-close]'))b.addEventListener('click',() => $(b.dataset.close).close());
 $('undo').addEventListener('click',()=>mutate('undo',{id:model.undo}));
 $('sync').addEventListener('click',async()=>{try{await api('sync',{});await load();}catch(err){flash(err.message,true);await load();}});
-$('settings-open').addEventListener('click',()=>{if(!model)return;$('days').value=model.days;$('etsy-alert-percent').value=model.etsy_alert_percent??25;$('settings').showModal();});
+$('settings-open').addEventListener('click',()=>{if(!model)return;$('days').value=model.days;$('etsy-alert-percent').value=model.etsy_alert_percent??25;$('settings').showModal();refreshEtsyImports();});
 $('settings-form').addEventListener('submit',async event=>{event.preventDefault();try{setModel(await api('settings',{days:Number($('days').value),etsy_alert_percent:Number($('etsy-alert-percent').value)}),true);$('settings').close();flash('Einstellungen gespeichert.');}catch(err){flash(err.message,true);}});
 $('config-form').addEventListener('submit',async event=>{event.preventDefault();try{await api('config',Object.fromEntries(new FormData(event.target)));event.target.reset();flash('Zugangsdaten gespeichert. Jetzt Etsy-Freigabe öffnen.');}catch(err){flash(err.message,true);}});
 $('authorize').addEventListener('click',async()=>{try{const {url}=await api('oauth/start',{});const link=$('oauth-link');link.href=url;link.hidden=false;link.focus();}catch(err){flash(err.message,true);}});
