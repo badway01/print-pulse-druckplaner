@@ -52,6 +52,7 @@ jobs:
           done
           node tests/ui.cjs
           node tests/ui_safari.cjs
+          node tests/local_ui.cjs
 
       - name: Ansichten der Bedienprüfung
         if: always()
