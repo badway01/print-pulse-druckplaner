@@ -77,7 +77,7 @@ const assert=require('node:assert/strict');
   assert.equal(state.products.find(p=>p.id==='103').items.find(i=>i.id==='103-default').on_hand,before-1);
   assert(!state.orders.some(o=>o.customer==='Direktverkauf Test'));
   await page.locator('#local-history-open').click();
-  assert((await page.locator('#local-history-list').textContent()).includes('Direktverkauf Test'));
+  await page.waitForFunction(()=>document.querySelector('#local-history-list')?.textContent?.includes('Direktverkauf Test'));
   assert.deepEqual(errors,[]);
   console.log('LOCAL UI PASS: search suggestions, variant rows, personalized production, due date, edit, direct sale, history');
  }finally{await browser.close();}
