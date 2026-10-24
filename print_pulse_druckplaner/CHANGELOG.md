@@ -1,3 +1,10 @@
+# 0.11.46 · Vorproduktions-Schalter bleibt bei der Katalogsuche sichtbar
+
+- Behoben: Beim Tippen in die Suche des Produktkatalogs wurden die Bauteil-/Vorproduktions-Schalter ausgeblendet; beim Löschen des Suchbegriffs blieben sie bis zum Tabwechsel verschwunden.
+- Ursache: Die Suche hatte beim Laden die ursprüngliche Katalog-Renderfunktion gespeichert, bevor die Vorproduktions-Erweiterung diese ersetzte. Der Such-Listener ruft jetzt immer die aktuell gültige Darstellung auf.
+- Regressionstest ergänzt: Suche nach einem Artikel, Suche löschen, erneut suchen – der Schalter bleibt in jeder Ansicht vorhanden.
+- Keine Änderung an Lagerbeständen, Etsy-Synchronisation, Vorproduktions-Einstellungen, Bauteilen oder 3MF-Dateien.
+
 # 0.11.45 · Etsy-Produktimport über Einstellungen
 
 - **Einstellungen → Etsy-Produktimport**: neue aktive Etsy-Listings stehen als Vorschläge mit Titel und ID bereit. Einzelimport oder Sammelimport (maximal 20 pro Vorgang), ohne zusätzliche Dashboard-Karten.
