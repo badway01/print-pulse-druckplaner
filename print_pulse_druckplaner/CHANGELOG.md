@@ -1,3 +1,10 @@
+# 0.12.2 · Filament-Einkaufsliste automatisieren
+
+- Einkaufsliste und Spulenverwaltung zeigen während eines laufenden Vorgangs Ladeanimation und Status; zeitlich begrenzte Anfragen lösen graue, lange Wartezustände und prüfen anschließend den Bestand.
+- Preiseingabe: ohne Kommatippen fortlaufend Cent eingeben. Beispiel: 1990 zeigt 19,90 €.
+- Letzte volle Spule angebrochen oder bisher positive volle Stückzahl auf null korrigiert: einmal eine Rolle auf die Einkaufsliste setzen, wenn nicht bereits vorgemerkt.
+- Keine automatischen Bestellungen, keine Verdoppelung vorhandener Einkaufsmengen; Lager, Codes und Druckprofile bleiben geschützt.
+
 # 0.12.1 · Interne Filamentcodes 2.1, 2.2, 2.10
 
 - Hauptfarbe und Farbton über Punkt nummerieren (z. B. 2 für Weiß, 2.1 und 2.2 für Weißtöne, 2.10 für den zehnten Farbton).

@@ -41,7 +41,7 @@ except ImportError:
     _local_spec.loader.exec_module(local_orders)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.12.1'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.12.2'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -1187,9 +1187,11 @@ def filament_mutate(data):
             else:
                 changed=db.execute("""UPDATE filament_spools
                    SET brand=?,color=?,material=?,color_hex=?,price_cents=?,purchase_url=?,stock_qty=?,
-                       open_qty=COALESCE(?,open_qty),internal_code=?,manufacturer_code=?,notes=?,updated=?
+                       open_qty=COALESCE(?,open_qty),internal_code=?,manufacturer_code=?,notes=?,
+                       cart_qty=CASE WHEN stock_qty>0 AND ?=0 AND cart_qty=0 THEN 1 ELSE cart_qty END,
+                       updated=?
                    WHERE id=?""",(fields['brand'],fields['color'],fields['material'],color_hex,
-                   price_cents,url,stock_qty,open_qty,internal_code,manufacturer_code,notes,now,rowid))
+                   price_cents,url,stock_qty,open_qty,internal_code,manufacturer_code,notes,stock_qty,now,rowid))
                 if not changed.rowcount: raise ValueError('Filament nicht gefunden.')
         return
     rowid=integer(data.get('id'),1,999999999)
@@ -1202,7 +1204,9 @@ def filament_mutate(data):
             if not changed.rowcount: raise ValueError('Einkaufsmenge nicht verfügbar.')
         elif action=='open':
             changed=db.execute("""UPDATE filament_spools
-               SET stock_qty=stock_qty-1,open_qty=open_qty+1,updated=?
+               SET stock_qty=stock_qty-1,open_qty=open_qty+1,
+                   cart_qty=CASE WHEN stock_qty=1 AND cart_qty=0 THEN 1 ELSE cart_qty END,
+                   updated=?
                WHERE id=? AND stock_qty>0 AND open_qty<100000""",(now,rowid))
             if not changed.rowcount: raise ValueError('Keine volle Rolle zum Öffnen vorhanden.')
         elif action=='empty':
