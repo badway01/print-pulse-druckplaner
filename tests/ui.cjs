@@ -220,6 +220,23 @@ await page.locator('[data-close="printer-config-dialog"]').click();
 // stay off until the owner enables a particular product.
 await page.locator('[data-workspace="catalog"]').click();
 assert.equal(await page.locator('[data-components-toggle]').count(),4);
+// Searching or clearing a search must preserve enhanced catalog UI. The
+// original renderCatalog is overridden by components-ui.js after app.js loads.
+await page.locator('#catalog-search').fill('Geldgeschenk');
+assert.equal(await page.locator('[data-catalog-item]').count(),1);
+assert.equal(await page.locator('[data-components-toggle]').count(),1,
+ 'search result retains the preproduction switch');
+assert.equal(await page.locator('[data-master-open]').filter({visible:true}).count()>=1,true);
+await page.locator('#catalog-search').fill('');
+assert.equal(await page.locator('[data-catalog-item]').count(),4);
+assert.equal(await page.locator('[data-components-toggle]').count(),4,
+ 'clearing search restores every preproduction switch');
+await page.locator('#catalog-search').fill('Wunschfarbe');
+assert.equal(await page.locator('[data-catalog-item]').count(),1);
+assert.equal(await page.locator('[data-components-toggle]').count(),1,
+ 'a second search continues to use the enhanced catalog renderer');
+await page.locator('#catalog-search').fill('');
+
 assert.equal(await page.locator('[data-components-open]').count(),0);
 await page.evaluate(()=>{
  const p=model.products.find(item=>item.id==='101');
