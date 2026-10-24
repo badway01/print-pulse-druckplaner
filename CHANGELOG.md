@@ -1,3 +1,10 @@
+# 0.12.1 · Filament-Farbtöne über interne Untercodes
+
+- Interne Filamentcodes mit einem Untercode (z. B. 2, 2.1, 2.2, 2.10) als Text speichern; bei deutscher Kommaeingabe 2,10 den Code 2.10 speichern, ohne Nullen zu verlieren.
+- Untercodes bei numerischer Filamentsortierung hierarchisch und nicht als Dezimalzahlen behandeln: 2 → 2.1 → 2.2 → 2.10 → 3.
+- Dezimaltastatur am iPhone/Tablet und klarer Eingabehinweis. Bestehende Codes, Spulenbestände, Einkaufslisten und Profile werden nicht verändert.
+- Neue Python- und Browser-Tests für Code-Erhalt, Kommaeingabe und Sortierung.
+
 # 0.12.0 · Lokale Bestellungen und Sofortverkauf
 
 - Lokale Aufträge mit Kundenbezeichnung, Abholung/Versand und Pflicht-Endtermin anlegen. Produktsuche schlägt während des Tippens vorhandene Etsy-Katalogartikel vor; mehrere Positionen mit jeweils eigener echter Variante, Stückzahl, Wunschfarbe, Gravur und Hinweisen möglich.
