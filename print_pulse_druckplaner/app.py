@@ -41,7 +41,7 @@ except ImportError:
     _local_spec.loader.exec_module(local_orders)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.12.0'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.12.1'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -1130,6 +1130,12 @@ def filament_mutate(data):
         notes=data.get('notes','')
         if not isinstance(internal_code,str) or len(internal_code.strip())>24:
             raise ValueError('Interner Farbcode darf maximal 24 Zeichen haben.')
+        # Codes are text identifiers, never floating-point numbers:
+        # 2.1 and 2.10 designate different shades. German decimal keypads may
+        # send a comma; store the canonical dot without losing trailing zeroes.
+        internal_code=internal_code.strip().replace(',','.')
+        if internal_code and not re.fullmatch(r'[0-9]+(?:\.[0-9]+)?',internal_code):
+            raise ValueError('Interner Farbcode: nur Zahlen wie 2 oder 2.1 bzw. 2.10 verwenden.')
         if not isinstance(manufacturer_code,str) or len(manufacturer_code.strip())>24 or (manufacturer_code.strip() and not re.fullmatch(r'[A-Za-z0-9._/-]+',manufacturer_code.strip())):
             raise ValueError('Hersteller-Farbnummer darf maximal 24 Zeichen aus Buchstaben, Ziffern, Punkt, Bindestrich, Unterstrich oder Schrägstrich haben.')
         if not isinstance(notes,str) or len(notes.strip())>1500:

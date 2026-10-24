@@ -137,6 +137,35 @@ class FilamentTests(unittest.TestCase):
         app.init_db()
         self.assertEqual(app.filament_overview()['filaments'][0]['open_qty'],5)
 
+    def test_internal_shade_codes_preserve_trailing_digits_and_stock(self):
+        codes=[('Grundweiß','2'),('Jadeweiß','2.1'),('Elfenbeinweiß','2.2'),
+               ('Naturweiß','2.10'),('Beige','3'),('Warmweiß','2,11')]
+        for color,code in codes:
+            self.add(color=color,internal_code=code,stock_qty=2,open_qty=1)
+        rows={r['color']:r for r in app.filament_overview()['filaments']}
+        self.assertEqual({k:r['internal_code'] for k,r in rows.items()},
+                         {'Grundweiß':'2','Jadeweiß':'2.1',
+                          'Elfenbeinweiß':'2.2','Naturweiß':'2.10',
+                          'Beige':'3','Warmweiß':'2.11'})
+        self.assertNotEqual(rows['Jadeweiß']['internal_code'],rows['Naturweiß']['internal_code'])
+        app.init_db()  # Update must never rewrite stored codes or stocks.
+        after={r['color']:r for r in app.filament_overview()['filaments']}
+        for color,_ in codes:
+            self.assertEqual((after[color]['internal_code'],after[color]['stock_qty'],
+                              after[color]['open_qty']),
+                             (rows[color]['internal_code'],2,1))
+
+    def test_internal_shade_code_rejects_invalid_without_changing_stock(self):
+        self.add(color='Basisweiß',internal_code='2.1',stock_qty=3)
+        before=app.filament_overview()['filaments'][0]
+        for code in ('2..1','2.','2,','2.1.2','abc','2a','-1','2 1','2/1'):
+            with self.subTest(code=code),self.assertRaisesRegex(ValueError,'Interner Farbcode'):
+                self.add(color='Ungültig-'+code,internal_code=code,stock_qty=9)
+        after=app.filament_overview()['filaments']
+        self.assertEqual(len(after),1)
+        self.assertEqual((after[0]['internal_code'],after[0]['stock_qty']),
+                         (before['internal_code'],3))
+
     def test_schema_migrates_without_touching_stock_and_is_idempotent(self):
         with app.connect() as db:
             db.execute("INSERT INTO config(k,value) VALUES('sentinel','kept')")

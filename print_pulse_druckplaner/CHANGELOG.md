@@ -1,3 +1,9 @@
+# 0.12.1 · Interne Filamentcodes 2.1, 2.2, 2.10
+
+- Hauptfarbe und Farbton über Punkt nummerieren (z. B. 2 für Weiß, 2.1 und 2.2 für Weißtöne, 2.10 für den zehnten Farbton).
+- Eindeutige Textkennungen und numerische Sortierung der Untercodes, ohne Dezimalzahlen zu verwenden.
+- Kommaeingaben über die deutsche Smartphone-Tastatur werden mit Punkt gespeichert; Bestände, Preise, Einkaufsliste und Druckprofile bleiben erhalten.
+
 # 0.12.0 · Lokale Aufträge mit Varianten und Personalisierung
 
 - **+ Lokale Bestellung** führt Produkt-Vorschläge beim Tippen und die tatsächlich gespeicherten Varianten direkt aus dem Katalog zusammen. Verschiedene Größen/Farben können als mehrere Auftragspositionen angelegt werden.

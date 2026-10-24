@@ -1,3 +1,9 @@
+## Version 0.12.1 · Interne Farbcodes mit Abstufungen
+
+Bei **Filament & Einkauf → Filament bearbeiten → Interner Farbcode** lassen sich jetzt Hauptfarben und einzelne Farbtöne als hierarchische Nummern speichern, beispielsweise **Weiß 2**, **Jade-Weiß 2.1**, **Elfenbeinweiß 2.2** und **weiteres Weiß 2.10**. Das Feld zeigt auf iPhone/Tablet eine Dezimaltastatur; eingegebene deutsche Kommas werden beim Speichern zu Punkten normalisiert. Die Codes werden als **Text** gespeichert, damit `2.1` und `2.10` nicht versehentlich denselben Wert ergeben. Erlaubt sind Ziffern und höchstens ein Punkt mit nachfolgenden Ziffern.
+
+Unter **Meine Farben → Sortieren → Interner Farbcode (numerisch)** werden die Teile vor und nach dem Punkt einzeln numerisch sortiert: `2 → 2.1 → 2.2 → 2.10 → 3`. Die Filamentsuche erkennt weiterhin den vollständigen Code. Die vorhandenen Farbcodes, Spulenanzahlen, Preise, Hersteller-Farbnummern und Druckprofile bleiben beim Update unverändert; keine Datenmigration erforderlich.
+
 ## Version 0.12.0 · Lokale Bestellungen & Direktverkauf
 
 Mit **+ Lokale Bestellung** erzeugst du selbst Aufträge neben deinen Etsy-Bestellungen. Beim Eintippen eines Produktnamens (beispielsweise „Vase“) schlägt der Druckplaner bestehende Katalogprodukte vor. Nach Auswahl erscheinen deren tatsächlich vorhandene Varianten. Unterschiedliche Größen werden als getrennte Positionen innerhalb **einer Bestellung** angelegt. Jede Position hat ihre Stückzahl sowie optionale Felder für **Wunschfarbe, Gravur/Personalisierung und Hinweise**. Kunde, Abholung/Versand, interne Notiz und **verbindlicher Endtermin** gelten für den Gesamtauftrag. Die Liste und die Druckprioritäten sortieren lokale und Etsy-Aufträge zusammen nach Endtermin.
