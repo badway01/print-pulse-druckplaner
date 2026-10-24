@@ -141,7 +141,10 @@ card=function(p){
 };
 $('products').addEventListener('click',event=>{
  const button=event.target.closest('[data-product-components-open]');
- if(button&&!busy)componentOpen(button.dataset.productComponentsOpen);
+ if(button){
+  const productId=button.dataset.productComponentsOpen;
+  componentStockOperations.then(()=>{if(!busy)componentOpen(productId);});
+ }
 });
 $('products').addEventListener('click',event=>{
  const adjustment=event.target.closest('[data-component-stock-delta]');
