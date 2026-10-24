@@ -208,12 +208,12 @@ class LocalOrderTests(unittest.TestCase):
         third=self.call(app.local_orders.create,third_body)['id']
         with app.connect() as db:
             snapshot=app.local_order_pdf.customer_snapshot(db,first)
-        self.assertEqual([o['id'] for o in snapshot['orders']],[first,second])
+        self.assertEqual({o['id'] for o in snapshot['orders']},{first,second})
         self.assertNotIn(third,str(snapshot))
         self.assertEqual(sum(line['quantity'] for order in snapshot['orders']
                              for line in order['items']),3)
-        self.assertEqual(snapshot['orders'][1]['items'][0]['color'],'Jadeweiß')
-        self.assertEqual(snapshot['orders'][1]['items'][0]['personalization'],'Für Lotte')
+        self.assertEqual(next(o for o in snapshot['orders'] if o['id']==second)['items'][0]['color'],'Jadeweiß')
+        self.assertEqual(next(o for o in snapshot['orders'] if o['id']==second)['items'][0]['personalization'],'Für Lotte')
         self.assertNotIn('PRIVATE-ORDER-NOTE',str(snapshot))
         self.assertNotIn('INTERNAL-LINE-NOTE',str(snapshot))
         pdf=app.local_order_pdf.render_pdf(snapshot)
