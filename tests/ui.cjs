@@ -450,6 +450,8 @@ await page.locator('#filament-add').click();
 assert.equal(await page.locator('#filament-form [name="stock_qty"]').getAttribute('inputmode'),'numeric');
 assert.equal(await page.locator('#filament-form [name="open_qty"]').getAttribute('inputmode'),'numeric');
 assert.equal(await page.locator('#filament-form [name="price"]').getAttribute('inputmode'),'decimal');
+assert.equal(await page.locator('#filament-internal-code').getAttribute('inputmode'),'decimal');
+assert.equal(await page.locator('#filament-internal-code').getAttribute('pattern'),'[0-9]+([.,][0-9]+)?');
 await page.locator('#filament-brand').fill('Bambu');
 assert((await page.locator('#filament-brand-options').textContent()).includes('Bambu Lab'));
 await page.locator('#filament-brand-options .filament-suggest-item').first().click();
@@ -464,9 +466,13 @@ assert.equal(await page.locator('#filament-hex-code').textContent(),'#FFFFFF');
 await page.locator('#filament-form [name="stock_qty"]').fill('1');
 await page.locator('#filament-form [name="price"]').fill('19,90');
 await page.locator('#filament-form [name="purchase_url"]').fill('https://example.org/shop/filament');
+await page.locator('#filament-internal-code').fill('2,10');
+assert.equal(await page.locator('#filament-internal-preview').textContent(),'2,10');
 await page.locator('#filament-form [type="submit"]').click();
 await page.locator('.filament-line').first().waitFor();
 assert.equal(await page.locator('.filament-line').count(),1);
+await page.waitForFunction(()=>filamentData?.filaments?.[0]?.internal_code==='2.10');
+assert((await page.locator('.filament-line').first().textContent()).includes('Intern 2.10'));
 assert.deepEqual(await page.locator('.filament-line-actions').first().locator(':scope > *').evaluateAll(nodes=>nodes.map(el=>el.classList[0])),
  ['filament-shop','filament-cart-button','filament-roll-button','filament-edit'], 'Shop must be the first action in Meine Farben');
 // Simulate a Mac Split View / Home Assistant panel independent of viewport width.
@@ -531,6 +537,15 @@ const sortedVariants=await page.evaluate(()=>({
   least:sortFilamentRows([{id:'low',stock_qty:1,brand:'A',color:'Rot'},{id:'high',stock_qty:6,brand:'A',color:'Weiß'},{id:'empty',stock_qty:0,brand:'B',color:'Kupfer'}],'stock-asc').map(x=>x.id)
 }));
 assert.deepEqual(sortedVariants,{most:['high','low','empty'],least:['empty','low','high']});
+const shadeCodes=await page.evaluate(()=>sortFilamentRows(
+ ['3','2.10','2.2','2.1','2','2.11',''].map((internal_code,i)=>({
+  id:String(i),internal_code,brand:'Bambu Lab',color:'Weiß '+i
+ }))),'internal-code').map(x=>x.internal_code));
+assert.deepEqual(shadeCodes,['2','2.1','2.2','2.10','2.11','3',''],
+ 'codes sort as hierarchical integers, not decimal floating-point numbers');
+await page.locator('#filament-sort').selectOption('internal-code');
+assert.equal(await page.evaluate(()=>localStorage.getItem('pp-filament-sort')),'internal-code');
+await page.locator('#filament-sort').selectOption('default');
 await page.locator('#filament-sort').selectOption('stock-desc');
 assert.equal(await page.locator('#filament-sort').inputValue(),'stock-desc');
 assert.equal(await page.evaluate(()=>localStorage.getItem('pp-filament-sort')),'stock-desc');
