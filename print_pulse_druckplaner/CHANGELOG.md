@@ -1,3 +1,10 @@
+# 0.11.49 · Bauteilvorrat direkt und schneller bearbeiten
+
+- Plus/Minus, direkte Mengeneingabe, Sammeländerungen sowie Start/Fertig/Abbruch von Vorratsdruckmengen erhalten nach der bestehenden transaktionalen SQLite-Buchung nur noch die bestätigten geänderten Bauteile. Die teure vollständige Etsy-/Produktübersicht wird für diese Aktionen nicht mehr pro Klick neu berechnet.
+- Nur die betroffene Produktionskarte und relevante Auftragshinweise/Druckprioritäten werden unmittelbar aktualisiert; die übrigen Produktkarten, der Katalog und Eingabefelder bleiben unberührt. Das Mengenfeld öffnet ohne Gesamt-Render.
+- Bereits laufende Hintergrundabfragen können einen neuen Lagerwert nicht überschreiben. Sammelbuchungen und konkurrierende Änderungen behalten ihre atomaren Prüfungen. Buchungsverlauf, Etsy-Aufträge, Fertigwaren, Druckprofile, Master-3MF und gesicherte Bestände bleiben erhalten.
+- HTTP-Regressionstest für den schlanken Buchungsweg, Bestandsbestätigung, veraltete Eingaben und Audit-Protokoll ergänzt.
+
 # 0.11.47 · Bauteilvorrat direkt auf der Produktionskarte ändern
 
 - Jede Vorratsposition auf einer Vorproduktionskarte hat jetzt kleine **− / Menge / +**-Bedienelemente. Plus und Minus buchen jeweils genau ein Teil atomar in derselben lokalen Bauteildatenbank wie die ausführliche Bearbeitung.
