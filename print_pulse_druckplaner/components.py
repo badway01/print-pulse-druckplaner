@@ -275,6 +275,32 @@ def mutate(db,data,whole):
     if existing and (existing['printing'] or existing['finished'] or existing['allocated']):
         raise ValueError('Diese Position nutzt bereits die klassische Lager-/Druckverwaltung.')
 
+    if action=='quick-start':
+        # Start only actual made-to-order components for chosen product units.
+        # Pre-produced stock parts are not printable order jobs.
+        count=whole(data.get('quantity'),1,10000)
+        assembled=existing['assembled'] if existing else 0
+        if count>tx['qty']-assembled:
+            raise ValueError('Mehr Einheiten als noch offen sind.')
+        pending=[]
+        for part in parts:
+            if part['kind']!='demand': continue
+            required,_,err=requirement(part,line)
+            if err: raise ValueError(err)
+            job=db.execute('SELECT * FROM pp_component_orders WHERE transaction_id=? AND component_id=?',
+                           (tid,part['id'])).fetchone()
+            printing=job['printing'] if job else 0
+            finished=job['finished'] if job else 0
+            amount=min(count*(required//tx['qty']),max(0,required-printing-finished))
+            if amount>0: pending.append((part['id'],amount))
+        if not pending:
+            raise ValueError('Kein kundenspezifisches Bauteil mehr zu drucken. Vorrat bzw. Montage prüfen.')
+        for cid,amount in pending:
+            db.execute("""INSERT INTO pp_component_orders(transaction_id,component_id,printing)
+                VALUES(?,?,?) ON CONFLICT(transaction_id,component_id) DO UPDATE SET
+                printing=printing+excluded.printing""",(tid,cid,amount))
+        return
+
     if action=='quick-complete':
         # Explicit confirmation that the requested physical units are complete.
         # Reserve available pre-produced stock and settle any demand components
