@@ -89,7 +89,7 @@ const postitChecks=await page.evaluate(()=>{
  const example={id:'sample-component',components_enabled:true,
   components:[{id:'white',kind:'stock',stock:1}],need:999};
  model.orders.push({items:[{listing_id:'sample-component',components_enabled:true,
-  components:[{id:'white',kind:'stock',required:4,booked:0}]}]});
+  quantity:1,remaining:1,components:[{id:'white',kind:'stock',required:4,booked:0}]}]});
  const componentMarkup=productPrintBadge(example);
  model.orders.pop();
  return {realMarkupMatches,noNeed,rows,greenComponent,
