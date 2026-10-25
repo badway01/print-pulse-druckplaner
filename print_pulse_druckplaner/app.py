@@ -1956,7 +1956,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except (ValueError,FileNotFoundError):
                 return self.send(404,{'error':'Datei nicht verfügbar.'})
-        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
+        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
