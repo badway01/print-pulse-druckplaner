@@ -126,7 +126,7 @@
   const {o,line}=found,comp=composed(line),n=Number($('simple-pos-qty')?.value);
   const limit=kind==='start'?num(line.remaining):comp?num(line.quantity)-num(line.assembled):num(line.remaining)+num(line.printing);
   if(!Number.isSafeInteger(n)||n<1||n>limit){flash('Bitte eine Stückzahl zwischen 1 und '+limit+' wählen.',true);return;}
-  if(kind==='complete'&&comp&&!confirm(n+' Einheit(en) wirklich fertig und geprüft? Verfügbarer Bauteilvorrat wird dafür gebucht.'))return;
+  if(kind==='complete'&&comp&&!confirm(n+' Stück wirklich fertig für diesen Auftrag? Es wird nichts zusätzlich ins Lager gebucht.'))return;
   focus.querySelectorAll('input,button').forEach(x=>x.disabled=true);
   let ok=false;
   try{
