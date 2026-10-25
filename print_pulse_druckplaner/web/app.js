@@ -449,28 +449,76 @@ function orderNextAction(line){
   ?{action:'allocate',qty:inStock,label:`${inStock} × Aus Lager`}
   :{action:'printing',qty:remaining,label:`${remaining} × Drucken`};
 }
-function orderQuickButton(line){
+function orderQuickButton(line,compact=false){
  const next=orderNextAction(line);
  if(!next)return '';
- return `<button type="button" class="primary order-print ${next.action==='allocate'?'order-allocate':''}" data-order-quick="${esc(line.transaction_id)}" data-quick-action="${esc(next.action)}" data-quick-qty="${next.qty}" aria-label="${esc(next.label+' für '+line.title)}">${esc(next.label)}</button>`;
+ const label=compact?(next.action==='finish'?'✓ Fertig':next.action==='allocate'?'Aus Lager':'Drucken'):next.label;
+ return `<button type="button" class="primary order-print ${compact?'order-card-work-button ':''}${next.action==='allocate'?'order-allocate':''}" data-order-quick="${esc(line.transaction_id)}" data-quick-action="${esc(next.action)}" data-quick-qty="${next.qty}" aria-label="${esc(next.label+' für '+line.title)}">${esc(label)}</button>`;
+}
+/* Every ordered position has its own manual workshop state. A click marks
+   work in the planner; it never starts/stops a physical printer. */
+function orderCardWorkLine(line){
+ const qty=Math.max(0,Number(line.quantity)||0);
+ const printing=Math.max(0,Number(line.printing)||0);
+ const remaining=Math.max(0,Number(line.remaining)||0);
+ const finished=Math.min(qty,Math.max(0,Number(line.finished)||0)+
+  Math.max(0,Number(line.allocated)||0)+Math.max(0,Number(line.assembled)||0));
+ const complete=qty>0&&finished>=qty&&printing===0&&remaining===0;
+ const isComponent=Boolean(line.components_enabled&&line.components?.length&&
+  typeof componentLegacyJob==='function'&&!componentLegacyJob(line));
+ let state='pending',label='Offen',button='';
+ if(complete){
+  state='ready';label='Fertig';
+ }else if(line.local_custom){
+  if(printing>0){
+   state='printing';label='Im Druck';
+   button=`<button type="button" class="primary order-card-work-button" data-local-custom-action="${esc(line.transaction_id)}" data-local-type="finish" data-local-custom-quantity="${printing}" aria-label="${printing} Stück ${esc(line.title)} fertigmelden">✓ Fertig</button>`;
+  }else if(remaining>0){
+   button=`<button type="button" class="primary order-card-work-button" data-local-custom-action="${esc(line.transaction_id)}" data-local-type="start" data-local-custom-quantity="${remaining}" aria-label="${remaining} Stück ${esc(line.title)} in Druck nehmen">Drucken</button>`;
+  }
+ }else if(isComponent){
+  const ready=typeof componentReadyUnits==='function'?componentReadyUnits(line):0;
+  if(ready>0){
+   state='printing';label='Montieren';
+   button=componentButton(line,null,'assemble',ready,'✓ Fertig').replace('class="primary"','class="primary order-card-work-button"');
+  }else{
+   state='component';label='Vorproduktion';
+  }
+ }else{
+  const next=orderNextAction(line);
+  if(printing>0){state='printing';label='Im Druck';}
+  else if(!line.item_id){state='check';label='Prüfen';}
+  else if(finished>0){state='partial';label=finished+'/'+qty+' fertig';}
+  if(next)button=orderQuickButton(line,true);
+ }
+ const variation=[line.variant,line.color?'Farbe: '+line.color:''].filter(Boolean).join(' · ');
+ return `<div class="order-card-work-line">
+  <div class="order-card-work-name" title="${esc(line.title+(variation?' · '+variation:''))}">
+   <strong>${qty} × ${esc(orderShortProductTitle(line.title))}</strong>
+   ${variation?`<small>${esc(variation)}</small>`:''}
+  </div>
+  <div class="order-card-work-controls">
+   <span class="order-card-work-status ${state}">${esc(label)}</span>${button}
+  </div>
+ </div>`;
 }
 function orderCard(o){
  const shipping=shipInfo(o);
  const printProgress=orderPrintProgress(o);
  const lines=o.items||[];
- const actionable=lines.filter(line=>orderNextAction(line));
- const quick=actionable.length===1?orderQuickButton(actionable[0]):'';
  const image=thumbnail(lines[0]?.image||'');
- const summary=lines.slice(0,2).map(i=>`<span><b>${i.quantity} ×</b> ${esc(i.title)}${i.variant?' · '+esc(i.variant):''}</span>`).join('');
+ const shown=lines.slice(0,3);
  return `<article class="order-card ${shipping.level}${printProgress.complete?' print-complete':''}" data-order-card="${esc(o.id)}">
   <div class="order-card-top"><b>#${esc(o.id)}</b><small>${esc(shortDate(o.created))}</small></div>
   ${orderPrintMarker(printProgress,true)}
   <div class="order-card-main">${image?`<img src="${esc(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}
    <div><strong>${esc(o.customer)}</strong><small>${o.quantity} Stück · ${lines.length} Position${lines.length===1?'':'en'}</small></div></div>
-  <div class="order-lines">${summary}${lines.length>2?`<small>+ ${lines.length-2} weitere Position${lines.length===3?'':'en'}</small>`:''}</div>
+  <div class="order-card-worklist" aria-label="Druckstatus je Position">
+   ${shown.map(orderCardWorkLine).join('')}
+   ${lines.length>shown.length?`<small class="order-card-work-more">+ ${lines.length-shown.length} weitere Positionen in Details</small>`:''}
+  </div>
   <div class="order-card-foot"><span class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</span>
-   <div class="order-card-actions">${quick}<button type="button" class="order-open ${quick?'':'order-open-only'}" data-order-open="${esc(o.id)}" aria-label="Bestellung ${esc(o.id)} öffnen">Details ›</button></div>
-   ${lines.some(i=>i.printing>0)?`<small class="order-print-state">${lines.reduce((n,i)=>n+i.printing,0)} Stück für diesen Auftrag im Druck</small>`:''}</div>
+   <div class="order-card-actions"><button type="button" class="order-open order-open-only" data-order-open="${esc(o.id)}" aria-label="Bestellung ${esc(o.id)} öffnen">Details ›</button></div></div>
  </article>`;
 }
 function renderOrders(){
