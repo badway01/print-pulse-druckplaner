@@ -160,6 +160,13 @@ def custom_action(db,data):
     if action=='start':
         if qty>tx['qty']-printing-finished: raise ValueError('Menge bereits in Druck oder fertig.')
         printing+=qty
+    elif action=='finish-direct':
+        # Confirm physically completed pieces without requiring an earlier
+        # click on "Im Druck". If some are running, consume those first.
+        if qty>tx['qty']-finished:
+            raise ValueError('Mehr Stücke als noch fertigzumelden sind.')
+        printing-=min(printing,qty)
+        finished+=qty
     elif action in ('finish','cancel'):
         if qty>printing: raise ValueError('Es sind nicht so viele Stücke im Druck.')
         printing-=qty
