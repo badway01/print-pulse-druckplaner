@@ -52,7 +52,7 @@ const assert=require('node:assert/strict');
   assert.equal(await card.locator('a.local-order-pdf[download]').count(),1,
    'local card needs a directly accessible A4 print/PDF link');
   assert((await card.locator('a.local-order-pdf').getAttribute('href')).includes(encodeURIComponent(local.id)));
-  await card.locator('[data-order-open]').click();
+  await card.locator('[data-order-expand]').click();
   assert.equal(await page.locator('#order-details-content a.local-order-pdf[download]').count(),1);
   assert((await page.locator('#order-details-content').textContent()).includes('Jadeweiß'));
   assert((await page.locator('#order-details-content').textContent()).includes('Gravur von Hand'));
@@ -65,7 +65,7 @@ const assert=require('node:assert/strict');
   // Custom print starts and finishes independently of counted Etsy variant stock.
   const custom=state.orders.find(o=>o.id===local.id).items[1];
   const initialStock=state.products.find(p=>p.id==='102').items.find(i=>i.id==='102-black').on_hand;
-  await page.locator('.order-card').filter({hasText:local.id}).locator('[data-order-open]').click();
+  await page.locator('.order-card').filter({hasText:local.id}).locator('[data-order-expand]').click();
   await page.locator('#order-details-content [data-local-type="start"]').click();
   await page.waitForFunction(id=>model.orders.find(o=>o.id===id)?.items[1].printing===1,local.id);
   await page.locator('#order-details-content [data-local-type="finish"]').click();
