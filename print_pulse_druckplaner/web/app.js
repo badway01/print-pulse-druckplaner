@@ -220,6 +220,20 @@ function setModel(data,resort=false){
 }
 // Count the component production need for one listing, using the same rules
 // as the complete dashboard. This lets a stock-only patch update its summary.
+/* Count only components still required by the unfinished order units.
+   Already completed customer products are not new stock and must not
+   generate fresh replenishment recommendations. */
+function orderComponentOutstanding(line,part){
+ const units=Math.max(0,Number(line.remaining)||0);
+ const all=Math.max(1,Number(line.quantity)||0);
+ const perUnit=Math.max(0,Number(part.required)||0)/all;
+ const remaining=units*perUnit;
+ const recorded=part.kind==='stock'
+  ?Math.max(0,(Number(part.booked)||0)-(Number(part.consumed)||0))
+  :Math.max(0,(Number(part.finished)||0)-(Number(part.consumed)||0))+
+   Math.max(0,Number(part.printing)||0);
+ return Math.max(0,Math.ceil(remaining-recorded));
+}
 function componentProductDue(p){
  if(!p.components_enabled)return 0;
  const waiting=new Map();
@@ -230,10 +244,10 @@ function componentProductDue(p){
    for(const part of line.components||[]){
     if(part.error)continue;
     if(part.kind==='demand'){
-     due+=Math.max(0,(Number(part.required)||0)-(Number(part.printing)||0)-(Number(part.finished)||0));
+     due+=orderComponentOutstanding(line,part);
     }else if(part.kind==='stock'){
      waiting.set(part.id,(waiting.get(part.id)||0)+
-      Math.max(0,(Number(part.required)||0)-(Number(part.booked)||0)));
+      orderComponentOutstanding(line,part));
     }
    }
   }
@@ -581,13 +595,13 @@ function orderProductionSummary(line){
    const name=String(part.name||'Bauteil')+(part.label?' · '+part.label:'');
    if(part.error){add('needs-attention',name+': Zuordnung prüfen');continue;}
    if(part.kind==='stock'){
-    const missing=Math.max(0,required-(Number(part.booked)||0));
+    const missing=orderComponentOutstanding(line,part);
     const ready=Math.min(missing,Math.max(0,Number(part.stock)||0));
     if(ready)add('from-stock',ready+' × '+name+' aus Bauteillager');
     if(missing>ready)add('needs-attention',(missing-ready)+' × '+name+' im Vorrat fehlen');
    }else{
     const inPrint=Math.max(0,Number(part.printing)||0);
-    const toPrint=Math.max(0,required-inPrint-(Number(part.finished)||0));
+    const toPrint=orderComponentOutstanding(line,part);
     if(toPrint)add('to-print',toPrint+' × '+name+' DRUCKEN');
     if(inPrint)add('in-print',inPrint+' × '+name+' im Druck');
    }
@@ -800,7 +814,7 @@ function render(){if(!model)return;
    for(const part of line.components||[]){
     if(part.error)continue; // unknown Etsy mappings must not invent demand
     if(part.kind==='demand'){
-     const needed=Math.max(0,(Number(part.required)||0)-(Number(part.printing)||0)-(Number(part.finished)||0));
+     const needed=orderComponentOutstanding(line,part);
      componentDue.set(id,(componentDue.get(id)||0)+needed);
      componentPrinting.set(id,(componentPrinting.get(id)||0)+(Number(part.printing)||0));
     }else if(part.kind==='stock'){
@@ -808,7 +822,7 @@ function render(){if(!model)return;
      // every Etsy order or every colour variation.
      const key=id+':'+part.id;
      stockPartWaiting.set(key,(stockPartWaiting.get(key)||0)+
-      Math.max(0,(Number(part.required)||0)-(Number(part.booked)||0)));
+      orderComponentOutstanding(line,part));
     }
    }
   }
