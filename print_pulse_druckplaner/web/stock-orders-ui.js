@@ -40,7 +40,7 @@
     (line.color?'<small>Farbe: '+esc(line.color)+'</small>':'')+
     (line.personalization?'<small>Wunsch: '+esc(line.personalization)+'</small>':'')+
     '<small>'+finished+'/'+qty+' erledigt</small>'+
-    '<div class="board-order-work">'+orderCardWorkLine(line)+'</div></div></div>';
+    '<div class="board-order-work">'+orderCardWorkLine(line,true)+'</div></div></div>';
   }).join('');
   return '<article class="board-order" data-full-order="'+esc(order.id)+'" tabindex="0" role="button" '+
     'aria-label="Bestellung '+esc(order.id)+' groß anzeigen"><div class="board-order-head">'+
