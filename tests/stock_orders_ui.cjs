@@ -24,7 +24,7 @@ const assert=require('node:assert/strict');
   });
   await page.goto('http://127.0.0.1:8099/');
   await page.locator('.product').first().waitFor();
-  assert.equal(await page.locator('[data-workspace="production"] span').textContent(),'Aufträge & Druckplan');
+  assert.equal(await page.locator('[data-workspace="production"] span').textContent(),'Dashboard');
   await page.locator('[data-workspace="orders"]').click();
   assert.equal(await page.locator('#full-orders-shell').isVisible(),true);
   assert.equal(await page.locator('#orders-shell').isVisible(),false);

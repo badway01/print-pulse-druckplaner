@@ -2047,3 +2047,22 @@ html[data-theme="dark"] .board-order-product,html[data-theme="dark"] .board-stoc
 .component-extra-settings>summary{cursor:pointer;color:var(--green);font-size:12px;font-weight:750;min-height:28px}
 .component-part-color{color:var(--green);font-weight:700}
 html[data-theme="dark"] .component-extra-settings{background:var(--surface-soft);border-color:var(--border-strong)}
+
+/* v0.12.9: Keep ALL six navigation areas in a single row on tablet, desktop
+   and Mac Split View; a narrow screen scrolls the tabs, never wraps them. */
+.workspace-tabs{
+ display:flex;flex-wrap:nowrap;align-items:stretch;
+ width:100%;min-width:0;max-width:100%;
+ overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;
+ -webkit-overflow-scrolling:touch;scrollbar-width:none;
+ scroll-snap-type:x proximity;
+}
+.workspace-tabs::-webkit-scrollbar{display:none}
+.workspace-tabs button{
+ flex:1 0 auto;min-width:max-content;
+ white-space:nowrap;gap:8px;padding-inline:10px;
+}
+.workspace-tabs button>span:not(.workspace-count){white-space:nowrap}
+@media(max-width:759px){
+ .workspace-tabs button{flex:0 0 auto}
+}

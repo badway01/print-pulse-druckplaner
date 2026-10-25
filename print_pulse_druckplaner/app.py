@@ -44,7 +44,7 @@ except ImportError:
     _pdf_spec.loader.exec_module(local_order_pdf)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.12.8'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.12.9'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"

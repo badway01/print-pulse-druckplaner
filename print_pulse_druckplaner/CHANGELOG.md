@@ -1,3 +1,10 @@
+# 0.12.9 · Einzeilige Navigation und Dashboard
+
+- Dashboard statt „Aufträge & Druckplan“.
+- Einheitliche Reiter: Dashboard, Bestellungen, Lagerbestand, Produktkatalog, Filament, Drucker.
+- Alle sechs Reiter in einer Zeile; auf kleinen Bildschirmen seitlich wischbar statt zweizeilig.
+- CSS-Cache-Busting und Browser-Test für die Navigation. Keine Änderung an Lager- und Auftragsdaten.
+
 # 0.12.8 · Eigene Bereiche für Bestellungen und Regalbestand
 
 - Umbenennung „Produktion“ → „Aufträge & Druckplan“ und neue Reiter „Bestellungen“ sowie „Lagerbestand“.

@@ -1,3 +1,10 @@
+# 0.12.9 · Dashboard und alle Navigationsreiter in einer Zeile
+
+- „Aufträge & Druckplan“ heißt jetzt „Dashboard“; die sechs Reiter heißen Dashboard, Bestellungen, Lagerbestand, Produktkatalog, Filament und Drucker.
+- Alle sechs Navigationsreiter bleiben am Tablet, auf dem Mac und auf dem Handy in einer einzigen Zeile. Falls die Displaybreite nicht reicht (etwa am iPhone oder im Split View), kann die Leiste seitlich gewischt werden statt in eine zweite Reihe umzubrechen.
+- Versionierter CSS-Aufruf vermeidet ein altes, zwischengespeichertes Layout nach dem Update.
+- Browser-Regressionstest überprüft sechs lesbare Reiter in einer Zeile; die bestehenden Lager- und Bestellfunktionen bleiben unverändert.
+
 # 0.12.8 · Bestellungen & Lagerbestand als eigene Bereiche
 
 - Navigation: „Aufträge & Druckplan“ statt „Produktion“, dazu eigene Reiter „Bestellungen“ und „Lagerbestand“.
