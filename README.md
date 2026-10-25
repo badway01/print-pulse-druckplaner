@@ -1,3 +1,11 @@
+## Version 0.12.10 · Teilmengen und Druckstatus je Bestellposition
+
+In **Aktuelle Bestellungen** sieht jede Position einen eigenen Produktionsstatus: **Offen → Im Druck → Fertig**. Auch mehrere gleichartige Artikel innerhalb einer Bestellung werden getrennt geführt, einschließlich lokaler Sonderanfertigungen und Vorproduktion. Die direkte Bestellkarte enthält nicht länger den verwirrenden Schnellbutton **„Bauteile“**; Bauteildetails bleiben in **Details** nutzbar. Lokale **„Auftrag A4 · PDF“**-Downloads bleiben verfügbar.
+
+**Teilmengen sicher buchen:** Bei mehr als einem Stück fragt **Drucken**, **Fertig** oder **Aus Lager** nach der tatsächlich bearbeiteten Anzahl; zunächst ist **1** eingetragen. Beispiel: Bei zwei Apple-Watch-Ständern kann erst **1 von 2** in Druck genommen, dann auch nur dieser eine fertiggemeldet werden. Der zweite bleibt weiterhin offen. Wenn zwei gleichzeitig gedruckt werden, kannst du beide auswählen. Auf der Karte werden laufende Mengen und Teilfertigstellungen separat sichtbar. Die große Bestellübersicht hat die gleichen produktbezogenen Buttons.
+
+Diese Buchungen nutzen weiterhin die vorhandenen transaktionalen Lager-/Auftragsfunktionen. Weder wird ein Drucker automatisch gestartet noch wird beim Etsy-Versand doppelt aus dem Lager gebucht. Fertigmeldung erfolgt **erst nach dem tatsächlichen Druck**, nicht beim Beginn. Der Status **Fertig** bedeutet nicht **versendet**. Bestehende Aufträge, Reservierungen, Filamente, Bauteile und Masterdateien bleiben unverändert erhalten.
+
 ## Version 0.12.5 · A4-PDF für lokale Kundenaufträge
 
 Lokale Bestellkarten und ihre Detailansicht erhalten den Button **„Auftrag A4 · PDF“**. Der Druckplaner erzeugt damit direkt eine druckfertige A4-PDF-Datei mit Print-&-Pulse-Kopf, Kundennamen, Einzelaufträgen, jeweiliger Auftragsnummer, Fertigstellungstermin und Übergabeart sowie **allen Positionen** mit Stückzahl, Produkt, Variante, Wunschfarbe und Personalisierung. Das PDF eignet sich auch für längere, mehrseitige Aufträge.
