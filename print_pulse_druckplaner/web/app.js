@@ -516,7 +516,7 @@ function orderCard(o){
   <div class="order-card-main">${image?`<img src="${esc(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}
    <div><strong>${esc(o.customer)}</strong><small>${o.quantity} Stück · ${lines.length} Position${lines.length===1?'':'en'}</small></div></div>
   <div class="order-card-worklist" aria-label="Druckstatus je Position">
-   ${shown.map(orderCardWorkLine).join('')}
+   ${shown.map(line=>orderCardWorkLine(line)).join('')}
    ${lines.length>shown.length?`<small class="order-card-work-more">+ ${lines.length-shown.length} weitere Positionen in Details</small>`:''}
   </div>
   <div class="order-card-foot"><span class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</span>
