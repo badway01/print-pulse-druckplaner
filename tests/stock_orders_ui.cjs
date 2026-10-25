@@ -18,7 +18,7 @@ const assert=require('node:assert/strict');
     {id:'order-a',customer:'Testkunde Beige',created:now-7200,ship_by:now+36000,
       quantity:3,items:[first,{...first,transaction_id:'line-b',title:'Zweiter Artikel',quantity:1,remaining:1}]},
     {id:'order-b',customer:'Testkunde Blau',created:now-1800,ship_by:now+86400*4,
-      quantity:1,items:[{...first,transaction_id:'line-c',quantity:1,finished:1,remaining:0}]}
+      quantity:1,items:[{...first,transaction_id:'line-c',variant:'Farbe: Blau',quantity:1,finished:1,remaining:0}]}
    ];
    await route.fulfill({response:reply,json:data});
   });
