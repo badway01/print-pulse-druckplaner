@@ -270,7 +270,7 @@ def mutate(db,data,whole):
         raise ValueError('Etsy-Bestellvariante nicht eindeutig zugeordnet.')
     parts=[dict(x) for x in db.execute(
         'SELECT * FROM pp_components WHERE listing_id=?',(tx['listing_id'],))]
-    if not parts and action!='quick-complete':
+    if not parts and action not in ('quick-complete','quick-reopen'):
         raise ValueError('Bitte zuerst Bauteile im Produktkatalog anlegen.')
     existing=db.execute('SELECT * FROM stock_order_prints WHERE transaction_id=?',(tid,)).fetchone()
     if existing and (existing['printing'] or existing['finished'] or existing['allocated']):
@@ -300,6 +300,28 @@ def mutate(db,data,whole):
             db.execute("""INSERT INTO pp_component_orders(transaction_id,component_id,printing)
                 VALUES(?,?,?) ON CONFLICT(transaction_id,component_id) DO UPDATE SET
                 printing=printing+excluded.printing""",(tid,cid,amount))
+        return
+
+    if action=='quick-reopen':
+        # Only reverse confirmed customer pieces, never add phantom stock.
+        # Parts already booked for this order stay reserved; previously
+        # consumed portions become available for later re-assembly.
+        count=whole(data.get('quantity'),1,10000)
+        assembled=existing['assembled'] if existing else 0
+        if count>assembled:
+            raise ValueError('Es sind nicht so viele Stücke als fertig bestätigt.')
+        for part in parts:
+            required,_,err=requirement(part,line)
+            if err: continue
+            job=db.execute('SELECT consumed FROM pp_component_orders WHERE transaction_id=? AND component_id=?',
+                           (tid,part['id'])).fetchone()
+            if not job: continue
+            release=min(job['consumed'],count*(required//tx['qty']))
+            if release:
+                db.execute('UPDATE pp_component_orders SET consumed=consumed-? WHERE transaction_id=? AND component_id=?',
+                           (release,tid,part['id']))
+        db.execute('UPDATE stock_order_prints SET assembled=assembled-?,updated=? WHERE transaction_id=?',
+                   (count,int(time.time()),tid))
         return
 
     if action=='quick-complete':
