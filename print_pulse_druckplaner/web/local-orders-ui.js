@@ -184,9 +184,7 @@ async function localAction(data){
  }catch(err){flash(err.message,true);}
  finally{localSaving=false;}
 }
-$('order-details-content').addEventListener('click',async event=>{
- const action=event.target.closest('[data-local-custom-action]');
- if(action){
+async function localCustomProductionClick(action){
   const available=Number(action.dataset.localCustomQuantity);
   if(!Number.isSafeInteger(available)||available<1)return;
   const type=action.dataset.localType;
@@ -207,7 +205,10 @@ $('order-details-content').addEventListener('click',async event=>{
   await localAction({action:'custom-job',transaction_id:action.dataset.localCustomAction,
    action_type:type,quantity:qty});
   return;
- }
+}
+$('order-details-content').addEventListener('click',async event=>{
+ const action=event.target.closest('[data-local-custom-action]');
+ if(action){await localCustomProductionClick(action);return;}
  const meta=event.target.closest('[data-local-edit]');
  if(meta){localEdit(meta.dataset.localEdit);return;}
  const close=event.target.closest('[data-local-close]');
