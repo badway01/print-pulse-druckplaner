@@ -55,13 +55,13 @@ function priorityCandidates(snapshot){
      if(part.error||!Number.isFinite(Number(part.required))||Number(part.required)<1)continue;
      if(part.kind==='stock'){
       const key=String(product.id)+'::'+String(part.id);
-      const pending=Math.max(0,Number(part.required)-Number(part.booked||0));
+      const pending=orderComponentOutstanding(line,part);
       if(!pending)continue;
       const old=waiting.get(key);
       if(old){old.qty+=pending;if(common.shipBy<old.shipBy){old.shipBy=common.shipBy;old.orderId=common.orderId;old.lineId=common.lineId;}}
       else waiting.set(key,{...common,key,partId:String(part.id),partName:part.name,qty:pending});
      }else if(part.kind==='demand'){
-      const qty=Math.max(0,Number(part.required)-Number(part.printing||0)-Number(part.finished||0));
+      const qty=orderComponentOutstanding(line,part);
       const key=String(product.id)+'::'+String(part.id)+'::'+String(part.label||'');
       add(demand,key,{...common,tier:1,type:'order',
        partId:String(part.id),title:part.name+(part.label?' · '+part.label:''),
