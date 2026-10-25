@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
  const response=await route.fetch();const data=await response.json();
 
  const now=Math.floor(Date.now()/1000);
- const item=(title,quantity)=>({title,quantity,variant:'Farbe: Schwarz',listing_id:'101',image:'https://test.etsystatic.com/product.svg'});
+ const item=(title,quantity)=>({title,quantity,transaction_id:'demo-'+quantity,item_id:'101-default',remaining:quantity,printing:0,finished:0,allocated:0,assembled:0,variant:'Farbe: Schwarz',listing_id:'101',image:'https://test.etsystatic.com/product.svg'});
  data.orders=[
   {id:'501',customer:'Musterkunde A',created:now-86400,ship_by:now+86400,quantity:2,items:[item('Geldgeschenk',2)]},
   {id:'502',customer:'Musterkunde B',created:now-3600,ship_by:now+2*86400,quantity:1,items:[item('Geldgeschenk',1)]},
