@@ -1,3 +1,10 @@
+# 0.12.7 · Auftrags-Großansicht
+
+- Neue Vergrößern-Taste auf jeder kompakten Bestellkarte, bestehender Details-Button öffnet identisches Fenster.
+- Breites, responsives Bestellfenster mit Mengenüberblick, größerem Produktbild und sichtbaren Produktionsaktionen.
+- Mehrere Positionen werden auf breiten Geräten in zwei Spalten, auf Mobilgeräten untereinander dargestellt.
+- Bestehende Etsy-, Lager- und Auftragslogik unverändert.
+
 # 0.12.6 · Komfortables Schließen aller Dialoge
 
 - Klick oder Tippen neben Dialogen schließt diese; X und Escape nutzen dieselbe Sicherheitsprüfung.

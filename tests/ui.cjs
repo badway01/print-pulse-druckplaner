@@ -754,6 +754,14 @@ await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('.product').count(),4);
 await page.locator('[data-order-sort="new"]').click();
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'503');
+assert.equal(await page.locator('[data-order-card="503"] [data-order-expand]').count(),1,'every card has an enlarge control');
+await page.locator('[data-order-card="503"] [data-order-expand]').click();
+assert.equal(await page.locator('#order-details').isVisible(),true);
+assert.equal(await page.locator('#order-details .order-zoom-stats>div').count(),4);
+assert.equal(await page.locator('#order-details .order-work-items.is-single .order-work-item').count(),1);
+const zoomWidth=await page.locator('#order-details').evaluate(el=>el.getBoundingClientRect().width);
+assert(zoomWidth>1000,'large view uses the tablet/desktop width');
+await page.locator('[data-close="order-details"]').click();
 await page.locator('[data-order-card="503"] [data-order-open]').click();
 assert((await page.locator('#order-details-title').textContent()).includes('#503'));
 assert((await page.locator('#order-details-content').textContent()).includes('Farbe: Schwarz'));
@@ -766,6 +774,14 @@ await page.locator('[data-close="order-details"]').click();
 await page.locator('[data-order-sort="ship"]').click();
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'501');
 await page.setViewportSize({width:700,height:844});
+await page.locator('[data-order-card="503"] [data-order-expand]').click();
+const mobileZoom=await page.locator('#order-details .order-work-items').evaluate(el=>({
+ cols:getComputedStyle(el).gridTemplateColumns.split(' ').length,
+ width:document.getElementById('order-details').getBoundingClientRect().width
+}));
+assert.equal(mobileZoom.cols,1,'narrow view stacks order lines');
+assert(mobileZoom.width>630&&mobileZoom.width<=700,'mobile zoom almost fills available width');
+await page.locator('[data-close="order-details"]').click();
 await page.locator('#orders-next').click();
 await page.waitForTimeout(600);
 assert(await page.locator('#orders').evaluate(el=>el.scrollLeft>0));

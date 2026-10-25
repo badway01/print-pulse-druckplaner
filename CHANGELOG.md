@@ -1,3 +1,11 @@
+# 0.12.7 · Aufträge in großer, responsiver Werkstattansicht
+
+- Die kleinen Bestellkarten bleiben erhalten. Neues Vergrößern-Symbol oben auf der Karte und der bisherige Details-Button öffnen dieselbe Großansicht.
+- Große, responsive Dialogdarstellung mit fixierter Kopfzeile, größerem Produktfoto, Varianten und vier Kennzahlen für Positionen, Menge und Fertigstellung.
+- Einzelpositionen nutzen auf großen Geräten zwei Informationsspalten; mehrere Artikel erscheinen nebeneinander, auf dem iPhone untereinander.
+- Vorhandene Lager- und Druckbuchungen, lokale Bestelldetails und PDF-Downloads unverändert. Schließen über X, Escape und Hintergrund bleibt erhalten.
+- UI-Tests für Öffnen, Mehrfachpositionen und Mobilansicht.
+
 # 0.12.6 · Dialoge per Hintergrundklick schließen
 
 - Alle Dialogfenster schließen sich jetzt auch durch Klick oder Fingertipp auf den abgedunkelten Bereich außerhalb des Fensters; das X und Escape funktionieren weiterhin.
