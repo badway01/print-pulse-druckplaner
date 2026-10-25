@@ -109,6 +109,36 @@ class DirectComponentCompletionTests(unittest.TestCase):
         self.assertEqual(tuple(result),(0,0,0))
         self.assertEqual(self.assembled(),2)
 
+    def test_reopen_component_completion_without_adding_any_inventory(self):
+        self.confirm(2)
+        with self.db:
+            components.mutate(self.db,{
+                "action":"quick-reopen","transaction_id":"t","quantity":1},whole)
+        self.assertEqual(self.assembled(),1)
+        self.assertEqual(self.db.execute(
+            "SELECT on_hand FROM stock_items WHERE id='v'").fetchone()[0],0)
+        self.assertEqual(self.db.execute(
+            "SELECT SUM(stock) FROM pp_components").fetchone()[0],0)
+        self.confirm(1)
+        self.assertEqual(self.assembled(),2)
+        with self.assertRaises(ValueError):
+            with self.db:
+                components.mutate(self.db,{
+                    "action":"quick-reopen","transaction_id":"t","quantity":3},whole)
+
+    def test_reopen_releases_previously_consumed_order_components_only(self):
+        self.db.execute("INSERT INTO pp_component_orders"
+            "(transaction_id,component_id,booked,printing,finished,consumed)"
+            " VALUES('t','plate',2,0,0,0)")
+        self.db.commit()
+        self.confirm(2)
+        self.assertEqual(self.db.execute("SELECT consumed FROM pp_component_orders WHERE component_id='plate'").fetchone()[0],2)
+        with self.db:
+            components.mutate(self.db,{
+                "action":"quick-reopen","transaction_id":"t","quantity":1},whole)
+        self.assertEqual(self.db.execute("SELECT booked,consumed FROM pp_component_orders WHERE component_id='plate'").fetchone()[:],(2,1))
+        self.assertEqual(self.db.execute("SELECT stock FROM pp_components WHERE id='plate'").fetchone()[0],0)
+
     def test_missing_optional_component_configuration_does_not_block(self):
         self.db.execute("DELETE FROM pp_components")
         self.db.commit()
