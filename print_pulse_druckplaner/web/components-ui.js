@@ -243,6 +243,9 @@ orderNextAction=function(line){
 };
 orderCard=function(o){
  const html=originalOrderCard(o);
+ // The new per-position worklist provides the status and completion action.
+ // Never add a confusing second "Bauteile" button on top of these controls.
+ if(html.includes('order-card-worklist'))return html;
  if(o.items?.length!==1)return html;
  const line=o.items[0];
  if(!line.components_enabled||!line.item_id||componentLegacyJob(line))return html;
