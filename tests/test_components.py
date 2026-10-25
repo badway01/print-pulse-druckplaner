@@ -65,6 +65,30 @@ class ComponentTests(unittest.TestCase):
     def state(self):
         return app.overview()
 
+
+    def test_optional_component_color_survives_save_edit_and_migration(self):
+        self.configure()
+        rows=self.state()['products'][0]['components']
+        part=next(p for p in rows if p['name']=='Geist Weiß')
+        self.assertEqual(part['color'],'')
+        self.change(action='save',listing_id='101',id=part['id'],name=part['name'],
+                    kind='stock',units=1,color='Elfenbeinweiß')
+        same=next(p for p in self.state()['products'][0]['components'] if p['id']==part['id'])
+        self.assertEqual(same['color'],'Elfenbeinweiß')
+        self.assertEqual(same['stock'],0)
+        # An older frontend omitting color does not overwrite a saved color.
+        self.change(action='save',listing_id='101',id=part['id'],name=part['name'],
+                    kind='stock',units=1)
+        self.assertEqual(next(p for p in self.state()['products'][0]['components']
+                              if p['id']==part['id'])['color'],'Elfenbeinweiß')
+        with self.assertRaisesRegex(ValueError,'Farbe'):
+            self.change(action='save',listing_id='101',id=part['id'],name=part['name'],
+                        kind='stock',units=1,color='X'*61)
+        with app.connect() as db:
+            app.components.schema(db)
+            saved=db.execute('SELECT color FROM pp_components WHERE id=?',(part['id'],)).fetchone()
+            self.assertEqual(saved['color'],'Elfenbeinweiß')
+
     def test_quick_stock_and_atomic_bulk_save_share_one_source(self):
         ids=self.configure()
         first=ids['Geist Weiß']

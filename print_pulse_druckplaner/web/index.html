@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css"><script src="app.js" defer></script><script src="components-ui.js" defer></script><script src="priority-ui.js" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js" defer></script><script src="dialog-behavior.js?v=0.12.6" defer></script><script src="order-zoom-ui.js?v=0.12.7" defer></script></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css"><script src="app.js" defer></script><script src="components-ui.js" defer></script><script src="priority-ui.js" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js" defer></script><script src="dialog-behavior.js?v=0.12.6" defer></script><script src="order-zoom-ui.js?v=0.12.7" defer></script><script src="stock-orders-ui.js?v=0.12.8" defer></script></head>
 <body>
 <header><a class="brand" href="./" aria-label="Print &amp; Pulse Startseite"><img class="brand-logo" src="brand.svg" width="190" height="98" alt="Print &amp; Pulse – Designs mit Herz"></a><div class="theme-switch" role="group" aria-label="Darstellung wählen">
  <button type="button" class="theme-option" data-theme-mode="light" aria-label="Heller Modus" title="Hell" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
@@ -27,11 +27,37 @@
  <div class="etsy-alert-foot"><span id="etsy-alert-updated"></span><span>Grundlage: zuletzt erfasster Etsy-Bestand und höchste gemerkte Etsy-Menge – unabhängig vom Lagerbestand.</span></div>
 </section>
 <nav class="workspace-tabs" aria-label="Druckplaner-Bereiche – auf Mobilgeräten seitlich wischbar">
- <button type="button" data-workspace="production" class="selected" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20V9l6 4V9l6 4V4h5v16H3Z"/><path d="M8 17h2m4 0h2"/></svg><span>Produktion</span></button>
+ <button type="button" data-workspace="production" class="selected" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20V9l6 4V9l6 4V4h5v16H3Z"/><path d="M8 17h2m4 0h2"/></svg><span>Aufträge &amp; Druckplan</span></button>
+ <button type="button" data-workspace="orders" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 4h13v16H7zM4 8h3M4 13h3M4 18h3M10 9h7M10 13h7"/></svg><span>Bestellungen</span></button>
+ <button type="button" data-workspace="stock" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 7 9-4 9 4v13H3zM3 7l9 5 9-5M12 12v8"/></svg><span>Lagerbestand</span></button>
  <button type="button" data-workspace="catalog" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z"/><path d="m3 7 9 5 9-5m-9 5v10"/></svg><span>Produktkatalog &amp; 3MF</span></button>
  <button type="button" data-workspace="filament" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg><span>Filament &amp; Einkauf</span> <span id="filament-tab-count" class="workspace-count" hidden></span></button>
  <button type="button" data-workspace="printers" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6zM18 12h1"/></svg><span>Drucker</span></button>
 </nav>
+<section id="full-orders-shell" class="board-page" hidden aria-label="Alle aktuellen Bestellungen">
+ <div class="board-heading"><div><span class="eyebrow">ETSY &amp; LOKAL · DEINE AUFTRÄGE</span><h2>Aktuelle Bestellungen</h2><p>Alle offenen Aufträge auf einer Seite. Ein Klick auf einen Auftrag öffnet seine große Ansicht.</p></div><button type="button" id="full-orders-new" class="primary">+ Lokale Bestellung</button></div>
+ <div id="full-orders-tools" class="board-toolbar">
+  <label class="board-search"><span aria-hidden="true">⌕</span><input id="full-orders-search" type="search" placeholder="Kunde, Artikel, Farbe oder Nummer" aria-label="Bestellungen durchsuchen"></label>
+  <div class="board-choice" role="group" aria-label="Bestellfilter"><button type="button" data-full-orders-filter="all" class="selected" aria-pressed="true">Alle</button><button type="button" data-full-orders-filter="pending" aria-pressed="false">Noch offen</button><button type="button" data-full-orders-filter="ready" aria-pressed="false">Fertig</button></div>
+  <div class="board-choice" role="group" aria-label="Bestellungen sortieren"><button type="button" data-full-orders-sort="ship" class="selected" aria-pressed="true">Versand zuerst</button><button type="button" data-full-orders-sort="new" aria-pressed="false">Neueste</button></div>
+  <div class="board-choice" role="group" aria-label="Bestellansicht"><button type="button" data-full-orders-view="grid" class="selected" aria-pressed="true">▦ Kacheln</button><button type="button" data-full-orders-view="list" aria-pressed="false">☷ Liste</button></div>
+ </div>
+ <div id="full-orders-count" class="board-count" aria-live="polite"></div>
+ <div id="full-orders-grid" class="board-order-grid as-grid"></div>
+</section>
+<section id="stock-shell" class="board-page" hidden aria-label="Dein Lagerbestand">
+ <div class="board-heading"><div><span class="eyebrow">DEIN REGAL · FERTIGE ARTIKEL &amp; BAUTEILE</span><h2>Mein Lagerbestand</h2><p>Was im Regal liegt – nach Artikel, Farbe und Variante. Schon fest zugewiesene Auftragsstücke sind nicht mehr frei.</p></div></div>
+ <div class="board-statistics" aria-label="Bestand in Zahlen"><div><small>Fertige Stück im Regal</small><strong id="stock-pieces">0</strong></div><div><small>Varianten mit Bestand</small><strong id="stock-variants">0</strong></div><div><small>Vorratsbauteile</small><strong id="stock-parts">0</strong></div></div>
+ <div id="stock-tools" class="board-toolbar">
+  <label class="board-search"><span aria-hidden="true">⌕</span><input id="stock-search" type="search" placeholder="Artikel, Farbe oder Variante suchen" aria-label="Lager durchsuchen"></label>
+  <div class="board-choice" role="group" aria-label="Lagerfilter"><button type="button" data-stock-filter="all" class="selected" aria-pressed="true">Alles</button><button type="button" data-stock-filter="finished" aria-pressed="false">Fertige Artikel</button><button type="button" data-stock-filter="parts" aria-pressed="false">Bauteile</button></div>
+  <div class="board-choice" role="group" aria-label="Lageransicht"><button type="button" data-stock-view="grid" class="selected" aria-pressed="true">▦ Kacheln</button><button type="button" data-stock-view="list" aria-pressed="false">☷ Liste</button></div>
+  <label class="board-only"><input type="checkbox" id="stock-only" checked> Nur vorhandene</label>
+ </div>
+ <div id="stock-results" class="board-count" aria-live="polite"></div>
+ <div id="stock-grid" class="board-stock-grid as-grid"></div>
+ <p class="board-note">„Im Regal“ zeigt gezählte Stücke abzüglich bereits fest zugeordneter Auftragsdrucke. „Frei“ berücksichtigt zusätzlich offene Vorbestellungen. +1 bucht z. B. einen Rückläufer ein, ohne die Etsy-Angebotsmenge zu ändern.</p>
+</section>
 <section id="printer-strip" class="printer-strip" aria-label="Druckerstatus">
  <div class="printer-strip-head"><div><span class="eyebrow">PRODUKTION · LIVE</span><h2>Druckerstatus</h2></div><button type="button" id="printer-strip-more" class="text-button">Alle Druckerdetails ↗</button></div>
  <div id="printer-strip-row" class="printer-strip-grid" aria-live="off"><p class="hint">Druckerstatus wird geladen …</p></div>
@@ -167,14 +193,17 @@
   <h3 id="components-form-title">+ Bauteil hinzufügen</h3>
   <input id="components-id" type="hidden">
   <label>Bauteilname<input id="components-name" maxlength="100" placeholder="z. B. Geist Weiß" required></label>
+  <label>Farbe (optional)<input id="components-color" maxlength="60" placeholder="z. B. Beige, Weiß oder Jadegrün" autocomplete="off"></label>
   <label>Produktionsart<select id="components-kind">
    <option value="stock">Vorratsbauteil – gemeinsam für alle Varianten</option>
    <option value="demand">Erst nach Bestellung drucken</option></select></label>
+  <details class="component-extra-settings"><summary>Weitere Einstellungen (optional)</summary>
   <label id="components-property-wrap">Etsy-Eigenschaft für die Variante (optional)<input id="components-property" maxlength="100" placeholder="z. B. Buchfarbe"></label>
   <label>Bauteile je Verkaufseinheit<input id="components-units" type="number" inputmode="numeric" min="1" max="100" step="1" value="1" required></label>
   <label id="components-target-wrap">Auffüllziel (optional – 0 bedeutet kein Vorschlag)<input id="components-target" type="number" inputmode="numeric" min="0" max="100000" step="1" value="0"></label>
   <label>Setgröße aus Etsy-Eigenschaft (optional)<input id="components-quantity-property" maxlength="100" placeholder="z. B. Setgröße"></label>
   <p class="hint">Beispiel: „Setgröße: 3er-Set“ multipliziert 1 Geist je Einheit mit 3. Die Eigenschaft muss in der Etsy-Bestellung exakt so heißen; unklare Werte werden nicht geraten.</p>
+  </details>
   <div class="components-form-actions"><button type="submit" class="primary">Bauteil speichern</button><button type="button" id="components-reset" class="secondary">Neu / Abbrechen</button></div>
  </form>
 </dialog>

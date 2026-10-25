@@ -40,6 +40,8 @@ def schema(db):
         db.execute('ALTER TABLE pp_components ADD COLUMN target_stock INTEGER NOT NULL DEFAULT 0 CHECK(target_stock>=0)')
     if 'printing_stock' not in part_columns:
         db.execute('ALTER TABLE pp_components ADD COLUMN printing_stock INTEGER NOT NULL DEFAULT 0 CHECK(printing_stock>=0)')
+    if 'color' not in part_columns:
+        db.execute("ALTER TABLE pp_components ADD COLUMN color TEXT NOT NULL DEFAULT ''")
 
 
 def option(line, name):
@@ -98,7 +100,7 @@ def snapshot(db,products,orders):
                 state={k:int(job.get(k,0)) for k in ('booked','printing','finished','consumed')}
                 available=(state['booked'] if part['kind']=='stock' else state['finished'])-state['consumed']
                 line['components'].append({
-                    'id':part['id'],'name':part['name'],'kind':part['kind'],'label':label,
+                    'id':part['id'],'name':part['name'],'color':part['color'],'kind':part['kind'],'label':label,
                     'stock':part['stock'],'required':total,'error':error,
                     'available':max(0,available),**state})
     return products,orders
@@ -167,6 +169,8 @@ def mutate(db,data,whole):
             kind=str(data.get('kind') or '')
             prop=str(data.get('property_name') or '').strip()[:100]
             qty_prop=str(data.get('quantity_property') or '').strip()[:100]
+            color=str(data.get('color',old['color'] if old else '') or '').strip()
+            if len(color)>60: raise ValueError('Farbe darf höchstens 60 Zeichen enthalten.')
             units=whole(data.get('units'),1,100)
             target_stock=whole(data.get('target_stock',old['target_stock'] if old else 0),0,100000)
             if kind=='demand': target_stock=0
@@ -180,13 +184,13 @@ def mutate(db,data,whole):
                     ('kind',kind),('property_name',prop),('quantity_property',qty_prop),('units',units)])):
                     raise ValueError('Dieses Bauteil wird bereits in Aufträgen genutzt. Die Stückliste bleibt unverändert.')
                 db.execute("""UPDATE pp_components SET name=?,kind=?,property_name=?,
-                    quantity_property=?,units=?,target_stock=?,updated=? WHERE id=?""",
-                    (name,kind,prop,qty_prop,units,target_stock,int(time.time()),cid))
+                    quantity_property=?,units=?,target_stock=?,color=?,updated=? WHERE id=?""",
+                    (name,kind,prop,qty_prop,units,target_stock,color,int(time.time()),cid))
             else:
                 db.execute("""INSERT INTO pp_components
-                    (id,listing_id,name,kind,property_name,quantity_property,units,stock,target_stock,updated)
-                    VALUES(?,?,?,?,?,?,?,0,?,?)""",
-                    (secrets.token_hex(12),listing_id,name,kind,prop,qty_prop,units,target_stock,int(time.time())))
+                    (id,listing_id,name,kind,property_name,quantity_property,units,stock,target_stock,color,updated)
+                    VALUES(?,?,?,?,?,?,?,0,?,?,?)""",
+                    (secrets.token_hex(12),listing_id,name,kind,prop,qty_prop,units,target_stock,color,int(time.time())))
         elif action=='delete':
             if not old: raise ValueError('Bauteil nicht gefunden.')
             if old['printing_stock']>0:

@@ -81,6 +81,7 @@ function componentProductCard(p){
   return `<div class="component-card-part">
    <div class="component-card-part-text">
     <strong>${esc(part.name)}</strong>
+    ${part.color?`<small class="component-part-color">Farbe: ${esc(part.color)}</small>`:''}
     <small>${stock?'Gemeinsamer Vorrat für alle Varianten':
      'Erst nach Bestellung'+(part.property_name?' · '+esc(part.property_name):'')}
     </small>
@@ -347,6 +348,7 @@ function componentRenderEditor(){
   '<div class="component-management-row" data-component-row="'+esc(part.id)+'">'+
   '<div class="component-management-name"><strong>'+esc(part.name)+'</strong>'+
   '<small>'+(part.kind==='stock'?'Vorratsbauteil':'Nach Bestellung')+
+  (part.color?' · Farbe: '+esc(part.color):'')+
   (part.property_name?' · '+esc(part.property_name):'')+
   (part.quantity_property?' · Set: '+esc(part.quantity_property):'')+
   ' · '+part.units+' je Einheit'+(part.kind==='stock'&&part.target_stock?' · Auffüllziel '+part.target_stock:'')+'</small></div>'+
@@ -416,6 +418,7 @@ $('components-list').addEventListener('click',async event=>{
   $('components-kind').value=part.kind;
   componentKindChange();
   $('components-property').value=part.property_name||'';
+  $('components-color').value=part.color||'';
   $('components-quantity-property').value=part.quantity_property||'';
   $('components-units').value=part.units;
   $('components-target').value=part.target_stock||0;
@@ -466,6 +469,7 @@ $('components-form').addEventListener('submit',async event=>{
  const data={action:'save',listing_id:componentEditorProduct,id:$('components-id').value,
   name:$('components-name').value,kind:$('components-kind').value,
   property_name:$('components-property').value,
+  color:$('components-color').value,
   quantity_property:$('components-quantity-property').value,
   units:Number($('components-units').value),target_stock:Number($('components-target').value||0)};
  if(await mutate('components',data)){componentReset();componentRenderEditor();}

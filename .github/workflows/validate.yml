@@ -34,6 +34,8 @@ jobs:
           node --check print_pulse_druckplaner/web/local-orders-ui.js
           node --check print_pulse_druckplaner/web/dialog-behavior.js
           node --check print_pulse_druckplaner/web/order-zoom-ui.js
+          node --check print_pulse_druckplaner/web/stock-orders-ui.js
+          node --check tests/stock_orders_ui.cjs
           node --check tests/dialog_ui.cjs
           node --check print_pulse_druckplaner/web/import-ui.js
           node --check tests/ui.cjs
@@ -59,6 +61,7 @@ jobs:
             sleep 1
           done
           node tests/dialog_ui.cjs
+          node tests/stock_orders_ui.cjs
           node tests/ui.cjs
           node tests/ui_safari.cjs
           node tests/local_ui.cjs

@@ -1,3 +1,12 @@
+# 0.12.8 · Bestellungen & Lagerbestand als eigene Bereiche
+
+- Navigation: „Aufträge & Druckplan“ statt „Produktion“, dazu eigene Reiter „Bestellungen“ und „Lagerbestand“.
+- Alle aktuell offenen Etsy- und lokalen Aufträge auf einer Seite mit Suche, Versand-/Neueste-Sortierung, Fertig-Filter und wahlweise Listen- oder Kachelansicht. Ein Klick öffnet die bestehende große Auftragsansicht; die kompakten Karten im Druckplan bleiben.
+- Lageransicht zeigt tatsächliche fertige Artikel mit Produktbild, Farben, Varianten, Bestand und frei verfügbarer Menge sowie gemeinsame Vorratsbauteile. Suche, Filter, kompakte Kacheln oder Listen.
+- „+1“ für eingetroffene Rückläufer nutzt dieselbe sichere Bestandsbuchung; Etsy-Angebotsmengen werden nicht verändert. Fertig einem Auftrag zugewiesene Stücke werden nicht erneut im freien Regal gezeigt.
+- Beim Anlegen/Bearbeiten eines Bauteils kann optional eine Farbe gespeichert werden. Technische Setgrößen- und Etsy-Eigenschaftsfelder sind unter „Weitere Einstellungen“ eingeklappt; vorhandene Einstellungen bleiben erhalten.
+- Neue Regressionstests für Lager-/Auftragsansichten und optionale Bauteilfarbe. Bestehende Backend-Auftrags- und Etsy-Synchronisierung unverändert.
+
 # 0.12.7 · Aufträge in großer, responsiver Werkstattansicht
 
 - Die kleinen Bestellkarten bleiben erhalten. Neues Vergrößern-Symbol oben auf der Karte und der bisherige Details-Button öffnen dieselbe Großansicht.

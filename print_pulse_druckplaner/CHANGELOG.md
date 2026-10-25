@@ -1,3 +1,11 @@
+# 0.12.8 · Eigene Bereiche für Bestellungen und Regalbestand
+
+- Umbenennung „Produktion“ → „Aufträge & Druckplan“ und neue Reiter „Bestellungen“ sowie „Lagerbestand“.
+- Bestellungen in Listen- oder Kachelansicht mit mehr Informationen, Suche, Statusfilter und Sortierung. Die bisherige große Bestellansicht und der kompakte Dashboard-Überblick bleiben erhalten.
+- Lagerbestand mit Produktbildern, Farb-/Variantenzeilen, verfügbarem Bestand und Bauteilen. Bearbeiten oder über +1 Rückläufer einlagern, ohne Etsy zu verändern.
+- Für Bauteile optionales, updatefest gespeichertes Farbfeld und übersichtliches Hauptformular mit eingeklappten erweiterten Feldern.
+- Tests für neue Ansichten und Farbfeld ergänzt.
+
 # 0.12.7 · Auftrags-Großansicht
 
 - Neue Vergrößern-Taste auf jeder kompakten Bestellkarte, bestehender Details-Button öffnet identisches Fenster.
