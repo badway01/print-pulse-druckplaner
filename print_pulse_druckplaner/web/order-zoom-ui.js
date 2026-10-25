@@ -77,7 +77,7 @@
   '<button type="button" class="icon-button" data-focus-close aria-label="Schließen">×</button></div>'+
   '<div id="order-position-body"></div>';
  document.body.append(focus);
- let selected='';
+ let selected='',positionSnapshot='';
  const locate=()=>{
   for(const o of model?.orders||[]){
    const line=(o.items||[]).find(x=>String(x.transaction_id)===selected);
@@ -86,6 +86,9 @@
  };
  function draw(){
   const found=locate();if(!found){if(focus.open)focus.close();return;}
+  const snapshot=JSON.stringify([selected,found.line,findItem(found.line.item_id)?.i?.on_hand]);
+  if(focus.open&&snapshot===positionSnapshot)return;
+  positionSnapshot=snapshot;
   const {o,line}=found,st=status(line),component=composed(line);
   const q=num(line.quantity),open=num(line.remaining),printing=num(line.printing);
   const eligible=!!(line.item_id||line.local_custom);
@@ -107,9 +110,9 @@
    (start||finish?
     '<label class="simple-pos-quantity">Stückzahl <input type="number" id="simple-pos-qty" inputmode="numeric" min="1" max="'+Math.max(1,open+printing,q-num(line.assembled))+'" value="1"></label>'+
     (unknown?'<label class="simple-pos-initial">Bisheriger fertiger Lagerbestand<input type="number" id="simple-pos-stock" min="0" inputmode="numeric" placeholder="Vorher zählen"></label>':'')+
-    '<div class="simple-pos-actions">'+(start?'<button type="button" class="secondary" data-focus-action="start">Im Druck</button>':'')+
+    '<div class="simple-pos-actions">'+(start?'<button type="button" class="secondary" data-focus-action="start">Drucken</button>':'')+
     (finish?'<button type="button" class="primary" data-focus-action="complete">✓ Fertig</button>':'')+'</div>'+
-    '<p class="hint">„Fertig“ bestätigt die tatsächlich fertiggestellte Menge, auch ohne zuvor „Im Druck“ zu drücken.</p>':
+    '<p class="hint">„Drucken“ merkt den Druckstart vor. „Fertig“ bestätigt die wirklich fertige Menge, auch ohne vorherigen Druckstart.</p>':
     '<p class="hint">'+(complete(line)?'Diese Position ist fertig.':'Bei dieser Position sind noch Angaben zu prüfen.')+'</p>')+
    '<button type="button" class="simple-pos-advanced-link" data-focus-more>Weitere Funktionen / Lagerverwaltung</button>';
  }
