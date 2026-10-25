@@ -32,6 +32,8 @@ jobs:
           node --check print_pulse_druckplaner/web/app.js
           node --check print_pulse_druckplaner/web/components-ui.js
           node --check print_pulse_druckplaner/web/local-orders-ui.js
+          node --check print_pulse_druckplaner/web/dialog-behavior.js
+          node --check tests/dialog_ui.cjs
           node --check print_pulse_druckplaner/web/import-ui.js
           node --check tests/ui.cjs
           node --check tests/ui_safari.cjs
@@ -58,6 +60,7 @@ jobs:
           node tests/ui.cjs
           node tests/ui_safari.cjs
           node tests/local_ui.cjs
+          node tests/dialog_ui.cjs
 
       - name: Ansichten der Bedienprüfung
         if: always()

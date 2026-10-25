@@ -1,3 +1,9 @@
+# 0.12.6 · Komfortables Schließen aller Dialoge
+
+- Klick oder Tippen neben Dialogen schließt diese; X und Escape nutzen dieselbe Sicherheitsprüfung.
+- Geänderte Formularinhalte werden vor dem Verwerfen abgefragt; laufende Speicheraktionen bleiben geschützt.
+- Innenklick und Drag-Start im Dialog lösen kein Schließen aus; keine Änderungen an Lager- oder Bestelldaten.
+
 # 0.12.5 · A4-Kundenaufträge als PDF
 
 - Lokale Bestellkarten und Details: „Auftrag A4 · PDF“ als Download-Button.

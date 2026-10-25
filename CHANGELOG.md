@@ -1,3 +1,10 @@
+# 0.12.6 · Dialoge per Hintergrundklick schließen
+
+- Alle Dialogfenster schließen sich jetzt auch durch Klick oder Fingertipp auf den abgedunkelten Bereich außerhalb des Fensters; das X und Escape funktionieren weiterhin.
+- Berührungen innerhalb eines Fensters und Ziehen/Scrollen von innen nach außen schließen nichts versehentlich.
+- Geänderte, noch nicht gespeicherte Formularfelder werden vor dem Verwerfen bestätigt. Während laufender Speichervorgänge wird das Schließen verhindert.
+- Keine Änderung an Aufträgen, Etsy, Lagerbeständen oder Druckbuchungen. Browser-Regressionstest auf Desktop und Tablet ergänzt.
+
 # 0.12.5 · Kundenauftrag A4-PDF und automatische Sammelausgabe
 
 - PDF-Button auf jeder lokalen Auftragskarte sowie in ihren Bestelldetails.
