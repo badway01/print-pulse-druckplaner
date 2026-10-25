@@ -281,6 +281,7 @@ await page.locator('[data-close="settings"]').click();
  assert.equal(await page.locator('#quantity-initial-stock').evaluate(el=>el.validity.valueMissing),true);
  const closeSize=await page.locator('[data-close="quantity"]').boundingBox();
  assert(closeSize.width>=44&&closeSize.height>=44);
+ page.once('dialog',async prompt=>{assert.equal(prompt.type(),'confirm');await prompt.accept();});
  await page.locator('[data-close="quantity"]').click();
  assert.equal(await page.locator('#quantity').evaluate(el=>el.open),false);
 
