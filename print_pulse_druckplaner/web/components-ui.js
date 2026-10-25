@@ -256,14 +256,17 @@ orderCard=function(o){
   '<div class="order-card-actions">'+action);
 };
 function componentLineHTML(line){
+ if(Math.max(0,Number(line.remaining)||0)===0){
+  return '<div class="component-order-list"><strong class="component-piece-status is-ready">✓ Für diesen Auftrag fertig</strong></div>';
+ }
  if(!line.components?.length){
   return '<p class="hint">Vorproduktion ist eingeschaltet. Bitte zuerst im Produktkatalog Bauteile anlegen.</p>';
  }
  const rows=line.components.map(part=>{
   const stock=part.kind==='stock';
-  const required=Math.max(0,Number(part.required)||0);
-  const missing=stock?Math.max(0,required-(Number(part.booked)||0)):
-   Math.max(0,required-(Number(part.printing)||0)-(Number(part.finished)||0));
+  const required=Math.ceil(Math.max(0,Number(part.required)||0)*
+   Math.max(0,Number(line.remaining)||0)/Math.max(1,Number(line.quantity)||1));
+  const missing=orderComponentOutstanding(line,part);
   const available=stock?Math.min(missing,Math.max(0,Number(part.stock)||0)):missing;
   const status=part.error?'Prüfen':
    stock?(missing===0?'Zugeordnet':available>0?'Vorrat vorhanden':'Vorrat fehlt'):
