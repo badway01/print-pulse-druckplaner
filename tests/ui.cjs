@@ -480,9 +480,14 @@ const orderHeights=await page.locator('.order-card').evaluateAll(cards=>cards.ma
 assert(orderHeights.every(h=>Math.abs(h-orderHeights[0])<=1),'all cards must have equal height');
 
 assert.equal(await doneCard.locator('[data-order-quick]').count(),0,'a completed order has no redundant action');
-await doneCard.locator('[data-order-open]').click();
-assert.equal(await page.locator('#order-details-content .order-print-complete').count(),1);
+await doneCard.locator('[data-order-expand]').click();
+assert((await page.locator('#order-details-content .simple-order-summary').textContent()).includes('fertig'));
 await page.locator('[data-close="order-details"]').click();
+await doneCard.locator('[data-order-position]').first().click();
+assert.equal(await page.locator('#order-position').isVisible(),true);
+assert.equal(await page.locator('#order-position [data-focus-action="reopen"]').count(),1,
+ 'finished products must offer correction in the same position dialog');
+await page.locator('#order-position [data-focus-close]').click();
 await page.evaluate(()=>{
  const example=model.orders.find(order=>order.id==='501');
  example.items=[{...example.items[0],quantity:2,finished:1,printing:1,remaining:0}];
@@ -498,7 +503,7 @@ await page.evaluate(()=>{
  renderOrders();
 });
 assert.equal(await doneCard.locator('.order-print-complete').count(),0);
-// A counted, matching variant is assigned directly to an Etsy order, without printing.
+// Existing stock allocation shows as ready without falsely offering undo of a print.
 await page.evaluate(()=>{
  const order=model.orders.find(o=>o.id==='502');
  window.stockCardBefore=order.items;
@@ -507,24 +512,21 @@ await page.evaluate(()=>{
  renderOrders();
 });
 const allocationCard=page.locator('[data-order-card="502"]');
-assert.equal(await allocationCard.locator('[data-quick-action="allocate"]').count(),1);
-assert((await allocationCard.locator('.order-print').textContent()).includes('Aus Lager'));
-assert.equal(await allocationCard.locator('[data-quick-qty]').getAttribute('data-quick-qty'),'1');
-assert.equal(await allocationCard.locator('[data-quick-action="allocate"]').count(),1,'one-click allocation is offered');
-await allocationCard.locator('[data-order-open]').click();
-assert.equal(await page.locator('#order-details-content [data-quick-action="allocate"]').count(),1);
-assert.equal(await page.locator('#order-details-content [data-job-action="printing"]').count(),1);
-await page.locator('[data-close="order-details"]').click();
+assert.equal(await allocationCard.locator('[data-order-position]').count(),1);
+await allocationCard.locator('[data-order-position]').first().click();
+assert.equal(await page.locator('#order-position [data-focus-action="start"]').count(),1);
+assert.equal(await page.locator('#order-position [data-focus-action="complete"]').count(),1);
+await page.locator('#order-position [data-focus-close]').click();
 await page.evaluate(()=>{
  const order=model.orders.find(o=>o.id==='502');
  order.items=[{...order.items[0],allocated:1,printing:0,remaining:0}];
  renderOrders();
 });
 assert.equal(await allocationCard.locator('.order-print-complete').count(),1);
-assert.equal(await allocationCard.locator('[data-order-quick]').count(),0,'fully allocated order has no extra action');
-await allocationCard.locator('[data-order-open]').click();
-assert.equal(await page.locator('#order-details-content [data-job-action="release"]').count(),1);
-await page.locator('[data-close="order-details"]').click();
+await allocationCard.locator('[data-order-position]').first().click();
+assert.equal(await page.locator('#order-position [data-focus-action="reopen"]').count(),0,
+ 'allocated stock must not be interpreted as a printed completion');
+await page.locator('#order-position [data-focus-close]').click();
 await page.evaluate(()=>{
  const order=model.orders.find(o=>o.id==='502');
  order.items=window.stockCardBefore;
