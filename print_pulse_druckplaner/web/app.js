@@ -457,7 +457,7 @@ function orderQuickButton(line,compact=false){
 }
 /* Every ordered position has its own manual workshop state. A click marks
    work in the planner; it never starts/stops a physical printer. */
-function orderCardWorkLine(line){
+function orderCardWorkLine(line,controlsOnly=false){
  const qty=Math.max(0,Number(line.quantity)||0);
  const printing=Math.max(0,Number(line.printing)||0);
  const remaining=Math.max(0,Number(line.remaining)||0);
@@ -495,10 +495,10 @@ function orderCardWorkLine(line){
  }
  const variation=[line.variant,line.color?'Farbe: '+line.color:''].filter(Boolean).join(' · ');
  return `<div class="order-card-work-line">
-  <div class="order-card-work-name" title="${esc(line.title+(variation?' · '+variation:''))}">
+${controlsOnly?'':`  <div class="order-card-work-name" title="${esc(line.title+(variation?' · '+variation:''))}">
    <strong>${qty} × ${esc(orderShortProductTitle(line.title))}</strong>
    ${variation?`<small>${esc(variation)}</small>`:''}
-  </div>
+  </div>`}
   <div class="order-card-work-controls">
    <span class="order-card-work-status ${state}">${esc(label)}</span>${button}
   </div>
