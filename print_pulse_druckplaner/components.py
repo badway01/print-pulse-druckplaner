@@ -270,7 +270,8 @@ def mutate(db,data,whole):
         raise ValueError('Etsy-Bestellvariante nicht eindeutig zugeordnet.')
     parts=[dict(x) for x in db.execute(
         'SELECT * FROM pp_components WHERE listing_id=?',(tx['listing_id'],))]
-    if not parts: raise ValueError('Bitte zuerst Bauteile im Produktkatalog anlegen.')
+    if not parts and action!='quick-complete':
+        raise ValueError('Bitte zuerst Bauteile im Produktkatalog anlegen.')
     existing=db.execute('SELECT * FROM stock_order_prints WHERE transaction_id=?',(tid,)).fetchone()
     if existing and (existing['printing'] or existing['finished'] or existing['allocated']):
         raise ValueError('Diese Position nutzt bereits die klassische Lager-/Druckverwaltung.')
