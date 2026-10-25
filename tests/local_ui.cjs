@@ -52,10 +52,11 @@ const assert=require('node:assert/strict');
   assert.equal(await card.locator('a.local-order-pdf[download]').count(),1,
    'local card needs a directly accessible A4 print/PDF link');
   assert((await card.locator('a.local-order-pdf').getAttribute('href')).includes(encodeURIComponent(local.id)));
-  await card.locator('[data-order-open]').click();
+  await card.locator('[data-order-expand]').click();
   assert.equal(await page.locator('#order-details-content a.local-order-pdf[download]').count(),1);
   assert((await page.locator('#order-details-content').textContent()).includes('Jadeweiß'));
   assert((await page.locator('#order-details-content').textContent()).includes('Gravur von Hand'));
+  await page.locator('#order-details-content .simple-order-advanced summary').click();
   await page.locator('#order-details-content [data-local-edit]').click();
   await page.locator('#local-notes').fill('Abholung nach 16 Uhr');
   await page.locator('#local-order-save').click();
@@ -65,14 +66,16 @@ const assert=require('node:assert/strict');
   // Custom print starts and finishes independently of counted Etsy variant stock.
   const custom=state.orders.find(o=>o.id===local.id).items[1];
   const initialStock=state.products.find(p=>p.id==='102').items.find(i=>i.id==='102-black').on_hand;
-  await page.locator('.order-card').filter({hasText:local.id}).locator('[data-order-open]').click();
-  await page.locator('#order-details-content [data-local-type="start"]').click();
+  if(await page.locator('#order-details').isVisible())await page.locator('#order-details [data-close="order-details"]').click();
+  await page.locator('.order-card').filter({hasText:local.id}).locator('[data-order-position]').nth(1).click();
+  assert.equal(await page.locator('#order-position').isVisible(),true);
+  await page.locator('#order-position [data-focus-action="start"]').click();
   await page.waitForFunction(id=>model.orders.find(o=>o.id===id)?.items[1].printing===1,local.id);
-  await page.locator('#order-details-content [data-local-type="finish"]').click();
+  await page.locator('#order-position [data-focus-action="complete"]').click();
   await page.waitForFunction(id=>model.orders.find(o=>o.id===id)?.items[1].finished===1,local.id);
   state=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
   assert.equal(state.products.find(p=>p.id==='102').items.find(i=>i.id==='102-black').on_hand,initialStock);
-  await page.locator('#order-details [data-close="order-details"]').click();
+  await page.locator('#order-position [data-focus-close]').click();
   // A completed direct sale decrements only physically free counted stock.
   state=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
   const before=state.products.find(p=>p.id==='103').items.find(i=>i.id==='103-default').on_hand;

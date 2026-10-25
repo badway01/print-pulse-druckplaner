@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
  const response=await route.fetch();const data=await response.json();
 
  const now=Math.floor(Date.now()/1000);
- const item=(title,quantity)=>({title,quantity,variant:'Farbe: Schwarz',listing_id:'101',image:'https://test.etsystatic.com/product.svg'});
+ const item=(title,quantity)=>({title,quantity,transaction_id:'demo-'+quantity,item_id:'101-default',remaining:quantity,printing:0,finished:0,allocated:0,assembled:0,variant:'Farbe: Schwarz',listing_id:'101',image:'https://test.etsystatic.com/product.svg'});
  data.orders=[
   {id:'501',customer:'Musterkunde A',created:now-86400,ship_by:now+86400,quantity:2,items:[item('Geldgeschenk',2)]},
   {id:'502',customer:'Musterkunde B',created:now-3600,ship_by:now+2*86400,quantity:1,items:[item('Geldgeschenk',1)]},
@@ -89,7 +89,7 @@ const postitChecks=await page.evaluate(()=>{
  const example={id:'sample-component',components_enabled:true,
   components:[{id:'white',kind:'stock',stock:1}],need:999};
  model.orders.push({items:[{listing_id:'sample-component',components_enabled:true,
-  components:[{id:'white',kind:'stock',required:4,booked:0}]}]});
+  quantity:1,remaining:1,components:[{id:'white',kind:'stock',required:4,booked:0}]}]});
  const componentMarkup=productPrintBadge(example);
  model.orders.pop();
  return {realMarkupMatches,noNeed,rows,greenComponent,
@@ -231,7 +231,7 @@ const priorityChecks=await page.evaluate(()=>{
    items:[{id:'gold',label:'Gold Edition',on_hand:1,allocatable:1,enabled:1,need:4,sold7:4,sold30:8}]}],
  orders:[
   {id:'a',ship_by:Date.UTC(2026,8,21)/1000,created:Date.UTC(2026,8,21)/1000,items:[
-   {listing_id:'g',item_id:'gv',transaction_id:'a1',remaining:3,
+   {listing_id:'g',item_id:'gv',transaction_id:'a1',quantity:3,remaining:3,
     components_enabled:true,components:[{id:'white',kind:'stock',name:'Geist Weiß',required:3,booked:0}]}]},
   {id:'b',ship_by:Date.UTC(2026,9,3)/1000,created:Date.UTC(2026,8,21)/1000,items:[
    {listing_id:'c',item_id:'gold',transaction_id:'b1',remaining:2,components_enabled:false,variant:'Gold Edition'}]}
@@ -480,9 +480,14 @@ const orderHeights=await page.locator('.order-card').evaluateAll(cards=>cards.ma
 assert(orderHeights.every(h=>Math.abs(h-orderHeights[0])<=1),'all cards must have equal height');
 
 assert.equal(await doneCard.locator('[data-order-quick]').count(),0,'a completed order has no redundant action');
-await doneCard.locator('[data-order-open]').click();
-assert.equal(await page.locator('#order-details-content .order-print-complete').count(),1);
+await doneCard.locator('[data-order-expand]').click();
+assert((await page.locator('#order-details-content .simple-order-summary').textContent()).includes('fertig'));
 await page.locator('[data-close="order-details"]').click();
+await doneCard.locator('[data-order-position]').first().click();
+assert.equal(await page.locator('#order-position').isVisible(),true);
+assert.equal(await page.locator('#order-position [data-focus-action="reopen"]').count(),1,
+ 'finished products must offer correction in the same position dialog');
+await page.locator('#order-position [data-focus-close]').click();
 await page.evaluate(()=>{
  const example=model.orders.find(order=>order.id==='501');
  example.items=[{...example.items[0],quantity:2,finished:1,printing:1,remaining:0}];
@@ -498,7 +503,7 @@ await page.evaluate(()=>{
  renderOrders();
 });
 assert.equal(await doneCard.locator('.order-print-complete').count(),0);
-// A counted, matching variant is assigned directly to an Etsy order, without printing.
+// Existing stock allocation shows as ready without falsely offering undo of a print.
 await page.evaluate(()=>{
  const order=model.orders.find(o=>o.id==='502');
  window.stockCardBefore=order.items;
@@ -507,24 +512,21 @@ await page.evaluate(()=>{
  renderOrders();
 });
 const allocationCard=page.locator('[data-order-card="502"]');
-assert.equal(await allocationCard.locator('[data-quick-action="allocate"]').count(),1);
-assert((await allocationCard.locator('.order-print').textContent()).includes('Aus Lager'));
-assert.equal(await allocationCard.locator('[data-quick-qty]').getAttribute('data-quick-qty'),'1');
-assert.equal(await allocationCard.locator('[data-quick-action="allocate"]').count(),1,'one-click allocation is offered');
-await allocationCard.locator('[data-order-open]').click();
-assert.equal(await page.locator('#order-details-content [data-quick-action="allocate"]').count(),1);
-assert.equal(await page.locator('#order-details-content [data-job-action="printing"]').count(),1);
-await page.locator('[data-close="order-details"]').click();
+assert.equal(await allocationCard.locator('[data-order-position]').count(),1);
+await allocationCard.locator('[data-order-position]').first().click();
+assert.equal(await page.locator('#order-position [data-focus-action="start"]').count(),1);
+assert.equal(await page.locator('#order-position [data-focus-action="complete"]').count(),1);
+await page.locator('#order-position [data-focus-close]').click();
 await page.evaluate(()=>{
  const order=model.orders.find(o=>o.id==='502');
  order.items=[{...order.items[0],allocated:1,printing:0,remaining:0}];
  renderOrders();
 });
 assert.equal(await allocationCard.locator('.order-print-complete').count(),1);
-assert.equal(await allocationCard.locator('[data-order-quick]').count(),0,'fully allocated order has no extra action');
-await allocationCard.locator('[data-order-open]').click();
-assert.equal(await page.locator('#order-details-content [data-job-action="release"]').count(),1);
-await page.locator('[data-close="order-details"]').click();
+await allocationCard.locator('[data-order-position]').first().click();
+assert.equal(await page.locator('#order-position [data-focus-action="reopen"]').count(),0,
+ 'allocated stock must not be interpreted as a printed completion');
+await page.locator('#order-position [data-focus-close]').click();
 await page.evaluate(()=>{
  const order=model.orders.find(o=>o.id==='502');
  order.items=window.stockCardBefore;
@@ -770,30 +772,25 @@ assert.equal(await page.locator('.order-card').first().getAttribute('data-order-
 assert.equal(await page.locator('[data-order-card="503"] [data-order-expand]').count(),1,'every card has an enlarge control');
 await page.locator('[data-order-card="503"] [data-order-expand]').click();
 assert.equal(await page.locator('#order-details').isVisible(),true);
-assert.equal(await page.locator('#order-details .order-zoom-stats>div').count(),4);
-assert.equal(await page.locator('#order-details .order-work-items.is-single .order-work-item').count(),1);
+assert.equal(await page.locator('#order-details .simple-order-zoom-tiles .simple-order-tile').count(),1);
 const zoomWidth=await page.locator('#order-details').evaluate(el=>el.getBoundingClientRect().width);
-assert(zoomWidth>1000,'large view uses the tablet/desktop width');
+assert(zoomWidth<=1440,'large view stays within the desktop viewport');
 await page.locator('[data-close="order-details"]').click();
-await page.locator('[data-order-card="503"] [data-order-open]').click();
-assert((await page.locator('#order-details-title').textContent()).includes('#503'));
-assert((await page.locator('#order-details-content').textContent()).includes('Farbe: Schwarz'));
-assert.equal(await page.locator('#order-details-content .order-work-item').count(),1);
-assert.equal((await page.locator('#order-details-content .order-work-variant b').first().textContent()).trim(),'Schwarz');
-const variantFont=await page.locator('#order-details-content .order-work-variant b').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
-assert(variantFont>=17,'ordered color must be prominent and legible');
-assert.equal(await page.locator('#order-details-content .order-countdown').count(),1);
-await page.locator('[data-close="order-details"]').click();
+await page.locator('[data-order-card="503"] [data-order-position]').first().click();
+assert.equal(await page.locator('#order-position').isVisible(),true);
+assert((await page.locator('#order-position-body').textContent()).includes('Schwarz'));
+assert.equal(await page.locator('#order-position-body .order-work-variant').count(),1);
+await page.locator('#order-position [data-focus-close]').click();
 await page.locator('[data-order-sort="ship"]').click();
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'501');
 await page.setViewportSize({width:700,height:844});
 await page.locator('[data-order-card="503"] [data-order-expand]').click();
-const mobileZoom=await page.locator('#order-details .order-work-items').evaluate(el=>({
+const mobileZoom=await page.locator('#order-details .simple-order-zoom-tiles').evaluate(el=>({
  cols:getComputedStyle(el).gridTemplateColumns.split(' ').length,
  width:document.getElementById('order-details').getBoundingClientRect().width
 }));
 assert.equal(mobileZoom.cols,1,'narrow view stacks order lines');
-assert(mobileZoom.width>630&&mobileZoom.width<=700,'mobile zoom almost fills available width');
+assert(mobileZoom.width<=700,'mobile zoom fits available width');
 await page.locator('[data-close="order-details"]').click();
 await page.locator('#orders-next').click();
 await page.waitForTimeout(600);

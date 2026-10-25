@@ -167,6 +167,11 @@ def custom_action(db,data):
             raise ValueError('Mehr Stücke als noch fertigzumelden sind.')
         printing-=min(printing,qty)
         finished+=qty
+    elif action=='reopen':
+        # Correct a mistaken completion without creating/consuming shelf stock.
+        if qty>finished:
+            raise ValueError('Es sind nicht so viele Stücke als fertig bestätigt.')
+        finished-=qty
     elif action in ('finish','cancel'):
         if qty>printing: raise ValueError('Es sind nicht so viele Stücke im Druck.')
         printing-=qty

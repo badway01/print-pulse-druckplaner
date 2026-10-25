@@ -1,3 +1,7 @@
+## Version 0.12.13 · Fertigmeldung direkt in der Bestellung rückgängig machen
+
+Im Positionsdialog kann eine versehentlich als fertig markierte Bestellposition direkt über **↶ Fertig rückgängig** korrigiert werden. Bei mehreren Stücken lässt sich die Anzahl wählen. Die Position wird wieder offen, ohne einen neuen Druck zu starten oder Ware doppelt einzulagern. Bei normalen Auftragsdrucken werden die zuvor als fertig gezählten Stücke gleichzeitig vom gebundenen Bestand zurückgenommen; bereits aus Lager zugewiesene Stücke bleiben unverändert. Für Bauteil-/Vorproduktionsartikel wird nur die kundengebundene Fertigmeldung zurückgenommen; frei verfügbarer Bauteil- oder Fertigwarenbestand wird nicht erhöht. Lokale Sonderanfertigungen sind ebenfalls korrigierbar. Nach Versand/Abschluss oder bei unzureichendem Bestand wird die Rücknahme sicher abgewiesen.
+
 ## Version 0.12.12 · Bereits fertige Kundenware ohne Bauteilvorrat bestätigen
 
 Der neue Positionsdialog lässt bei **Vorproduktions-/Bauteilartikeln** die Aktion **Fertig** auch dann zu, wenn die fertigen Kundenstücke physisch bereits da sind, aber Grundplatte, Welle oder andere Bauteile zuvor nicht als Vorrat bzw. „Im Druck“ eingetragen wurden.
