@@ -63,21 +63,7 @@
           event.target.closest?.('#local-add-line,[data-local-remove],[data-local-choose],#master-add,[data-master-remove]')) {
         state.dirty = true;
       }
-      // The ::backdrop delivers a click whose target is the dialog itself.
-      // Check coordinates so a click on dialog padding never dismisses it.
-      if (dialog.open && event.target === dialog && outside(event, dialog) && state.backdropStart) {
-        event.preventDefault();
-        closeDialog(dialog);
-      }
-      state.backdropStart = false;
     });
-
-    // Require the press to START on the backdrop too: dragging or scrolling
-    // from within a long dialog must not accidentally close the window.
-    dialog.addEventListener('pointerdown', event => {
-      state.backdropStart = event.target === dialog && outside(event, dialog);
-    });
-    dialog.addEventListener('pointercancel', () => { state.backdropStart = false; });
 
     // Prevent the browser's native Escape dismissal bypassing the dirty guard.
     dialog.addEventListener('cancel', event => {
@@ -85,6 +71,28 @@
       closeDialog(dialog);
     });
   }
+
+  // Browsers differ in how they retarget events on dialog::backdrop.
+  // Capture pointer gestures at document level and check the top modal's
+  // actual geometry, regardless of whether the event target is dialog/html.
+  const topModal = () => [...document.querySelectorAll('dialog[open]')]
+    .reverse().find(dialog => dialog.matches(':modal'));
+  let backdropPress = null;
+  document.addEventListener('pointerdown', event => {
+    const dialog = topModal();
+    backdropPress = dialog && outside(event, dialog)
+      ? {dialog, pointerId: event.pointerId} : null;
+  }, true);
+  document.addEventListener('pointerup', event => {
+    const press = backdropPress;
+    backdropPress = null;
+    if (!press || press.pointerId !== event.pointerId) return;
+    if (press.dialog.open && topModal() === press.dialog && outside(event, press.dialog)) {
+      event.preventDefault();
+      closeDialog(press.dialog);
+    }
+  }, true);
+  document.addEventListener('pointercancel', () => { backdropPress = null; }, true);
 
   // Existing X and Abbrechen buttons use data-close. Capture before their
   // legacy direct .close() handlers to apply the same unsaved-edit protection.
