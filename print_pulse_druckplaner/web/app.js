@@ -464,14 +464,14 @@ function orderCardWorkLine(line){
  const finished=Math.min(qty,Math.max(0,Number(line.finished)||0)+
   Math.max(0,Number(line.allocated)||0)+Math.max(0,Number(line.assembled)||0));
  const complete=qty>0&&finished>=qty&&printing===0&&remaining===0;
- const isComponent=Boolean(line.components_enabled&&line.components?.length&&
+ const isComponent=Boolean(line.components_enabled&&
   typeof componentLegacyJob==='function'&&!componentLegacyJob(line));
  let state='pending',label='Offen',button='';
  if(complete){
   state='ready';label='Fertig';
  }else if(line.local_custom){
   if(printing>0){
-   state='printing';label='Im Druck';
+   state='printing';label=finished?`${finished}/${qty} fertig · ${printing} im Druck`:`${printing}/${qty} im Druck`;
    button=`<button type="button" class="primary order-card-work-button" data-local-custom-action="${esc(line.transaction_id)}" data-local-type="finish" data-local-custom-quantity="${printing}" aria-label="${printing} Stück ${esc(line.title)} fertigmelden">✓ Fertig</button>`;
   }else if(remaining>0){
    button=`<button type="button" class="primary order-card-work-button" data-local-custom-action="${esc(line.transaction_id)}" data-local-type="start" data-local-custom-quantity="${remaining}" aria-label="${remaining} Stück ${esc(line.title)} in Druck nehmen">Drucken</button>`;
@@ -482,11 +482,13 @@ function orderCardWorkLine(line){
    state='printing';label='Montieren';
    button=componentButton(line,null,'assemble',ready,'✓ Fertig').replace('class="primary"','class="primary order-card-work-button"');
   }else{
-   state='component';label='Vorproduktion';
+   const partPrinting=(line.components||[]).reduce((sum,part)=>sum+Math.max(0,Number(part.printing)||0),0);
+   state=partPrinting?'printing':'component';
+   label=partPrinting?'Bauteile im Druck':'Vorproduktion';
   }
  }else{
   const next=orderNextAction(line);
-  if(printing>0){state='printing';label='Im Druck';}
+  if(printing>0){state='printing';label=finished?`${finished}/${qty} fertig · ${printing} im Druck`:`${printing}/${qty} im Druck`;}
   else if(!line.item_id){state='check';label='Prüfen';}
   else if(finished>0){state='partial';label=finished+'/'+qty+' fertig';}
   if(next)button=orderQuickButton(line,true);
