@@ -33,6 +33,7 @@ jobs:
           node --check print_pulse_druckplaner/web/components-ui.js
           node --check print_pulse_druckplaner/web/local-orders-ui.js
           node --check print_pulse_druckplaner/web/dialog-behavior.js
+          node --check print_pulse_druckplaner/web/order-zoom-ui.js
           node --check tests/dialog_ui.cjs
           node --check print_pulse_druckplaner/web/import-ui.js
           node --check tests/ui.cjs
