@@ -690,6 +690,7 @@ await page.locator('#filament-material').fill('PLA+');
 await page.locator('#filament-color').fill('Gelb');
 await page.locator('#filament-color-options .filament-suggest-item').filter({hasText:'Gelb'}).first().click();
 assert.equal(await page.locator('#filament-color-hex').inputValue(),'#fff13f');
+page.once('dialog',async prompt=>{assert.equal(prompt.type(),'confirm');await prompt.accept();});
 await page.locator('[data-close="filament-editor"]').click();
 await page.route('**/api/filament',async route=>{
  await new Promise(resolve=>setTimeout(resolve,450));
@@ -791,6 +792,7 @@ await page.locator('#quantity-value').fill('5');
 await page.waitForTimeout(5500);
 assert.equal(await page.locator('#quantity-value').inputValue(),'5');
 assert.equal(await page.locator('[data-product="102"] .variant').count(),0);
+page.once('dialog',async prompt=>{assert.equal(prompt.type(),'confirm');await prompt.accept();});
 await page.locator('[data-close="quantity"]').click();
 const overview=page.locator('[data-product="102"] .print-overview');
 assert.equal(await overview.locator('.print-need').count(),2);
@@ -1013,6 +1015,7 @@ let savedAfter=await page.request.get('http://127.0.0.1:8099/api/status').then(r
 const mapAfter=Object.fromEntries(savedAfter.products.find(x=>x.id==='104').components.map(x=>[x.id,x]));
 for(const id of Object.keys(mapBefore))
  assert.equal(mapAfter[id].stock,mapBefore[id].stock+1,'bulk edit and production card have one consistent stock');
+page.once('dialog',async prompt=>{assert.equal(prompt.type(),'confirm');await prompt.accept();});
 await editor.locator('[data-close="components-editor"]').click();
 const partsText=await partsCard.locator('.component-card-panel').textContent();
 assert(partsText.includes('5 ×')&&partsText.includes('3 ×'),
