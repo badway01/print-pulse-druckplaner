@@ -24,6 +24,9 @@
  function status(order){
   const progress=orderPrintProgress(order);
   if(progress.complete)return ['Fertig','ready'];
+  const printing=(order.items||[]).reduce((sum,line)=>sum+count(line.printing)+
+   (line.components_enabled?(line.components||[]).reduce((n,part)=>n+count(part.printing),0):0),0);
+  if(printing>0)return [printing+' im Druck','printing'];
   if(progress.finished)return [progress.finished+'/'+progress.total+' fertig','partial'];
   return ['Offen','pending'];
  }
@@ -36,7 +39,8 @@
     (line.variant?'<small>'+esc(line.variant)+'</small>':'')+
     (line.color?'<small>Farbe: '+esc(line.color)+'</small>':'')+
     (line.personalization?'<small>Wunsch: '+esc(line.personalization)+'</small>':'')+
-    '<small>'+finished+'/'+qty+' erledigt</small></div></div>';
+    '<small>'+finished+'/'+qty+' erledigt</small>'+
+    '<div class="board-order-work">'+orderCardWorkLine(line)+'</div></div></div>';
   }).join('');
   return '<article class="board-order" data-full-order="'+esc(order.id)+'" tabindex="0" role="button" '+
     'aria-label="Bestellung '+esc(order.id)+' groß anzeigen"><div class="board-order-head">'+
@@ -150,8 +154,15 @@
   renderFullOrders();
  });
  $('full-orders-new').addEventListener('click',()=>$('local-order-new').click());
- $('full-orders-grid').addEventListener('click',event=>{
-  const card=event.target.closest('[data-full-order]');if(card)showOrder(card.dataset.fullOrder);
+ $('full-orders-grid').addEventListener('click',async event=>{
+  const quick=event.target.closest('[data-order-quick]');
+  if(quick){event.stopPropagation();await runOrderQuick(quick);return;}
+  const local=event.target.closest('[data-local-custom-action]');
+  if(local){event.stopPropagation();await localCustomProductionClick(local);return;}
+  const component=event.target.closest('[data-component-tid]');
+  if(component){event.stopPropagation();await componentOrderAction(component);return;}
+  const card=event.target.closest('[data-full-order]');
+  if(card)showOrder(card.dataset.fullOrder);
  });
  $('full-orders-grid').addEventListener('keydown',event=>{
   const card=event.target.closest('[data-full-order]');
