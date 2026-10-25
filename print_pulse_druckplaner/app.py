@@ -984,7 +984,7 @@ def mutate_order_print(data):
         finished=previous['finished'] if previous else 0
         allocated=previous['allocated'] if previous else 0
         assembled=previous['assembled'] if previous else 0
-        if action in ('allocate','printing'):
+        if action in ('allocate','printing','finish-direct'):
             chosen=db.execute('SELECT components_enabled FROM stock_listings WHERE id=?',(tx['listing_id'],)).fetchone()
             legacy=bool(previous and (previous['printing'] or previous['finished'] or previous['allocated']))
             if assembled or (not legacy and chosen and chosen['components_enabled'] and
@@ -1026,6 +1026,27 @@ def mutate_order_print(data):
             new_stock=row['on_hand']
             new_print=integer(row['in_print']+qty)
             printing+=qty
+        elif action=='finish-direct':
+            # Manual completion is allowed even when the print-start click was missed.
+            # First consume any already-running quantity; remaining quantity is
+            # marked printed without inventing a past in_print entry. Exactly the
+            # chosen pieces are finished and reserved for this transaction.
+            if tx['status']!='open':
+                raise ValueError('Nur offene Bestellungen können direkt fertiggemeldet werden.')
+            qty=integer(data.get('quantity'),1,tx['qty']-finished-allocated-assembled)
+            if row['on_hand'] is None:
+                if 'initial_stock' not in data:
+                    raise ValueError('Bitte zuerst den vorhandenen Lagerbestand erfassen.')
+                baseline=integer(data['initial_stock'],0,100000)
+            else:
+                baseline=row['on_hand']
+            consumed_printing=min(printing,qty)
+            printing-=consumed_printing
+            new_print=row['in_print']-consumed_printing
+            if new_print<0:
+                raise ValueError('Druckbestand nicht konsistent. Bitte Lager prüfen.')
+            finished+=qty
+            new_stock=integer(baseline+qty)
         elif action in ('finish','cancel'):
             qty=integer(data.get('quantity'),1,printing)
             if action=='finish' and row['on_hand'] is None and tx['status']!='shipped':
