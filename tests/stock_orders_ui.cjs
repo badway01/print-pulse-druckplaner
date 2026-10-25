@@ -40,7 +40,7 @@ const assert=require('node:assert/strict');
   await page.locator('[data-full-orders-filter="all"]').click();
   await page.locator('[data-full-order="order-a"]').click();
   assert.equal(await page.locator('#order-details').isVisible(),true);
-  assert.equal(await page.locator('#order-details .order-work-items .order-work-item').count(),2);
+  assert.equal(await page.locator('#order-details .simple-order-zoom-tiles .simple-order-tile').count(),2);
   await page.locator('[data-close="order-details"]').click();
   await page.locator('[data-workspace="production"]').click();
   assert.equal(await page.locator('#orders-shell').isVisible(),true);
