@@ -691,7 +691,7 @@ function orderPrintDialog(tid,action){
  $('quantity-label').textContent='#'+job.receiptId+' · '+found.p.title+' · '+found.i.label;
  const field=$('quantity-value');
  field.min=1;field.max=count;
- field.value=action==='printing'?Math.min(count,Math.max(1,found.i.need||count)):count;
+ field.value=count>1?1:count; // Start and finish partial quantities safely by default.
  const needsInitialStock=action==='finish'&&found.i.on_hand===null&&job.status!=='shipped';
  setInitialStockRequired(needsInitialStock);
  $('quantity-confirm').disabled=false;
@@ -1337,9 +1337,11 @@ async function runOrderQuick(button){
  if(!job||!found||!Number.isSafeInteger(qty)||qty<1){
   flash('Auftragsposition nicht verfügbar. Bitte Bestellungen aktualisieren.',true);return;
  }
- // For partial successes keep the quantity dialog so failed pieces are never
- // accidentally marked finished. Unknown initial stocks also need counting.
- if(action==='finish'&&(qty>1||found.i.on_hand===null)){
+ // Multi-unit actions always ask for the exact count. Never assume that
+ // two ordered pieces are both being printed, finished or taken from stock.
+ // An unknown initial stock also needs a deliberate count.
+ if((qty>1&&['printing','finish','allocate'].includes(action))||
+    (action==='finish'&&found.i.on_hand===null)){
   orderPrintDialog(tid,action);return;
  }
  const saved=await mutate('order-print',{
