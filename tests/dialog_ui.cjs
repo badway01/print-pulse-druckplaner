@@ -43,7 +43,7 @@ const assert=require('node:assert/strict');
   assert.equal(await local.isVisible(),true,'Escape must not discard edits without approval');
 
   page.once('dialog',async d=>{confirmation++;await d.accept();});
-  await page.locator('#local-order-dialog [data-close="local-order-dialog"]').click();
+  await page.locator('#local-order-dialog .dialog-heading [data-close="local-order-dialog"]').click();
   await local.waitFor({state:'hidden'});
   assert.equal(confirmation,3,'Close X also honors the edit guard');
 
