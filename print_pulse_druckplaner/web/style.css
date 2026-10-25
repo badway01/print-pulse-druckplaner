@@ -2066,3 +2066,51 @@ html[data-theme="dark"] .component-extra-settings{background:var(--surface-soft)
 @media(max-width:759px){
  .workspace-tabs button{flex:0 0 auto}
 }
+
+
+/* v0.12.10: one production state and one action per ordered position.
+   Cards stretch evenly in the horizontal carousel without covering photos. */
+.order-card-worklist{display:grid;gap:7px;margin:3px 0 11px;min-width:0}
+.order-card-work-line{display:flex;flex-direction:column;gap:5px;min-width:0;
+ padding:8px 9px;background:var(--surface-soft,#f6f7f2);
+ border:1px solid var(--line);border-radius:9px}
+.order-card-work-name{min-width:0}
+.order-card-work-name strong{display:block;font-size:11px;line-height:1.35;
+ color:var(--ink);overflow-wrap:anywhere}
+.order-card-work-name small{display:-webkit-box;-webkit-box-orient:vertical;
+ -webkit-line-clamp:2;overflow:hidden;font-size:10px;line-height:1.35;
+ color:var(--muted);overflow-wrap:anywhere;margin-top:2px}
+.order-card-work-controls{display:flex;align-items:center;
+ justify-content:space-between;gap:7px;flex-wrap:wrap;min-width:0}
+.order-card-work-status{display:inline-flex;align-items:center;min-width:0;
+ max-width:100%;padding:4px 7px;border-radius:6px;
+ font-size:10px;font-weight:750;line-height:1.25;
+ color:#576357;background:#e9eeea;overflow-wrap:anywhere}
+.order-card-work-status.printing{background:#e2ebf7;color:#275781}
+.order-card-work-status.ready{background:#dceee0;color:#235d39}
+.order-card-work-status.partial{background:#e9f0e6;color:#426b45}
+.order-card-work-status.component{background:#fbedd0;color:#7b601c}
+.order-card-work-status.check{background:#fae5de;color:#9a4d35}
+.order-card-work-controls .order-card-work-button{margin-left:auto;
+ width:auto;min-width:80px;max-width:100%;min-height:38px;padding:7px 10px;
+ font-size:11px;font-weight:750;line-height:1.15;white-space:normal;
+ background:var(--green);color:white;border-color:var(--green)}
+.order-card-work-controls .order-card-work-button.order-allocate{
+ background:#2b7656;border-color:#2b7656}
+.order-card-work-more{color:var(--muted);font-size:10px;padding:2px 3px}
+.order-card .order-card-actions{grid-template-columns:1fr}
+.order-card .order-card-actions .order-open{grid-column:1/-1;width:100%}
+.order-card .local-order-pdf-row{margin-top:0}
+.board-order .order-card-work-line{margin-top:4px}
+.board-order .order-card-work-controls{justify-content:space-between}
+.board-status.printing{background:#e2ebf7;color:#275781}
+html[data-theme="dark"] .order-card-work-line{background:var(--surface-soft,#283b32);
+ border-color:var(--border-strong,#52715e)}
+html[data-theme="dark"] .order-card-work-status{background:#395344;color:#ecf0e8}
+html[data-theme="dark"] .order-card-work-status.printing{background:#2a5066;color:#dfedfa}
+html[data-theme="dark"] .order-card-work-status.ready{background:#2c6443;color:#e6f5e9}
+html[data-theme="dark"] .order-card-work-status.partial{background:#36583b;color:#ebf6e9}
+html[data-theme="dark"] .order-card-work-status.component{background:#62532e;color:#faefcc}
+html[data-theme="dark"] .order-card-work-status.check{background:#663e34;color:#ffe3d5}
+html[data-theme="dark"] .board-status.printing{background:#2a5066;color:#dfedfa}
+@media(max-width:600px){.order-card-work-controls .order-card-work-button{min-height:42px}}
