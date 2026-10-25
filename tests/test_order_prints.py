@@ -222,6 +222,35 @@ class OrderPrintTests(unittest.TestCase):
         app.apply_snapshot(None,self.tx('shipped'),{'401'},orders=[])
         self.assertEqual(self.item()['on_hand'],0)
 
+    def test_accidental_direct_completion_can_be_corrected_piece_by_piece(self):
+        self.action('finish-direct',2)
+        self.assertEqual((self.item()['on_hand'],self.line()['finished']), (2,2))
+        self.action('reopen',1)
+        self.assertEqual((self.item()['on_hand'],self.line()['finished'],self.line()['remaining']), (1,1,1))
+        self.action('reopen',1)
+        self.assertEqual((self.item()['on_hand'],self.line()['finished'],self.line()['remaining']), (0,0,2))
+        with self.assertRaises(ValueError):
+            self.action('reopen',1)
+
+    def test_reopen_does_not_touch_allocated_inventory(self):
+        self.set_stock(3)
+        self.action('allocate',1)
+        self.action('finish-direct',1)
+        self.assertEqual((self.line()['allocated'],self.line()['finished'],self.item()['on_hand']), (1,1,3))
+        self.action('reopen',1)
+        self.assertEqual((self.line()['allocated'],self.line()['finished'],self.item()['on_hand']), (1,0,2))
+
+    def test_reopen_is_rejected_after_shipping_and_when_stock_is_missing(self):
+        self.action('finish-direct',2)
+        with app.connect() as db:
+            db.execute("UPDATE stock_items SET on_hand=0,revision=revision+1 WHERE id='101-white'")
+        with self.assertRaisesRegex(ValueError,'Lagerbestand'):
+            self.action('reopen',1)
+        self.set_stock(2)
+        app.apply_snapshot(None,self.tx('shipped'),{'401'},orders=[])
+        with self.assertRaisesRegex(ValueError,'Versand'):
+            self.action('reopen',1)
+
     def test_first_generic_finish_accepts_counted_initial_stock(self):
         iid=self.item()['id']
         app.mutate_stock({'id':iid,'action':'printing','quantity':1})
