@@ -111,6 +111,21 @@ class LocalOrderTests(unittest.TestCase):
         with app.connect() as db:
             self.assertEqual(app.local_orders.history(db)[0]['status'],'completed')
 
+    def test_custom_order_completion_can_be_reopened_without_stock_change(self):
+        oid=self.call(app.local_orders.create,self.payload([
+            {'listing_id':'101','item_id':'large','quantity':2,
+             'color':'Silber','personalization':'Gravur','note':''}]))['id']
+        tid=app.overview()['orders'][0]['items'][0]['transaction_id']
+        self.call(app.local_orders.custom_action,{'transaction_id':tid,'action_type':'finish-direct','quantity':2})
+        self.assertEqual(app.overview()['orders'][0]['items'][0]['finished'],2)
+        self.call(app.local_orders.custom_action,{'transaction_id':tid,'action_type':'reopen','quantity':1})
+        self.assertEqual(app.overview()['orders'][0]['items'][0]['finished'],1)
+        with self.assertRaises(ValueError):
+            self.call(app.local_orders.custom_action,{'transaction_id':tid,'action_type':'reopen','quantity':2})
+        self.call(app.local_orders.custom_action,{'transaction_id':tid,'action_type':'reopen','quantity':1})
+        self.assertEqual(app.overview()['orders'][0]['items'][0]['remaining'],2)
+        self.assertEqual(self.stock('large'),5)
+
     def test_direct_sale_is_idempotent_and_debits_exactly_once(self):
         body=self.payload([{'listing_id':'101','item_id':'small','quantity':2,
                             'color':'','personalization':'','note':''}],direct=True)
