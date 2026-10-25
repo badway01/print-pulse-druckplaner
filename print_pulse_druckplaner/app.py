@@ -1047,6 +1047,18 @@ def mutate_order_print(data):
                 raise ValueError('Druckbestand nicht konsistent. Bitte Lager prüfen.')
             finished+=qty
             new_stock=integer(baseline+qty)
+        elif action=='reopen':
+            # Undo a mistaken completion on this exact open order line. Finished
+            # customer pieces were counted in on_hand but are not free stock.
+            # Reverse both ledger and physical count in the same transaction.
+            if tx['status']!='open':
+                raise ValueError('Nach Versand oder Abschluss ist kein Rückgängig möglich.')
+            qty=integer(data.get('quantity'),1,finished)
+            if row['on_hand'] is None or row['on_hand']<qty:
+                raise ValueError('Lagerbestand reicht für die Rücknahme nicht aus. Bitte Bestand prüfen.')
+            finished-=qty
+            new_stock=row['on_hand']-qty
+            new_print=row['in_print']
         elif action in ('finish','cancel'):
             qty=integer(data.get('quantity'),1,printing)
             if action=='finish' and row['on_hand'] is None and tx['status']!='shipped':
