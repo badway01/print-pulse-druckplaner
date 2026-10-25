@@ -187,9 +187,25 @@ async function localAction(data){
 $('order-details-content').addEventListener('click',async event=>{
  const action=event.target.closest('[data-local-custom-action]');
  if(action){
-  const qty=Number(action.dataset.localCustomQuantity);
+  const available=Number(action.dataset.localCustomQuantity);
+  if(!Number.isSafeInteger(available)||available<1)return;
+  const type=action.dataset.localType;
+  // Mark only the units actually started/finished. On a 2-piece order,
+  // printing one must never silently commit both pieces.
+  let qty=available;
+  if(available>1){
+   const question=type==='start'?'Wie viele Stück nimmst du jetzt in Druck?':
+    type==='finish'?'Wie viele Stück sind wirklich fertig?':
+    'Wie viele laufende Stücke möchtest du abbrechen?';
+   const answer=prompt(question+' (1–'+available+')','1');
+   if(answer===null)return;
+   qty=Number(answer);
+   if(!Number.isSafeInteger(qty)||qty<1||qty>available){
+    flash('Bitte eine ganze Stückzahl von 1 bis '+available+' eingeben.',true);return;
+   }
+  }
   await localAction({action:'custom-job',transaction_id:action.dataset.localCustomAction,
-   action_type:action.dataset.localType,quantity:qty});
+   action_type:type,quantity:qty});
   return;
  }
  const meta=event.target.closest('[data-local-edit]');
