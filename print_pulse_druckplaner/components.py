@@ -275,6 +275,59 @@ def mutate(db,data,whole):
     if existing and (existing['printing'] or existing['finished'] or existing['allocated']):
         raise ValueError('Diese Position nutzt bereits die klassische Lager-/Druckverwaltung.')
 
+    if action=='quick-complete':
+        # Explicit confirmation that the requested physical units are complete.
+        # Reserve available pre-produced stock and settle any demand components
+        # even if a manual "print started" click was forgotten. No free finished
+        # article is created; all parts are consumed by this precise order.
+        count=whole(data.get('quantity'),1,10000)
+        assembled=existing['assembled'] if existing else 0
+        if count>tx['qty']-assembled:
+            raise ValueError('Mehr Einheiten als noch offen sind.')
+        changes=[]
+        for part in parts:
+            required,_,err=requirement(part,line)
+            if err: raise ValueError(err)
+            job=db.execute('SELECT * FROM pp_component_orders WHERE transaction_id=? AND component_id=?',
+                           (tid,part['id'])).fetchone()
+            booked=job['booked'] if job else 0
+            printing=job['printing'] if job else 0
+            finished=job['finished'] if job else 0
+            consumed=job['consumed'] if job else 0
+            units=count*(required//tx['qty'])
+            if part['kind']=='stock':
+                available=booked-consumed
+                reserve=max(0,units-available)
+                if reserve>part['stock']:
+                    raise ValueError('Nicht genügend Bauteile im Vorrat: '+part['name']+
+                                     '. Bitte zuerst den Bauteilbestand prüfen.')
+                booked+=reserve
+            else:
+                reserve=0
+                outstanding=max(0,units-(finished-consumed))
+                printing-=min(printing,outstanding)
+                finished+=outstanding
+                if finished>required:
+                    raise ValueError('Bauteilmenge überschritten: '+part['name'])
+            consumed+=units
+            changes.append((part['id'],part['kind'],reserve,booked,printing,finished,consumed))
+        for cid,kind,reserve,booked,printing,finished,consumed in changes:
+            if reserve:
+                db.execute('UPDATE pp_components SET stock=stock-?,updated=? WHERE id=?',
+                           (reserve,int(time.time()),cid))
+            db.execute("""INSERT INTO pp_component_orders
+                (transaction_id,component_id,booked,printing,finished,consumed)
+                VALUES(?,?,?,?,?,?) ON CONFLICT(transaction_id,component_id) DO UPDATE SET
+                booked=excluded.booked,printing=excluded.printing,
+                finished=excluded.finished,consumed=excluded.consumed""",
+                (tid,cid,booked,printing,finished,consumed))
+        db.execute("""INSERT INTO stock_order_prints
+            (transaction_id,receipt_id,item_id,printing,finished,allocated,assembled,updated)
+            VALUES(?,?,?,0,0,0,?,?) ON CONFLICT(transaction_id) DO UPDATE
+            SET assembled=assembled+excluded.assembled,updated=excluded.updated""",
+            (tid,tx['receipt_id'],tx['item_id'],count,int(time.time())))
+        return
+
     if action=='assemble':
         count=whole(data.get('quantity'),1,10000)
         assembled=existing['assembled'] if existing else 0
