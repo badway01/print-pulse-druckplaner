@@ -1,3 +1,11 @@
+## 0.12.13 · Fertigmeldung je Bestellposition rückgängig machen
+
+- Dezenter Button „↶ Fertig rückgängig“ im Positionsdialog, inklusive Stückzahlkorrektur für Teilmengen.
+- Normaler Auftragsdruck: atomare Rücknahme von fertigen Kundenstücken und dem zugehörigen gezählten Fertigwarenbestand; kein erneuter Druckauftrag und keine Doppeleinlagerung.
+- Bauteilaufträge: Fertigmenge zurücksetzen und zuvor verbrauchte, dem Auftrag zugeordnete Bauteile wieder für den Auftrag freigeben, ohne freien Bestand künstlich zu erhöhen.
+- Lokale Sonderanfertigungen: Fertigmenge wieder auf offen setzen, ohne Fertigwarenbestand anzufassen.
+- Schutz vor doppeltem Rückgängig, ungültigen Mengen, versendeten Aufträgen und negativen Beständen; Regressionstests für alle drei Produktionsarten.
+
 # 0.12.9 · Einzeilige Navigation und Dashboard
 
 - Dashboard statt „Aufträge & Druckplan“.
