@@ -302,10 +302,11 @@ def mutate(db,data,whole):
         return
 
     if action=='quick-complete':
-        # Explicit confirmation that the requested physical units are complete.
-        # Reserve available pre-produced stock and settle any demand components
-        # even if a manual "print started" click was forgotten. No free finished
-        # article is created; all parts are consumed by this precise order.
+        # Physical goods are already finished for this exact customer order.
+        # Missing component-stock entries must NEVER prevent confirmation:
+        # confirming does not produce new free stock and does not invent
+        # components in stock. Existing booked/finished components, if any,
+        # are settled only up to their already confirmed quantities.
         count=whole(data.get('quantity'),1,10000)
         assembled=existing['assembled'] if existing else 0
         if count>tx['qty']-assembled:
@@ -313,40 +314,36 @@ def mutate(db,data,whole):
         changes=[]
         for part in parts:
             required,_,err=requirement(part,line)
-            if err: raise ValueError(err)
+            # Directly completed physical goods are valid even when the
+            # optional component definition has an invalid Etsy-property
+            # mapping. Do not guess any matching parts in that situation.
+            if err: continue
             job=db.execute('SELECT * FROM pp_component_orders WHERE transaction_id=? AND component_id=?',
                            (tid,part['id'])).fetchone()
-            booked=job['booked'] if job else 0
-            printing=job['printing'] if job else 0
-            finished=job['finished'] if job else 0
-            consumed=job['consumed'] if job else 0
+            if not job: continue
+            booked,printing,finished,consumed=(job[k] for k in ('booked','printing','finished','consumed'))
             units=count*(required//tx['qty'])
             if part['kind']=='stock':
-                available=booked-consumed
-                reserve=max(0,units-available)
-                if reserve>part['stock']:
-                    raise ValueError('Nicht genügend Bauteile im Vorrat: '+part['name']+
-                                     '. Bitte zuerst den Bauteilbestand prüfen.')
-                booked+=reserve
+                # These units were already removed from the free component
+                # inventory when booked. Never debit free stock here.
+                used=min(units,max(0,booked-consumed))
+                if used: changes.append((part['id'],booked,printing,finished,consumed+used))
             else:
-                reserve=0
-                outstanding=max(0,units-(finished-consumed))
-                printing-=min(printing,outstanding)
-                finished+=outstanding
-                if finished>required:
-                    raise ValueError('Bauteilmenge überschritten: '+part['name'])
-            consumed+=units
-            changes.append((part['id'],part['kind'],reserve,booked,printing,finished,consumed))
-        for cid,kind,reserve,booked,printing,finished,consumed in changes:
-            if reserve:
-                db.execute('UPDATE pp_components SET stock=stock-?,updated=? WHERE id=?',
-                           (reserve,int(time.time()),cid))
-            db.execute("""INSERT INTO pp_component_orders
-                (transaction_id,component_id,booked,printing,finished,consumed)
-                VALUES(?,?,?,?,?,?) ON CONFLICT(transaction_id,component_id) DO UPDATE SET
-                booked=excluded.booked,printing=excluded.printing,
-                finished=excluded.finished,consumed=excluded.consumed""",
-                (tid,cid,booked,printing,finished,consumed))
+                # A physical finished product cannot still have these demand
+                # parts "printing". Clear only the relevant running quantity;
+                # consume ONLY previously finished/recorded demand parts.
+                stopped=min(printing,units)
+                printing-=stopped
+                used=min(units,max(0,finished-consumed))
+                if stopped or used:
+                    changes.append((part['id'],booked,printing,finished,consumed+used))
+        for cid,booked,printing,finished,consumed in changes:
+            db.execute("""UPDATE pp_component_orders
+                SET booked=?,printing=?,finished=?,consumed=?
+                WHERE transaction_id=? AND component_id=?""",
+                (booked,printing,finished,consumed,tid,cid))
+        # assembled is customer-assigned, NOT new shelf inventory. The
+        # regular shipment/collection process must not subtract it again.
         db.execute("""INSERT INTO stock_order_prints
             (transaction_id,receipt_id,item_id,printing,finished,allocated,assembled,updated)
             VALUES(?,?,?,0,0,0,?,?) ON CONFLICT(transaction_id) DO UPDATE
