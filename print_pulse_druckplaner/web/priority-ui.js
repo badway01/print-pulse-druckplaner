@@ -140,6 +140,13 @@ function priorityCandidates(snapshot){
   String(a.title).localeCompare(String(b.title),'de'));
  return out;
 }
+// Keep product/variant identities stable when quantities or rankings change.
+ // Customer orders are intentionally not dismissible: they must never be hidden.
+function priorityKey(item){
+ if(item.tier===2&&item.type==='part')return 'part:'+item.listingId+':'+item.partId;
+ if(item.tier===3&&item.type==='variant')return 'variant:'+item.listingId+':'+item.itemId;
+ return '';
+}
 function priorityCard(item,index){
  const isOrder=item.tier===1;
  const group=isOrder?'Kundenauftrag':item.tier===2?'Vorproduktion':'Fertigwarenlager';
@@ -156,14 +163,21 @@ function priorityCard(item,index){
    '<b title="'+esc(item.title)+'">'+esc(item.qty)+' × '+esc(item.title)+'</b>'+
    '<small>'+esc(item.note||'')+'</small>'+
    '<small class="priority-reason">'+esc(details)+'</small></div>'+
+   '<div class="priority-actions">'+
    '<button type="button" class="secondary priority-jump" data-priority-index="'+index+'" aria-label="'+esc(button+' für '+item.title)+'">'+esc(button)+' ↗</button>'+
-   '</article>';
+   (priorityKey(item)?'<button type="button" class="priority-dismiss" data-priority-remove="'+index+'" title="Empfehlung entfernen" aria-label="'+esc('Empfehlung entfernen: '+item.title+' · '+(item.note||''))+'">'+
+    '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m5 4v6m4-6v6"/></svg></button>':'')+
+   '</div></article>';
 }
 let currentPriorities=[];
+let prioritySaving=false;
 function renderPriorityUI(){
  const shell=$('priority-shell');
  if(!shell||!model)return;
- currentPriorities=priorityCandidates(model);
+ const all=priorityCandidates(model);
+ const dismissed=new Set(model.priority_dismissed||[]);
+ const hidden=all.filter(item=>priorityKey(item)&&dismissed.has(priorityKey(item)));
+ currentPriorities=all.filter(item=>!dismissed.has(priorityKey(item)));
  const total=currentPriorities.length;
  const shown=priorityExpanded?currentPriorities:currentPriorities.slice(0,3);
  $('priority-count').textContent=total?total+(total===1?' Vorschlag':' Vorschläge'):'Alles im Blick';
@@ -173,6 +187,32 @@ function renderPriorityUI(){
  more.hidden=total<=3;
  more.textContent=priorityExpanded?'Weniger anzeigen':'Alle '+total+' Vorschläge anzeigen';
  more.setAttribute('aria-expanded',String(priorityExpanded));
+ const panel=$('priority-hidden');
+ panel.hidden=hidden.length===0;
+ $('priority-hidden-count').textContent=hidden.length;
+ updateHTML($('priority-hidden-list'),hidden.map(item=>
+  '<div class="priority-hidden-row"><span>'+esc(item.title)+(item.note?' · '+esc(item.note):'')+
+  '</span><button type="button" class="secondary small" data-priority-restore="'+esc(priorityKey(item))+
+  '" aria-label="'+esc('Empfehlung wieder anzeigen: '+item.title)+'">Wieder anzeigen</button></div>').join(''));
+}
+async function changePriorityDismissal(key,action){
+ if(prioritySaving||busy||!key)return;
+ prioritySaving=true;
+ busy=true;
+ modelEpoch++; // An older dashboard poll must not undo a freshly saved dismissal.
+ try{
+  const result=await api('priority-dismiss',{key,action});
+  if(!Array.isArray(result.priority_dismissed))throw Error('Unvollständige Serverantwort.');
+  model.priority_dismissed=result.priority_dismissed;
+  lastModelSignature=''; // Next scheduled refresh will reconcile the new state.
+  renderPriorityUI();
+  flash(action==='dismiss'?'Empfehlung entfernt. Nächster Vorschlag ist nachgerückt.':'Empfehlung wieder eingeblendet.');
+ }catch(err){
+  flash('Empfehlung konnte nicht gespeichert werden: '+err.message,true);
+ }finally{
+  prioritySaving=false;
+  busy=false;
+ }
 }
 function openPriority(item){
  if(!item)return;
@@ -202,10 +242,23 @@ $('priority-more').addEventListener('click',()=>{
  priorityExpanded=!priorityExpanded;renderPriorityUI();
 });
 $('priority-list').addEventListener('click',event=>{
+ const remove=event.target.closest('[data-priority-remove]');
+ if(remove){
+  const index=Number(remove.dataset.priorityRemove);
+  if(Number.isSafeInteger(index)&&index>=0){
+   const item=currentPriorities[index];
+   if(item)changePriorityDismissal(priorityKey(item),'dismiss');
+  }
+  return;
+ }
  const button=event.target.closest('[data-priority-index]');
  if(!button)return;
  const index=Number(button.dataset.priorityIndex);
  if(Number.isSafeInteger(index)&&index>=0)openPriority(currentPriorities[index]);
+});
+$('priority-hidden-list').addEventListener('click',event=>{
+ const restore=event.target.closest('[data-priority-restore]');
+ if(restore)changePriorityDismissal(restore.dataset.priorityRestore,'restore');
 });
 const normalOrdersRender=renderOrders;
 renderOrders=function(){
