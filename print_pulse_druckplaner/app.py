@@ -268,6 +268,10 @@ def init_db():
           printer TEXT NOT NULL,filename TEXT NOT NULL,relative_path TEXT NOT NULL UNIQUE,
           bytes INTEGER NOT NULL,created INTEGER NOT NULL);
         CREATE INDEX IF NOT EXISTS master_files_listing ON master_files(listing_id);
+        -- Dismissed suggestions are only a display preference. Nothing is
+        -- removed from Etsy orders, product stock or print reservations.
+        CREATE TABLE IF NOT EXISTS priority_dismissals(
+          key TEXT PRIMARY KEY, dismissed_at INTEGER NOT NULL);
         """)
         components.schema(db)
         local_orders.schema(db)
@@ -813,6 +817,8 @@ def overview():
         cooldown=int(cfg(db,'etsy_rate_limit_until','0'))
         action=db.execute('SELECT * FROM stock_actions WHERE undone=0 ORDER BY created DESC,rowid DESC LIMIT 1').fetchone()
         undo=None
+        priority_dismissed=[r['key'] for r in db.execute(
+            'SELECT key FROM priority_dismissals ORDER BY dismissed_at DESC,key')]
         if action:
             item=db.execute('SELECT revision FROM stock_items WHERE id=?',(action['item_id'],)).fetchone()
             if item and item['revision']==action['after_revision']:
@@ -919,7 +925,7 @@ def overview():
         components.snapshot(db,listings,orders)
         local_orders.enrich(db,orders)
     with STATUS_LOCK: status=dict(STATUS)
-    return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'etsy_alert_percent':etsy_percent,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'version':'0.1'}
+    return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'etsy_alert_percent':etsy_percent,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'priority_dismissed':priority_dismissed,'version':'0.1'}
 
 
 def mutate_stock(data):
@@ -2037,6 +2043,24 @@ class Handler(BaseHTTPRequestHandler):
                     elif action=='custom-job': result=local_orders.custom_action(db,data)
                     else:raise ValueError('Unbekannte lokale Bestellaktion.')
                 return self.send(200,{'result':result,'overview':overview()})
+            if path=='/api/priority-dismiss':
+                key=data.get('key')
+                action=data.get('action')
+                if type(key) is not str or not re.fullmatch(
+                        r'(?:variant|part):[A-Za-z0-9._:-]{1,100}:[A-Za-z0-9._:-]{1,100}',key):
+                    raise ValueError('Ungültige Empfehlung.')
+                if action not in ('dismiss','restore'):
+                    raise ValueError('Ungültige Empfehlungsaktion.')
+                with connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    if action=='dismiss':
+                        db.execute('INSERT OR IGNORE INTO priority_dismissals(key,dismissed_at) VALUES (?,?)',
+                                   (key,int(time.time())))
+                    else:
+                        db.execute('DELETE FROM priority_dismissals WHERE key=?',(key,))
+                    dismissed=[r['key'] for r in db.execute(
+                        'SELECT key FROM priority_dismissals ORDER BY dismissed_at DESC,key')]
+                return self.send(200,{'priority_dismissed':dismissed})
             if path=='/api/printer-config':
                 return self.send(200,save_printer_bindings(data))
             if path=='/api/print-profile':
