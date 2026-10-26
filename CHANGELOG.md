@@ -1,3 +1,10 @@
+## 0.12.14 · Druckempfehlungen ausblenden und nachrücken lassen
+
+- Kleiner Papierkorb neben „Druck vorbereiten“ bzw. „Bauteil öffnen“ bei Empfehlungen für Lagerauffüllung und Vorproduktion.
+- Entfernte Vorschläge werden serverseitig gespeichert, auch nach Neuladen oder beim Wechsel zwischen Tablet, Mac und iPhone ausgeblendet und durch den nächsten passenden Vorschlag ersetzt.
+- „Ausgeblendete Empfehlungen“ erlaubt das gezielte Wiederherstellen. Tatsächliche Kundenaufträge bleiben sichtbar und können nicht versehentlich entfernt werden.
+- Keine Löschung von Etsy-Artikeln, Lagerbeständen oder Buchungen. Neue Regressionstests prüfen Speichern, wiederholtes Ausblenden und Wiederherstellen.
+
 ## 0.12.13 · Fertigmeldung je Bestellposition rückgängig machen
 
 - Dezenter Button „↶ Fertig rückgängig“ im Positionsdialog, inklusive Stückzahlkorrektur für Teilmengen.
