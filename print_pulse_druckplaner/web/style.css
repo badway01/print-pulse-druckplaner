@@ -1322,6 +1322,28 @@ html[data-theme="dark"] .component-card-kicker{color:#bbd9c4}
 .priority-description>small{display:block;color:var(--muted);font-size:11px;line-height:1.45}
 .priority-description .priority-reason{font-size:10px}
 .priority-jump{min-height:43px;white-space:nowrap;padding:8px 12px;font-size:11px}
+.priority-actions{display:flex;gap:8px;align-items:center;justify-self:start;min-width:0}
+.priority-dismiss{
+ width:43px;height:43px;flex:0 0 43px;padding:10px;
+ border:1px solid var(--line);border-radius:9px;
+ background:transparent;color:var(--muted);cursor:pointer;
+ display:inline-flex;align-items:center;justify-content:center;
+}
+.priority-dismiss svg{display:block;width:18px;height:18px}
+.priority-dismiss:hover,.priority-dismiss:focus-visible{
+ color:#ab4e42;border-color:#ab4e42;background:rgba(171,78,66,.08)
+}
+.priority-hidden{margin-top:9px;border-top:1px solid var(--line);padding-top:9px}
+.priority-hidden[hidden]{display:none!important}
+.priority-hidden>summary{cursor:pointer;font-size:11px;color:var(--muted);font-weight:650;padding:6px}
+.priority-hidden-list{margin-top:6px;display:grid;gap:6px}
+.priority-hidden-row{
+ display:flex;justify-content:space-between;align-items:center;gap:10px;
+ background:var(--surface-soft,#f1f3ee);border-radius:8px;padding:9px;
+ color:var(--muted);font-size:11px;line-height:1.4;
+}
+.priority-hidden-row span{min-width:0;overflow-wrap:anywhere}
+.priority-hidden-row button{flex-shrink:0}
 .priority-more{display:block;margin:8px auto 0;min-height:42px;font-size:12px}
 .priority-more[hidden]{display:none!important}
 .priority-empty{margin:0;padding:10px 12px;color:var(--muted);font-size:12px}
@@ -1340,7 +1362,10 @@ html[data-theme="dark"] .priority-number,
 html[data-theme="dark"] .priority-count{color:#b6dfc5}
 @container (max-width:530px){
  .priority-shell .priority-item{grid-template-columns:23px minmax(0,1fr)}
- .priority-shell .priority-jump{grid-column:2;justify-self:start;min-height:42px}
+ .priority-shell .priority-actions{grid-column:2;justify-self:start}
+ .priority-shell .priority-jump{min-height:42px}
+ .priority-shell .priority-dismiss{width:42px;height:42px;flex-basis:42px}
+ .priority-hidden-row{align-items:flex-start;flex-direction:column}
 }
 @container (max-width:345px){
  .priority-shell .priority-head{align-items:flex-start;gap:5px}
