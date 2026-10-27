@@ -16,7 +16,8 @@ const econFieldLabels={
 const econDefaults={batch_units:1,minutes:0,power_watts:120,energy_eur_kwh:.35,
  machine_eur_hour:0,labor_minutes:0,labor_eur_hour:0,packaging_eur:0,
  other_eur:0,selling_eur:0,shipping_paid_eur:0,shipping_cost_eur:0,
- etsy_percent:0,etsy_fixed_eur:0,additional_fee_eur:0};
+ etsy_percent:10.5,etsy_fixed_eur:.30,additional_fee_eur:0,
+ etsy_enabled:0,offsite_percent:0,listing_fee_eur:0,units_per_order:1};
 const econMoney=value=>value===null||!Number.isFinite(Number(value))?'—':Number(value).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
 const econNum=(value,fallback=0)=>{const n=Number(String(value??'').replace(',','.'));return Number.isFinite(n)&&n>=0?n:fallback;};
 function econProduct(){return (model?.products||[]).find(p=>String(p.id)===$('econ-product').value);}
@@ -83,6 +84,40 @@ function econRenderPrinterChecklist(){
     '<b>'+esc(name)+'</b><small>'+esc(label)+(row&&row.variant_id!==variant?' · Standard':'')+'</small></button>';
   }).join('');
 }
+
+function econDurationDisplay(total){
+ const minutes=Math.max(0,Math.round(econNum(total)));
+ return Math.floor(minutes/60)+' Std. '+String(minutes%60).padStart(2,'0')+' Min.';
+}
+function econSetMode(enabled){
+ $('econ-etsy-toggle').checked=Boolean(enabled);
+ $('econ-etsy-details').hidden=!enabled;
+}
+function econRenderFeeRates(){
+ const rates=economyData?.etsy_fees||{};
+ const checked=rates.checked_at?new Date(rates.checked_at*1000).toLocaleString('de-DE'):'Ausgangswerte geprüft am 27.10.2026';
+ $('econ-fees-checked').textContent='Gebührenstand: '+checked;
+ const listing=rates.listing_eur===null||rates.listing_eur===undefined
+  ?'Umrechnung ausstehend – Online-Update erforderlich'
+  :econMoney(rates.listing_eur)+' je verkauftem Stück';
+ $('econ-fees-status').innerHTML='<span>Transaktion: <b>'+econNum(rates.transaction_percent,6.5)+' %</b></span>'+
+  '<span>Zahlungsbearbeitung: <b>'+econNum(rates.payments_percent,4)+' % + '+econMoney(rates.payments_fixed_eur??.30)+'/Bestellung</b></span>'+
+  '<span>Listing: <b>'+econMoney(rates.listing_usd??.20).replace('€','USD')+' (USD; '+esc(listing)+')</b></span>'+
+  '<span>Offsite Ads: <b>'+econNum(rates.offsite_standard_percent,15)+' % / '+econNum(rates.offsite_reduced_percent,12)+' %</b></span>';
+ const selected=$('econ-offsite').value;
+ $('econ-offsite').innerHTML='<option value="0">Keine Offsite Ads</option>'+
+  '<option value="'+econNum(rates.offsite_standard_percent,15)+'">'+econNum(rates.offsite_standard_percent,15)+' % (unter 10.000 USD)</option>'+
+  '<option value="'+econNum(rates.offsite_reduced_percent,12)+'">'+econNum(rates.offsite_reduced_percent,12)+' % (ab 10.000 USD)</option>';
+ $('econ-offsite').value=selected||'0';
+}
+function econApplyFeeRates(){
+ const f=$('econ-form').elements,r=economyData?.etsy_fees||{};
+ f.etsy_percent.value=econNum(r.transaction_percent,6.5)+econNum(r.payments_percent,4);
+ f.etsy_fixed_eur.value=econNum(r.payments_fixed_eur,.30);
+ f.listing_fee_eur.value=econNum(r.listing_eur,0);
+ econRenderFeeRates();
+}
+
 function econLoadProfile(){
  economyProfile=econPick();
  const fields={...econDefaults,...(economyProfile?.fields||{})};
@@ -91,6 +126,10 @@ function econLoadProfile(){
   const input=form.elements.namedItem(key);
   if(input)input.value=value;
  }
+ $('econ-hours').value=Math.floor(econNum(fields.minutes)/60);
+ $('econ-minutes').value=Math.round(econNum(fields.minutes)%60);
+ econSetMode(Boolean(fields.etsy_enabled));
+ if(!economyProfile)econApplyFeeRates();else econRenderFeeRates();
  form.elements.namedItem('status').value=economyProfile?.status||'untested';
  form.elements.namedItem('notes').value=economyProfile?.notes||'';
  economyMaterials=economyProfile?economyProfile.materials.map(m=>({...m})):econSuggestionMaterials();
@@ -101,12 +140,17 @@ function econLoadProfile(){
 }
 function econFields(){
  const form=$('econ-form'),result={};
- for(const key of Object.keys(econDefaults))result[key]=econNum(form.elements.namedItem(key)?.value,econDefaults[key]);
+ for(const key of Object.keys(econDefaults)){
+  if(key==='minutes'||key==='etsy_enabled')continue;
+  result[key]=econNum(form.elements.namedItem(key)?.value,econDefaults[key]);
+ }
+ result.minutes=Math.floor(econNum($('econ-hours').value))*60+Math.min(59,Math.floor(econNum($('econ-minutes').value)));
+ result.etsy_enabled=$('econ-etsy-toggle').checked?1:0;
  return result;
 }
 function econCalculation(){
- const f=econFields(),units=Math.max(1,f.batch_units||1);
- const details=[],missing=[];
+ const f=econFields(),units=Math.max(1,f.batch_units||1),orderUnits=Math.max(1,f.units_per_order||1);
+ const missing=[];
  let material=0;
  for(const part of economyMaterials){
   const filament=economyData.filaments.find(x=>x.id===Number(part.filament_id));
@@ -114,42 +158,50 @@ function econCalculation(){
   if(filament.price_cents===null){
    missing.push(filament.brand+' · '+filament.color);continue;
   }
-  const amount=econNum(part.grams);
-  const grams=econNum(part.spool_g,1000)||1000;
-  const euros=amount*filament.price_cents/100/grams;
-  material+=euros;details.push({name:filament.color,amount:euros/units});
+  material+=econNum(part.grams)*filament.price_cents/100/(econNum(part.spool_g,1000)||1000);
  }
  const incomplete=missing.length>0||!economyMaterials.some(m=>Number(m.filament_id)&&econNum(m.grams)>0)||
-  !f.minutes||!f.selling_eur;
+  !f.minutes||(f.etsy_enabled&&!f.selling_eur);
  const energy=f.minutes/60*f.power_watts/1000*f.energy_eur_kwh/units;
  const machine=f.minutes/60*f.machine_eur_hour/units;
- const labor=f.labor_minutes/60*f.labor_eur_hour/units;
- const fees=(f.selling_eur+f.shipping_paid_eur)*f.etsy_percent/100+f.etsy_fixed_eur+f.additional_fee_eur;
- const others=f.packaging_eur+f.other_eur+f.shipping_cost_eur;
- const total=material/units+energy+machine+labor+fees+others;
- const income=f.selling_eur+f.shipping_paid_eur;
- return {material:material/units,energy,machine,labor,fees,others,total,income,
-  contribution:income-total,incomplete,missing};
+ const print=material/units+energy+machine;
+ const labor=f.etsy_enabled?f.labor_minutes/60*f.labor_eur_hour:0;
+ const income=f.etsy_enabled?f.selling_eur+f.shipping_paid_eur/orderUnits:0;
+ const fees=f.etsy_enabled?
+  income*(f.etsy_percent+f.offsite_percent)/100+f.etsy_fixed_eur/orderUnits+
+   f.listing_fee_eur+f.additional_fee_eur:0;
+ const others=f.etsy_enabled?
+  f.packaging_eur+f.other_eur+f.shipping_cost_eur/orderUnits:0;
+ const total=print+labor+fees+others;
+ return {material:material/units,energy,machine,print,labor,fees,others,total,income,
+  contribution:income-total,incomplete,missing,enabled:Boolean(f.etsy_enabled)};
 }
 function econPreview(){
  if(!economyData)return;
- const result=econCalculation(),c=$('econ-results');
+ const r=econCalculation(),c=$('econ-results'),validMat=!r.missing.length;
  const row=(name,value)=>'<div class="econ-result-row"><span>'+esc(name)+'</span><strong>'+econMoney(value)+'</strong></div>';
- c.innerHTML=
-  (result.incomplete?'<div class="econ-warning">Kalkulation noch unvollständig: Bitte Materialverbrauch, Druckzeit, Verkaufspreis'+
-   (result.missing.length?' und Filamentpreise ('+esc(result.missing.join(', '))+')':'')+' prüfen. Vorher sind Gewinnzahlen nur Entwürfe.</div>':'')+
-  row('Material pro Stück',result.missing.length?null:result.material)+
-  row('Strom',result.energy)+row('Maschine',result.machine)+
-  row('Arbeitszeit',result.labor)+row('Verpackung, Versand und Sonstiges',result.others)+
-  row('Gebühren',result.fees)+
-  '<div class="econ-total">'+row('Herstellung + Vertrieb',result.missing.length?null:result.total)+
-  row('Erlös',result.income)+row('Deckungsbeitrag vor Steuern',result.incomplete?null:result.contribution)+'</div>'+
-  '<small>Berechnungsbasis je verkauftem Stück, keine automatische Steuerberatung. Die Gebührensätze sind individuell einzutragen.</small>';
+ const warning=r.incomplete?'<div class="econ-warning">Bitte Filament, Gramm, Druckzeit'+
+  (r.enabled?', Verkaufspreis':'')+(r.missing.length?' und Filamentpreis ('+esc(r.missing.join(', '))+')':'')+
+  ' prüfen. Fehlende Angaben werden nicht als bestätigte Kosten behandelt.</div>':'';
+ c.innerHTML=warning+
+  row('Material pro Stück',validMat?r.material:null)+row('Strom',r.energy)+row('Maschine',r.machine)+
+  '<div class="econ-total">'+row('Reine Druckkosten / Stück',validMat?r.print:null)+'</div>'+
+  (r.enabled?
+   row('Arbeitszeit',r.labor)+row('Verpackung, Versand und Sonstiges',r.others)+
+   row('Etsy-Gebühren inkl. gewählter Offsite Ads',r.fees)+
+   '<div class="econ-total">'+row('Herstellung + Vertrieb',validMat?r.total:null)+
+   row('Erlös je Stück inkl. Versandanteil',r.income)+
+   row('Deckungsbeitrag vor Steuern',r.incomplete?null:r.contribution)+'</div>':'')+
+  '<small>'+(r.enabled?
+   'Etsy-Modus: Standard-Etsy-Gebühren sind hinterlegt. Etwaige Umsatzsteuer auf Gebühren, Etsy Ads-Klickkosten oder Etsy Plus gegebenenfalls separat eintragen.':
+   'Nur Druckkosten. Verkauf, Verpackung, Arbeitszeit und Etsy-Gebühren sind ausgeschaltet.')+'</small>'+
+  (r.enabled&&!econNum(economyData.etsy_fees?.listing_eur,0)?
+   '<p class="econ-fee-warning">Die 0,20 USD Listinggebühr ist noch nicht in Euro umgerechnet. Bitte „Gebühren online aktualisieren“ wählen.</p>':'');
  const comparisons=(economyData.profiles||[]).filter(p=>p.listing_id===$('econ-product').value&&
   p.variant_id===$('econ-variant').value&&p.status==='approved');
  $('econ-comparison').innerHTML=comparisons.length?
-  comparisons.map(p=>'<div class="econ-compare-row"><strong>'+esc(p.printer)+'</strong><span>'+esc(p.result.minutes_per_unit??'—')+' Min./Stück</span>'+
-   '<span>'+econMoney(p.result.total_eur)+'</span><span class="econ-verified">✓ Druck freigegeben</span></div>').join(''):
+  comparisons.map(p=>'<div class="econ-compare-row"><strong>'+esc(p.printer)+'</strong><span>'+econDurationDisplay(p.result.minutes_per_unit??0)+'/Stück</span>'+
+   '<span>'+econMoney(p.result.print_eur??p.result.total_eur)+'</span><span class="econ-verified">✓ Druck freigegeben</span></div>').join(''):
   '<p class="hint">Noch keine erfolgreich getesteten Drucker für diese Ausführung hinterlegt.</p>';
 }
 function econRenderInvestmentList(){
@@ -272,6 +324,20 @@ $('econ-materials').addEventListener('click',event=>{
  economyMaterials.splice(Number(button.dataset.econRemove),1);econRenderMaterials();econPreview();
 });
 $('econ-form').addEventListener('input',econPreview);
+$('econ-etsy-toggle').addEventListener('change',()=>{
+ econSetMode($('econ-etsy-toggle').checked);
+ econPreview();
+});
+$('econ-fees-refresh').addEventListener('click',async()=>{
+ const button=$('econ-fees-refresh');
+ button.disabled=true;button.textContent='Prüfe Etsy …';
+ try{
+  economyData=await api('economics',{action:'refresh-etsy-fees'});
+  econApplyFeeRates();econPreview();
+  flash('Etsy-Gebühren und EZB-Kurs erfolgreich geprüft. Werte in der aktuellen Maske aktualisiert; bitte speichern.');
+ }catch(err){flash('Online-Update nicht möglich: '+err.message,true);}
+ finally{button.disabled=false;button.textContent='Gebühren online aktualisieren';}
+});
 $('econ-form').addEventListener('submit',async event=>{
  event.preventDefault();
  const data={
