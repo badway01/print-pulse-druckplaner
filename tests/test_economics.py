@@ -94,6 +94,10 @@ class EconomicsTest(unittest.TestCase):
         economics.mutate(self.db, {"action": "delete-investment", "id": inv["id"]})
         self.assertEqual(economics.read(self.db)["investments"], [])
 
+    def test_home_assistant_image_contains_cost_engine(self):
+        dockerfile = (MODULE.parent / "Dockerfile").read_text()
+        self.assertIn("COPY economics.py ./economics.py", dockerfile)
+
     def test_economics_does_not_touch_inventory(self):
         self.save()
         counts = {name:self.db.execute("SELECT COUNT(*) FROM "+name).fetchone()[0]
