@@ -161,7 +161,7 @@ function econCalculation(){
   material+=econNum(part.grams)*filament.price_cents/100/(econNum(part.spool_g,1000)||1000);
  }
  const incomplete=missing.length>0||!economyMaterials.some(m=>Number(m.filament_id)&&econNum(m.grams)>0)||
-  !f.minutes||(f.etsy_enabled&&!f.selling_eur);
+  !f.minutes||(f.etsy_enabled&&(!f.selling_eur||!f.listing_fee_eur));
  const energy=f.minutes/60*f.power_watts/1000*f.energy_eur_kwh/units;
  const machine=f.minutes/60*f.machine_eur_hour/units;
  const print=material/units+energy+machine;
