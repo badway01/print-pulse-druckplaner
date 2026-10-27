@@ -203,6 +203,16 @@ assert.deepEqual(navCheck.labels,
 assert.equal(navCheck.wrap,'nowrap','navigation never wraps to a second row');
 assert.equal(new Set(navCheck.tops).size,1,'all tabs are in one horizontal row');
 assert(navCheck.scrollWidth>=navCheck.clientWidth-3,'desktop navigation remains in one scrollable row without clipping');
+// Connected calculator and real printer checklist work inside the Home Assistant preview.
+await page.locator('[data-workspace="calculator"]').click();
+await page.locator('#calculator-shell').waitFor({state:'visible'});
+await page.waitForFunction(()=>document.querySelectorAll('#econ-printer-checklist .econ-printer-chip').length===6);
+assert.equal(await page.locator('#econ-printer-checklist .econ-printer-chip').count(),6);
+await page.locator('[data-econ-tab="invest"]').click();
+assert.equal(await page.locator('#econ-invest-pane').isVisible(),true);
+await page.locator('[data-econ-tab="cost"]').click();
+assert.equal(await page.locator('#econ-cost-pane').isVisible(),true);
+await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('#summary button').count(),2);
 await page.locator('.printer-mini').first().waitFor();
 assert.equal((await page.locator('#printer-strip .eyebrow').textContent()).trim(),'PRODUKTION · LIVE');
