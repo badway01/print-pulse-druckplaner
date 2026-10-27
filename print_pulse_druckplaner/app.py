@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders, local_order_pdf
+    from . import components, safety, local_orders, local_order_pdf, economics
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -42,9 +42,12 @@ except ImportError:
     _pdf_spec=importlib.util.spec_from_file_location('pp_local_order_pdf',Path(__file__).with_name('local_order_pdf.py'))
     local_order_pdf=importlib.util.module_from_spec(_pdf_spec)
     _pdf_spec.loader.exec_module(local_order_pdf)
+    _economics_spec=importlib.util.spec_from_file_location('pp_economics',Path(__file__).with_name('economics.py'))
+    economics=importlib.util.module_from_spec(_economics_spec)
+    _economics_spec.loader.exec_module(economics)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.12.14'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.0'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -275,6 +278,7 @@ def init_db():
         """)
         components.schema(db)
         local_orders.schema(db)
+        economics.schema(db)
         # Previously stored order-print records must survive all add-on updates.
         print_columns={col['name'] for col in db.execute("PRAGMA table_info(stock_order_prints)")}
         if 'allocated' not in print_columns:
@@ -1965,6 +1969,9 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/theme': return self.send(200,theme_sun_state())
         if path=='/api/versions': return self.send(200,version_history())
         if path=='/api/filaments': return self.send(200,filament_overview())
+        if path=='/api/economics':
+            with connect() as db:
+                return self.send(200,economics.read(db))
         if path=='/api/printers':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             return self.send(200,printer_dashboard(force=params.get('refresh')==['1']))
@@ -1995,7 +2002,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except (ValueError,FileNotFoundError):
                 return self.send(404,{'error':'Datei nicht verfügbar.'})
-        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
+        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
@@ -2043,6 +2050,11 @@ class Handler(BaseHTTPRequestHandler):
                     elif action=='custom-job': result=local_orders.custom_action(db,data)
                     else:raise ValueError('Unbekannte lokale Bestellaktion.')
                 return self.send(200,{'result':result,'overview':overview()})
+            if path=='/api/economics':
+                with connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    result=economics.mutate(db,data)
+                return self.send(200,result)
             if path=='/api/priority-dismiss':
                 key=data.get('key')
                 action=data.get('action')
