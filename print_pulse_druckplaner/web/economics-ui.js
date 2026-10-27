@@ -202,10 +202,12 @@ function economicsApprovedFor(item){
  if(!economyData)return [];
  const listing=String(item.listingId||item.listing_id||'');
  const variant=String(item.itemId||item.item_id||'');
- const rows=economyData.profiles.filter(p=>p.listing_id===listing&&p.status==='approved'&&
-  (p.variant_id===variant||p.variant_id===''));
- const exact=rows.filter(p=>p.variant_id===variant);
- return [...new Set((exact.length?exact:rows).map(p=>p.printer))];
+ const entries=economyData.profiles.filter(p=>p.listing_id===listing&&(p.variant_id===variant||p.variant_id===''));
+ return economyData.printers.filter(printer=>{
+  const profile=entries.find(p=>p.printer===printer&&p.variant_id===variant)||
+   entries.find(p=>p.printer===printer&&p.variant_id==='');
+  return profile?.status==='approved';
+ });
 }
 function economicsPrinterText(listingId,variantId=''){
  if(!economyData)return '';
@@ -215,6 +217,7 @@ function economicsPrinterText(listingId,variantId=''){
 function openEconomicsForProduct(id,variant=''){
  showWorkspace('calculator');
  loadEconomics().then(()=>{
+  if(economyLoaded&&model)econRefresh();
   const product=$('econ-product');
   if((model?.products||[]).some(p=>String(p.id)===String(id))){
    product.value=String(id);
@@ -296,3 +299,6 @@ document.addEventListener('click',event=>{
  const button=event.target.closest('[data-econ-open]');
  if(button){openEconomicsForProduct(button.dataset.econOpen,button.dataset.econVariant||'');}
 });
+// Prime printer approvals for the dashboard even if the calculator tab is not opened.
+loadEconomics();
+
