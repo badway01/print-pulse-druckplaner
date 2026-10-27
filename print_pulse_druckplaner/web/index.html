@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.12.14"><script src="app.js?v=0.12.12" defer></script><script src="components-ui.js?v=0.12.12" defer></script><script src="priority-ui.js?v=0.12.14" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.12.10" defer></script><script src="dialog-behavior.js?v=0.12.6" defer></script><script src="order-zoom-ui.js?v=0.12.12" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.0"><script src="app.js?v=0.13.0" defer></script><script src="components-ui.js?v=0.12.12" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.0" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.12.10" defer></script><script src="dialog-behavior.js?v=0.12.6" defer></script><script src="order-zoom-ui.js?v=0.12.12" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script></head>
 <body>
 <header><a class="brand" href="./" aria-label="Print &amp; Pulse Startseite"><img class="brand-logo" src="brand.svg" width="190" height="98" alt="Print &amp; Pulse – Designs mit Herz"></a><div class="theme-switch" role="group" aria-label="Darstellung wählen">
  <button type="button" class="theme-option" data-theme-mode="light" aria-label="Heller Modus" title="Hell" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
@@ -33,6 +33,7 @@
  <button type="button" data-workspace="catalog" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z"/><path d="m3 7 9 5 9-5m-9 5v10"/></svg><span>Produktkatalog</span></button>
  <button type="button" data-workspace="filament" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg><span>Filament</span> <span id="filament-tab-count" class="workspace-count" hidden></span></button>
  <button type="button" data-workspace="printers" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6zM18 12h1"/></svg><span>Drucker</span></button>
+<button type="button" data-workspace="calculator" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 7h8M8 12h2m4 0h2M8 17h2m4 0h2"/></svg><span>Rechner</span></button>
 </nav>
 <section id="full-orders-shell" class="board-page" hidden aria-label="Alle aktuellen Bestellungen">
  <div class="board-heading"><div><span class="eyebrow">ETSY &amp; LOKAL · DEINE AUFTRÄGE</span><h2>Aktuelle Bestellungen</h2><p>Alle offenen Aufträge auf einer Seite. Ein Klick auf einen Auftrag öffnet seine große Ansicht.</p></div><button type="button" id="full-orders-new" class="primary">+ Lokale Bestellung</button></div>
@@ -85,6 +86,85 @@
  <p class="hint">Einmal je Drucker „Sensoren zuordnen“ wählen. Bei zwei P1S die Geräte unbedingt einzeln zuordnen. Für den Snapmaker U1 wird eine passende Integration in Home Assistant benötigt.</p>
 </section>
 <section id="catalog-shell" class="catalog-shell" hidden><div class="filament-head"><div><span class="eyebrow">MASTERDATEIEN &amp; DRUCKPROFILE</span><h2>Dein Produktkatalog</h2><p>3MF-Dateien je Drucker sichern, Filamentplätze aus deinem Bestand belegen und den Netzwerkordner kopieren.</p></div></div><label class="filament-search"><span>⌕</span><input id="catalog-search" type="search" placeholder="Produkt suchen" aria-label="Produktkatalog suchen"></label><div id="catalog-rows" class="catalog-rows"></div></section>
+
+<section id="calculator-shell" class="econ-shell" hidden aria-label="3D-Druck Kostenrechner und Investitionen">
+ <div class="filament-head"><div><span class="eyebrow">PRINT &amp; PULSE · WIRTSCHAFTLICHKEIT</span><h2>Deine Rechner</h2>
+ <p>Verknüpft mit Produktkatalog, Filamentpreisen, Druckprofilen und Druckerfreigaben. Keine doppelten Stammdaten.</p></div></div>
+ <div class="econ-tabbar" role="group" aria-label="Rechnertyp">
+  <button type="button" data-econ-tab="cost" class="selected" aria-pressed="true">3D-Druck Kostenrechner</button>
+  <button type="button" data-econ-tab="invest" aria-pressed="false">Investitionsrechner</button>
+ </div>
+ <p id="econ-message" role="status" class="hint">Kalkulationen werden beim Öffnen geladen.</p>
+ <div id="econ-cost-pane">
+  <div class="econ-selects">
+   <label>Produkt<select id="econ-product"></select></label>
+   <label>Variante<select id="econ-variant"><option value="">Standard / alle Varianten</option></select></label>
+   <label>Drucker<select id="econ-printer"></select></label>
+  </div>
+  <div class="econ-columns">
+   <form id="econ-form" class="econ-panel">
+    <div class="econ-panel-head"><h3>Druckerfreigabe &amp; Kalkulation</h3><small id="econ-record">Noch nicht geladen.</small></div>
+    <div class="econ-verification">
+     <label>Testergebnis
+      <select name="status"><option value="untested">Noch nicht getestet</option><option value="approved">✓ Erfolgreich gedruckt · freigegeben</option><option value="issue">! Druckfehler · nicht freigegeben</option></select>
+     </label>
+     <label>Notizen zum Druckergebnis<textarea name="notes" rows="2" maxlength="1000" placeholder="Naht, Einstellungen, Qualität …"></textarea></label>
+    </div>
+    <h4>Filamente aus deinem Lager</h4>
+    <p class="hint">Spulenpreis stammt aus deiner Filamentverwaltung. Gramm und Spulengewicht werden je Druckprofil eingetragen. Bei mehreren Farben separate Positionen hinzufügen.</p>
+    <div id="econ-materials"></div>
+    <button type="button" id="econ-add-material" class="secondary small">+ Filament hinzufügen</button>
+    <h4>Druck, Arbeitszeit und Nebenkosten</h4>
+    <div class="econ-fields">
+     <label>Stück je Druck<input type="number" name="batch_units" min="1" max="1000" step="1" value="1" required></label>
+     <label>Druckdauer je Druck (Min.)<input type="number" name="minutes" min="0" step="0.1" value="0"></label>
+     <label>Leistungsaufnahme (W)<input type="number" name="power_watts" min="0" step="1" value="120"></label>
+     <label>Strompreis (€/kWh)<input type="number" name="energy_eur_kwh" min="0" step="0.01" value="0.35"></label>
+     <label>Maschinenkosten (€/h)<input type="number" name="machine_eur_hour" min="0" step="0.01" value="0"></label>
+     <label>Arbeitszeit je Stück (Min.)<input type="number" name="labor_minutes" min="0" step="0.1" value="0"></label>
+     <label>Arbeitskosten (€/h)<input type="number" name="labor_eur_hour" min="0" step="0.01" value="0"></label>
+     <label>Verpackung je Stück (€)<input type="number" name="packaging_eur" min="0" step="0.01" value="0"></label>
+     <label>Weitere Kosten je Stück (€)<input type="number" name="other_eur" min="0" step="0.01" value="0"></label>
+     <label>Verkaufspreis je Stück (€)<input type="number" name="selling_eur" min="0" step="0.01" value="0"></label>
+     <label>Vom Kunden bezahlter Versand (€)<input type="number" name="shipping_paid_eur" min="0" step="0.01" value="0"></label>
+     <label>Tatsächliche Versandkosten (€)<input type="number" name="shipping_cost_eur" min="0" step="0.01" value="0"></label>
+     <label>Plattformgebühren gesamt (%)<input type="number" name="etsy_percent" min="0" max="100" step="0.01" value="0"></label>
+     <label>Feste Plattformgebühren (€)<input type="number" name="etsy_fixed_eur" min="0" step="0.01" value="0"></label>
+     <label>Zusätzliche Gebühren (€)<input type="number" name="additional_fee_eur" min="0" step="0.01" value="0"></label>
+    </div>
+    <p class="hint">Gebühren sind zunächst 0, bis du deine tatsächlich geltenden Etsy-/Zahlungsgebühren einträgst. Keine pauschal erfundenen Werte.</p>
+    <button type="submit" id="econ-save" class="primary">Kalkulation &amp; Druckerfreigabe speichern</button>
+   </form>
+   <aside class="econ-aside">
+    <div class="econ-panel"><h3>Kalkulation je Stück</h3><div id="econ-results" aria-live="polite"></div></div>
+    <div class="econ-panel"><h3>Freigegebene Drucker im Vergleich</h3><div id="econ-comparison"></div>
+    <p class="hint">Nur Drucker, auf denen du einen erfolgreichen Druck bestätigt hast. Keine automatische Fernsteuerung.</p></div>
+   </aside>
+  </div>
+ </div>
+ <div id="econ-invest-pane" hidden>
+  <div class="econ-columns">
+   <form id="econ-invest-form" class="econ-panel">
+    <div class="econ-panel-head"><h3>Investition berechnen</h3><small id="econ-invest-edit-status">Neues Investitionsszenario</small></div>
+    <div class="econ-fields">
+     <label>Name des Szenarios<input name="name" maxlength="100" required placeholder="z. B. Dritter P1S"></label>
+     <label>Drucker<select name="printer"><option value="">Drucker offen</option></select></label>
+     <label>Anschaffung (€)<input name="purchase_eur" type="number" min="0" step="0.01" value="0"></label>
+     <label>Einrichtung / Zubehör (€)<input name="setup_eur" type="number" min="0" step="0.01" value="0"></label>
+     <label>Zusätzlich verkaufte Stück/Monat<input name="monthly_units" type="number" min="0" step="1" value="0"></label>
+     <label>Deckungsbeitrag je zusätzlichem Stück (€)<input name="contribution_eur" type="number" min="0" step="0.01" value="0"></label>
+     <label>Zusätzliche laufende Kosten/Monat (€)<input name="monthly_extra_eur" type="number" min="0" step="0.01" value="0"></label>
+    </div>
+    <label>Notizen<textarea name="notes" rows="2" maxlength="1000" placeholder="Druckkapazität, Wechselzeiten, Bestelllage …"></textarea></label>
+    <div class="econ-actions"><button type="submit" id="econ-invest-save" class="primary">Investition speichern</button>
+     <button type="button" id="econ-invest-new" class="secondary">Neues Szenario</button></div>
+   </form>
+   <aside class="econ-aside"><div class="econ-panel"><h3>Amortisation</h3><div id="econ-invest-result"></div>
+    <p class="hint">Die Anzahl zusätzlicher Verkäufe nicht mit der reinen theoretischen Druckkapazität verwechseln. Druckplattenwechsel und Nachfrage einplanen.</p></div></aside>
+  </div>
+  <div class="econ-panel"><h3>Gespeicherte Investitionen</h3><div id="econ-invest-list"></div></div>
+ </div>
+</section>
 <section id="filament-shell" class="filament-shell" hidden aria-label="Filamentlager und Einkaufsliste">
  <div class="filament-head"><div><span class="eyebrow">SPULEN IM BLICK</span><h2>Dein Filamentlager</h2><p>Farben, Preise und Einkaufslinks an einem Ort. Eine Spule leer? Direkt auf die Einkaufsliste setzen.</p></div><button id="filament-add" type="button" class="primary">+ Filament anlegen</button></div>
  <div class="filament-toolbar"><div class="filament-switch" role="group" aria-label="Filamentansicht"><button type="button" data-filament-view="colors" class="selected" aria-pressed="true">Meine Farben <span id="filament-color-count">0</span></button><button type="button" data-filament-view="cart" aria-pressed="false">🛒 Einkaufsliste <span id="filament-cart-count">0</span></button></div><div class="filament-toolbar-tools"><label class="filament-sort" id="filament-sort-wrap"><span>Sortieren</span><select id="filament-sort" aria-label="Filamente sortieren"><option value="default">Standard</option><option value="stock-desc">Meiste Spulen zuerst</option><option value="stock-asc">Wenigste Spulen zuerst</option><option value="internal-code">Interner Farbcode (numerisch)</option><option value="manufacturer-code">Hersteller-Farbnummer</option><option value="hex-code">HEX-Farbcode</option></select></label><label class="filament-search" id="filament-search-wrap"><span>⌕</span><input id="filament-search" type="search" placeholder="Farbe, Hersteller oder Farbcode suchen" aria-label="Filament suchen"></label></div></div>
