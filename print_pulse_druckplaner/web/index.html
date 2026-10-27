@@ -71,7 +71,7 @@
 <section id="priority-shell" class="priority-shell" aria-label="Nächste sinnvolle Drucke">
  <div class="priority-head"><div><span class="eyebrow">DEIN DRUCKPLAN</span><h2>Als Nächstes drucken</h2>
  <p>Erst offene Etsy-Aufträge, dann Bauteilvorrat, danach sinnvolle Lagerauffüllung.</p></div>
- <span id="priority-count" class="priority-count" aria-live="polite"></span></div>
+ <label class="priority-printer-select">Drucker <select id="priority-printer-filter" aria-label="Druckempfehlungen nach Drucker filtern"><option value="all">Alle Drucker</option><option>H2D</option><option>P1S Old</option><option>P1S New</option><option>Snapmaker U1</option><option>A1 mini</option><option>Prusa MK4</option></select></label><span id="priority-count" class="priority-count" aria-live="polite"></span></div>
  <div id="priority-list" class="priority-list" aria-live="off"></div>
  <button type="button" id="priority-more" class="priority-more text-button" aria-expanded="false" hidden>Alle Vorschläge anzeigen</button>
  <details id="priority-hidden" class="priority-hidden" hidden><summary>Ausgeblendete Empfehlungen (<span id="priority-hidden-count">0</span>)</summary><div id="priority-hidden-list" class="priority-hidden-list"></div></details>
