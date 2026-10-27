@@ -1,3 +1,14 @@
+# 0.13.0 · Vernetzter Rechner und geprüfte Drucker
+
+- Neuer Reiter „Rechner“: Kostenkalkulation je Etsy-Produkt, Variante und Drucker, inklusive Mehrfarbenverbrauch, Strom, Maschine, Arbeitszeit, Verpackung, Versand, Plattformgebühren, Gewinn und Marge.
+- Filamentfarben, interne Nummern und gespeicherte aktuelle Filamentpreise aus der vorhandenen Lagerverwaltung übernehmen; optionale Vorschlagsbelegung aus Master-3MF-Profilen.
+- Druckerfreigabe getrennt für H2D, P1S Old, P1S New, Snapmaker U1, A1 mini und Prusa MK4. Freigabe ausschließlich nach tatsächlich gutem Testdruck; Status und Qualitätsnotiz speichern.
+- Produktkatalog, Produktkarten und Auftragskarten zeigen Kalkulationszugang bzw. Druckerfreigaben.
+- Prioritäten zeigen freigegebene Drucker und bekannte freie Maschinen; pro Drucker filterbar. Fehlende Druckerfreigaben bleiben sichtbar. Kundenliefertermine bleiben vor Lagerauffüllung; keine automatische Fernsteuerung.
+- Investitionsrechner für Anschaffung, Zusatzkosten, zusätzliche verkaufte Stück und daraus abgeleitete Amortisation; speicherbare Szenarien.
+- Historische Kostenschnappschüsse je gespeicherter Kalkulation, additive separate SQLite-Tabellen ohne Änderungen an Bestellungen oder Lagerbuchungen.
+- Regressionstests für Preisänderungen, Varianten, Druckerfreigaben, Unvollständigkeit und Investitionen.
+
 ## 0.12.14 · Druckempfehlungen ausblenden und nachrücken lassen
 
 - Kleiner Papierkorb neben „Druck vorbereiten“ bzw. „Bauteil öffnen“ bei Empfehlungen für Lagerauffüllung und Vorproduktion.
