@@ -1251,6 +1251,8 @@ function showWorkspace(value){
  $('filament-shell').hidden=value!=='filament';
  $('catalog-shell').hidden=value!=='catalog';
  $('printers-shell').hidden=value!=='printers';
+ $('calculator-shell').hidden=value!=='calculator';
+ if(value==='calculator')loadEconomics();
  if(value==='catalog'){renderCatalog();loadPrintTools();}
  if(value==='filament')loadFilaments();
  if(value==='printers'){renderPrinterMonitor();loadPrinters();}
@@ -1538,7 +1540,7 @@ function toolSummary(p){
  const files=printTools.files.filter(r=>r.listing_id===p.id);
  const preferred=profiles.find(r=>r.variant_id===(selectedVariants.get(p.id)||'')&&r.printer==='H2D')||profiles.find(r=>r.variant_id===''&&r.printer==='H2D')||profiles[0];
  const colors=preferred?.colors||[];
- return '<div class="master-card-row"><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">▣ 3MF &amp; Farben'+(files.length?' · '+files.length:'')+'</button>'
+ return '<div class="master-card-row"><button type="button" class="secondary small" data-econ-open="'+esc(p.id)+'">€ Kalkulieren</button><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">▣ 3MF &amp; Farben'+(files.length?' · '+files.length:'')+'</button>'
   +(colors.length?'<div class="master-card-colors" title="'+esc(preferred.printer)+'">'+colors.map(f=>'<span class="master-chip" title="'+esc(f.slot+' · '+f.brand+' '+f.color)+'"><span class="filament-swatch" style="background:'+esc(f.hex)+'"></span><b>'+esc(f.code||f.color)+'</b></span>').join('')+'</div>':'')+'</div>';
 }
 function renderCatalog(){
@@ -1551,7 +1553,7 @@ function renderCatalog(){
   const profiles=printTools.profiles.filter(f=>f.listing_id===p.id).length;
   const img=thumbnail(p.image);
   return '<article class="catalog-item" data-catalog-item="'+esc(p.id)+'">'+(img?'<img src="'+esc(img)+'" alt="" loading="lazy">':'<div class="catalog-placeholder">P+</div>')+
-   '<div><b>'+esc(p.title)+'</b><small>'+files+' Masterdatei(en) · '+profiles+' Druckprofil(e)</small></div><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">3MF &amp; Belegung</button></article>';
+   '<div><b>'+esc(p.title)+'</b><small>'+files+' Masterdatei(en) · '+profiles+' Druckprofil(e)</small><small>'+esc(typeof economicsPrinterText==='function'?economicsPrinterText(p.id):'Druckerfreigaben werden geladen')+'</small></div><button type="button" class="secondary small" data-econ-open="'+esc(p.id)+'">Kalkulieren</button><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">3MF &amp; Belegung</button></article>';
  }).join(''):'<p class="hint">Kein aktives Produkt passt zur Suche.</p>');
 }
 let masterToolsLoading=false;
