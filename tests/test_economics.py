@@ -94,6 +94,51 @@ class EconomicsTest(unittest.TestCase):
         economics.mutate(self.db, {"action": "delete-investment", "id": inv["id"]})
         self.assertEqual(economics.read(self.db)["investments"], [])
 
+    def test_print_only_needs_no_selling_price(self):
+        r = self.save(f=fields(selling_eur=0, etsy_enabled=0, minutes=130))
+        self.assertTrue(r["result"]["complete"])
+        self.assertEqual(r["result"]["print_eur"], 2.99)  # 2.90 material + 0.09 electricity
+        self.assertEqual(r["result"]["fees_eur"], 0)
+        self.assertIsNone(r["result"]["profit_eur"])
+
+    def test_etsy_fees_per_order_with_offsite_and_listing(self):
+        r = self.save(f=fields(
+            minutes=120, batch_units=2, selling_eur=20, etsy_enabled=1,
+            units_per_order=2, shipping_paid_eur=4, shipping_cost_eur=4,
+            etsy_percent=10.5, etsy_fixed_eur=.30,
+            offsite_percent=15, listing_fee_eur=.18,
+            packaging_eur=.50))
+        result = r["result"]
+        # Selling 20 + 2 shipment share, platform 10.5%, ad 15%,
+        # fixed EUR .30 spread across 2 units, listing EUR .18 per unit.
+        self.assertEqual(result["fees_eur"], 5.94)
+        self.assertEqual(result["revenue_eur"], 22)
+        self.assertEqual(result["other_eur"], 2.50)
+        self.assertTrue(result["complete"])
+        self.assertIsNotNone(result["profit_eur"])
+
+    def test_legacy_profiles_keep_etsy_sales_active(self):
+        self.db.execute("""INSERT INTO pp_cost_profiles
+          (listing_id,variant_id,printer,status,notes,fields_json,materials_json,updated)
+          VALUES ('123','','H2D','approved','','{"minutes":60,"selling_eur":20}',
+          '[{"filament_id":1,"grams":100,"spool_g":1000}]',1)""")
+        profile = economics.read(self.db)["profiles"][0]
+        self.assertEqual(profile["fields"]["etsy_enabled"], 1)
+
+    def test_parse_official_fees_and_no_guessing_eur_listing_price(self):
+        rates = economics.parse_official_rates(
+            "Artikel - 0,20 USD Transaktion - 6,5 % des Gesamtbetrags",
+            "Deutschland 4 % + 0,30 EUR",
+            "eine Gebühr von 15 % reduzierte Gebühr von 12 %",
+            b'<root><Cube currency="USD" rate="1.1"/></root>')
+        self.assertEqual(rates["payments_fixed_eur"], .30)
+        self.assertEqual(rates["usd_per_eur"], 1.1)
+        economics.store_fee_rates(self.db, rates)
+        self.assertAlmostEqual(economics.fee_rates(self.db)["listing_eur"], .1818, places=3)
+        with self.assertRaises(ValueError):
+            economics.parse_official_rates("unbekannt", "unbekannt", "unbekannt", b"<root/>")
+        self.assertEqual(economics.fee_rates(self.db)["listing_eur"], .1818)
+
     def test_home_assistant_image_contains_cost_engine(self):
         dockerfile = (MODULE.parent / "Dockerfile").read_text()
         self.assertIn("COPY economics.py ./economics.py", dockerfile)

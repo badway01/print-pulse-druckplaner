@@ -2258,6 +2258,27 @@ html[data-theme="dark"] .simple-pos-state.printing{background:#2b5368}
 
 
 /* 0.13.0 · Connected workshop economics. Responsive without overlapping the dashboard. */
+
+/* Calculator: basic print costs first, optional Etsy advanced section. */
+.econ-duration{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.econ-duration>span{display:flex;flex-direction:column;gap:3px;min-width:0}
+.econ-duration small{color:var(--muted);font-size:11px}
+.econ-etsy-activation{margin:22px 0 12px;padding:14px;border:1px solid var(--line);background:var(--surface-soft,#f6f7f3);border-radius:11px}
+.econ-shell label.econ-toggle{display:flex;flex-direction:row;align-items:center;gap:12px;font-size:14px;cursor:pointer}
+.econ-shell .econ-toggle input[type="checkbox"]{width:21px;min-width:21px;height:21px;min-height:21px;accent-color:var(--green)}
+.econ-toggle span{display:flex;flex-direction:column;gap:4px}
+.econ-toggle small{font-size:11px;color:var(--muted);font-weight:400;line-height:1.4}
+.econ-etsy-details[hidden]{display:none!important}
+.econ-etsy-details{margin:10px 0 12px;border-top:1px solid var(--line);padding-top:4px}
+.econ-fees-box{margin-top:17px;border:1px solid var(--line);background:var(--surface-soft,#f6f7f3);padding:13px;border-radius:10px}
+.econ-fees-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.econ-fees-top>div{display:flex;flex-direction:column;gap:3px}
+.econ-fees-top small{color:var(--muted);font-size:11px}
+.econ-fees-status{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:13px;font-size:12px}
+.econ-fees-status span{display:block;padding:9px;background:var(--surface,#fff);border-radius:8px;line-height:1.4}
+.econ-fee-warning{font-size:12px;color:#956322;margin:10px 0 0}
+@media(max-width:650px){.econ-fees-status{grid-template-columns:1fr}.econ-fees-top button{width:100%}}
+
 .econ-shell{margin:14px 0 25px;padding:20px;background:var(--surface-soft,#f7f7f1);border:1px solid var(--line);border-radius:17px;min-width:0}
 .econ-tabbar{display:flex;gap:8px;margin:17px 0;flex-wrap:wrap}
 .econ-tabbar button{border:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);border-radius:10px;min-height:44px;padding:10px 15px;font-weight:700}

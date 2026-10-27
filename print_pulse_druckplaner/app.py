@@ -47,7 +47,7 @@ except ImportError:
     _economics_spec.loader.exec_module(economics)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.0'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.1'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2051,6 +2051,16 @@ class Handler(BaseHTTPRequestHandler):
                     else:raise ValueError('Unbekannte lokale Bestellaktion.')
                 return self.send(200,{'result':result,'overview':overview()})
             if path=='/api/economics':
+                if data.get('action') == 'refresh-etsy-fees':
+                    try:
+                        verified = economics.fetch_official_rates()
+                    except (ValueError, OSError, TimeoutError) as exc:
+                        return self.send(502, {'error': 'Offizielle Etsy-Gebühren konnten nicht vollständig geprüft werden. Alte Werte bleiben gespeichert. ' + str(exc)[:160]})
+                    with connect() as db:
+                        db.execute('BEGIN IMMEDIATE')
+                        economics.store_fee_rates(db, verified)
+                        result = economics.read(db)
+                    return self.send(200, result)
                 with connect() as db:
                     db.execute('BEGIN IMMEDIATE')
                     result=economics.mutate(db,data)
