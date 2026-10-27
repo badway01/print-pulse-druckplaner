@@ -181,7 +181,7 @@ function econPreview(){
  const r=econCalculation(),c=$('econ-results'),validMat=!r.missing.length;
  const row=(name,value)=>'<div class="econ-result-row"><span>'+esc(name)+'</span><strong>'+econMoney(value)+'</strong></div>';
  const warning=r.incomplete?'<div class="econ-warning">Bitte Filament, Gramm, Druckzeit'+
-  (r.enabled?', Verkaufspreis':'')+(r.missing.length?' und Filamentpreis ('+esc(r.missing.join(', '))+')':'')+
+  (r.enabled?', Verkaufspreis und umgerechnete Listinggebühr':'')+(r.missing.length?' und Filamentpreis ('+esc(r.missing.join(', '))+')':'')+
   ' prüfen. Fehlende Angaben werden nicht als bestätigte Kosten behandelt.</div>':'';
  c.innerHTML=warning+
   row('Material pro Stück',validMat?r.material:null)+row('Strom',r.energy)+row('Maschine',r.machine)+
