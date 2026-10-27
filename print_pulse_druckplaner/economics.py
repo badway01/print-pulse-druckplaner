@@ -231,7 +231,7 @@ def calculate(fields, materials, filaments):
                  + fields["shipping_cost_eur"] / order_units)
     total = (print_eur + labor + fees + other) if print_eur is not None else None
     complete_print = not missing and bool(materials) and fields["minutes"] > 0
-    complete = complete_print and (not enabled or fields["selling_eur"] > 0)
+    complete = complete_print and (not enabled or (fields["selling_eur"] > 0 and fields.get("listing_fee_eur", 0) > 0))
     profit = round(income - total, 2) if enabled and complete and total is not None else None
     return {"material_eur": round(material_eur, 2) if material_eur is not None else None,
             "electricity_eur": round(electricity, 2), "machine_eur": round(machine, 2),
