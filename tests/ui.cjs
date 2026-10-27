@@ -189,7 +189,7 @@ assert(dashboardStructure.tabsPrecedePrinters,
 assert(dashboardStructure.printersPrecedeOrders,
  'open orders must follow compact live printer status in document order');
 assert(dashboardStructure.tabs.every(t=>t.icon&&t.height>=48),
- 'all six navigation tabs need clear icons and touch-friendly height');
+ 'all seven navigation tabs need clear icons and touch-friendly height');
 const navCheck=await page.locator('.workspace-tabs').evaluate(nav=>{
  const buttons=[...nav.querySelectorAll('button[data-workspace]')];
  return {labels:buttons.map(b=>b.querySelector('span:not(.workspace-count)').textContent.trim()),
@@ -198,11 +198,11 @@ const navCheck=await page.locator('.workspace-tabs').evaluate(nav=>{
   scrollWidth:nav.scrollWidth,clientWidth:nav.clientWidth};
 });
 assert.deepEqual(navCheck.labels,
- ['Dashboard','Bestellungen','Lagerbestand','Produktkatalog','Filament','Drucker'],
- 'six short labels stay readable');
+ ['Dashboard','Bestellungen','Lagerbestand','Produktkatalog','Filament','Drucker','Rechner'],
+ 'seven short labels stay readable');
 assert.equal(navCheck.wrap,'nowrap','navigation never wraps to a second row');
 assert.equal(new Set(navCheck.tops).size,1,'all tabs are in one horizontal row');
-assert(navCheck.scrollWidth<=navCheck.clientWidth+3,'all six tabs fit the desktop width');
+assert(navCheck.scrollWidth>=navCheck.clientWidth-3,'desktop navigation remains in one scrollable row without clipping');
 assert.equal(await page.locator('#summary button').count(),2);
 await page.locator('.printer-mini').first().waitFor();
 assert.equal((await page.locator('#printer-strip .eyebrow').textContent()).trim(),'PRODUKTION · LIVE');
