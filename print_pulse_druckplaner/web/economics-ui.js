@@ -195,7 +195,7 @@ function econPreview(){
   '<small>'+(r.enabled?
    'Etsy-Modus: Standard-Etsy-Gebühren sind hinterlegt. Etwaige Umsatzsteuer auf Gebühren, Etsy Ads-Klickkosten oder Etsy Plus gegebenenfalls separat eintragen.':
    'Nur Druckkosten. Verkauf, Verpackung, Arbeitszeit und Etsy-Gebühren sind ausgeschaltet.')+'</small>'+
-  (r.enabled&&!econNum(economyData.etsy_fees?.listing_eur,0)?
+  (r.enabled&&!econFields().listing_fee_eur?
    '<p class="econ-fee-warning">Die 0,20 USD Listinggebühr ist noch nicht in Euro umgerechnet. Bitte „Gebühren online aktualisieren“ wählen.</p>':'');
  const comparisons=(economyData.profiles||[]).filter(p=>p.listing_id===$('econ-product').value&&
   p.variant_id===$('econ-variant').value&&p.status==='approved');
@@ -332,8 +332,15 @@ $('econ-fees-refresh').addEventListener('click',async()=>{
  const button=$('econ-fees-refresh');
  button.disabled=true;button.textContent='Prüfe Etsy …';
  try{
+  const previous=econNum($('econ-offsite').value);
+  const oldRates=economyData?.etsy_fees||{};
   economyData=await api('economics',{action:'refresh-etsy-fees'});
-  econApplyFeeRates();econPreview();
+  econApplyFeeRates();
+  if(previous&&previous===econNum(oldRates.offsite_standard_percent,15))
+   $('econ-offsite').value=String(economyData.etsy_fees.offsite_standard_percent);
+  else if(previous&&previous===econNum(oldRates.offsite_reduced_percent,12))
+   $('econ-offsite').value=String(economyData.etsy_fees.offsite_reduced_percent);
+  econPreview();
   flash('Etsy-Gebühren und EZB-Kurs erfolgreich geprüft. Werte in der aktuellen Maske aktualisiert; bitte speichern.');
  }catch(err){flash('Online-Update nicht möglich: '+err.message,true);}
  finally{button.disabled=false;button.textContent='Gebühren online aktualisieren';}
