@@ -24,7 +24,7 @@ jobs:
 
       - name: Python-Code pruefen
         run: |
-          python -m py_compile print_pulse_druckplaner/app.py print_pulse_druckplaner/local_order_pdf.py
+          python -m py_compile print_pulse_druckplaner/app.py print_pulse_druckplaner/local_order_pdf.py print_pulse_druckplaner/economics.py
           python -m pip install 'reportlab>=3.6,<6'
 
       - name: JavaScript auf Syntax prüfen
@@ -32,6 +32,7 @@ jobs:
           node --check print_pulse_druckplaner/web/app.js
           node --check print_pulse_druckplaner/web/components-ui.js
           node --check print_pulse_druckplaner/web/priority-ui.js
+          node --check print_pulse_druckplaner/web/economics-ui.js
           node --check print_pulse_druckplaner/web/local-orders-ui.js
           node --check print_pulse_druckplaner/web/dialog-behavior.js
           node --check print_pulse_druckplaner/web/order-zoom-ui.js
