@@ -1782,6 +1782,7 @@ async function loadPrinters(force=false){
  try{printerLive=await api('printers'+(force?'?refresh=1':''));renderPrinterMonitor();}
  catch(err){printerLive={connected:false,error:err.message,printers:printerRows().map(p=>({...p,state:p.configured?'offline':'setup',progress:null,remaining_seconds:null}))};renderPrinterMonitor();}
  finally{printerLoading=false;}
+ if(typeof renderPriorityUI==='function'&&model)renderPriorityUI();
 }
 function printerAutofill(){
  if(!printerConfigId)return;
