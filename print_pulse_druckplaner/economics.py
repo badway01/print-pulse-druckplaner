@@ -84,7 +84,7 @@ ETSY_INITIAL = {
 ETSY_SOURCES = {
     "fees": "https://help.etsy.com/hc/de/articles/115014" + "483627",
     "payments": "https://help.etsy.com/hc/de/articles/115015" + "628847",
-    "offsite": "https://help.etsy.com/hc/de/articles/360000" + "338367",
+    "offsite": "https://help.etsy.com/hc/de/articles/360000" + "338367-Funktionsweise-von-Etsy-Offsite-Ads",
     "exchange": "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
 }
 
