@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.0"><script src="app.js?v=0.13.0" defer></script><script src="components-ui.js?v=0.12.12" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.0" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.12.10" defer></script><script src="dialog-behavior.js?v=0.12.6" defer></script><script src="order-zoom-ui.js?v=0.12.12" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.1"><script src="app.js?v=0.13.0" defer></script><script src="components-ui.js?v=0.12.12" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.1" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.12.10" defer></script><script src="dialog-behavior.js?v=0.12.6" defer></script><script src="order-zoom-ui.js?v=0.12.12" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script></head>
 <body>
 <header><a class="brand" href="./" aria-label="Print &amp; Pulse Startseite"><img class="brand-logo" src="brand.svg" width="190" height="98" alt="Print &amp; Pulse – Designs mit Herz"></a><div class="theme-switch" role="group" aria-label="Darstellung wählen">
  <button type="button" class="theme-option" data-theme-mode="light" aria-label="Heller Modus" title="Hell" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
@@ -115,25 +115,41 @@
     <p class="hint">Spulenpreis stammt aus deiner Filamentverwaltung. Gramm und Spulengewicht werden je Druckprofil eingetragen. Bei mehreren Farben separate Positionen hinzufügen.</p>
     <div id="econ-materials"></div>
     <button type="button" id="econ-add-material" class="secondary small">+ Filament hinzufügen</button>
-    <h4>Druck, Arbeitszeit und Nebenkosten</h4>
+    <h4>Reine Druckkosten</h4>
+    <p class="hint">Nur Material, Strom und optional Maschinenkosten. Stunden und Minuten wie in Bambu Studio eingeben.</p>
     <div class="econ-fields">
      <label>Stück je Druck<input type="number" name="batch_units" min="1" max="1000" step="1" value="1" required></label>
-     <label>Druckdauer je Druck (Min.)<input type="number" name="minutes" min="0" step="0.1" value="0"></label>
+     <label>Druckdauer je Druck
+      <span class="econ-duration"><span><input id="econ-hours" type="number" min="0" max="166" step="1" value="0" aria-label="Druckstunden"><small>Stunden</small></span><span><input id="econ-minutes" type="number" min="0" max="59" step="1" value="0" aria-label="Druckminuten"><small>Minuten</small></span></span>
+     </label>
      <label>Leistungsaufnahme (W)<input type="number" name="power_watts" min="0" step="1" value="120"></label>
      <label>Strompreis (€/kWh)<input type="number" name="energy_eur_kwh" min="0" step="0.01" value="0.35"></label>
-     <label>Maschinenkosten (€/h)<input type="number" name="machine_eur_hour" min="0" step="0.01" value="0"></label>
-     <label>Arbeitszeit je Stück (Min.)<input type="number" name="labor_minutes" min="0" step="0.1" value="0"></label>
-     <label>Arbeitskosten (€/h)<input type="number" name="labor_eur_hour" min="0" step="0.01" value="0"></label>
-     <label>Verpackung je Stück (€)<input type="number" name="packaging_eur" min="0" step="0.01" value="0"></label>
-     <label>Weitere Kosten je Stück (€)<input type="number" name="other_eur" min="0" step="0.01" value="0"></label>
-     <label>Verkaufspreis je Stück (€)<input type="number" name="selling_eur" min="0" step="0.01" value="0"></label>
-     <label>Vom Kunden bezahlter Versand (€)<input type="number" name="shipping_paid_eur" min="0" step="0.01" value="0"></label>
-     <label>Tatsächliche Versandkosten (€)<input type="number" name="shipping_cost_eur" min="0" step="0.01" value="0"></label>
-     <label>Plattformgebühren gesamt (%)<input type="number" name="etsy_percent" min="0" max="100" step="0.01" value="0"></label>
-     <label>Feste Plattformgebühren (€)<input type="number" name="etsy_fixed_eur" min="0" step="0.01" value="0"></label>
-     <label>Zusätzliche Gebühren (€)<input type="number" name="additional_fee_eur" min="0" step="0.01" value="0"></label>
+     <label>Maschinenkosten (€/h, optional)<input type="number" name="machine_eur_hour" min="0" step="0.01" value="0"></label>
     </div>
-    <p class="hint">Gebühren sind zunächst 0, bis du deine tatsächlich geltenden Etsy-/Zahlungsgebühren einträgst. Keine pauschal erfundenen Werte.</p>
+    <div class="econ-etsy-activation"><label class="econ-toggle"><input type="checkbox" id="econ-etsy-toggle"><span><b>Auch Etsy-Verkauf berechnen</b><small>Optional: Verkaufspreis, Versand, Arbeitszeit und Gebühren dazurechnen.</small></span></label></div>
+    <div id="econ-etsy-details" class="econ-etsy-details" hidden>
+     <h4>Verkauf, Arbeitszeit und Versand</h4>
+     <div class="econ-fields">
+      <label>Arbeitszeit je Stück (Min.)<input type="number" name="labor_minutes" min="0" step="0.1" value="0"></label>
+      <label>Arbeitskosten (€/h)<input type="number" name="labor_eur_hour" min="0" step="0.01" value="0"></label>
+      <label>Verpackung je Stück (€)<input type="number" name="packaging_eur" min="0" step="0.01" value="0"></label>
+      <label>Weitere Kosten je Stück (€)<input type="number" name="other_eur" min="0" step="0.01" value="0"></label>
+      <label>Verkaufspreis je Stück (€)<input type="number" name="selling_eur" min="0" step="0.01" value="0"></label>
+      <label>Stück pro Bestellung<input type="number" name="units_per_order" min="1" max="1000" step="1" value="1"></label>
+      <label>Vom Kunden bezahlter Versand je Bestellung (€)<input type="number" name="shipping_paid_eur" min="0" step="0.01" value="0"></label>
+      <label>Tatsächliche Versandkosten je Bestellung (€)<input type="number" name="shipping_cost_eur" min="0" step="0.01" value="0"></label>
+      <label>Offsite Ads (nur bei zugeordneten Verkäufen)<select name="offsite_percent" id="econ-offsite"><option value="0">Keine Offsite Ads</option><option value="15">15 % (unter 10.000 USD)</option><option value="12">12 % (ab 10.000 USD)</option></select></label>
+      <label>Sonstige Gebühren je Stück (€)<input type="number" name="additional_fee_eur" min="0" step="0.01" value="0"></label>
+     </div>
+     <input type="hidden" name="etsy_percent" value="10.5">
+     <input type="hidden" name="etsy_fixed_eur" value="0.30">
+     <input type="hidden" name="listing_fee_eur" value="0">
+     <div class="econ-fees-box">
+      <div class="econ-fees-top"><div><b>Offizielle Etsy-Gebühren (Deutschland)</b><small id="econ-fees-checked">Gebührenstand wird geladen.</small></div><button type="button" class="secondary small" id="econ-fees-refresh">Gebühren online aktualisieren</button></div>
+      <div id="econ-fees-status" class="econ-fees-status"></div>
+      <p class="hint">Zahlungspauschale pro Bestellung. Einstellgebühr wird per EZB-Kurs umgerechnet. Etsy-Ads-Klickkosten, Etsy Plus und mögliche USt. auf Verkäufergebühren nicht pauschal enthalten.</p>
+     </div>
+    </div>
     <button type="submit" id="econ-save" class="primary">Kalkulation &amp; Druckerfreigabe speichern</button>
    </form>
    <aside class="econ-aside">
