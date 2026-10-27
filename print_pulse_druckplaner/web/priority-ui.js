@@ -133,9 +133,19 @@ function priorityCandidates(snapshot){
     sold30:Number(item.sold30)||Number(product.sold30)||0,shipBy:Infinity,orders:new Set()});
   }
  }
+ // Source of truth: only the user's successfully tested printers.
+ // A missing release remains visible for urgent customer work, never hidden.
+ for(const entry of out){
+  entry.approvedPrinters=typeof economicsApprovedFor==='function'?economicsApprovedFor(entry):[];
+  const live=printerLive?.printers||[];
+  entry.readyPrinters=entry.approvedPrinters.filter(name=>
+   live.some(p=>p.id===name&&['idle','ready','finished'].includes(p.state)));
+ }
  const priority=entry=>entry.tier===1?0:entry.tier===2?1:2;
  out.sort((a,b)=>priority(a)-priority(b)||
   (a.tier===1?(a.shipBy||Infinity)-(b.shipBy||Infinity):0)||
+  b.readyPrinters.length-a.readyPrinters.length||
+  b.approvedPrinters.length-a.approvedPrinters.length||
   (b.sold7||0)-(a.sold7||0)||(b.sold30||0)-(a.sold30||0)||
   String(a.title).localeCompare(String(b.title),'de'));
  return out;
@@ -162,7 +172,9 @@ function priorityCard(item,index){
    (item.orders.size>1?'<span>'+item.orders.size+' Aufträge</span>':'')+'</div>'+
    '<b title="'+esc(item.title)+'">'+esc(item.qty)+' × '+esc(item.title)+'</b>'+
    '<small>'+esc(item.note||'')+'</small>'+
-   '<small class="priority-reason">'+esc(details)+'</small></div>'+
+   '<small class="priority-reason">'+esc(details)+'</small>'+ 
+   (typeof economicsApprovedFor==='function'&&economyLoaded?'<small class="priority-printers '+(item.approvedPrinters.length?'approved':'unverified')+'">'+
+    esc(item.approvedPrinters.length?'✓ Drucker: '+item.approvedPrinters.join(' · ')+(item.readyPrinters.length?' · frei: '+item.readyPrinters.join(' / '):''):'! Druckerfreigabe fehlt – zuerst testen')+'</small>':'')+'</div>'+
    '<div class="priority-actions">'+
    '<button type="button" class="secondary priority-jump" data-priority-index="'+index+'" aria-label="'+esc(button+' für '+item.title)+'">'+esc(button)+' ↗</button>'+
    (priorityKey(item)?'<button type="button" class="priority-dismiss" data-priority-remove="'+index+'" title="Empfehlung entfernen" aria-label="'+esc('Empfehlung entfernen: '+item.title+' · '+(item.note||''))+'">'+
@@ -171,13 +183,15 @@ function priorityCard(item,index){
 }
 let currentPriorities=[];
 let prioritySaving=false;
+let priorityPrinterFilter='all';
 function renderPriorityUI(){
  const shell=$('priority-shell');
  if(!shell||!model)return;
  const all=priorityCandidates(model);
  const dismissed=new Set(model.priority_dismissed||[]);
  const hidden=all.filter(item=>priorityKey(item)&&dismissed.has(priorityKey(item)));
- currentPriorities=all.filter(item=>!dismissed.has(priorityKey(item)));
+ currentPriorities=all.filter(item=>!dismissed.has(priorityKey(item))&&
+  (priorityPrinterFilter==='all'||item.approvedPrinters.includes(priorityPrinterFilter)));
  const total=currentPriorities.length;
  const shown=priorityExpanded?currentPriorities:currentPriorities.slice(0,3);
  $('priority-count').textContent=total?total+(total===1?' Vorschlag':' Vorschläge'):'Alles im Blick';
@@ -238,6 +252,9 @@ function openPriority(item){
   if(exact)exact.focus({preventScroll:true});
  }
 }
+$('priority-printer-filter').addEventListener('change',event=>{
+ priorityPrinterFilter=event.target.value;renderPriorityUI();
+});
 $('priority-more').addEventListener('click',()=>{
  priorityExpanded=!priorityExpanded;renderPriorityUI();
 });
