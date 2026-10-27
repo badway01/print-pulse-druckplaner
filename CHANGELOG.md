@@ -1,3 +1,13 @@
+# 0.13.1 · Druckdauer wie Bambu und optionale Etsy-Kalkulation
+
+- Druckdauer direkt in Stunden und Minuten eingeben; serverseitig werden weiterhin Minuten gespeichert.
+- Standardmäßig nur Druckkosten je Stück (Material, Strom, optionale Maschinenkosten). Kein Verkaufspreis erforderlich.
+- Etsy-Berechnung über eigenes Kästchen aktivierbar; berücksichtigt Verkauf, Arbeitszeit, Versand je Bestellung, Stück je Bestellung und Etsy-Gebühren.
+- Ausgangswerte Deutschland: 6,5 % Transaktion, 4 % + 0,30 EUR Zahlungsbearbeitung, 0,20 USD Listing, 15 % bzw. 12 % Offsite Ads nur bei zugeschriebenen Verkäufen.
+- Gebühren-online-Aktualisierung prüft Etsy-Hilfeseiten und den EZB-USD-Kurs; bei nicht eindeutig verifizierbaren Angaben bleiben frühere Gebühren bestehen.
+- Bereits gespeicherte Kalkulationen und geprüfte Druckerfreigaben bleiben erhalten; keine Änderungen an Bestell- oder Lagerbuchungen.
+- Transparenter Hinweis auf nicht pauschal enthaltene Etsy-Ads-Klickkosten, Etsy Plus und eventuell anfallende USt. auf Verkäufergebühren.
+
 # 0.13.0 · Vernetzter Rechner und geprüfte Drucker
 
 - Neuer Reiter „Rechner“: Kostenkalkulation je Etsy-Produkt, Variante und Drucker, inklusive Mehrfarbenverbrauch, Strom, Maschine, Arbeitszeit, Verpackung, Versand, Plattformgebühren, Gewinn und Marge.
