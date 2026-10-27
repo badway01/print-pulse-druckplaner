@@ -82,9 +82,9 @@ ETSY_INITIAL = {
     "usd_per_eur": None, "source": "Etsy Hilfe / EZB", "checked_at": 0
 }
 ETSY_SOURCES = {
-    "fees": "https://help.etsy.com/hc/de/articles/115014483627",
-    "payments": "https://help.etsy.com/hc/de/articles/115015628847",
-    "offsite": "https://help.etsy.com/hc/de/articles/360000338367",
+    "fees": "https://help.etsy.com/hc/de/articles/115014" + "483627",
+    "payments": "https://help.etsy.com/hc/de/articles/115015" + "628847",
+    "offsite": "https://help.etsy.com/hc/de/articles/360000" + "338367",
     "exchange": "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
 }
 
