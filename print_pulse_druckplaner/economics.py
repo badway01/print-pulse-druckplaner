@@ -119,10 +119,10 @@ def _extract(text_value, pattern, label):
 def parse_official_rates(fees_text, payments_text, offsite_text, exchange_xml):
     """Fail closed if the official pages changed structure or rates look implausible."""
     rates = {
-        "transaction_percent": _extract(fees_text, r"Transaktion\s*[-:]?\s*(\d+(?:[,.]\d+)?)\s*%", "Transaktion"),
+        "transaction_percent": _extract(fees_text, r"Transaktion\s*(?:[|:-]\s*)?(\d+(?:[,.]\d+)?)\s*%", "Transaktion"),
         "payments_percent": _extract(payments_text, r"Deutschland\s*(\d+(?:[,.]\d+)?)\s*%\s*\+", "Etsy Payments"),
         "payments_fixed_eur": _extract(payments_text, r"Deutschland\s*\d+(?:[,.]\d+)?\s*%\s*\+\s*(\d+(?:[,.]\d+)?)\s*EUR", "Zahlungspauschale"),
-        "listing_usd": _extract(fees_text, r"Artikel\s*[-:]?\s*(\d+(?:[,.]\d+)?)\s*USD", "Einstellgebühr"),
+        "listing_usd": _extract(fees_text, r"Artikel\s*(?:[|:-]\s*)?(\d+(?:[,.]\d+)?)\s*USD", "Einstellgebühr"),
         "offsite_standard_percent": _extract(offsite_text, r"(?:Standardgebühr|Gebühr\s+von)\s*(\d+(?:[,.]\d+)?)\s*%", "Offsite Standard"),
         "offsite_reduced_percent": _extract(offsite_text, r"(?:reduzierte Gebühr|ermäßigte Gebührenrate)\s*(?:von\s*)?(\d+(?:[,.]\d+)?)\s*%", "Offsite reduziert")
     }
