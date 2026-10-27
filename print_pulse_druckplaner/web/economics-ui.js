@@ -68,6 +68,21 @@ function econSuggestionMaterials(){
  const ids=[...new Set((profile.sources||[]).flatMap(source=>source.slots||[]).map(Number).filter(Number.isInteger))];
  return ids.filter(id=>economyData.filaments.some(f=>f.id===id)).map(id=>({filament_id:id,grams:0,spool_g:1000}));
 }
+function econRenderPrinterChecklist(){
+ const target=$('econ-printer-checklist');
+ if(!target||!economyData)return;
+ const lid=$('econ-product').value,variant=$('econ-variant').value;
+ target.innerHTML='<div class="econ-printer-checklist-title"><b>Deine Druckerfreigaben</b><small>Nur bestätigte Testdrucke sind freigegeben. Drucker auswählen, Status prüfen und speichern.</small></div>'+
+  economyData.printers.map(name=>{
+   const rows=economyData.profiles.filter(p=>p.listing_id===lid&&p.printer===name);
+   const row=rows.find(p=>p.variant_id===variant)||rows.find(p=>p.variant_id==='');
+   const status=row?.status||'untested';
+   const label=status==='approved'?'✓ Erfolgreich getestet':status==='issue'?'! Nachbessern':'— Noch nicht getestet';
+   return '<button type="button" data-econ-printer-pick="'+esc(name)+'" class="econ-printer-chip '+esc(status)+
+    (name===$('econ-printer').value?' active':'')+'" aria-pressed="'+String(name===$('econ-printer').value)+'">'+
+    '<b>'+esc(name)+'</b><small>'+esc(label)+(row&&row.variant_id!==variant?' · Standard':'')+'</small></button>';
+  }).join('');
+}
 function econLoadProfile(){
  economyProfile=econPick();
  const fields={...econDefaults,...(economyProfile?.fields||{})};
@@ -79,7 +94,7 @@ function econLoadProfile(){
  form.elements.namedItem('status').value=economyProfile?.status||'untested';
  form.elements.namedItem('notes').value=economyProfile?.notes||'';
  economyMaterials=economyProfile?economyProfile.materials.map(m=>({...m})):econSuggestionMaterials();
- econRenderMaterials();econPreview();
+ econRenderMaterials();econPreview();econRenderPrinterChecklist();
  $('econ-record').textContent=economyProfile
   ?'Gespeichert am '+new Date(economyProfile.updated*1000).toLocaleString('de-DE')
   :'Für diesen Drucker noch keine Kalkulation angelegt.';
@@ -231,6 +246,10 @@ function openEconomicsForProduct(id,variant=''){
 $('econ-product').addEventListener('change',()=>{econRenderSelects();$('econ-variant').value='';econLoadProfile();});
 for(const id of ['econ-variant','econ-printer'])$(id).addEventListener('change',econLoadProfile);
 document.querySelectorAll('[data-econ-tab]').forEach(b=>b.addEventListener('click',()=>econShowTab(b.dataset.econTab)));
+$('econ-printer-checklist').addEventListener('click',event=>{
+ const button=event.target.closest('[data-econ-printer-pick]');if(!button)return;
+ $('econ-printer').value=button.dataset.econPrinterPick;econLoadProfile();
+});
 $('econ-add-material').addEventListener('click',()=>{
  economyMaterials.push({filament_id:0,grams:0,spool_g:1000});econRenderMaterials();econPreview();
 });
