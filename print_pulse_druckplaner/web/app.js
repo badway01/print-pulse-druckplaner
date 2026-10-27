@@ -210,6 +210,7 @@ function setModel(data,resort=false){
  lastModelSignature=signature;
  modelEpoch++;
  model=data;
+ if(typeof economyLoaded!=='undefined'&&economyLoaded&&!$('econ-product').value)econRefresh();
  if(resort||!order.length)order=data.products.map(p=>p.id);
  else{
   const freshIds=new Set(data.products.map(p=>p.id));
@@ -512,6 +513,7 @@ function orderCardWorkLine(line,controlsOnly=false){
 ${controlsOnly?'':`  <div class="order-card-work-name" title="${esc(line.title+(variation?' · '+variation:''))}">
    <strong>${qty} × ${esc(orderShortProductTitle(line.title))}</strong>
    ${variation?`<small>${esc(variation)}</small>`:''}
+   ${typeof economyLoaded!=='undefined'&&economyLoaded?`<small class="order-printer-status">${esc(economicsPrinterText(line.listing_id,line.item_id||''))}</small>`:''}
   </div>`}
   <div class="order-card-work-controls">
    <span class="order-card-work-status ${state}">${esc(label)}</span>${button}
@@ -1252,7 +1254,7 @@ function showWorkspace(value){
  $('catalog-shell').hidden=value!=='catalog';
  $('printers-shell').hidden=value!=='printers';
  $('calculator-shell').hidden=value!=='calculator';
- if(value==='calculator')loadEconomics();
+ if(value==='calculator'){if(typeof economyLoaded!=='undefined'&&economyLoaded)econRefresh();else loadEconomics();}
  if(value==='catalog'){renderCatalog();loadPrintTools();}
  if(value==='filament')loadFilaments();
  if(value==='printers'){renderPrinterMonitor();loadPrinters();}
