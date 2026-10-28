@@ -177,9 +177,11 @@ async function localAction(data){
   setModel(result.overview);
   if(data.action==='custom-job'&&$('order-details').open&&$('order-details').dataset.orderId)
     showOrder($('order-details').dataset.orderId);
-  flash(data.action==='complete'?'Bestellung übergeben.':data.action==='cancel'&&data.transaction_id===undefined?
+  flash(data.action==='handover'||data.action==='complete'?'Übergabe dokumentiert.':
+   data.action==='undo-handover'?'Übergabe rückgängig gemacht.':
+   data.action==='cancel'&&data.transaction_id===undefined?
    'Lokale Bestellung storniert.':'Produktionsstand gespeichert.');
-  if(data.action==='complete'||data.action==='cancel'&&!data.transaction_id)
+  if(data.action==='handover'||data.action==='complete'||data.action==='cancel'&&!data.transaction_id)
    $('order-details').close();
  }catch(err){flash(err.message,true);}
  finally{localSaving=false;}
@@ -214,22 +216,87 @@ $('order-details-content').addEventListener('click',async event=>{
  const close=event.target.closest('[data-local-close]');
  if(close){
   const actionType=close.dataset.localClose;
-  if(!confirm(actionType==='complete'?'Diese lokale Bestellung ist vollständig fertig und wird jetzt übergeben. Wirklich abschließen?':
-   'Lokale Bestellung stornieren und unbenutzte Lagerreservierungen zurückgeben?'))return;
+  if(actionType==='complete'){localHandoverOpen(close.dataset.localId);return;}
+  if(!confirm('Lokale Bestellung stornieren und unbenutzte Lagerreservierungen zurückgeben?'))return;
   await localAction({action:actionType,id:close.dataset.localId});
  }
 });
-async function localHistory(){
+let localHandoverId='';
+function localCustomerKey(name){return String(name||'').trim().replace(/\\s+/g,' ').toLocaleLowerCase('de');}
+function localHandoverOpen(id){
+ const o=(model?.orders||[]).find(x=>String(x.id)===String(id)&&x.source==='local');
+ if(!o||o.status!=='ready'){flash('Der Auftrag ist noch nicht vollständig abholbereit.',true);return;}
+ localHandoverId=String(o.id);
+ $('local-handover-form').reset();
+ $('local-handover-error').hidden=true;
+ $('local-handover-customer').textContent=o.customer+' · Auftrag '+o.id;
+ const others=(model.orders||[]).filter(x=>x.source==='local'&&x.status==='ready'&&
+   x.id!==o.id&&localCustomerKey(x.customer)===localCustomerKey(o.customer));
+ $('local-handover-related').innerHTML=others.length?
+   '<fieldset class="local-handover-other"><legend>Weitere abholbereite Aufträge dieses Kunden</legend>'+
+   others.map(x=>'<label><input type="checkbox" data-local-include="'+esc(x.id)+'" checked> Auftrag '+esc(x.id)+' · '+Number(x.quantity||0)+' Stück</label>').join('')+
+   '<small>Nur die hier ausgewählten Aufträge werden gemeinsam übergeben. Unfertige Aufträge bleiben offen.</small></fieldset>':'';
+ const shipping=o.fulfillment==='shipping';
+ $('local-handover-form').querySelector('input[value="'+(shipping?'shipped':'customer')+'"]').checked=true;
+ $('local-handover-recipient-row').hidden=true;
+ $('local-handover-recipient').value='';
+ $('order-details').close();
+ $('local-handover-dialog').showModal();
+}
+function localHandoverMethodChanged(){
+ const method=$('local-handover-form').querySelector('input[name="local-handover-method"]:checked')?.value;
+ $('local-handover-recipient-row').hidden=method!=='third_party';
+}
+$('local-handover-form').addEventListener('change',localHandoverMethodChanged);
+$('orders').addEventListener('click',event=>{
+ const b=event.target.closest('[data-local-handover]');
+ if(b){event.preventDefault();localHandoverOpen(b.dataset.localHandover);}
+});
+$('local-handover-form').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(localSaving)return;
+ const ids=[localHandoverId,...[...$('local-handover-related').querySelectorAll('[data-local-include]:checked')]
+  .map(x=>x.dataset.localInclude)];
+ const method=$('local-handover-form').querySelector('input[name="local-handover-method"]:checked')?.value;
+ const recipient=$('local-handover-recipient').value.trim();
+ const btn=$('local-handover-submit'),error=$('local-handover-error');
+ error.hidden=true;btn.disabled=true;
+ try{
+  const result=await api('local-order',{action:'handover',ids,method,recipient});
+  setModel(result.overview);
+  $('local-handover-dialog').close();
+  flash(ids.length+' '+(ids.length===1?'Auftrag':'Aufträge')+' übergeben und archiviert.');
+ }catch(err){error.textContent=err.message;error.hidden=false;}
+ finally{btn.disabled=false;}
+});
+$('local-history-list').addEventListener('click',async event=>{
+ const b=event.target.closest('[data-local-undo-handover]');
+ if(!b)return;
+ if(!confirm('Übergabe für '+b.dataset.localUndoHandover+' rückgängig machen? Der Auftrag wird wieder aktiv. Die bei Übergabe ausgebuchten Druckstücke werden dem Lager wieder gutgeschrieben.'))return;
+ await localAction({action:'undo-handover',id:b.dataset.localUndoHandover});
+ await localHistory(true);
+});
+async function localHistory(refresh=false){
  $('local-history-list').innerHTML='<p class="hint">Verlauf wird geladen …</p>';
- $('local-history-dialog').showModal();
+ if(!refresh)$('local-history-dialog').showModal();
  try{
   const data=await api('local-orders');
-  const label={open:'Offen',completed:'Übergeben',cancelled:'Storniert'};
-  $('local-history-list').innerHTML=data.orders.length?data.orders.map(o=>
-   '<article class="local-history-item"><div><b>'+esc(o.id)+'</b><span>'+esc(label[o.status]||o.status)+'</span></div>'+
-   '<strong>'+esc(o.customer)+'</strong><small>'+esc(o.items.map(i=>i.quantity+' × '+i.variant).join(' · '))+'</small>'+
-   '<small>Endtermin '+esc(shortDate(o.due))+(o.notes?' · '+esc(o.notes):'')+'</small></article>').join(''):
-   '<p class="hint">Noch keine lokalen Bestellungen vorhanden.</p>';
+  const label={open:'Offen',ready:'Abholbereit',completed:'Übergeben',cancelled:'Storniert'};
+  const mode={customer:'Vom Kunden abgeholt',third_party:'An andere Person mitgegeben',
+   delivered:'Persönlich ausgeliefert',shipped:'Versendet'};
+  $('local-history-list').innerHTML=data.orders.length?data.orders.map(o=>{
+   const details=o.status==='completed'?(o.handover_method?
+     mode[o.handover_method]+(o.handover_to?' · '+o.handover_to:'')+
+     (o.handover_at?' · '+new Date(o.handover_at*1000).toLocaleString('de-DE',{timeZone:'Europe/Berlin'}):''):
+     'Älterer Abschluss · Übergabeart nicht erfasst'):'';
+   return '<article class="local-history-item"><div><b>'+esc(o.id)+'</b><span>'+esc(label[o.status]||o.status)+'</span></div>'+
+    '<strong>'+esc(o.customer)+'</strong><small>'+esc(o.items.map(i=>i.quantity+' × '+i.variant).join(' · '))+'</small>'+
+    '<small>Endtermin '+esc(shortDate(o.due))+(o.notes?' · '+esc(o.notes):'')+'</small>'+
+    (details?'<small>'+esc(details)+'</small>':'')+
+    (o.status==='completed'?'<div class="local-history-actions"><a class="secondary" download href="api/local-order-pdf?id='+encodeURIComponent(o.id)+'">A4 · PDF</a>'+
+      (o.handover_method?'<button type="button" class="secondary" data-local-undo-handover="'+esc(o.id)+'">Übergabe rückgängig</button>':'')+
+      '</div>':'')+'</article>';
+  }).join(''):'<p class="hint">Noch keine lokalen Bestellungen vorhanden.</p>';
  }catch(err){$('local-history-list').textContent=err.message;}
 }
 $('local-history-open').addEventListener('click',localHistory);
