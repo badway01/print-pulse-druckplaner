@@ -290,7 +290,7 @@ class LocalOrderTests(unittest.TestCase):
         self.assertEqual([o['id'] for o in restored],[first])
         self.assertEqual(restored[0]['status'],'ready')
         with app.connect() as db:
-            self.assertEqual(app.local_orders.history(db)[1]['status'],'completed')
+            self.assertEqual(next(r for r in app.local_orders.history(db) if r['id']==second)['status'],'completed')
 
     def test_finished_print_is_debited_once_and_restored_on_handover_undo(self):
         oid=self.call(app.local_orders.create,self.payload(request_key='undo-debits-123'))['id']
