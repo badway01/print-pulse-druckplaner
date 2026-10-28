@@ -241,8 +241,8 @@ class LocalOrderTests(unittest.TestCase):
             fresh=app.local_order_pdf.customer_snapshot(db,first)
         self.assertEqual([o['id'] for o in fresh['orders']],[first])
         with app.connect() as db:
-            with self.assertRaisesRegex(ValueError,'nicht mehr offen'):
-                app.local_order_pdf.customer_snapshot(db,second)
+            archived=app.local_order_pdf.customer_snapshot(db,second)
+        self.assertEqual([o['id'] for o in archived['orders']],[second])
 
     def test_customer_a4_handles_many_lines_and_long_personalization(self):
         lines=[{'listing_id':'101','item_id':'small','quantity':1,
@@ -255,6 +255,80 @@ class LocalOrderTests(unittest.TestCase):
         pdf=app.local_order_pdf.render_pdf(snap)
         self.assertGreater(len(pdf),3500)
         self.assertTrue(pdf.startswith(b'%PDF-'))
+
+    def test_existing_orders_ready_and_grouped_third_party_handover_and_undo(self):
+        first=self.call(app.local_orders.create,self.payload(request_key='handover-abc-123'))['id']
+        second=self.call(app.local_orders.create,self.payload(
+            request_key='handover-def-123'))['id']
+        self.assertTrue(all(o['status']=='open' for o in app.overview()['orders']))
+        for oid in (first,second):
+            line=next(o for o in app.overview()['orders'] if o['id']==oid)['items'][0]
+            with app.connect() as db:
+                rev=db.execute("SELECT revision FROM stock_items WHERE id='small'").fetchone()[0]
+            app.mutate_order_print({'transaction_id':line['transaction_id'],
+                'receipt_id':oid,'action':'allocate','quantity':1,'revision':rev})
+        before=self.stock()
+        self.assertEqual(before,3)
+        self.assertTrue(all(o['status']=='ready' for o in app.overview()['orders']))
+        with app.connect() as db:
+            saved=app.local_orders.history(db)
+        self.assertTrue(all(o['status']=='ready' for o in saved))
+        result=self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
+            {'ids':[first,second],'method':'third_party','recipient':'Nachbarin'})
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(self.stock(),before)
+        self.assertFalse(app.overview()['orders'])
+        with app.connect() as db:
+            handovers={r['id']:r for r in app.local_orders.history(db)}
+        for oid in (first,second):
+            self.assertEqual(handovers[oid]['handover_method'],'third_party')
+            self.assertEqual(handovers[oid]['handover_to'],'Nachbarin')
+            self.assertGreater(handovers[oid]['handover_at'],0)
+        self.call(app.local_orders.undo_handover,{'id':first})
+        self.assertEqual(self.stock(),before)
+        restored=app.overview()['orders']
+        self.assertEqual([o['id'] for o in restored],[first])
+        self.assertEqual(restored[0]['status'],'ready')
+        with app.connect() as db:
+            self.assertEqual(app.local_orders.history(db)[1]['status'],'completed')
+
+    def test_finished_print_is_debited_once_and_restored_on_handover_undo(self):
+        oid=self.call(app.local_orders.create,self.payload(request_key='undo-debits-123'))['id']
+        line=app.overview()['orders'][0]['items'][0]
+        with app.connect() as db:
+            rev=db.execute("SELECT revision FROM stock_items WHERE id='small'").fetchone()[0]
+        app.mutate_order_print({'transaction_id':line['transaction_id'],
+            'receipt_id':oid,'action':'finish-direct','quantity':1,'revision':rev})
+        self.assertEqual(self.stock(),6)
+        self.assertEqual(app.overview()['orders'][0]['status'],'ready')
+        self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
+            {'ids':[oid],'method':'delivered','recipient':''})
+        self.assertEqual(self.stock(),5)
+        self.call(app.local_orders.undo_handover,{'id':oid})
+        self.assertEqual(self.stock(),6)
+        self.assertEqual(app.overview()['orders'][0]['status'],'ready')
+        with app.connect() as db:
+            self.assertEqual(app.local_orders.history(db)[0]['handover_method'],'')
+
+    def test_group_handover_rejects_unfinished_member_without_partial_changes(self):
+        one=self.call(app.local_orders.create,self.payload(request_key='group-open-a-123'))['id']
+        two=self.call(app.local_orders.create,self.payload(request_key='group-open-b-123'))['id']
+        line=next(o for o in app.overview()['orders'] if o['id']==one)['items'][0]
+        with app.connect() as db:
+            rev=db.execute("SELECT revision FROM stock_items WHERE id='small'").fetchone()[0]
+        app.mutate_order_print({'transaction_id':line['transaction_id'],
+            'receipt_id':one,'action':'allocate','quantity':1,'revision':rev})
+        with self.assertRaisesRegex(ValueError,'noch nicht fertig'):
+            self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
+                {'ids':[one,two],'method':'customer'})
+        self.assertEqual({o['id'] for o in app.overview()['orders']},{one,two})
+        self.assertEqual(self.stock(),4)
+
+    def test_old_completed_orders_are_not_reopened_without_handover_ledger(self):
+        oid=self.call(app.local_orders.create,self.payload(request_key='historical-123',direct=True))['id']
+        with self.assertRaisesRegex(ValueError,'ältere'):
+            self.call(app.local_orders.undo_handover,{'id':oid})
+        self.assertEqual(self.stock(),4)
 
     def test_invalid_variant_and_missing_deadline_do_not_create_any_order(self):
         bad=self.payload()
