@@ -84,6 +84,38 @@
    if(line)return {o,line};
   }return null;
  };
+ // Read the latest product component definitions for every open order.
+ function componentPartRows(line){
+  const remaining=num(line.remaining),units=Math.max(1,num(line.quantity));
+  const rows=(line.components||[]).map(part=>{
+   const perUnit=num(part.required)/units,need=Math.ceil(perUnit*remaining);
+   const ready=num(part.available),running=num(part.printing);
+   const missing=Math.max(0,need-ready),printable=Math.max(0,missing-running);
+   const canBook=part.kind==='stock'?Math.min(printable,num(part.stock)):0;
+   const undo=Math.max(0,num(part.finished)-Math.max(0,num(part.consumed)-num(part.booked)));
+   const max=Math.max(1,printable,missing,canBook,running,undo);
+   const status=part.error?'Angaben prüfen':!remaining?'Montiert':
+    need>0&&ready>=need?'Bereit':running?'Im Druck':'Offen';
+   const buttons=part.error||!remaining?'':[
+    (canBook?'<button type="button" class="secondary" data-focus-part-action="book" data-max="'+canBook+'">Aus Lager</button>':''),
+    (printable?'<button type="button" class="secondary" data-focus-part-action="start" data-max="'+printable+'">Drucken</button>':''),
+    (missing?'<button type="button" class="primary" data-focus-part-action="finish-direct" data-max="'+missing+'">✓ Fertig</button>':''),
+    (running?'<button type="button" class="secondary" data-focus-part-action="cancel" data-max="'+running+'">Abbruch</button>':''),
+    (undo?'<button type="button" class="simple-part-reopen" data-focus-part-action="reopen-direct" data-max="'+undo+'">↶ Rückgängig</button>':'')
+   ].join('');
+   return '<div class="simple-pos-part" data-focus-component-id="'+esc(part.id)+'">'+
+    '<div class="simple-pos-part-head"><div><strong>'+esc(part.name)+'</strong>'+
+    (part.color||part.label?'<small>'+esc([part.color,part.label].filter(Boolean).join(' · '))+'</small>':'')+
+    '</div><span class="simple-pos-part-status">'+esc(status)+'</span></div>'+
+    (part.error?'<p class="component-error">'+esc(part.error)+'</p>':
+    '<div class="simple-pos-part-progress"><b>'+ready+' / '+need+' bereit</b>'+
+     (running?'<span>'+running+' im Druck</span>':'')+
+     (part.kind==='stock'?'<span>'+num(part.stock)+' frei im Lager</span>':'')+'</div>')+
+    (buttons?'<div class="simple-pos-part-controls"><label>Menge<input class="simple-pos-part-qty" type="number" min="1" max="'+max+'" value="1" inputmode="numeric"></label>'+
+     '<div class="simple-pos-part-buttons">'+buttons+'</div></div>':'')+'</div>';
+  }).join('');
+  return '<div class="simple-pos-parts"><strong>Bauteile einzeln bearbeiten</strong>'+rows+'</div>';
+ }
  function draw(){
   const found=locate();if(!found){if(focus.open)focus.close();return;}
   const snapshot=JSON.stringify([selected,found.line,findItem(found.line.item_id)?.i?.on_hand]);
@@ -92,10 +124,12 @@
   const {o,line}=found,st=status(line),component=composed(line);
   const q=num(line.quantity),open=num(line.remaining),printing=num(line.printing);
   const eligible=!!(line.item_id||line.local_custom);
-  const start=eligible&&open>0&&(!component||(line.components||[]).some(p=>p.kind==='demand'&&!p.error&&num(p.required)>num(p.printing)+num(p.finished)));
-  const finish=eligible&&!complete(line)&&(component?q-num(line.assembled)>0:open+printing>0);
+  const partMode=component&&eligible&&(line.components||[]).length>0;
+  const readyUnits=partMode?componentReadyUnits(line):0;
+  const start=eligible&&!partMode&&open>0&&(!component||(line.components||[]).some(p=>p.kind==='demand'&&!p.error&&num(p.required)>num(p.printing)+num(p.finished)));
+  const finish=eligible&&!partMode&&!complete(line)&&(component?q-num(line.assembled)>0:open+printing>0);
   const undoable=component?num(line.assembled):num(line.finished);
-  const quantityMax=Math.max(1,start?open:0,finish?(component?q-num(line.assembled):open+printing):0,undoable);
+  const quantityMax=Math.max(1,start?open:0,finish?(component?q-num(line.assembled):open+printing):0,readyUnits,undoable);
   const image=thumbnail(line.image||'');
   const labels=[line.color?'Wunschfarbe: '+line.color:'',line.personalization?'Personalisierung: '+line.personalization:'',line.note?'Hinweis: '+line.note:''].filter(Boolean);
   const unknown=eligible&&!component&&!line.local_custom&&findItem(line.item_id)?.i.on_hand===null;
@@ -105,18 +139,18 @@
    '<div><small>BESTELLUNG #'+esc(o.id)+' · '+q+' STÜCK</small><h3>'+esc(orderShortProductTitle(line.title))+'</h3></div></div>'+
    orderVariantLabels(line.variant)+
    (labels.length?'<div class="simple-pos-extras">'+labels.map(x=>'<strong>'+esc(x)+'</strong>').join('')+'</div>':'')+
-   (component?'<div class="simple-pos-parts"><strong>Bauteile</strong>'+
-    (line.components||[]).map(p=>'<small>'+esc(p.name+(p.color?' · '+p.color:'')+(p.label?' · '+p.label:''))+'</small>').join('')+'</div>':'')+
+   (partMode?componentPartRows(line):component?'<div class="simple-pos-parts"><strong>Bauteile</strong><p class="hint">Bitte zuerst die Bauteile im Produktkatalog hinterlegen.</p></div>':'')+
    '<div class="simple-pos-state '+st[1]+'"><strong>'+esc(st[0])+'</strong>'+
    '<small>'+done(line)+' von '+q+' fertig'+(!component&&printing?' · '+printing+' im Druck':'')+'</small></div>'+
-   (start||finish||undoable>1?
+   (start||finish||readyUnits>0||undoable>1?
     '<label class="simple-pos-quantity">Stückzahl <input type="number" id="simple-pos-qty" inputmode="numeric" min="1" max="'+quantityMax+'" value="1"></label>':'')+
-   (start||finish?
+   (start||finish||readyUnits>0?
     (unknown&&finish?'<label class="simple-pos-initial">Bisheriger fertiger Lagerbestand<input type="number" id="simple-pos-stock" min="0" inputmode="numeric" placeholder="Vorher zählen"></label>':'')+
     '<div class="simple-pos-actions">'+(start?'<button type="button" class="secondary" data-focus-action="start">Drucken</button>':'')+
-    (finish?'<button type="button" class="primary" data-focus-action="complete">✓ Fertig</button>':'')+'</div>'+
-    '<p class="hint">„Drucken“ merkt den Druckstart vor. „Fertig“ bestätigt die wirklich fertige Menge, auch ohne vorherigen Druckstart.</p>':
-    '<p class="hint">'+(complete(line)?'Diese Position ist fertig.':'Bei dieser Position sind noch Angaben zu prüfen.')+'</p>')+
+    (finish?'<button type="button" class="primary" data-focus-action="complete">✓ Fertig</button>':'')+
+    (readyUnits?'<button type="button" class="primary" data-focus-action="assemble">✓ Produkt fertig ('+readyUnits+' möglich)</button>':'')+'</div>'+
+    (partMode?'<p class="hint">Bauteile einzeln bestätigen, danach das vollständige Produkt als fertig markieren. Freies Lager bleibt unverändert.</p>':'<p class="hint">„Drucken“ merkt den Druckstart vor. „Fertig“ bestätigt die wirklich fertige Menge, auch ohne vorherigen Druckstart.</p>'):
+    '<p class="hint">'+(complete(line)?'Diese Position ist fertig.':partMode?'Du kannst jedes Bauteil oben separat drucken und fertigmelden.':'Bei dieser Position sind noch Angaben zu prüfen.')+'</p>')+
    (undoable?'<div class="simple-pos-undo"><button type="button" data-focus-action="reopen">↶ Fertig rückgängig</button><small>Setzt '+(undoable>1?'die gewählte Anzahl':'diese Position')+' wieder auf offen, ohne neue Lagerbuchung.</small></div>':'')+
    '<button type="button" class="simple-pos-advanced-link" data-focus-more>Weitere Funktionen / Lagerverwaltung</button>';
  }
@@ -129,15 +163,17 @@
   const found=locate();if(!found||busy)return;
   const {o,line}=found,comp=composed(line),n=Number($('simple-pos-qty')?.value??1);
   const limit=kind==='reopen'?(comp?num(line.assembled):num(line.finished)):
+   kind==='assemble'?componentReadyUnits(line):
    kind==='start'?num(line.remaining):
    comp?num(line.quantity)-num(line.assembled):num(line.remaining)+num(line.printing);
   if(!Number.isSafeInteger(n)||n<1||n>limit){flash('Bitte eine Stückzahl zwischen 1 und '+limit+' wählen.',true);return;}
+  if(kind==='assemble'&&!confirm(n+' vollständige(s) Produkt(e) zusammengesetzt und geprüft?'))return;
   if(kind==='complete'&&comp&&!confirm(n+' Stück wirklich fertig für diesen Auftrag? Es wird nichts zusätzlich ins Lager gebucht.'))return;
   focus.querySelectorAll('input,button').forEach(x=>x.disabled=true);
   let ok=false;
   try{
    if(comp){
-    ok=await mutate('components',{action:kind==='reopen'?'quick-reopen':kind==='start'?'quick-start':'quick-complete',transaction_id:line.transaction_id,quantity:n});
+    ok=await mutate('components',{action:kind==='reopen'?'quick-reopen':kind==='start'?'quick-start':kind==='assemble'?'assemble':'quick-complete',transaction_id:line.transaction_id,quantity:n});
    }else if(line.local_custom){
     const result=await api('local-order',{action:'custom-job',transaction_id:line.transaction_id,
      action_type:kind==='reopen'?'reopen':kind==='start'?'start':'finish-direct',quantity:n});
@@ -158,6 +194,24 @@
   }catch(e){flash(e.message,true);}
   finally{focus.querySelectorAll('input,button').forEach(x=>x.disabled=false);if(ok)draw();}
  }
+ async function partAction(button){
+  const found=locate();if(!found||busy)return;
+  const part=found.line.components?.find(p=>p.id===button.closest('[data-focus-component-id]')?.dataset.focusComponentId);
+  if(!part||part.error)return;
+  const kind=button.dataset.focusPartAction;
+  const count=Number(button.closest('.simple-pos-part')?.querySelector('.simple-pos-part-qty')?.value||1);
+  const max=Number(button.dataset.max);
+  if(!Number.isSafeInteger(count)||count<1||count>max){
+   flash('Bitte eine Menge zwischen 1 und '+max+' wählen.',true);return;
+  }
+  focus.querySelectorAll('input,button').forEach(x=>x.disabled=true);
+  try{
+   const ok=await mutate('components',{action:kind,transaction_id:found.line.transaction_id,
+    component_id:part.id,quantity:count});
+   if(ok){positionSnapshot='';draw();}
+  }catch(e){flash(e.message,true);}
+  finally{focus.querySelectorAll('input,button').forEach(x=>x.disabled=false);}
+ }
  document.addEventListener('click',event=>{
   const b=event.target.closest('[data-order-position]');if(!b)return;
   event.preventDefault();event.stopImmediatePropagation();open(b.dataset.orderPosition);
@@ -167,6 +221,8 @@
  });
  focus.addEventListener('click',event=>{
   if(event.target.closest('[data-focus-close]')){focus.close();return;}
+  const part=event.target.closest('[data-focus-part-action]');
+  if(part){partAction(part);return;}
   const a=event.target.closest('[data-focus-action]');if(a){action(a.dataset.focusAction);return;}
   if(event.target.closest('[data-focus-more]')){
    const row=locate();focus.close();
