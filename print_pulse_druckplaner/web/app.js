@@ -549,7 +549,7 @@ function orderCard(o){
 function renderOrders(){
  const orders=model.orders||[];
  const sorted=[...orders].sort((a,b)=>orderSort==='new'?(b.created-a.created||b.id.localeCompare(a.id)):( (a.ship_by||Infinity)-(b.ship_by||Infinity)||b.created-a.created));
- $('order-count').textContent=orders.length+' offen';
+ $('order-count').textContent=orders.length+' aktiv';
  document.querySelectorAll('[data-order-sort]').forEach(b=>{b.classList.toggle('selected',b.dataset.orderSort===orderSort);b.setAttribute('aria-pressed',String(b.dataset.orderSort===orderSort));});
  updateHTML($('orders'),sorted.length?sorted.map(orderCard).join(''):'<p class="orders-empty">Keine offenen, bezahlten Bestellungen vorhanden.</p>');
  $('orders-prev').disabled=!orders.length;
