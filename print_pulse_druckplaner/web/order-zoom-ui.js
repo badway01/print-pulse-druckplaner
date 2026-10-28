@@ -33,7 +33,8 @@
    '<div class="order-card-main">'+(photo?'<img src="'+esc(photo)+'" alt="" loading="lazy">':'')+
    '<div><strong>'+esc(o.customer)+'</strong><small>'+num(o.quantity)+' Stück · '+lines.length+' Position'+(lines.length===1?'':'en')+'</small></div></div>'+
    '<div class="simple-order-tiles">'+lines.map(line=>tile(line)).join('')+'</div>'+
-   '<div class="order-card-foot"><span class="order-deadline '+ship.level+'">'+shippingMarkup(ship)+'</span></div>'+
+   '<div class="order-card-foot"><span class="order-deadline '+ship.level+'">'+shippingMarkup(ship)+'</span>'+
+   (o.source==='local'&&o.status==='ready'?'<button type="button" class="primary local-card-handover" data-local-handover="'+esc(o.id)+'">Übergabe bestätigen</button>':'')+'</div>'+
    (o.source==='local'?'<div class="local-order-pdf-row">'+localPdfLink(o,'Auftrag A4 · PDF')+'</div>':'')+'</article>';
  };
  const oldHeader=details.querySelector('.dialog-heading');
@@ -60,12 +61,14 @@
   const localAdmin=local?'<div class="local-detail-actions">'+localPdfLink(o,'Auftrag A4 · PDF')+
    '<button type="button" class="secondary" data-local-edit="'+esc(o.id)+'">Kunde / Termin bearbeiten</button>'+
    '<button type="button" class="secondary" data-local-close="cancel" data-local-id="'+esc(o.id)+'">Stornieren</button>'+
-   '<button type="button" class="primary" data-local-close="complete" data-local-id="'+esc(o.id)+'" '+
-    (progress.complete?'':'disabled')+'>Bestellung übergeben</button></div>':'';
+   '<button type="button" class="primary" data-local-handover="'+esc(o.id)+'" '+
+    (o.status==='ready'?'':'disabled title="Zuerst alle Positionen fertigstellen"')+'>Übergabe bestätigen</button></div>':'';
   const html='<div class="order-work-meta"><div><strong>'+esc(o.customer)+'</strong><small>Bestellt am '+esc(shortDate(o.created))+'</small></div>'+
    '<div class="order-deadline '+ship.level+'">'+shippingMarkup(ship)+'</div></div>'+
    (local&&o.notes?'<p class="simple-order-local-notes">'+esc(o.notes)+'</p>':'')+
+   (local&&o.status==='ready'?'<p class="local-ready-info">✓ Produktion abgeschlossen · wartet auf Übergabe</p>':'')+
    '<p class="simple-order-summary">'+progress.finished+' von '+progress.total+' Stück fertig</p>'+
+   (local&&o.status==='ready'?'<button type="button" class="primary local-detail-handover" data-local-handover="'+esc(o.id)+'">Übergabe bestätigen</button>':'')+
    '<div class="simple-order-zoom-tiles">'+(o.items||[]).map(line=>tile(line,true)).join('')+'</div>'+
    '<details class="simple-order-advanced"><summary>Weitere Auftragsfunktionen (Lager und Bauteile)</summary>'+
    extra+localAdmin+'</details>';
