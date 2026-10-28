@@ -98,7 +98,10 @@ def snapshot(db,products,orders):
                 total,label,error=requirement(part,line)
                 job=jobs.get((str(line['transaction_id']),part['id']),{})
                 state={k:int(job.get(k,0)) for k in ('booked','printing','finished','consumed')}
-                available=(state['booked'] if part['kind']=='stock' else state['finished'])-state['consumed']
+                # A stock part printed specifically for an order is NOT free inventory.
+                # Only 'booked' was withdrawn from shared stock; both sources
+                # can be consumed by the customer order.
+                available=(state['booked']+state['finished'] if part['kind']=='stock' else state['finished'])-state['consumed']
                 line['components'].append({
                     'id':part['id'],'name':part['name'],'color':part['color'],'kind':part['kind'],'label':label,
                     'stock':part['stock'],'required':total,'error':error,
@@ -135,13 +138,17 @@ def stock_patch(db,data):
 
 def recover_cancelled(db,tid):
     """Return unused reserved physical parts when Etsy cancels a transaction."""
-    rows=db.execute("""SELECT w.component_id,w.booked,w.consumed,p.kind FROM pp_component_orders w
+    rows=db.execute("""SELECT w.component_id,w.booked,w.finished,w.consumed,p.kind FROM pp_component_orders w
         JOIN pp_components p ON p.id=w.component_id
         WHERE w.transaction_id=?""",(tid,)).fetchall()
     for job in rows:
-        if job['kind']=='stock' and job['booked']>job['consumed']:
-            db.execute('UPDATE pp_components SET stock=stock+? WHERE id=?',
-                       (job['booked']-job['consumed'],job['component_id']))
+        if job['kind']=='stock':
+            # Return unconsumed physical pieces to the shared shelf, whether
+            # they were reserved from it or printed solely for this order.
+            unused=max(0,job['booked']+job['finished']-job['consumed'])
+            if unused:
+                db.execute('UPDATE pp_components SET stock=stock+? WHERE id=?',
+                           (unused,job['component_id']))
     db.execute('DELETE FROM pp_component_orders WHERE transaction_id=?',(tid,))
 
 
@@ -347,10 +354,13 @@ def mutate(db,data,whole):
             booked,printing,finished,consumed=(job[k] for k in ('booked','printing','finished','consumed'))
             units=count*(required//tx['qty'])
             if part['kind']=='stock':
-                # These units were already removed from the free component
-                # inventory when booked. Never debit free stock here.
-                used=min(units,max(0,booked-consumed))
-                if used: changes.append((part['id'],booked,printing,finished,consumed+used))
+                # Shared-stock reservations AND parts printed for this order
+                # can be consumed, without touching free shelf inventory.
+                # Clear obsolete in-progress prints for completed units.
+                used=min(units,max(0,booked+finished-consumed))
+                stopped=min(printing,units)
+                if used or stopped:
+                    changes.append((part['id'],booked,printing-stopped,finished,consumed+used))
             else:
                 # A physical finished product cannot still have these demand
                 # parts "printing". Clear only the relevant running quantity;
@@ -385,7 +395,7 @@ def mutate(db,data,whole):
             job=db.execute('SELECT * FROM pp_component_orders WHERE transaction_id=? AND component_id=?',
                            (tid,part['id'])).fetchone()
             units=count*(required//tx['qty'])
-            available=((job['booked'] if part['kind']=='stock' else job['finished'])-job['consumed']) if job else 0
+            available=((job['booked']+job['finished'] if part['kind']=='stock' else job['finished'])-job['consumed']) if job else 0
             if available<units: raise ValueError('Bauteil fehlt: '+part['name'])
             to_consume.append((units,tid,part['id']))
         for units,tid,cid in to_consume:
@@ -412,7 +422,7 @@ def mutate(db,data,whole):
     consumed=job['consumed'] if job else 0
     qty=whole(data.get('quantity'),1,100000)
     if action=='book':
-        if part['kind']!='stock' or qty>required-booked or qty>part['stock']:
+        if part['kind']!='stock' or qty>required-booked-finished-printing or qty>part['stock']:
             raise ValueError('Nicht genügend freie Vorratsbauteile für diese Bestellung.')
         db.execute('UPDATE pp_components SET stock=stock-? WHERE id=?',(qty,cid))
         booked+=qty
@@ -421,14 +431,30 @@ def mutate(db,data,whole):
         booked-=qty
         db.execute('UPDATE pp_components SET stock=stock+? WHERE id=?',(qty,cid))
     elif action=='start':
-        if part['kind']!='demand' or qty>required-printing-finished:
+        # Both stocked and made-to-order parts may be printed directly for a
+        # customer. No stock is created before an explicit shelf transfer.
+        if qty>required-booked-printing-finished:
             raise ValueError('Bauteil ist bereits in ausreichender Menge vorgesehen.')
         printing+=qty
     elif action in ('finish','cancel'):
-        if part['kind']!='demand' or qty>printing:
+        if qty>printing:
             raise ValueError('Keine entsprechende Menge im Druck.')
         printing-=qty
         if action=='finish': finished+=qty
+    elif action=='finish-direct':
+        # Mark an actually printed component without a previous "Drucken"
+        # click. This never credits free inventory or finishes the whole item.
+        if qty>required-booked-finished:
+            raise ValueError('Es werden nicht so viele Bauteile mehr benötigt.')
+        printing-=min(printing,qty)
+        finished+=qty
+    elif action=='reopen-direct':
+        # Undo only unconsumed customer-specific printed parts. Previously
+        # booked shelf inventory is not touched or returned a second time.
+        unconsumed=max(0,finished-max(0,consumed-booked))
+        if qty>unconsumed:
+            raise ValueError('Bauteil bereits verbaut oder nicht als fertig erfasst.')
+        finished-=qty
     else:
         raise ValueError('Unbekannte Bauteil-Aktion.')
     db.execute("""INSERT INTO pp_component_orders
