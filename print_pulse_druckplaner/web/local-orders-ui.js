@@ -209,6 +209,8 @@ async function localCustomProductionClick(action){
   return;
 }
 $('order-details-content').addEventListener('click',async event=>{
+ const handover=event.target.closest('[data-local-handover]');
+ if(handover){localHandoverOpen(handover.dataset.localHandover);return;}
  const action=event.target.closest('[data-local-custom-action]');
  if(action){await localCustomProductionClick(action);return;}
  const meta=event.target.closest('[data-local-edit]');
@@ -222,7 +224,7 @@ $('order-details-content').addEventListener('click',async event=>{
  }
 });
 let localHandoverId='';
-function localCustomerKey(name){return String(name||'').trim().replace(/\\s+/g,' ').toLocaleLowerCase('de');}
+function localCustomerKey(name){return String(name||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('de');}
 function localHandoverOpen(id){
  const o=(model?.orders||[]).find(x=>String(x.id)===String(id)&&x.source==='local');
  if(!o||o.status!=='ready'){flash('Der Auftrag ist noch nicht vollständig abholbereit.',true);return;}
