@@ -6,6 +6,7 @@
 - Übergabedatum, Art und Empfänger werden im lokalen Archiv gespeichert. A4-PDFs bleiben auch bei abgeschlossenen Aufträgen verfügbar.
 - Versehentliche Übergaben lassen sich für neu dokumentierte Übergaben inklusive korrekter Lager-Rückbuchung rückgängig machen; ältere Abschlüsse bleiben unverändert.
 - Etsy-Bestellungen, bereits gebuchte Bestände und direkte Verkäufe werden nicht umgestellt.
+- Druckkosten und optionale Etsy-Kalkulation bleiben verfügbar und unverändert.
 
 ## 0.13.2 (2026-10-28)
 
