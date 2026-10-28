@@ -229,9 +229,9 @@ function orderComponentOutstanding(line,part){
  const all=Math.max(1,Number(line.quantity)||0);
  const perUnit=Math.max(0,Number(part.required)||0)/all;
  const remaining=units*perUnit;
- const recorded=part.kind==='stock'
-  ?Math.max(0,(Number(part.booked)||0)-(Number(part.consumed)||0))
-  :Math.max(0,(Number(part.finished)||0)-(Number(part.consumed)||0))+
+ const recorded=(part.kind==='stock'
+  ?Math.max(0,(Number(part.booked)||0)+(Number(part.finished)||0)-(Number(part.consumed)||0))
+  :Math.max(0,(Number(part.finished)||0)-(Number(part.consumed)||0)))+
    Math.max(0,Number(part.printing)||0);
  return Math.max(0,Math.ceil(remaining-recorded));
 }
