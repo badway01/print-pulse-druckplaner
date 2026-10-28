@@ -2047,6 +2047,10 @@ class Handler(BaseHTTPRequestHandler):
                     elif action=='update': result=local_orders.update(db,data)
                     elif action in ('complete','cancel'):
                         result=local_orders.close(db,data,components)
+                    elif action=='handover':
+                        result=local_orders.handover(db,data,components)
+                    elif action=='undo-handover':
+                        result=local_orders.undo_handover(db,data)
                     elif action=='custom-job': result=local_orders.custom_action(db,data)
                     else:raise ValueError('Unbekannte lokale Bestellaktion.')
                 return self.send(200,{'result':result,'overview':overview()})
