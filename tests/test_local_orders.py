@@ -318,7 +318,7 @@ class LocalOrderTests(unittest.TestCase):
             rev=db.execute("SELECT revision FROM stock_items WHERE id='small'").fetchone()[0]
         app.mutate_order_print({'transaction_id':line['transaction_id'],
             'receipt_id':one,'action':'allocate','quantity':1,'revision':rev})
-        with self.assertRaisesRegex(ValueError,'noch nicht fertig'):
+        with self.assertRaisesRegex(ValueError,'Noch nicht alle Artikel'): 
             self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
                 {'ids':[one,two],'method':'customer'})
         self.assertEqual({o['id'] for o in app.overview()['orders']},{one,two})
