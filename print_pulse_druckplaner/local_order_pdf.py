@@ -16,12 +16,15 @@ def _key(name):
 
 
 def customer_snapshot(db,order_id):
-    """All and only open local orders sharing the selected customer's name."""
-    selected=db.execute("SELECT * FROM pp_local_orders WHERE id=? AND status='open'",(order_id,)).fetchone()
-    if not selected: raise ValueError('Lokaler Auftrag ist nicht mehr offen.')
-    records=[r for r in db.execute(
-        "SELECT * FROM pp_local_orders WHERE status='open' ORDER BY due,created,id"
-    ) if _key(r['customer'])==_key(selected['customer'])]
+    """Open orders are grouped by customer; archived orders print individually."""
+    selected=db.execute("SELECT * FROM pp_local_orders WHERE id=? AND status IN ('open','completed')",(order_id,)).fetchone()
+    if not selected: raise ValueError('Lokaler Auftrag ist nicht mehr offen oder abgeschlossen.')
+    if selected['status']=='completed':
+        records=[selected]
+    else:
+        records=[r for r in db.execute(
+            "SELECT * FROM pp_local_orders WHERE status='open' ORDER BY due,created,id"
+        ) if _key(r['customer'])==_key(selected['customer'])]
     if not records or len(records)>120: raise ValueError('Zu viele offene Aufträge für einen Ausdruck.')
     titles={}
     orders=[]

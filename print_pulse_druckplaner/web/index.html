@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.2"><script src="app.js?v=0.13.2" defer></script><script src="components-ui.js?v=0.13.2" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.1" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.12.10" defer></script><script src="dialog-behavior.js?v=0.12.6" defer></script><script src="order-zoom-ui.js?v=0.13.2" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.3"><script src="app.js?v=0.13.3" defer></script><script src="components-ui.js?v=0.13.3" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.1" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.13.3" defer></script><script src="dialog-behavior.js?v=0.12.6" defer></script><script src="order-zoom-ui.js?v=0.13.3" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script></head>
 <body>
 <header><a class="brand" href="./" aria-label="Print &amp; Pulse Startseite"><img class="brand-logo" src="brand.svg" width="190" height="98" alt="Print &amp; Pulse – Designs mit Herz"></a><div class="theme-switch" role="group" aria-label="Darstellung wählen">
  <button type="button" class="theme-option" data-theme-mode="light" aria-label="Heller Modus" title="Hell" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
@@ -242,6 +242,24 @@
  <p id="local-form-error" class="warning" role="alert" hidden></p>
  <div class="local-form-actions"><button type="button" data-close="local-order-dialog" class="secondary">Abbrechen</button><button id="local-order-save" type="submit" class="primary">Bestellung speichern</button></div>
  </form></dialog>
+<dialog id="local-handover-dialog" class="local-handover-dialog">
+ <form id="local-handover-form">
+ <div class="dialog-heading"><h2>Übergabe bestätigen</h2><button type="button" data-close="local-handover-dialog" class="icon-button" aria-label="Schließen">×</button></div>
+ <p id="local-handover-customer" class="local-handover-customer"></p>
+ <p class="hint">Nur abholbereite Aufträge können übergeben werden. Die Übergabe wird mit Datum und Uhrzeit archiviert.</p>
+ <fieldset class="local-handover-method"><legend>Wie wurde die Ware übergeben?</legend>
+  <label><input type="radio" name="local-handover-method" value="customer" checked> Vom Kunden abgeholt</label>
+  <label><input type="radio" name="local-handover-method" value="third_party"> Einer anderen Person mitgegeben</label>
+  <label><input type="radio" name="local-handover-method" value="delivered"> Persönlich ausgeliefert</label>
+  <label><input type="radio" name="local-handover-method" value="shipped"> Versendet</label>
+ </fieldset>
+ <label id="local-handover-recipient-row" hidden>Mitgenommen von (optional)
+  <input id="local-handover-recipient" maxlength="120" autocomplete="off" placeholder="Name der Person"></label>
+ <div id="local-handover-related"></div>
+ <p id="local-handover-error" class="warning" role="alert" hidden></p>
+ <div class="local-form-actions"><button type="button" data-close="local-handover-dialog" class="secondary">Abbrechen</button><button type="submit" class="primary" id="local-handover-submit">Übergabe abschließen</button></div>
+ </form>
+</dialog>
 <dialog id="local-history-dialog" class="local-history-dialog"><div class="dialog-heading"><h2>Lokale Bestellungen · Verlauf</h2><button type="button" data-close="local-history-dialog" class="icon-button" aria-label="Schließen">×</button></div><div id="local-history-list"><p class="hint">Verlauf wird geladen …</p></div></dialog>
 <dialog id="order-details"><div class="dialog-heading"><h2 id="order-details-title">Etsy-Bestellung</h2><button type="button" data-close="order-details" class="icon-button" aria-label="Schließen">×</button></div><div id="order-details-content"></div></dialog>
 <dialog id="quantity"><form id="quantity-form"><div class="dialog-heading"><h2 id="quantity-title">Bestand erfassen</h2><button type="button" data-close="quantity" class="icon-button" aria-label="Schließen">×</button></div><p id="quantity-label"></p><div id="quantity-variants" hidden></div><label id="quantity-caption">Stückzahl<input id="quantity-value" type="number" min="0" max="100000" required></label><label id="quantity-initial-stock-label" hidden>Bisheriger fertiger Lagerbestand<input id="quantity-initial-stock" type="number" min="0" max="100000" inputmode="numeric" placeholder="0, wenn nichts auf Lager ist"></label><p id="quantity-help" class="hint"></p><button id="quantity-confirm" type="submit" class="primary">Speichern</button></form></dialog>

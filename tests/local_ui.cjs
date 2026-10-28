@@ -91,6 +91,40 @@ const assert=require('node:assert/strict');
   state=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
   assert.equal(state.products.find(p=>p.id==='103').items.find(i=>i.id==='103-default').on_hand,before-1);
   assert(!state.orders.some(o=>o.customer==='Direktverkauf Test'));
+
+  // Existing local production records become ready without re-creating orders.
+  const openLocal=state.orders.find(o=>o.id===local.id);
+  const standard=openLocal.items[0];
+  const current=state.products.find(p=>p.id==='102').items.find(i=>i.id==='102-default');
+  const printResult=await page.request.post('http://127.0.0.1:8099/api/order-print',{
+   data:{transaction_id:standard.transaction_id,receipt_id:local.id,
+    action:'finish-direct',quantity:1,revision:current.revision}
+  });
+  assert.equal(printResult.status(),200,'finishing the remaining local order position must work');
+  await page.reload();
+  state=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
+  assert.equal(state.orders.find(o=>o.id===local.id).status,'ready');
+  const readyCard=page.locator('.order-card').filter({hasText:local.id});
+  assert((await readyCard.textContent()).includes('Abholbereit'),'finished local card must show ready');
+  assert.equal(await readyCard.locator('[data-local-handover]').count(),1);
+  await readyCard.locator('[data-local-handover]').click();
+  assert(await page.locator('#local-handover-dialog').isVisible());
+  await page.locator('input[name="local-handover-method"][value="third_party"]').check();
+  await page.locator('#local-handover-recipient').fill('Nachbarin');
+  await page.locator('#local-handover-submit').click();
+  await page.locator('#local-handover-dialog').waitFor({state:'hidden'});
+  state=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
+  assert(!state.orders.some(o=>o.id===local.id),'handed over local order must leave active cards');
+
+  await page.locator('#local-history-open').click();
+  await page.locator('.local-history-item').filter({hasText:local.id}).waitFor();
+  const archived=page.locator('.local-history-item').filter({hasText:local.id});
+  assert((await archived.textContent()).includes('Nachbarin'));
+  assert.equal(await archived.locator('[data-local-undo-handover]').count(),1);
+  page.once('dialog',dialog=>dialog.accept());
+  await archived.locator('[data-local-undo-handover]').click();
+  await page.waitForFunction(id=>model.orders.find(o=>o.id===id)?.status==='ready',local.id);
+  await page.locator('#local-history-dialog [data-close="local-history-dialog"]').click();
   await page.locator('#local-history-open').click();
   await page.waitForFunction(()=>document.querySelector('#local-history-list')?.textContent?.includes('Direktverkauf Test'));
   assert.deepEqual(errors,[]);

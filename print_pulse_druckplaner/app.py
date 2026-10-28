@@ -47,7 +47,7 @@ except ImportError:
     _economics_spec.loader.exec_module(economics)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.1'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.3'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2047,6 +2047,10 @@ class Handler(BaseHTTPRequestHandler):
                     elif action=='update': result=local_orders.update(db,data)
                     elif action in ('complete','cancel'):
                         result=local_orders.close(db,data,components)
+                    elif action=='handover':
+                        result=local_orders.handover(db,data,components)
+                    elif action=='undo-handover':
+                        result=local_orders.undo_handover(db,data)
                     elif action=='custom-job': result=local_orders.custom_action(db,data)
                     else:raise ValueError('Unbekannte lokale Bestellaktion.')
                 return self.send(200,{'result':result,'overview':overview()})

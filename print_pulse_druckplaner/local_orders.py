@@ -28,6 +28,17 @@ def schema(db):
     );
     CREATE INDEX IF NOT EXISTS pp_local_status ON pp_local_orders(status,due);
     """)
+    # All older LOK rows stay intact; readiness is derived from their saved
+    # production quantities and never needs a destructive status migration.
+    columns={c['name'] for c in db.execute('PRAGMA table_info(pp_local_orders)')}
+    for name,sql in (
+        ('handover_method',"TEXT NOT NULL DEFAULT ''"),
+        ('handover_to',"TEXT NOT NULL DEFAULT ''"),
+        ('handover_at','INTEGER NOT NULL DEFAULT 0'),
+        ('handover_debits',"TEXT NOT NULL DEFAULT ''"),
+    ):
+        if name not in columns:
+            db.execute('ALTER TABLE pp_local_orders ADD COLUMN '+name+' '+sql)
 
 def clean(value,name,limit,required=False):
     if not isinstance(value,str): raise ValueError(name+' muss Text sein.')
@@ -189,6 +200,12 @@ def close(db,data,components):
     if not row: raise ValueError('Lokale Bestellung nicht offen.')
     action=data.get('action')
     if action not in ('complete','cancel'): raise ValueError('Ungültiger Abschluss.')
+    method=clean(data.get('method','customer'),'Übergabeart',24,True) if action=='complete' else ''
+    if action=='complete' and method not in ('customer','third_party','delivered','shipped'):
+        raise ValueError('Ungültige Übergabeart.')
+    recipient=clean(data.get('recipient',''),'Mitgenommen von',120) if action=='complete' else ''
+    if method!='third_party': recipient=''
+    debits={}
     txs=db.execute("SELECT * FROM stock_transactions WHERE receipt_id=? AND status='open'",(oid,)).fetchall()
     if not txs: raise ValueError('Keine offenen Positionen gefunden.')
     receipts=db.execute('SELECT lines_json FROM stock_receipts WHERE id=?',(oid,)).fetchone()
@@ -217,6 +234,7 @@ def close(db,data,components):
                     raise ValueError('Fertiger Lagerbestand zu niedrig. Bitte vor Übergabe prüfen.')
                 db.execute("UPDATE stock_items SET on_hand=on_hand-?,revision=revision+1 WHERE id=?",
                            (finished,tx['item_id']))
+                debits[tx['item_id']]=debits.get(tx['item_id'],0)+finished
         else:
             if assembled: raise ValueError('Montierte Teile können nicht automatisch storniert werden.')
             if allocated:
@@ -230,9 +248,69 @@ def close(db,data,components):
     db.execute("UPDATE stock_transactions SET status=? WHERE receipt_id=? AND status='open'",
                ('shipped' if action=='complete' else 'review',oid))
     new_status='completed' if action=='complete' else 'cancelled'
-    db.execute('UPDATE pp_local_orders SET status=?,completed=? WHERE id=?',
-               (new_status,int(time.time()),oid))
+    completed_at=int(time.time())
+    db.execute("""UPDATE pp_local_orders SET status=?,completed=?,
+        handover_method=?,handover_to=?,handover_at=?,handover_debits=? WHERE id=?""",
+        (new_status,completed_at,method,recipient,completed_at if action=='complete' else 0,
+         json.dumps(debits) if action=='complete' else '',oid))
     return {'id':oid,'status':new_status}
+
+def handover(db,data,components):
+    ids=data.get('ids')
+    if not isinstance(ids,list) or not 1<=len(ids)<=25 or any(not isinstance(i,str) for i in ids):
+        raise ValueError('Bitte mindestens einen gültigen lokalen Auftrag auswählen.')
+    if len(ids)!=len(set(ids)): raise ValueError('Auftrag doppelt ausgewählt.')
+    names=[]
+    for oid in ids:
+        row=db.execute("SELECT customer FROM pp_local_orders WHERE id=? AND status='open'",(oid,)).fetchone()
+        if not row: raise ValueError('Ein ausgewählter Auftrag ist nicht mehr offen.')
+        names.append(' '.join(row['customer'].split()).casefold())
+    if len(set(names))!=1: raise ValueError('Gemeinsame Übergabe nur für denselben Kunden.')
+    for oid in ids:
+        close(db,{'id':oid,'action':'complete','method':data.get('method','customer'),
+                  'recipient':data.get('recipient','')},components)
+    # Callers hold one BEGIN IMMEDIATE transaction, so either all orders
+    # complete and debit stock or no order is changed.
+    return {'ids':ids,'status':'completed'}
+
+def undo_handover(db,data):
+    oid=str(data.get('id') or '')
+    row=db.execute("SELECT * FROM pp_local_orders WHERE id=? AND status='completed'",(oid,)).fetchone()
+    if not row or not row['handover_method']:
+        raise ValueError('Diese ältere oder nicht übergebene Bestellung kann nicht zurückgesetzt werden.')
+    try: debits=json.loads(row['handover_debits'])
+    except (TypeError,ValueError): raise ValueError('Übergabebuchung unvollständig.')
+    if not isinstance(debits,dict): raise ValueError('Übergabebuchung ungültig.')
+    txs=db.execute("SELECT id,status FROM stock_transactions WHERE receipt_id=?",(oid,)).fetchall()
+    if not txs or any(tx['status']!='shipped' for tx in txs):
+        raise ValueError('Auftragspositionen wurden seit der Übergabe verändert.')
+    for item_id,quantity in debits.items():
+        if not isinstance(item_id,str) or type(quantity) is not int or quantity<0:
+            raise ValueError('Übergabebuchung ungültig.')
+        cur=db.execute("""UPDATE stock_items SET on_hand=on_hand+?,revision=revision+1
+                          WHERE id=? AND on_hand IS NOT NULL""",(quantity,item_id))
+        if cur.rowcount!=1: raise ValueError('Lagerbestand für Rücknahme nicht verfügbar.')
+    db.execute("UPDATE stock_transactions SET status='open' WHERE receipt_id=?",(oid,))
+    db.execute("""UPDATE pp_local_orders SET status='open',completed=0,
+       handover_method='',handover_to='',handover_at=0,handover_debits='' WHERE id=?""",(oid,))
+    return {'id':oid,'status':'open'}
+
+def ready(db,oid):
+    txs=db.execute("SELECT * FROM stock_transactions WHERE receipt_id=?",(oid,)).fetchall()
+    receipt=db.execute("SELECT lines_json FROM stock_receipts WHERE id=?",(oid,)).fetchone()
+    if not txs or not receipt or any(tx['status']!='open' for tx in txs): return False
+    lines={line['transaction_id']:line for line in json.loads(receipt['lines_json'])}
+    for tx in txs:
+        line=lines.get(tx['id'])
+        if not line: return False
+        table='pp_local_custom_jobs' if line.get('local_custom') else 'stock_order_prints'
+        job=db.execute('SELECT * FROM '+table+' WHERE transaction_id=?',(tx['id'],)).fetchone()
+        if not job or job['printing'] or tx['qty']<=0: return False
+        finished=job['finished']
+        if not line.get('local_custom'):
+            finished+=job['allocated']+job['assembled']
+        if finished<tx['qty']:return False
+    return True
 
 def enrich(db,orders):
     metadata={row['id']:dict(row) for row in db.execute("SELECT * FROM pp_local_orders WHERE status='open'")}
@@ -253,6 +331,15 @@ def enrich(db,orders):
             line['item_id']=None
             line['components_enabled']=False
             line['components']=[]
+        # Readiness is live and works for all existing LOK orders. A corrected
+        # print quantity reopens production automatically, without stock moves.
+        if order['items'] and all(
+            int(l.get('quantity') or 0)>0 and not int(l.get('printing') or 0)
+            and not int(l.get('remaining') or 0)
+            and (int(l.get('finished') or 0)+int(l.get('allocated') or 0)+
+                 int(l.get('assembled') or 0))>=int(l['quantity'])
+            for l in order['items']):
+            order['status']='ready'
     return orders
 
 def history(db,limit=80):
@@ -261,4 +348,5 @@ def history(db,limit=80):
     for r in rows:
         receipt=db.execute('SELECT lines_json FROM stock_receipts WHERE id=?',(r['id'],)).fetchone()
         r['items']=json.loads(receipt['lines_json']) if receipt else []
+        if r['status']=='open' and ready(db,r['id']): r['status']='ready'
     return rows
