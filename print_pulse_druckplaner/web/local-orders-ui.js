@@ -301,7 +301,7 @@ async function localHistory(refresh=false){
   }).join(''):'<p class="hint">Noch keine lokalen Bestellungen vorhanden.</p>';
  }catch(err){$('local-history-list').textContent=err.message;}
 }
-$('local-history-open').addEventListener('click',localHistory);
+$('local-history-open').addEventListener('click',()=>localHistory());
 // Hook into the existing Etsy card and order detail rendering *after*
 // components-ui.js and priority-ui.js have installed their overrides.
 function localPdfLink(order,label){
