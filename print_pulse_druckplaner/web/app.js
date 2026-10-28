@@ -419,6 +419,13 @@ function calendarDaysUntil(timestamp){return timestamp?berlinDay(timestamp*1000)
 function shortDate(timestamp){return timestamp?new Date(timestamp*1000).toLocaleDateString('de-DE',{timeZone:'Europe/Berlin',day:'2-digit',month:'2-digit',year:'numeric'}):'Nicht angegeben';}
 function shipInfo(o){
  const days=calendarDaysUntil(o.ship_by);
+ // Abholbereit is not an unfinished production task.
+ if(o.source==='local'&&o.status==='ready'){
+  const date=o.fulfillment==='shipping'?'Versandbereit · Geplant für '+shortDate(o.ship_by):
+   'Abholbereit · Abholung geplant am '+shortDate(o.ship_by);
+  return {date,countdown:days!==null&&days<0?'Übergabe noch offen':'',
+   level:'ready'};
+ }
  if(days===null)return {date:'Versandfrist unbekannt',countdown:'',level:'unknown'};
  const date=(o.source==='local'?(o.fulfillment==='pickup'?'Abholung bis ':'Fertig bis '):'Versand bis ')+shortDate(o.ship_by);
  const countdown=days<0?`${Math.abs(days)} ${Math.abs(days)===1?'Tag':'Tage'} überfällig`:days===0?(o.source==='local'?'Heute fertigstellen':'Heute versenden'):`Noch ${days} ${days===1?'Tag':'Tage'}`;
@@ -805,7 +812,7 @@ function render(){if(!model)return;
  $('sync-state').textContent=model.sync.running?model.sync.message:cooldownActive?`Etsy-Anfragelimit erreicht · Pause bis ${cooldownDate} · gespeicherte Bestände bleiben sichtbar`:`Bestellungen: ${date} (alle 15 Minuten) · Produktkatalog: ${catalogDate} (täglich)`;
  const stale=model.last_sync&&Date.now()/1000-model.last_sync>3600;
  showAlert([model.sync.error,model.warning,!model.authorized?'Bitte Etsy unter Einstellungen verbinden.':cooldownActive?`Etsy hat zu viele Anfragen gemeldet. Bis ${cooldownDate} pausiert unser Druckplaner automatisch.`:stale?'Bestelldaten sind älter als eine Stunde. Etsy-Abgleich prüfen.':'']);
- const critical=(model.orders||[]).filter(o=>{const days=calendarDaysUntil(o.ship_by);return days!==null&&days<=2;}).length;
+ const critical=(model.orders||[]).filter(o=>{if(o.source==='local'&&o.status==='ready')return false;const days=calendarDaysUntil(o.ship_by);return days!==null&&days<=2;}).length;
  // When an item is assembled from components, unfinished Etsy variant stock is
  // not a production recommendation. Count only real component jobs.
  const componentDue=new Map(),componentPrinting=new Map(),stockPartWaiting=new Map();
