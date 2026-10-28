@@ -1,3 +1,12 @@
+# 0.13.3 · Lokale Bestellungen mit Übergabestatus
+
+- Fertige lokale Aufträge erscheinen automatisch als „Abholbereit“ und verlieren den roten Produktions-Countdown, auch wenn sie vor dem Update angelegt wurden.
+- Neuer Übergabedialog: vom Kunden abgeholt, an Dritte mitgegeben (Name optional), persönlich ausgeliefert oder versendet.
+- Mehrere abholbereite Aufträge desselben Kunden können gemeinsam und atomar übergeben werden; unfertige Aufträge bleiben aktiv.
+- Übergabedatum, Art und Empfänger werden im lokalen Archiv gespeichert. A4-PDFs bleiben auch bei abgeschlossenen Aufträgen verfügbar.
+- Versehentliche Übergaben lassen sich für neu dokumentierte Übergaben inklusive korrekter Lager-Rückbuchung rückgängig machen; ältere Abschlüsse bleiben unverändert.
+- Etsy-Bestellungen, bereits gebuchte Bestände und direkte Verkäufe werden nicht umgestellt.
+
 # 0.13.1 · Druckdauer wie Bambu und optionale Etsy-Kalkulation
 
 - Druckdauer direkt in Stunden und Minuten eingeben; serverseitig werden weiterhin Minuten gespeichert.
