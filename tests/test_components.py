@@ -197,6 +197,64 @@ class ComponentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Setgröße'):
             self.change(action='start',transaction_id='tx1',component_id=ids['Buch'],quantity=1)
 
+    def test_existing_order_uses_new_components_and_finishes_each_part(self):
+        # The order was already imported before enabling its bill of materials.
+        line=self.state()['orders'][0]['items'][0]
+        self.assertFalse(line['components_enabled'])
+        self.change(action='toggle',listing_id='101',enabled=True)
+        self.change(action='save',listing_id='101',name='Abtropfschale',
+                    kind='stock',units=1,property_name='',quantity_property='')
+        self.change(action='save',listing_id='101',name='Becher',
+                    kind='stock',units=1,property_name='',quantity_property='')
+        line=self.state()['orders'][0]['items'][0]
+        self.assertEqual({p['name'] for p in line['components']},
+                         {'Abtropfschale','Becher'})
+        ids={p['name']:p['id'] for p in line['components']}
+        self.change(action='finish-direct',transaction_id='tx1',
+                    component_id=ids['Abtropfschale'],quantity=1)
+        line=self.state()['orders'][0]['items'][0]
+        states={p['name']:p for p in line['components']}
+        self.assertEqual(states['Abtropfschale']['available'],1)
+        self.assertEqual(states['Becher']['available'],0)
+        self.assertEqual(states['Abtropfschale']['stock'],0)
+        self.assertEqual(line['assembled'],0)
+        with self.assertRaisesRegex(ValueError,'Bauteil fehlt'):
+            self.change(action='assemble',transaction_id='tx1',quantity=1)
+        # The second piece can be started separately, then marked finished.
+        self.change(action='start',transaction_id='tx1',
+                    component_id=ids['Becher'],quantity=1)
+        self.change(action='finish-direct',transaction_id='tx1',
+                    component_id=ids['Becher'],quantity=1)
+        line=self.state()['orders'][0]['items'][0]
+        self.assertEqual([p['available'] for p in line['components']],[1,1])
+        self.assertEqual([p['stock'] for p in line['components']],[0,0])
+        with self.assertRaisesRegex(ValueError,'nicht so viele'):
+            self.change(action='finish-direct',transaction_id='tx1',
+                        component_id=ids['Becher'],quantity=1)
+        self.change(action='assemble',transaction_id='tx1',quantity=1)
+        line=self.state()['orders'][0]['items'][0]
+        self.assertEqual((line['assembled'],line['remaining']),(1,0))
+        self.change(action='quick-reopen',transaction_id='tx1',quantity=1)
+        self.change(action='reopen-direct',transaction_id='tx1',
+                    component_id=ids['Becher'],quantity=1)
+        line=self.state()['orders'][0]['items'][0]
+        self.assertEqual((line['assembled'],line['remaining']),(0,1))
+        self.assertEqual(next(p for p in line['components'] if p['name']=='Becher')['available'],0)
+        self.assertEqual(next(p for p in line['components'] if p['name']=='Becher')['stock'],0)
+
+    def test_direct_stock_part_is_returned_once_on_order_cancellation(self):
+        self.change(action='toggle',listing_id='101',enabled=True)
+        self.change(action='save',listing_id='101',name='Schale',
+                    kind='stock',units=1,property_name='',quantity_property='')
+        part=self.state()['orders'][0]['items'][0]['components'][0]
+        self.change(action='finish-direct',transaction_id='tx1',
+                    component_id=part['id'],quantity=1)
+        cancelled=list(self.tx);cancelled[-1]='review'
+        app.apply_snapshot(self.catalog,[tuple(cancelled)],{'receipt1'},orders=[])
+        app.apply_snapshot(self.catalog,[tuple(cancelled)],{'receipt1'},orders=[])
+        part=next(p for p in self.state()['products'][0]['components'] if p['name']=='Schale')
+        self.assertEqual(part['stock'],1)
+
     def test_cancel_returns_only_unused_reserved_parts(self):
         ids=self.configure()
         self.change(action='stock',listing_id='101',id=ids['Geist Weiß'],stock=4)

@@ -1,3 +1,11 @@
+## 0.13.2 (2026-10-28)
+
+- Bauteile und Änderungen der Vorproduktion erscheinen dynamisch auch bei schon vorhandenen offenen Bestellungen.
+- Der Positionsdialog erlaubt getrennte Mengen, Druckstart und direkte Fertigmeldung pro Bauteil mit Rückgängig.
+- Vollständige Produkte werden erst nach Bereitstellung aller Bauteile als fertig bestätigt.
+- Direkt auftragsbezogene Drucke verändern keine freien Lagerbestände; Nachdruck- und Bestellstatus folgen den tatsächlichen Restmengen.
+- Regressionstests für nachträgliche Bauteile, Teilfertigstellung und Storno.
+
 # 0.13.1 · Druckdauer wie Bambu und optionale Etsy-Kalkulation
 
 - Druckdauer direkt in Stunden und Minuten eingeben; serverseitig werden weiterhin Minuten gespeichert.
