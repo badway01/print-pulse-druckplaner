@@ -170,9 +170,25 @@ def parse_text(text, db):
         if existing:
             item['changes']={k:{'old':existing[k],'new':item[k]} for k in ('manufacturer_code','color_hex')
                if item.get(k) and item[k]!=existing[k]}
+    # Optional invoice-level figures. Avoid counting line-item bulk rebates a
+    # second time; infer the *additional* checkout rebate from the final total.
+    total=None
+    m=re.search(r'(?i)Gesamtsumme[^\n]{0,140}?[€ ]\s*(\d{1,6}[.,]\d{2})',normalized)
+    if not m:m=re.search(r'(?i)Bruttobetrag[^\n]{0,140}?[€ ]\s*(\d{1,6}[.,]\d{2})',normalized)
+    if m:total=money_to_cents(m.group(1))
+    credit=0
+    m=re.search(r'(?i)Credit verwenden[^\n]{0,100}?[-−]?\s*(\d{1,6}[.,]\d{2})',normalized)
+    if m:credit=money_to_cents(m.group(1)) or 0
+    shipping=0
+    m=re.search(r'(?im)^\s*[\|* ]*Versand[^\n]{0,100}?€\s*(\d{1,6}[.,]\d{2})',normalized)
+    if m:shipping=money_to_cents(m.group(1)) or 0
+    discount=0
+    if total is not None and items and all(x['gross_cents'] is not None for x in items):
+        checkout=sum(x['gross_cents'] for x in items)+shipping-credit-total
+        if checkout>=0:discount=checkout
     return {'vendor':vendor,'ordered_on':dt.date.today().isoformat(),'reference':'',
-            'items':items,'total_cents':None,'discount_cents':0,'credit_cents':0,
-            'shipping_cents':0,
+            'items':items,'total_cents':total,'discount_cents':discount,'credit_cents':credit,
+            'shipping_cents':shipping,
             'warnings':([] if items else ['Keine eindeutigen Produktpositionen erkannt. Bitte Positionen manuell ergänzen.'])
                 + (['Unvollständige Positionen bitte einzeln prüfen.'] if any(i['needs_review'] for i in items) else [])}
 
