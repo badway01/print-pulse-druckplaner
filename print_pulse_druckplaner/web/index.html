@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.3"><script src="app.js?v=0.13.3" defer></script><script src="components-ui.js?v=0.13.3" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.1" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.13.3" defer></script><script src="dialog-behavior.js?v=0.12.6" defer></script><script src="order-zoom-ui.js?v=0.13.3" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.4"><script src="app.js?v=0.13.4" defer></script><script src="components-ui.js?v=0.13.3" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.1" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.13.3" defer></script><script src="dialog-behavior.js?v=0.12.6" defer></script><script src="order-zoom-ui.js?v=0.13.3" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script><script src="filament-planner-ui.js?v=0.13.4" defer></script><link rel="stylesheet" href="filament-planner.css?v=0.13.4"></head>
 <body>
 <header><a class="brand" href="./" aria-label="Print &amp; Pulse Startseite"><img class="brand-logo" src="brand.svg" width="190" height="98" alt="Print &amp; Pulse – Designs mit Herz"></a><div class="theme-switch" role="group" aria-label="Darstellung wählen">
  <button type="button" class="theme-option" data-theme-mode="light" aria-label="Heller Modus" title="Hell" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
@@ -189,6 +189,13 @@
   <div><b>Filament-Gesamtwert <small>(nur volle Spulen)</small></b><span id="filament-stock-spools">0 volle Spulen · 0 angebrochen</span></div>
   <div class="filament-stock-amount"><strong id="filament-stock-value">0,00 €</strong><small id="filament-stock-missing">Menge × Preis pro Spule</small></div>
  </div>
+ <section id="fp-panel" class="fp-panel" hidden aria-label="Intelligente Filament-Einkaufsplanung">
+   <div class="fp-heading"><div><span class="eyebrow">EINKAUF OPTIMIEREN</span><h3>Welche Farben brauche ich wirklich?</h3><p>Verkäufe rückwirkend auswerten – mit pauschal 50 g je Artikel, sofern noch kein genaues Druckgewicht vorhanden ist.</p></div></div>
+   <div class="fp-controls"><label>Geplante Spulen <input id="fp-spools" type="number" min="1" max="100" step="1" value="14" inputmode="numeric"></label><label>Bedarf für <select id="fp-days"><option value="30">30 Tage</option><option value="60" selected>60 Tage</option><option value="90">90 Tage</option></select></label><button type="button" class="primary" id="fp-calculate">Bedarf berechnen</button><button type="button" class="secondary" id="fp-history">Etsy-Historie einlesen</button></div>
+   <p id="fp-info" class="fp-info" role="status" aria-live="polite">Der Einkaufswagen bleibt unangetastet, bis du Empfehlungen selbst übernimmst.</p>
+   <div id="fp-results" class="fp-results"></div>
+   <button id="fp-apply" class="primary" type="button" hidden>Empfehlungen zur Einkaufsliste hinzufügen</button>
+  </section>
  <div id="filament-message" class="filament-note">Deine Filamente werden geladen …</div>
  <div id="filament-action-status" class="filament-action-status" role="status" aria-live="polite" aria-atomic="true" hidden>Filamentdaten werden gespeichert …</div>
  <div id="filament-rows" class="filament-rows"></div>
@@ -206,7 +213,7 @@
   <div id="etsy-import-rows" class="etsy-import-rows"><p class="hint">Vorschläge werden geladen …</p></div>
   <p class="hint">Es werden nur Artikel aus deinem eigenen Etsy-Shop gelesen. Deine Etsy-Bestände, Lagerbuchungen, Bauteile und 3MF-Dateien werden beim Import nicht zurückgesetzt.</p>
  </details>
- <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.12.5</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
+ <details id="release-history" class="release-history"><summary>Version &amp; Änderungen <span id="app-version" class="version-number">v0.13.4</span></summary><div id="release-history-content" class="release-history-content"><p class="hint">Versionshistorie wird geladen …</p></div></details>
 <details id="audit-panel" class="audit-panel">
  <summary>Buchungsverlauf &amp; Datensicherung</summary>
  <p class="hint">Hier siehst du Änderungen an Fertigwaren, Bauteilen und Etsy-Auftragsbuchungen. Das Protokoll erfasst neue Vorgänge ab Version 0.11.42.</p>

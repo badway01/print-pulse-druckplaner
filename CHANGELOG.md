@@ -1,3 +1,12 @@
+## 0.13.4 (2026-10-29)
+
+- Neuer Einkaufsassistent im Filament-Einkaufswagen: Zielmenge (z. B. 14 Spulen), 30/60/90-Tage-Bedarf und Begründung je Filament.
+- 50 g pro verkauftem Stück als Standard, falls keine genaue Druckkalkulation vorliegt; Mehrfarb-Artikel verteilen diese 50 g auf die zugeordneten Materialien.
+- Vorhandene Grammwerte aus dem Kostenrechner, Farbvarianten, Bauteilfarben und eindeutige Master-Filamentbelegungen werden ausgewertet.
+- Historischer Etsy-Verkaufsimport ab Juli 2025 auf Knopfdruck; künftige Synchronisierungen schreiben zusätzlich einen dauerhaften, getrennten Verkaufsverlauf.
+- Kein Schätzen unbekannter Farben. Unklare Positionen werden separat ausgewiesen. Einkaufswagen, Lager, Produktionsaufträge und alte Kosten bleiben unangetastet, bis Empfehlungen bestätigt werden.
+- Preisübersicht verwendet weiterhin die im Filamentregister hinterlegten Preise; keine vorgetäuschten Live- oder Bambu-Mengenrabatte.
+
 ## 0.13.3 (2026-10-28)
 
 - Fertige lokale Aufträge erscheinen automatisch als „Abholbereit“ und verlieren den roten Produktions-Countdown, auch wenn sie vor dem Update angelegt wurden.

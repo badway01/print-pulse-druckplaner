@@ -1,3 +1,12 @@
+# 0.13.4 · Filamentbedarf und Einkauf optimieren
+
+- Neue Bedarfsanalyse im Filament-Einkaufswagen, mit 14 Spulen und 60 Tagen voreingestellt.
+- 50 g pro Artikel als pauschale Standardschätzung, vorhandene echte Profil-Grammwerte gehen vor.
+- Farbzuordnung anhand eindeutiger Etsy-Varianten, Bauteile, Master-3MF-Filamentzuordnung und Kostenprofile.
+- Rückwirkende Etsy-Historie ab Juli 2025 separat importierbar. 30- und 90-Tage-Verbrauch begründen die Prognose.
+- Keine ungeprüfte Lageränderung; Empfehlungen müssen explizit zur Einkaufsliste übernommen werden.
+- Preise sind die bereits gepflegten Filamentpreise, keine Live-Bambu-Preise.
+
 # 0.13.3 · Lokale Bestellungen mit Übergabestatus
 
 - Fertige lokale Aufträge erscheinen automatisch als „Abholbereit“ und verlieren den roten Produktions-Countdown, auch wenn sie vor dem Update angelegt wurden.
