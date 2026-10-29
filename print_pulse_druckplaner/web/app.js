@@ -1156,6 +1156,7 @@ function renderFilaments(){
  const inventory=filamentStockValue(rows);
  const opened=rows.reduce((sum,f)=>sum+Math.max(0,Number(f.open_qty)||0),0);
  $('filament-stock-summary').hidden=filamentView!=='colors';
+ $('fp-panel').hidden=filamentView!=='cart';
  $('filament-stock-spools').textContent=inventory.spools+' '+(inventory.spools===1?'volle Spule':'volle Spulen')+' · '+opened+' angebrochen';
  $('filament-stock-value').textContent=filamentMoney(inventory.known_total_cents);
  $('filament-stock-missing').textContent=inventory.missing_qty
