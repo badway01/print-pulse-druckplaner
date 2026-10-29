@@ -86,7 +86,9 @@ def suggest_matches(db, line):
         if key(row['brand'])!=brand or material_key(row['material'])!=material:continue
         if code and key(row['manufacturer_code'])==code:
             exact.append(row)
-        elif name and key(row['color'])==name and (not code or not row['manufacturer_code'] or key(row['manufacturer_code'])==code):
+        elif name and key(row['color'])==name:
+            # An incorrect old manufacturer code is a reviewable field conflict,
+            # never grounds for silently creating a duplicate color.
             exact.append(row)
     # Same maker+material+code can match despite different translated color names.
     # Never merge two distinct candidates automatically.
