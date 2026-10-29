@@ -1,3 +1,10 @@
+## 0.13.6 (2026-10-29)
+
+- Die automatische Bambu-Farberkennung überschreibt beim Speichern keine manuell gepflegten Hersteller-Farbnummern oder HEX-Werte mehr.
+- Filament-Codes werden vor der Erfolgsmeldung gegen die Datenbankantwort geprüft.
+- Regressionstests für Filament-Speichern und das erneute Öffnen des Editors.
+- Filamentbedarf mit 50 g Standard und Etsy-Historie bleiben unverändert. Keine Bestandsänderung.
+
 ## 0.13.5 (2026-10-29)
 
 - Filament-Einkaufsanalyse (50 g Standard) und Etsy-Historie: Startfehler nach Update auf 0.13.4 behoben.
