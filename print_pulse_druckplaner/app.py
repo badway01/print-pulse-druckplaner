@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders, local_order_pdf, economics
+    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -45,6 +45,9 @@ except ImportError:
     _economics_spec=importlib.util.spec_from_file_location('pp_economics',Path(__file__).with_name('economics.py'))
     economics=importlib.util.module_from_spec(_economics_spec)
     _economics_spec.loader.exec_module(economics)
+    _planner_spec=importlib.util.spec_from_file_location('pp_filament_planner',Path(__file__).with_name('filament_planner.py'))
+    filament_planner=importlib.util.module_from_spec(_planner_spec)
+    _planner_spec.loader.exec_module(filament_planner)
 
 ROOT = Path(__file__).resolve().parent
 APP_VERSION = os.environ.get('PP_VERSION') or '0.13.3'
@@ -68,6 +71,8 @@ SYNC_LOCK = threading.Lock()
 IMPORT_LOCK = threading.Lock()
 STATUS_LOCK = threading.Lock()
 STATUS = {"running": False, "error": None, "message": ""}
+HISTORY_LOCK = threading.Lock()
+HISTORY_STATUS = {'running': False, 'message':'', 'error': None}
 CATALOG_INTERVAL = 24 * 3600
 RECEIPT_INTERVAL = 15 * 60
 
@@ -279,6 +284,8 @@ def init_db():
         components.schema(db)
         local_orders.schema(db)
         economics.schema(db)
+        filament_planner.schema(db)
+        filament_planner.backfill_existing(db)
         # Previously stored order-print records must survive all add-on updates.
         print_columns={col['name'] for col in db.execute("PRAGMA table_info(stock_order_prints)")}
         if 'allocated' not in print_columns:
@@ -667,6 +674,7 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None, 
             db.execute('''INSERT INTO stock_transactions VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
               receipt_id=excluded.receipt_id,listing_id=excluded.listing_id,item_id=excluded.item_id,
               qty=excluded.qty,created=excluded.created,status=excluded.status''',(tid,rid,lid,iid,qty,created,status))
+        filament_planner.record_synced(db, transactions)
         for tid,_,_,_,_,_,_,status in transactions:
             if status not in ('open','shipped'):
                 components.recover_cancelled(db,tid)
@@ -1107,6 +1115,60 @@ def undo_action(action_id):
         result=db.execute('UPDATE stock_items SET on_hand=?,in_print=?,minimum=?,notice=?,revision=revision+1 WHERE id=? AND revision=?',(*before.values(),row['item_id'],row['after_revision']))
         if not result.rowcount: raise ValueError('Zwischenzeitlich geändert oder versendet. Bitte Bestand prüfen.')
         db.execute('UPDATE stock_actions SET undone=1 WHERE id=?',(action_id,))
+
+
+
+def filament_history_status():
+    with HISTORY_LOCK:
+        return dict(HISTORY_STATUS)
+
+
+def filament_history_import():
+    """Explicit full read-only Etsy backfill; runs separately from normal sync."""
+    check_cooldown()
+    if IMPORT_LOCK.locked():
+        raise ValueError('Bitte zuerst den laufenden Etsy-Abgleich abwarten.')
+    if not HISTORY_LOCK.acquire(blocking=False):
+        return filament_history_status()
+    # Protected block updates are performed without taking the same lock twice.
+    HISTORY_STATUS.update(running=True,message='Etsy-Verkäufe seit Juli 2025 lesen …',error=None)
+    HISTORY_LOCK.release()
+    def job():
+        try:
+            with connect() as db:
+                shop=cfg(db,'shop_id')
+            if not shop.isdigit():
+                raise ValueError('Bitte zuerst Etsy verbinden.')
+            # Limit by the shop's initial launch date. The standard Etsy
+            # pagination helper checks complete results and API cooldown.
+            receipts=pages('/application/shops/'+shop+'/receipts',
+                           {'min_created':filament_planner.SHOP_START,'was_paid':'true'})
+            seen=0
+            with connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                for r in receipts:
+                    if not isinstance(r,dict):
+                        continue
+                    rid=str(r.get('receipt_id') or '')
+                    if not rid.isdecimal():
+                        continue
+                    if not isinstance(r.get('transactions'),list):
+                        # Do not silently write partial history. Read the
+                        # missing transactions after the receipt list is fetched.
+                        raise ValueError('Etsy liefert bei mindestens einer Bestellung keine Positionen. Keine Teildaten importiert.')
+                    seen+=filament_planner.record_history_receipt(db,r,signature,receipt_status)
+                db.execute("""INSERT INTO pp_filament_history_state(id,checked_at,count)
+                  VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET
+                  checked_at=excluded.checked_at,count=excluded.count""",
+                  (int(time.time()),seen))
+            with HISTORY_LOCK:
+                HISTORY_STATUS.update(running=False,message=f'{seen} Verkaufspositionen erfasst.',error=None)
+        except Exception as exc:
+            log.warning('Historischer Etsy-Import fehlgeschlagen: %s',type(exc).__name__)
+            with HISTORY_LOCK:
+                HISTORY_STATUS.update(running=False,message='',error=str(exc)[:220])
+    threading.Thread(target=job,daemon=True).start()
+    return filament_history_status()
 
 
 def filament_overview():
@@ -1969,6 +2031,15 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/theme': return self.send(200,theme_sun_state())
         if path=='/api/versions': return self.send(200,version_history())
         if path=='/api/filaments': return self.send(200,filament_overview())
+        if path=='/api/filament-plan':
+            args=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            spools=integer(int((args.get('spools') or ['14'])[0]),1,100)
+            days=integer(int((args.get('days') or ['60'])[0]),7,180)
+            with connect() as db:
+                result=filament_planner.plan(db,spools,days)
+                result['cart_snapshot']={str(r['id']):r['cart_qty'] for r in db.execute('SELECT id,cart_qty FROM filament_spools')}
+            result['history_status']=filament_history_status()
+            return self.send(200,result)
         if path=='/api/economics':
             with connect() as db:
                 return self.send(200,economics.read(db))
@@ -2091,6 +2162,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,save_printer_bindings(data))
             if path=='/api/print-profile':
                 return self.send(200,save_print_profile(data))
+            if path=='/api/filament-history':
+                return self.send(202,filament_history_import())
+            if path=='/api/filament-plan':
+                if data.get('action')!='apply':
+                    raise ValueError('Unbekannte Planungsaktion.')
+                with connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    result=filament_planner.apply(db,data.get('additions'),data.get('expected_cart'))
+                return self.send(200,result)
             if path=='/api/filament':
                 filament_mutate(data)
                 return self.send(200,filament_overview())
