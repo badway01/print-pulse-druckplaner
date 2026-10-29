@@ -146,6 +146,36 @@ def _profiles(db):
     return profiles
 
 
+def _master_colours(db):
+    """Safely use saved HA master/AMS colour assignments when unambiguous.
+
+    Different printers may have different 3MF filament layouts. Reject
+    conflicting assignments rather than counting unrelated loaded spools.
+    """
+    options={}
+    for row in db.execute('SELECT listing_id,variant_id,sources_json FROM pp_master_filament_profiles'):
+        ids=set()
+        try:
+            sources=json.loads(row['sources_json'])
+            if not isinstance(sources,list):
+                continue
+            for source in sources:
+                for sid in source.get('slots',[]):
+                    if sid not in (None,''):
+                        ids.add(int(sid))
+        except (ValueError,TypeError,AttributeError):
+            continue
+        if not ids:
+            continue
+        key=(row['listing_id'],row['variant_id'])
+        options.setdefault(key,[]).append(frozenset(ids))
+    result={}
+    for key,choices in options.items():
+        if len(set(choices))==1:
+            result[key]=list(choices[0])
+    return result
+
+
 def plan(db, spools=14, days=60, default_grams=DEFAULT_GRAMS):
     if type(spools) is not int or not 1 <= spools <= 100:
         raise ValueError('Bitte 1 bis 100 Spulen wählen.')
@@ -156,6 +186,7 @@ def plan(db, spools=14, days=60, default_grams=DEFAULT_GRAMS):
     filaments=[dict(r) for r in db.execute('SELECT * FROM filament_spools ORDER BY brand,color')]
     by_id={f['id']:f for f in filaments}
     profiles=_profiles(db)
+    master=_master_colours(db)
     parts={}
     for r in db.execute('SELECT listing_id,property_name,color,units FROM pp_components'):
         parts.setdefault(r['listing_id'],[]).append(dict(r))
@@ -187,6 +218,9 @@ def plan(db, spools=14, days=60, default_grams=DEFAULT_GRAMS):
             exact_g+=sum(g for _,g in allocations)
         else:
             colors=_colors_from_sale(sale,filaments,parts)
+            if not colors:
+                colors=[fid for fid in (master.get((sale['listing_id'],variant_id)) or
+                    master.get((sale['listing_id'],'')) or []) if fid in by_id]
             if colors:
                 # Divide the one 50g product estimate across its identified
                 # materials, never count 50g once for every colour.
