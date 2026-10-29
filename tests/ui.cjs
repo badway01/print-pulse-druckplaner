@@ -625,6 +625,18 @@ await page.locator('.filament-line').first().waitFor();
 assert.equal(await page.locator('.filament-line').count(),1);
 await page.waitForFunction(()=>filamentData?.filaments?.[0]?.internal_code==='2.10');
 assert((await page.locator('.filament-line').first().textContent()).includes('Intern 2.10'));
+// Regression: exact-color matching must not reset manually edited Bambu codes on Save.
+await page.locator('[data-filament-edit]').first().click();
+await page.locator('#filament-manufacturer-code').fill('10199');
+await page.locator('#filament-color-hex').fill('#123456');
+await page.locator('#filament-form [type="submit"]').click();
+await page.waitForFunction(()=>filamentData?.filaments?.[0]?.manufacturer_code==='10199');
+assert((await page.locator('.filament-line').first().textContent()).includes('Hersteller 10199'));
+assert((await page.locator('.filament-line').first().textContent()).includes('HEX #123456'));
+await page.locator('[data-filament-edit]').first().click();
+assert.equal(await page.locator('#filament-manufacturer-code').inputValue(),'10199');
+assert.equal(await page.locator('#filament-color-hex').inputValue(),'#123456');
+await page.locator('[data-close="filament-editor"]').click();
 assert.deepEqual(await page.locator('.filament-line-actions').first().locator(':scope > *').evaluateAll(nodes=>nodes.map(el=>el.classList[0])),
  ['filament-shop','filament-cart-button','filament-roll-button','filament-edit'], 'Shop must be the first action in Meine Farben');
 // Simulate a Mac Split View / Home Assistant panel independent of viewport width.
