@@ -1011,6 +1011,8 @@ function matchingFilamentSuggestion(field,query){
  return filamentSuggestions(field).filter(o=>!key||[o.name,...o.aliases,o.manufacturer_code,o.internal_code].some(x=>normFilament(x).includes(key))).slice(0,12);
 }
 let filamentSuggestOptions={brand:[],material:[],color:[]},filamentAutoHex=false;
+// Protect loaded values and manual edits from automatic exact-color suggestions.
+let filamentHexProtected=false,filamentManufacturerProtected=false;
 function showFilamentSuggestions(field){
  const fieldEl=$('filament-'+field),menu=$('filament-'+field+'-options');
  const options=matchingFilamentSuggestion(field,fieldEl.value);
@@ -1036,16 +1038,22 @@ function filamentHexPreview(source=''){
  $('filament-internal-preview').textContent=$('filament-internal-code').value.trim()||'—';
  $('filament-hex-status').textContent=source||(filamentAutoHex?'Herstellerfarbcode übernommen':'Farbcode selbst gewählt oder später anpassbar');
 }
-function applyFilamentSuggestion(field,item){
+function applyFilamentSuggestion(field,item,automatic=false){
  const form=$('filament-form');
  form.elements[field].value=item.name;
  if(field==='brand'){
   form.elements.brand.value=canonicalFilamentBrand(item.name);
  }else if(field==='color'&&item.hex){
   form.elements.material.value=item.family;
-  form.elements.color_hex.value=item.hex;
-  filamentAutoHex=item.source==='Herstellerfarbcode';
-  form.elements.manufacturer_code.value=item.manufacturer_code||'';
+  // Only an explicit suggestion click may overwrite a saved/manually entered code.
+  if(!automatic||!filamentHexProtected){
+   form.elements.color_hex.value=item.hex;
+   filamentAutoHex=item.source==='Herstellerfarbcode';
+  }
+  if(!automatic||!filamentManufacturerProtected){
+   form.elements.manufacturer_code.value=item.manufacturer_code||'';
+  }
+  if(!automatic){filamentHexProtected=false;filamentManufacturerProtected=false;}
   filamentHexPreview(item.source==='Bereits angelegt'?'Farbcode aus deinem Lager übernommen':'Herstellerfarbcode automatisch übernommen');
  }
  closeFilamentSuggestions();
@@ -1058,7 +1066,7 @@ function matchExactFilamentColor(){
  const key=normFilament(query);
  const matches=filamentSuggestions('color').filter(o=>[o.name,...o.aliases].some(name=>normFilament(name)===key));
  if(matches.length!==1)return;
- applyFilamentSuggestion('color',matches[0]);
+ applyFilamentSuggestion('color',matches[0],true);
 }
 function updateFilamentDuplicate(){
  const form=$('filament-form'),brand=form.elements.brand.value,color=form.elements.color.value,material=form.elements.material.value;
@@ -1212,6 +1220,17 @@ async function filamentAction(data,trigger=null){
  try{
   const before=filamentData?.filaments?.find(f=>f.id===data.id);
   filamentData=await api('filament',data,controller.signal);
+  if(data.action==='save'){
+   // Backend responds with a fresh SQLite read. No false success for lost codes.
+   const saved=(filamentData?.filaments||[]).find(f=>data.id!=null?f.id===data.id:
+    filamentUniqueIdentity(f.brand,f.material,f.color)===filamentUniqueIdentity(data.brand,data.material,data.color));
+   const manufacturer=String(data.manufacturer_code||'').trim();
+   const internal=String(data.internal_code||'').trim().replace(',','.');
+   if(!saved||String(saved.manufacturer_code||'').trim()!==manufacturer||
+      String(saved.internal_code||'').trim()!==internal){
+    throw Error('Hersteller-Farbnummer bzw. interner Farbcode wurden vom Druckplaner nicht bestätigt.');
+   }
+  }
   renderFilaments();
   const after=filamentData?.filaments?.find(f=>f.id===data.id);
   const automaticallyListed=(data.action==='open'||data.action==='save')&&
@@ -1229,7 +1248,7 @@ async function filamentAction(data,trigger=null){
   catch{}
   finally{clearTimeout(refreshTimeout);}
   flash((err.name==='AbortError'?'Keine rechtzeitige Antwort vom Druckplaner.':err.message)+
-    ' Bitte Bestand und Einkaufsliste prüfen, bevor du erneut klickst.',true);
+    (data.action==='save'?' Bitte die Farbcodes vor erneutem Speichern prüfen.':' Bitte Bestand und Einkaufsliste prüfen, bevor du erneut klickst.'),true);
   return false;
  }finally{
   clearTimeout(timeout);
@@ -1295,6 +1314,8 @@ function openFilamentEditor(id){
  $('filament-title').textContent=f?'Filament bearbeiten':'Filament anlegen';
  $('filament-delete').hidden=!f;
  filamentAutoHex=false;
+ filamentHexProtected=!!f;
+ filamentManufacturerProtected=!!f;
  filamentHexPreview();
  closeFilamentSuggestions();
  updateFilamentDuplicate();
@@ -1515,8 +1536,9 @@ $('filament-existing').addEventListener('click',()=>{
  const id=Number($('filament-existing').dataset.existingId);
  if(id){$('filament-editor').close();openFilamentEditor(id);}
 });
-$('filament-color-hex').addEventListener('input',()=>{filamentAutoHex=false;filamentHexPreview('Manuell gewählter Farbcode');});
-for(const id of ['filament-manufacturer-code','filament-internal-code'])$(id).addEventListener('input',()=>filamentHexPreview());
+$('filament-color-hex').addEventListener('input',()=>{filamentAutoHex=false;filamentHexProtected=true;filamentHexPreview('Manuell gewählter Farbcode');});
+$('filament-manufacturer-code').addEventListener('input',()=>{filamentManufacturerProtected=true;filamentHexPreview();});
+$('filament-internal-code').addEventListener('input',()=>filamentHexPreview());
 $('filament-form').elements.price.addEventListener('input',event=>filamentPriceMask(event.target,event));
 document.addEventListener('click',event=>{
  if(!event.target.closest('.filament-autocomplete'))closeFilamentSuggestions();
