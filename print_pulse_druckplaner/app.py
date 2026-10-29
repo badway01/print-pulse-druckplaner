@@ -2107,6 +2107,49 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 log.exception('Fehler beim lokalen 3MF-Upload')
                 return self.send(500,{'error':'Upload fehlgeschlagen.'})
+
+        if urllib.parse.urlsplit(self.path).path=='/api/filament-import-file':
+            if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
+                return self.send(403,{'error':'Ungültiger Ursprung.'})
+            import subprocess
+            mime=self.headers.get('Content-Type','').split(';')[0].lower()
+            allowed={'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp',
+                     'application/pdf':'.pdf','text/plain':'.txt'}
+            if mime not in allowed:return self.send(415,{'error':'Nur PNG, JPG, WEBP, PDF oder TXT hochladen.'})
+            upload_path=None
+            try:
+                length=int(self.headers.get('Content-Length','0'))
+                if not 1<=length<=12*1024*1024:raise ValueError('Maximal 12 MB pro Datei.')
+                self.connection.settimeout(60)
+                raw=self.rfile.read(length)
+                if len(raw)!=length:raise ValueError('Unvollständiger Upload.')
+                with tempfile.NamedTemporaryFile(suffix=allowed[mime],delete=False) as tmp:
+                    tmp.write(raw)
+                    upload_path=tmp.name
+                if mime=='text/plain':
+                    content=raw.decode('utf-8-sig')
+                else:
+                    command=(['pdftotext','-layout',upload_path,'-'] if mime=='application/pdf'
+                             else ['tesseract',upload_path,'stdout','-l','deu+eng','--psm','3'])
+                    result=subprocess.run(command,capture_output=True,text=True,timeout=45)
+                    if result.returncode:raise ValueError('Texterkennung fehlgeschlagen. Bitte Text einfügen oder Positionen manuell erfassen.')
+                    content=result.stdout
+                if not content.strip():raise ValueError('Keine lesbaren Bestelldaten erkannt. Bitte Positionen manuell erfassen.')
+                with connect() as db:
+                    preview=filament_purchases.parse_text(content[:100000],db)
+                preview['fingerprint']=hashlib.sha256(raw).hexdigest()
+                preview['source_type']=mime
+                return self.send(200,preview)
+            except (ValueError,UnicodeDecodeError,subprocess.TimeoutExpired) as exc:
+                return self.send(400,{'error':str(exc)[:300]})
+            except OSError:
+                log.exception('Filament-Datei konnte nicht gelesen werden')
+                return self.send(503,{'error':'Lokale Texterkennung ist nicht verfügbar. Bitte Bestelltext einfügen.'})
+            finally:
+                if upload_path:
+                    try:os.unlink(upload_path)
+                    except OSError:pass
+
         if self.headers.get('Content-Type','').split(';')[0]!='application/json':
             return self.send(415,{'error':'JSON erforderlich.'})
         if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
