@@ -1128,11 +1128,10 @@ def filament_history_import():
     check_cooldown()
     if IMPORT_LOCK.locked():
         raise ValueError('Bitte zuerst den laufenden Etsy-Abgleich abwarten.')
-    if not HISTORY_LOCK.acquire(blocking=False):
-        return filament_history_status()
-    # Protected block updates are performed without taking the same lock twice.
-    HISTORY_STATUS.update(running=True,message='Etsy-Verkäufe seit Juli 2025 lesen …',error=None)
-    HISTORY_LOCK.release()
+    with HISTORY_LOCK:
+        if HISTORY_STATUS['running']:
+            return dict(HISTORY_STATUS)
+        HISTORY_STATUS.update(running=True,message='Etsy-Verkäufe seit Juli 2025 lesen …',error=None)
     def job():
         try:
             with connect() as db:
@@ -1143,19 +1142,22 @@ def filament_history_import():
             # pagination helper checks complete results and API cooldown.
             receipts=pages('/application/shops/'+shop+'/receipts',
                            {'min_created':filament_planner.SHOP_START,'was_paid':'true'})
+            # Finish all remote reads before writing, so database locks
+            # are never held while waiting for Etsy.
+            complete=[]
+            for r in receipts:
+                if not isinstance(r,dict):
+                    continue
+                rid=str(r.get('receipt_id') or '')
+                if not rid.isdecimal():
+                    continue
+                if not isinstance(r.get('transactions'),list):
+                    r['transactions']=pages('/application/shops/'+shop+'/receipts/'+rid+'/transactions')
+                complete.append(r)
             seen=0
             with connect() as db:
                 db.execute('BEGIN IMMEDIATE')
-                for r in receipts:
-                    if not isinstance(r,dict):
-                        continue
-                    rid=str(r.get('receipt_id') or '')
-                    if not rid.isdecimal():
-                        continue
-                    if not isinstance(r.get('transactions'),list):
-                        # Do not silently write partial history. Read the
-                        # missing transactions after the receipt list is fetched.
-                        raise ValueError('Etsy liefert bei mindestens einer Bestellung keine Positionen. Keine Teildaten importiert.')
+                for r in complete:
                     seen+=filament_planner.record_history_receipt(db,r,signature,receipt_status)
                 db.execute("""INSERT INTO pp_filament_history_state(id,checked_at,count)
                   VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET
@@ -2073,7 +2075,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except (ValueError,FileNotFoundError):
                 return self.send(404,{'error':'Datei nicht verfügbar.'})
-        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
+        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
