@@ -40,6 +40,12 @@ class FilamentPlannerTests(unittest.TestCase):
                 (str(time.time_ns()),'456',lid,variant,quantity,
                  int(time.time())-days_ago*86400,status,int(time.time())))
 
+    def test_docker_image_includes_new_python_module(self):
+        dockerfile=(Path(__file__).resolve().parents[1]/
+                    'print_pulse_druckplaner'/'Dockerfile').read_text()
+        self.assertIn('COPY filament_planner.py ./filament_planner.py',dockerfile)
+        self.assertIn('COPY economics.py ./economics.py',dockerfile)
+
     def test_50g_per_unit_and_sales_history(self):
         fid=self.add()
         self.sale(quantity=40)
