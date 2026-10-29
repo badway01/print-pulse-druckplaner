@@ -1,3 +1,12 @@
+## 0.13.7 (2026-10-29)
+
+- Neue Filamentbestellungen mit lokalem Screenshot-/PDF-/Textimport (Tesseract OCR und PDF-Text), unabhängig vom Händler; unbekannte Positionen müssen manuell geprüft werden.
+- Editierbare Prüfmaske für alle Einzelpositionen: Hersteller, Material, Farbname, Farbcode, eigener Code, Gramm, Anzahl, Verpackung und tatsächlicher Gesamtpreis.
+- Neue Filamente werden beim bestätigten Speichern ohne Bestand angelegt. Änderungen an bestehenden Stammdaten werden nur nach expliziter Auswahl übernommen und protokolliert.
+- Bestellungen bleiben als bestellt sichtbar. Wareneingänge sind teilweise buchbar, transaktional und gegen doppelte oder veraltete Buchungen geschützt.
+- Letzter bezahlter Filamentpreis wird beim Empfang automatisch aktualisiert. Kostenloses Filament bleibt bei 0,00 € in der Einkaufs-Historie, ohne den regulären letzten Kaufpreis auf null zu setzen.
+- Bestellungen aus der bisherigen Einkaufsliste öffnen nun dieselbe Preisprüfung statt einer ungeprüften Bestandsbuchung.
+
 ## 0.13.6 (2026-10-29)
 
 - Die automatische Bambu-Farberkennung überschreibt beim Speichern keine manuell gepflegten Hersteller-Farbnummern oder HEX-Werte mehr.
