@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner
+    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -48,6 +48,9 @@ except ImportError:
     _planner_spec=importlib.util.spec_from_file_location('pp_filament_planner',Path(__file__).with_name('filament_planner.py'))
     filament_planner=importlib.util.module_from_spec(_planner_spec)
     _planner_spec.loader.exec_module(filament_planner)
+    _purchase_spec=importlib.util.spec_from_file_location('pp_filament_purchases',Path(__file__).with_name('filament_purchases.py'))
+    filament_purchases=importlib.util.module_from_spec(_purchase_spec)
+    _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
 APP_VERSION = os.environ.get('PP_VERSION') or '0.13.6'
@@ -285,6 +288,7 @@ def init_db():
         local_orders.schema(db)
         economics.schema(db)
         filament_planner.schema(db)
+        filament_purchases.schema(db)
         filament_planner.backfill_existing(db)
         # Previously stored order-print records must survive all add-on updates.
         print_columns={col['name'] for col in db.execute("PRAGMA table_info(stock_order_prints)")}
@@ -2033,6 +2037,8 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/theme': return self.send(200,theme_sun_state())
         if path=='/api/versions': return self.send(200,version_history())
         if path=='/api/filaments': return self.send(200,filament_overview())
+        if path=='/api/filament-orders':
+            with connect() as db: return self.send(200,filament_purchases.overview(db))
         if path=='/api/filament-plan':
             args=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             spools=integer(int((args.get('spools') or ['14'])[0]),1,100)
@@ -2075,7 +2081,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except (ValueError,FileNotFoundError):
                 return self.send(404,{'error':'Datei nicht verfügbar.'})
-        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
+        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
@@ -2107,7 +2113,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(403,{'error':'Ungültiger Ursprung.'})
         try:
             length=int(self.headers.get('Content-Length','0'))
-            if not 1<=length<=16384: raise ValueError('Ungültige Eingabegröße.')
+            max_length=128000 if urllib.parse.urlsplit(self.path).path=='/api/filament-import-text' else 60000
+            if not 1<=length<=max_length: raise ValueError('Ungültige Eingabegröße.')
             self.connection.settimeout(15)
             data=json.loads(self.rfile.read(length))
             if not isinstance(data,dict): raise ValueError('JSON-Objekt erforderlich.')
@@ -2172,6 +2179,23 @@ class Handler(BaseHTTPRequestHandler):
                 with connect() as db:
                     db.execute('BEGIN IMMEDIATE')
                     result=filament_planner.apply(db,data.get('additions'),data.get('expected_cart'))
+                return self.send(200,result)
+            if path=='/api/filament-import-text':
+                source=data.get('text','')
+                with connect() as db:
+                    result=filament_purchases.parse_text(source,db)
+                result['fingerprint']=hashlib.sha256(source.encode('utf-8')).hexdigest()
+                result['source_type']='text'
+                return self.send(200,result)
+            if path=='/api/filament-orders':
+                with connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    if data.get('action')=='create':
+                        result={'order_id':filament_purchases.create(db,data)}
+                    elif data.get('action')=='receive':
+                        result={'receipt_id':filament_purchases.receive(db,data)}
+                    else:raise ValueError('Unbekannte Einkaufsaktion.')
+                with connect() as db:result.update(filament_purchases.overview(db))
                 return self.send(200,result)
             if path=='/api/filament':
                 filament_mutate(data)
@@ -2282,6 +2306,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(429,{'error':str(exc)[:300]})
         except RuntimeError as exc:
             return self.send(502,{'error':str(exc)[:300]})
+        except sqlite3.IntegrityError:
+            return self.send(409,{'error':'Diese Bestellung oder Buchung existiert bereits. Bitte die Bestellübersicht aktualisieren.'})
         except (ValueError, TypeError) as exc:
             return self.send(400,{'error':str(exc)[:300]})
         except Exception:
