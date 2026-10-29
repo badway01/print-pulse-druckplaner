@@ -81,7 +81,7 @@
  }
  function existingLine(line){
   if(!line.filament_id)return null;
-  return catalog().find(f=>f.id===Number(line.filament_id))||null;
+  return catalog().find(f=>f.id===Number(line.filament_id))||line.existing||null;
  }
  function field(labelText,name,value,index,type='text',other=''){
   const fieldId='pp-l-'+index+'-'+name;
@@ -93,7 +93,8 @@
  }
  function reviewLine(line,i){
   const f=existingLine(line);
-  const ids=catalog();
+  const ids=catalog().slice();
+  if(f&&!ids.some(row=>row.id===f.id))ids.unshift(f);
   const options='<option value="">Automatisch zuordnen / neue Farbe</option>'+
    ids.map(row=>'<option value="'+row.id+'" '+(f&&f.id===row.id?'selected':'')+'>'+
     html((row.internal_code?'Intern '+row.internal_code+' · ':'')+
@@ -268,6 +269,7 @@
     if(!text)throw Error('Bitte Bestelltext einfügen oder Datei wählen.');
     result=await api('filament-import-text',{text});
    }
+   await loadFilaments();
    fromPreview(result);
   }catch(ex){error(ex.message);}
   finally{busy=false;}
