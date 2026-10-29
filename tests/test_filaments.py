@@ -155,6 +155,19 @@ class FilamentTests(unittest.TestCase):
                               after[color]['open_qty']),
                              (rows[color]['internal_code'],2,1))
 
+    def test_manufacturer_color_code_round_trip_after_edit_and_reopen(self):
+        fid=self.add(color='Marineblau',internal_code='25',manufacturer_code='11542',stock_qty=2)
+        row=app.filament_overview()['filaments'][0]
+        self.assertEqual((row['manufacturer_code'],row['internal_code']),('11542','25'))
+        app.filament_mutate({'action':'save','id':fid,'brand':'Bambu Lab',
+            'color':'Marineblau','material':'PLA Matte','color_hex':'#0078bf',
+            'stock_qty':2,'price':'19,90','purchase_url':'',
+            'internal_code':'25','manufacturer_code':'11543'})
+        app.init_db()
+        row=app.filament_overview()['filaments'][0]
+        self.assertEqual((row['manufacturer_code'],row['internal_code'],row['stock_qty']),
+                         ('11543','25',2))
+
     def test_internal_shade_code_rejects_invalid_without_changing_stock(self):
         self.add(color='Basisweiß',internal_code='2.1',stock_qty=3)
         before=app.filament_overview()['filaments'][0]
