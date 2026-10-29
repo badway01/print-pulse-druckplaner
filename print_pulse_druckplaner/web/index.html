@@ -189,7 +189,7 @@
   <div><b>Filament-Gesamtwert <small>(nur volle Spulen)</small></b><span id="filament-stock-spools">0 volle Spulen · 0 angebrochen</span></div>
   <div class="filament-stock-amount"><strong id="filament-stock-value">0,00 €</strong><small id="filament-stock-missing">Menge × Preis pro Spule</small></div>
  </div>
- <section class="fp-panel" aria-label="Intelligente Filament-Einkaufsplanung">
+ <section id="fp-panel" class="fp-panel" hidden aria-label="Intelligente Filament-Einkaufsplanung">
    <div class="fp-heading"><div><span class="eyebrow">EINKAUF OPTIMIEREN</span><h3>Welche Farben brauche ich wirklich?</h3><p>Verkäufe rückwirkend auswerten – mit pauschal 50 g je Artikel, sofern noch kein genaues Druckgewicht vorhanden ist.</p></div></div>
    <div class="fp-controls"><label>Geplante Spulen <input id="fp-spools" type="number" min="1" max="100" step="1" value="14" inputmode="numeric"></label><label>Bedarf für <select id="fp-days"><option value="30">30 Tage</option><option value="60" selected>60 Tage</option><option value="90">90 Tage</option></select></label><button type="button" class="primary" id="fp-calculate">Bedarf berechnen</button><button type="button" class="secondary" id="fp-history">Etsy-Historie einlesen</button></div>
    <p id="fp-info" class="fp-info" role="status" aria-live="polite">Der Einkaufswagen bleibt unangetastet, bis du Empfehlungen selbst übernimmst.</p>
