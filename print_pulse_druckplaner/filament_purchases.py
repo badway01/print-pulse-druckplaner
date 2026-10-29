@@ -86,7 +86,7 @@ def suggest_matches(db, line):
         if key(row['brand'])!=brand or material_key(row['material'])!=material:continue
         if code and key(row['manufacturer_code'])==code:
             exact.append(row)
-        elif name and key(row['color'])==name:
+        elif name and key(row['color'])==name and (not code or not row['manufacturer_code'] or key(row['manufacturer_code'])==code):
             exact.append(row)
     # Same maker+material+code can match despite different translated color names.
     # Never merge two distinct candidates automatically.
@@ -180,7 +180,7 @@ def distribute(deduction, weights):
     total=sum(weights)
     if total<=0:return [0]*len(weights)
     amounts=[(deduction*w)//total for w in weights]
-    remainders=sorted(range(len(weights)),key=lambda i:(-(deduction*weights[i])%total,i))
+    remainders=sorted(range(len(weights)),key=lambda i:(-(deduction*weights[i]%total),i))
     for i in remainders[:deduction-sum(amounts)]:amounts[i]+=1
     return amounts
 
@@ -250,7 +250,7 @@ def create(db,data):
         item['filament_id']=entry.get('filament_id')
         if item['filament_id'] is not None:item['filament_id']=num(item['filament_id'],1,999999999,'Filament-Zuordnung')
         item['accept_changes']=entry.get('accept_changes') or []
-        if not isinstance(item['accept_changes'],list) or any(f not in ('manufacturer_code','color_hex') for f in item['accept_changes']):
+        if not isinstance(item['accept_changes'],list) or any(f not in ('manufacturer_code','color_hex','brand','material','color') for f in item['accept_changes']):
             raise ValueError('Ungültige Stammdatenänderung.')
         clean.append(item)
     known=[i['gross_cents'] for i in clean]
@@ -273,8 +273,10 @@ def create(db,data):
         if fid is not None:
             f=db.execute('SELECT * FROM filament_spools WHERE id=?',(fid,)).fetchone()
             if not f:raise ValueError('Filament nicht gefunden.')
-            if key(f['brand'])!=key(item['brand']) or material_key(f['material'])!=material_key(item['material']):
-                raise ValueError('Filamentzuordnung hat einen anderen Hersteller oder ein anderes Material.')
+            if key(f['brand'])!=key(item['brand']) and 'brand' not in item['accept_changes']:
+                raise ValueError('Herstellerabweichung muss ausdrücklich übernommen werden.')
+            if material_key(f['material'])!=material_key(item['material']) and 'material' not in item['accept_changes']:
+                raise ValueError('Materialabweichung muss ausdrücklich übernommen werden.')
             if matched and matched['id']!=fid:raise ValueError('Filamentzuordnung passt nicht zum Herstellercode.')
         elif ambiguous:raise ValueError('Mehrdeutiges Filament: vorhandene Farbe manuell zuordnen.')
         elif matched:fid=matched['id']
@@ -295,6 +297,10 @@ def create(db,data):
                 if incoming and incoming!=old[field]:
                     changes[field]=incoming
             if changes:
+                identity=(key(changes.get('brand',old['brand'])),material_key(changes.get('material',old['material'])),key(changes.get('color',old['color'])))
+                for candidate in db.execute('SELECT id,brand,material,color FROM filament_spools WHERE id<>?',(fid,)):
+                    if identity==(key(candidate['brand']),material_key(candidate['material']),key(candidate['color'])):
+                        raise ValueError('Stammdatenänderung würde eine bestehende Farbe duplizieren.')
                 sets=','.join(k+'=?' for k in changes)
                 db.execute('UPDATE filament_spools SET '+sets+',updated=? WHERE id=?',
                            (*changes.values(),now,fid))
