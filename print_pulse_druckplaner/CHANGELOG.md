@@ -1,3 +1,10 @@
+# 0.13.6 · Bambu-Hersteller-Farbnummer sicher speichern
+
+- Manuell eingetragene Bambu-Farbnummern und HEX-Werte werden beim Speichern nicht mehr von der automatischen Farbzuordnung überschrieben.
+- Die Erfolgsmeldung setzt einen Abgleich der Hersteller- und internen Farbcodes mit der Datenbankantwort voraus.
+- Filament-Einkaufsanalyse (50 g Standard) und Etsy-Historie bleiben unverändert.
+- Bestehende Bestände und Einkaufspositionen werden nicht verändert.
+
 # 0.13.5 · Filament-Einkauf und Etsy-Historie: HA-Startreparatur
 
 - Die neue Bedarfsanalyse mit 50 g Standard verwendet wieder alle erforderlichen Python-Module im Docker-Image.
