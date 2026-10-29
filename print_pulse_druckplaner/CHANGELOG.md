@@ -1,3 +1,9 @@
+# 0.13.5 · Filament-Einkauf und Etsy-Historie: HA-Startreparatur
+
+- Die neue Bedarfsanalyse mit 50 g Standard verwendet wieder alle erforderlichen Python-Module im Docker-Image.
+- Der Startfehler nach 0.13.4 ist behoben, Bestands- und Einkaufsdaten werden nicht geändert.
+- Dockerfile-Regressionstest verhindert das versehentliche Auslassen neuer Module.
+
 # 0.13.4 · Filamentbedarf und Einkauf optimieren
 
 - Neue Bedarfsanalyse im Filament-Einkaufswagen, mit 14 Spulen und 60 Tagen voreingestellt.
