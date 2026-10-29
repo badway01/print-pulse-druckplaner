@@ -24,12 +24,13 @@ jobs:
 
       - name: Python-Code pruefen
         run: |
-          python -m py_compile print_pulse_druckplaner/app.py print_pulse_druckplaner/local_orders.py print_pulse_druckplaner/local_order_pdf.py print_pulse_druckplaner/economics.py print_pulse_druckplaner/filament_planner.py
+          python -m py_compile print_pulse_druckplaner/app.py print_pulse_druckplaner/local_orders.py print_pulse_druckplaner/local_order_pdf.py print_pulse_druckplaner/economics.py print_pulse_druckplaner/filament_planner.py print_pulse_druckplaner/filament_purchases.py
           python -m pip install 'reportlab>=3.6,<6'
 
       - name: JavaScript auf Syntax prüfen
         run: |
           node --check print_pulse_druckplaner/web/filament-planner-ui.js
+          node --check print_pulse_druckplaner/web/filament-purchases-ui.js
           node --check print_pulse_druckplaner/web/app.js
           node --check print_pulse_druckplaner/web/components-ui.js
           node --check print_pulse_druckplaner/web/priority-ui.js
