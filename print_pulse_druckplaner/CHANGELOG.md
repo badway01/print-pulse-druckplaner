@@ -1,4 +1,4 @@
-## 0.13.7 (2026-10-29)
+# 0.13.7 · Filamentbestellungen und sicherer Wareneingang
 
 - Filamentbestellungen mit Bild-/PDF-/Textimport, vollständiger Positionskorrektur und neuem Bestellarchiv.
 - Wareneingang mit Teillieferungen, idempotenten Buchungen, Preis- und Kataloghistorie; Geschenkrollen verändern den letzten bezahlten Preis nicht.
