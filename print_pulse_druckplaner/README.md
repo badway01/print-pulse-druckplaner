@@ -1,3 +1,7 @@
+## Neu in 0.13.7: Filament-Wareneingang
+
+Im Filament-Bereich **+ Bestellung importieren** wählen: Bild/PDF/TXT hochladen, Bestelltext einfügen oder Positionen manuell eingeben. Jede Position vor dem Speichern kontrollieren. Als **Bestellt** speichern, nach Ankunft **Lieferung erfassen**, bei Teillieferungen Mengen anpassen. Die Lagerbuchung erfolgt nur nach Bestätigung.
+
 ## Version 0.11.19
 
 Monitor: vier Drucker (H2D, P1S Old, P1S New, Snapmaker U1). H2D/P1S Old/U1 sind mit verifizierten HA-Sensoren vorbelegt. P1S New enthält derzeit ausschließlich übermittelte Shelly-Entitäten, deshalb keine erfundenen Druckzustände. A1 mini bleibt bei Master-3MF auswählbar. 3MF-Profil-Lesevorgang ist fehlertoleranter und verändert beschädigte ältere Daten nicht.
