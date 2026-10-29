@@ -1,3 +1,10 @@
+## 0.13.5 (2026-10-29)
+
+- Filament-Einkaufsanalyse (50 g Standard) und Etsy-Historie: Startfehler nach Update auf 0.13.4 behoben.
+- Fehlendes Python-Modul wird jetzt im Home-Assistant-Dockerimage mit ausgeliefert.
+- Regressionstest prüft, dass für den Docker-Start alle benötigten Python-Module kopiert werden.
+- Keine Änderungen an bestehenden Bestellungen, Lagerbeständen, Filamenten oder Einkaufspositionen.
+
 ## 0.13.4 (2026-10-29)
 
 - Neuer Einkaufsassistent im Filament-Einkaufswagen: Zielmenge (z. B. 14 Spulen), 30/60/90-Tage-Bedarf und Begründung je Filament.
