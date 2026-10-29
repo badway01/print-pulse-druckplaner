@@ -1,3 +1,9 @@
+## Version 0.13.7 · Filamentbestellungen & Wareneingang
+
+Im Reiter **Filament** gibt es jetzt einen separaten Bereich **Filamentbestellungen**. Du kannst einen Screenshot, eine PDF-Rechnung oder kopierten Bestelltext importieren und jede Position vor dem Speichern vollständig korrigieren. Der Import läuft lokal über Tesseract/PDF-Text; die Erkennung ist händlerunabhängig, aber unbekannte Produktlayouts erfordern eine manuelle Prüfung.
+
+**Bestellung speichern** legt fehlende Filamente zunächst mit 0 Spulen an. Bestehende Farbdaten werden nur nach gezielter Freigabe geändert. **Lieferung erfassen** bucht später nur tatsächlich erhaltene Spulen; Teillieferungen bleiben offen, doppelte Buchungen werden zurückgewiesen. Einkaufspreise und Sonderaktionen werden separat archiviert, kostenlose Rollen überschreiben keine regulären Preiswerte.
+
 ## Version 0.13.2 · Bestehende Bestellungen: Bauteile einzeln drucken und fertigmelden
 
 Wenn du im Produktkatalog die Vorproduktion aktivierst oder Bauteile später hinzufügst, erscheinen diese **auch in bereits offenen Etsy-Bestellungen** beim nächsten Datenabgleich. Im einfachen Positionsdialog gibt es jetzt je Bauteil eine eigene Mengenwahl und **Drucken**, **Fertig** (auch ohne vorherigen Druckstart), **Aus Lager** (bei Vorratsteilen) und **Rückgängig**. Abtropfschale und Becher lassen sich dadurch unabhängig voneinander bearbeiten. Erst wenn alle benötigten Teile bereitstehen, ist **Produkt fertig** möglich. Die Gesamtbestellung bleibt bis dahin offen.

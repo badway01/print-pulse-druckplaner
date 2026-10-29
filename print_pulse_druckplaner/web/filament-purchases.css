@@ -1,0 +1,39 @@
+
+.pp-purchase-shell{margin:22px 0;padding:18px;border:1px solid var(--line,#d5dbd6);border-radius:18px;background:var(--card,#fff)}
+.pp-purchase-head{display:flex;gap:14px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.pp-purchase-head h3{margin:5px 0}.pp-purchase-head p{margin:0;font-size:.9rem;opacity:.75}
+.pp-purchase-list{margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:12px}
+.pp-purchase-card{padding:14px;border:1px solid var(--line,#d5dbd6);border-radius:14px;display:grid;gap:8px}
+.pp-purchase-card-top{display:flex;justify-content:space-between;gap:9px;align-items:center}
+.pp-purchase-card small{opacity:.7}.pp-purchase-card button{width:100%}
+.pp-purchase-status{border-radius:999px;padding:4px 9px;background:var(--surface-alt,#ebf0ed);font-size:.76rem;font-weight:700}
+.pp-purchase-dialog{width:min(92vw,850px);max-height:90dvh;overflow:auto;padding:22px}
+.pp-purchase-dialog::backdrop{background:rgba(0,0,0,.55)}
+.pp-purchase-dialog #pp-purchase-body{display:grid;gap:14px}
+.pp-drop{display:grid;gap:8px;justify-items:center;align-content:center;min-height:140px;padding:24px;border:2px dashed var(--line,#b6c3b8);border-radius:13px;cursor:pointer;text-align:center}
+.pp-drop:hover,.pp-drop.dragging{border-color:#7b9982;background:var(--surface-alt,#f2f6f3)}
+.pp-purchase-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:10px}
+.pp-purchase-actions button{min-height:42px}
+.pp-purchase-dialog textarea{width:100%;min-height:100px;resize:vertical}
+.pp-purchase-fields,.pp-line-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.pp-purchase-dialog label{display:grid;gap:4px;font-size:.84rem;font-weight:600}
+.pp-purchase-dialog input,.pp-purchase-dialog select,.pp-purchase-dialog textarea{max-width:100%;min-width:0;box-sizing:border-box;padding:10px;border:1px solid var(--line,#bdc9c0);border-radius:9px;background:var(--card,#fff);color:inherit;font:inherit}
+.pp-purchase-dialog input[type=checkbox]{width:auto}
+.pp-line{border:1px solid var(--line,#d5dbd6);border-radius:14px;padding:13px;margin:4px 0}
+.pp-line-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:9px}
+.pp-line-buttons{display:flex;gap:6px;flex-wrap:wrap}
+.pp-line-buttons button{font-size:.8rem}
+.pp-changes{border-left:3px solid #d59d37;padding:8px 11px;margin-top:10px;display:grid;gap:7px;background:var(--surface-alt,#f7f7f2)}
+.pp-change-row{display:flex;align-items:flex-start;gap:8px;font-size:.82rem;line-height:1.4}
+.pp-change-row label{display:block;font-weight:400}
+.pp-muted{font-size:.83rem;opacity:.7}
+.pp-warning{border:1px solid #c8a563;border-radius:10px;padding:10px;font-size:.87rem}
+.pp-receive-row{display:grid;grid-template-columns:minmax(0,1fr) 100px;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line,#d5dbd6)}
+.pp-receive-row input{text-align:center}
+.pp-purchase-dialog .warning{color:#b83a24;padding:8px}
+@media(max-width:680px){
+.pp-purchase-dialog{padding:14px;width:95vw}
+.pp-purchase-fields,.pp-line-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+.pp-purchase-head>button{width:100%}
+.pp-purchase-actions button{flex:1 1 40%}
+}

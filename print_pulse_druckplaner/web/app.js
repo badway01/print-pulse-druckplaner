@@ -1182,7 +1182,7 @@ function renderFilaments(){
  const visible=filamentView==='cart'?cart:sortFilamentRows(rows.filter(f=>(f.brand+' '+f.color+' '+f.material+' '+(f.internal_code||'')+' '+filamentManufacturerCode(f)+' '+(f.color_hex||'')+' '+(f.notes||'')).toLocaleLowerCase('de').includes(query)));
 
  $('filament-message').textContent=filamentView==='cart'?
-  'Spulen für deinen nächsten Einkauf. „Erhalten“ bucht gelieferte Spulen ins Regal.':
+  'Spulen für deinen nächsten Einkauf. „Erhalten“ öffnet die Preisprüfung und den Wareneingang.':
   'Volle und angebrochene Rollen zählen – ohne Wiegen. Über „Rollen“ kannst du eine Spule öffnen oder als leer markieren.';
  updateHTML($('filament-rows'),visible.length?visible.map(f=>filamentLine(f,filamentView==='cart')).join(''):
   `<div class="filament-empty">${filamentView==='cart'?'Deine Einkaufsliste ist leer. Füge bei „Meine Farben“ eine Spule hinzu.':query?'Kein Filament passt zur Suche.':'Noch keine Farben angelegt. Starte mit „+ Filament anlegen“.'}</div>`);
@@ -1499,7 +1499,7 @@ $('filament-rows').addEventListener('click',event=>{
  const receive=event.target.closest('[data-filament-receive]');
  if(receive){
   const spool=filamentData.filaments.find(f=>f.id===Number(receive.dataset.filamentReceive));
-  if(spool&&confirm(`Sind ${spool.cart_qty} Spulen von ${spool.brand} · ${spool.color} tatsächlich angekommen? Dann werden sie ins Filamentlager gebucht.`))filamentAction({action:'receive',id:spool.id},receive);
+  if(spool){if(window.ppPurchases)window.ppPurchases.quickReceive(spool);else flash('Wareneingang ist momentan nicht geladen. Bitte Seite neu öffnen.',true);}
  }
 });
 for(const field of ['brand','material','color']){

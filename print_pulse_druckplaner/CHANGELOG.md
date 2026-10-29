@@ -1,3 +1,10 @@
+# 0.13.7 · Filamentbestellungen und sicherer Wareneingang
+
+- Filamentbestellungen mit Bild-/PDF-/Textimport, vollständiger Positionskorrektur und neuem Bestellarchiv.
+- Wareneingang mit Teillieferungen, idempotenten Buchungen, Preis- und Kataloghistorie; Geschenkrollen verändern den letzten bezahlten Preis nicht.
+- Lokale Texterkennung via Tesseract (de/en), PDF mit pdftotext; unklare Einträge bleiben prüfpflichtig.
+- Bestehende Etsy-Historie und Filament-Bedarfsanalyse mit dem 50 g Standard bleiben erhalten; Kauf- und Lagervorgänge sind davon getrennt.
+
 # 0.13.6 · Bambu-Hersteller-Farbnummer sicher speichern
 
 - Manuell eingetragene Bambu-Farbnummern und HEX-Werte werden beim Speichern nicht mehr von der automatischen Farbzuordnung überschrieben.
