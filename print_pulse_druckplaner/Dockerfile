@@ -12,6 +12,7 @@ COPY local_orders.py ./local_orders.py
 COPY local_order_pdf.py ./local_order_pdf.py
 COPY safety.py ./safety.py
 COPY economics.py ./economics.py
+COPY filament_planner.py ./filament_planner.py
 COPY web ./web
 COPY CHANGELOG.md ./CHANGELOG.md
 ENV PP_VERSION=${BUILD_VERSION}
