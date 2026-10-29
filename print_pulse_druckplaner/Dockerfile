@@ -4,7 +4,7 @@ ARG BUILD_ARCH
 LABEL io.hass.version="${BUILD_VERSION}" \
       io.hass.type="app" \
       io.hass.arch="${BUILD_ARCH}"
-RUN apk add --no-cache python3 tzdata py3-reportlab font-dejavu
+RUN apk add --no-cache python3 tzdata py3-reportlab font-dejavu tesseract-ocr tesseract-ocr-data-deu tesseract-ocr-data-eng poppler-utils
 WORKDIR /opt/print-pulse
 COPY app.py ./app.py
 COPY components.py ./components.py
@@ -13,6 +13,7 @@ COPY local_order_pdf.py ./local_order_pdf.py
 COPY safety.py ./safety.py
 COPY economics.py ./economics.py
 COPY filament_planner.py ./filament_planner.py
+COPY filament_purchases.py ./filament_purchases.py
 COPY web ./web
 COPY CHANGELOG.md ./CHANGELOG.md
 ENV PP_VERSION=${BUILD_VERSION}
