@@ -54,6 +54,147 @@
   }catch(ex){node('pp-purchase-list').textContent='Bestellungen nicht verfügbar: '+ex.message;}
   finally{loading=false;}
  }
+
+ // Manual purchase entry is the default workflow. OCR remains optional.
+ function newManualLine(){
+  return {...emptyLine(),brand:'Bambu Lab',material:'PLA Basic',packaging:'unknown',
+   _manualType:'search',_query:'',_priceInput:''};
+ }
+ const searchableCatalog=()=>catalog().slice().sort((a,b)=>
+   String(a.color||'').localeCompare(String(b.color||''),'de'));
+ const normalizeSearch=value=>String(value??'').toLocaleLowerCase('de').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+ function matchingFilaments(q){
+  const parts=normalizeSearch(q).trim().split(/\s+/).filter(Boolean);
+  if(!parts.length)return [];
+  return searchableCatalog().filter(f=>{
+   const terms=normalizeSearch([f.brand,f.material,f.color,f.manufacturer_code,f.internal_code].join(' '));
+   return parts.every(p=>terms.includes(p));
+  }).slice(0,7);
+ }
+ function spoolLabel(f){
+  return [f.material,f.color,(f.manufacturer_code?'('+f.manufacturer_code+')':null),
+   (f.internal_code?'· Intern '+f.internal_code:null)].filter(Boolean).join(' ');
+ }
+ function manualOptions(index,query){
+  const found=matchingFilaments(query);
+  if(!query.trim())return '<p class="pp-muted">Tippe einen Farbcode oder Farbnamen, z. B. 10100 oder Jade-Weiß.</p>';
+  return found.map(f=>'<button type="button" class="pp-m-suggestion" data-pp-m-action="pick" data-pp-m-index="'+index+
+   '" data-pp-m-id="'+f.id+'"><span class="pp-m-swatch" style="background:'+(
+    /^#[0-9a-fA-F]{6}$/.test(f.color_hex||'')?f.color_hex:'#c1c9c1')+'"></span>'+
+    '<span>'+html(spoolLabel(f))+'<small>'+html(f.brand)+'</small></span></button>').join('')+
+   (found.length?'':'<small class="pp-muted">Keine passende Farbe in der Filamentbibliothek gefunden.</small>');
+ }
+ function manualSelect(index,filament){
+  const l=draft.lines[index];
+  if(!l||!filament)return;
+  Object.assign(l,{brand:filament.brand,material:filament.material,color:filament.color,
+   manufacturer_code:filament.manufacturer_code||'',internal_code:filament.internal_code||'',
+   color_hex:filament.color_hex||'',filament_id:filament.id,_manualType:'selected',
+   _query:'',ambiguous:false,accept_changes:[],reviewed:true});
+ }
+ function manualLine(l,i){
+  const stored=l.filament_id?catalog().find(x=>Number(x.id)===Number(l.filament_id)):null;
+  const state=l._manualType||'search';
+  const base='<div class="pp-m-row-head"><strong>'+(i+1)+'. '+
+   (state==='selected'&&stored?html(spoolLabel(stored)):state==='new'?(html(l.color)||'Neue Farbe'):'Filament auswählen')+
+   '</strong><button class="secondary small pp-m-remove" type="button" aria-label="Position '+(i+1)+
+   ' entfernen" data-pp-m-action="remove" data-pp-m-index="'+i+'">Entfernen</button></div>';
+  let choice='';
+  if(state==='selected'&&stored){
+   choice='<div class="pp-m-chosen"><span>Aus deiner Bibliothek · '+html(stored.brand)+'</span>'+
+    '<button type="button" class="secondary small" data-pp-m-action="change" data-pp-m-index="'+i+'">Andere Farbe</button></div>';
+  }else if(state==='new'){
+   const mats=['PLA Basic','PLA Matte','PETG Basic','PETG Matte','PLA Silk','ABS','ASA','TPU'];
+   choice='<div class="pp-m-new"><div class="pp-m-new-head"><strong>Neue Farbe für die Bibliothek</strong>'+
+    '<button type="button" class="secondary small" data-pp-m-action="change" data-pp-m-index="'+i+'">Vorhandene suchen</button></div>'+
+    '<div class="pp-m-new-fields">'+
+     '<label>Hersteller<input data-pp-m-index="'+i+'" data-pp-m-field="brand" value="'+escapeAttr(l.brand)+'"></label>'+
+     '<label>Material<select data-pp-m-index="'+i+'" data-pp-m-field="material">'+
+     mats.map(m=>'<option value="'+html(m)+'" '+(l.material===m?'selected':'')+'>'+html(m)+'</option>').join('')+
+     (mats.includes(l.material)?'':'<option selected value="'+escapeAttr(l.material)+'">'+html(l.material)+'</option>')+
+     '</select></label>'+
+     '<label>Farbe <span class="pp-m-required">*</span><input data-pp-m-index="'+i+
+      '" data-pp-m-field="color" value="'+escapeAttr(l.color)+'" placeholder="z. B. Jade-Weiß"></label>'+
+     '<label>Bambu-Code (optional)<input data-pp-m-index="'+i+
+      '" data-pp-m-field="manufacturer_code" value="'+escapeAttr(l.manufacturer_code)+'" inputmode="numeric" placeholder="z. B. 10100"></label></div>'+
+     '<details class="pp-m-extras"><summary>Interner Code, HEX und weitere Angaben</summary><div class="pp-m-new-fields">'+
+      '<label>Interner Farbcode<input data-pp-m-index="'+i+'" data-pp-m-field="internal_code" value="'+escapeAttr(l.internal_code)+'" inputmode="decimal"></label>'+
+      '<label>HEX-Farbwert<input data-pp-m-index="'+i+'" data-pp-m-field="color_hex" value="'+escapeAttr(l.color_hex)+'" placeholder="#ffffff"></label>'+
+      '<label>Gramm pro Rolle<input data-pp-m-index="'+i+'" data-pp-m-field="grams" type="number" min="50" max="5000" value="'+l.grams+'" inputmode="numeric"></label>'+
+      '<label>Notiz<input data-pp-m-index="'+i+'" data-pp-m-field="description" value="'+escapeAttr(l.description)+'"></label></div></details>'+
+    '</div>';
+  }else{
+   choice='<label class="pp-m-search-label">Filament aus deiner Bibliothek suchen'+
+     '<input type="search" data-pp-m-search="'+i+'" autocomplete="off" value="'+escapeAttr(l._query||'')+
+      '" placeholder="Farbname, Bambu-Code oder interne Nummer"></label>'+
+     '<div class="pp-m-suggestions" data-pp-m-results="'+i+'">'+manualOptions(i,l._query||'')+'</div>'+
+     '<button class="secondary pp-m-new-button" type="button" data-pp-m-action="new" data-pp-m-index="'+i+'">+ Neue Farbe anlegen</button>';
+  }
+  return '<article class="pp-m-row" data-pp-m-row="'+i+'">'+base+choice+
+   '<div class="pp-m-quick"><label>Rollen<input type="number" min="1" max="500" step="1" inputmode="numeric" data-pp-m-field="quantity" data-pp-m-index="'+i+'" value="'+escapeAttr(l.quantity)+'"></label>'+
+   '<label>Verpackung<select data-pp-m-field="packaging" data-pp-m-index="'+i+'">'+
+    [['unknown','Bitte wählen'],['spool','Mit Spule'],['refill','Refill']].map(([v,txt])=>
+     '<option value="'+v+'" '+(l.packaging===v?'selected':'')+'>'+txt+'</option>').join('')+'</select></label>'+
+   '<label>Positionspreis gesamt (€)<input type="text" inputmode="decimal" placeholder="z. B. 31,78" data-pp-m-field="_priceInput" data-pp-m-index="'+i+
+    '" value="'+escapeAttr(l._priceInput??inputMoney(l.gross_cents))+'"></label></div></article>';
+ }
+ function manualHeaderInput(title,k,value,type='text'){
+  return '<label>'+html(title)+'<input data-pp-m-header="'+k+'" type="'+type+
+   '" value="'+escapeAttr(value??'')+'"></label>';
+ }
+ function renderManual(){
+  mode='manual-order';
+  dialogOpen('Filamentbestellung erfassen');
+  const d=draft;
+  const entered=d.lines.reduce((sum,l)=>{try{return sum+(cents(l._priceInput??inputMoney(l.gross_cents))||0);}catch{return sum;}},0);
+  const count=d.lines.reduce((sum,l)=>sum+(Number(l.quantity)||0),0);
+  orderBody.innerHTML='<div class="pp-m-intro">Wähle deine bekannten Farben aus oder lege eine neue direkt hier an. Keine Screenshots nötig.</div>'+
+   '<div class="pp-m-order-header">'+
+    manualHeaderInput('Händler','vendor',d.vendor)+
+    manualHeaderInput('Bestelldatum','ordered_on',d.ordered_on,'date')+
+    manualHeaderInput('Bestellnummer (optional)','reference',d.reference)+
+    manualHeaderInput('Gezahlt gesamt (€), optional','_totalInput',d._totalInput??inputMoney(d.total_cents))+
+    '</div>'+
+   '<div class="pp-m-head"><strong>Filamente</strong><span>'+d.lines.length+' Positionen · '+count+' Rollen</span></div>'+
+   '<div class="pp-m-lines">'+d.lines.map(manualLine).join('')+'</div>'+
+   '<button type="button" class="secondary pp-m-add" data-pp-m-action="add">+ Weiteres Filament hinzufügen</button>'+
+   '<details class="pp-m-adjustments"><summary>Rabatt, Guthaben und Versand (optional)</summary>'+
+     '<div class="pp-m-order-header">'+
+     manualHeaderInput('Zusätzlicher Rabatt (€)','_discountInput',d._discountInput??inputMoney(d.discount_cents))+
+     manualHeaderInput('Guthaben (€)','_creditInput',d._creditInput??inputMoney(d.credit_cents))+
+     manualHeaderInput('Versand (€)','_shippingInput',d._shippingInput??inputMoney(d.shipping_cents))+
+     '</div></details>'+
+   '<div class="pp-m-total"><span>Erfasste Positionspreise</span><strong>'+money(entered)+'</strong>'+
+     '<small>Preise sind optional. Bei mehreren Rollen gibst du den Preis der gesamten Position ein. Die Zahlungs- und Positionssumme kannst du später abgleichen.</small></div>'+
+   '<div class="pp-review-footer pp-m-footer"><span>'+count+' Rollen</span>'+
+    '<button type="button" class="primary" data-pp-m-action="save">Bestellung speichern</button>'+
+    '<button type="button" class="secondary" data-pp-m-action="save-receive">Speichern + erhalten</button></div>';
+ }
+ function startManual(){
+  draft=emptyDraft();
+  draft.vendor='Bambu Lab';
+  draft.source_type='manual';
+  draft.lines=[newManualLine()];
+  renderManual();
+ }
+ function takeManual(){
+  if(!draft)return;
+  for(const el of orderBody.querySelectorAll('[data-pp-m-header]')){
+   draft[el.dataset.ppMHeader]=el.value.trim();
+  }
+  for(const el of orderBody.querySelectorAll('[data-pp-m-field]')){
+   const line=draft.lines[Number(el.dataset.ppMIndex)];
+   if(!line)continue;
+   const key=el.dataset.ppMField;
+   line[key]=(key==='quantity'||key==='grams')?Number(el.value):el.value.trim();
+  }
+  draft.total_cents=cents(draft._totalInput??'');
+  draft.discount_cents=cents(draft._discountInput??'')??0;
+  draft.credit_cents=cents(draft._creditInput??'')??0;
+  draft.shipping_cents=cents(draft._shippingInput??'')??0;
+  for(const l of draft.lines)l.gross_cents=cents(l._priceInput??'');
+ }
+
  function importView(){
   mode='import';
   dialogOpen('Bestellung importieren');
@@ -306,12 +447,13 @@
  async function save(nowReceive){
   if(busy)return;
   try{
-   takeReview();
-   if(draft.expected_positions&&draft.lines.length<draft.expected_positions){
+   const isManual=mode==='manual-order';
+   if(isManual)takeManual();else takeReview();
+   if(!isManual&&draft.expected_positions&&draft.lines.length<draft.expected_positions){
     activeLine=-1;showReview();
     throw Error('Unvollständiger Import: '+draft.lines.length+' von '+draft.expected_positions+' Positionen. Bitte noch nicht speichern.');
    }
-   if(draft.lines.some(isUnresolved)){
+   if(!isManual&&draft.lines.some(isUnresolved)){
     const missing=draft.lines.filter(isUnresolved).length;
     activeLine=draft.lines.findIndex(isUnresolved);
      showReview();
@@ -440,7 +582,8 @@
   draft.warnings=['Bitte den tatsächlich gezahlten Positionspreis eintragen; der bisherige Lagerpreis ist nur ein Richtwert.'];
   expandedLines=new Set([0]);selectedLines=new Set();activeLine=0;showReview();
  }
- node('pp-purchase-add').addEventListener('click',importView);
+ node('pp-purchase-add').addEventListener('click',startManual);
+ node('pp-purchase-import')?.addEventListener('click',importView);
  node('pp-purchase-close').addEventListener('click',finish);
  node('pp-purchase-list').addEventListener('click',e=>{
   const b=e.target.closest('[data-pp-open]');
@@ -448,6 +591,59 @@
   const o=orders.find(x=>x.id===b.dataset.ppOpen);
   if(o)showReceipt(o);
  });
+
+ orderBody.addEventListener('input',e=>{
+  if(mode!=='manual-order')return;
+  if(e.target.matches('[data-pp-m-search]')){
+   const i=Number(e.target.dataset.ppMSearch);
+   if(!draft.lines[i])return;
+   draft.lines[i]._query=e.target.value;
+   const container=orderBody.querySelector('[data-pp-m-results="'+i+'"]');
+   if(container)container.innerHTML=manualOptions(i,e.target.value);
+  }else if(e.target.matches('[data-pp-m-field]')){
+   const l=draft.lines[Number(e.target.dataset.ppMIndex)];
+   if(!l)return;
+   const field=e.target.dataset.ppMField;
+   l[field]=['quantity','grams'].includes(field)?Number(e.target.value):e.target.value;
+  }else if(e.target.matches('[data-pp-m-header]')){
+   draft[e.target.dataset.ppMHeader]=e.target.value;
+  }
+ });
+ orderBody.addEventListener('click',e=>{
+  if(mode!=='manual-order'||busy)return;
+  const b=e.target.closest('[data-pp-m-action]');
+  if(!b)return;
+  const a=b.dataset.ppMAction,i=Number(b.dataset.ppMIndex);
+  if(a==='save'||a==='save-receive'){save(a==='save-receive');return;}
+  try{takeManual();}catch(ex){error(ex.message);return;}
+  if(a==='add'){
+   if(draft.lines.length>=100){error('Maximal 100 Positionen pro Bestellung.');return;}
+   draft.lines.push(newManualLine());
+  }else if(a==='remove'){
+   draft.lines.splice(i,1);
+   if(!draft.lines.length)draft.lines.push(newManualLine());
+  }else if(a==='pick'){
+   const f=catalog().find(x=>Number(x.id)===Number(b.dataset.ppMId));
+   if(!f){error('Diese Farbe ist nicht mehr in der Bibliothek vorhanden.');return;}
+   manualSelect(i,f);
+  }else if(a==='new'){
+   const l=draft.lines[i];
+   l._manualType='new';l.filament_id=null;
+   // Typed manufacturer code may be the intended new code.
+   if(/^\d{4,6}$/.test((l._query||'').trim()))l.manufacturer_code=l._query.trim();
+   else if((l._query||'').trim()&&!l.color)l.color=l._query.trim();
+  }else if(a==='change'){
+   const l=draft.lines[i];
+   draft.lines[i]={...newManualLine(),quantity:l.quantity,
+    packaging:l.packaging,_priceInput:l._priceInput,gross_cents:l.gross_cents};
+  }else{return;}
+  renderManual();
+  if(a==='add'){
+   const newInput=orderBody.querySelector('[data-pp-m-search="'+(draft.lines.length-1)+'"]');
+   newInput?.focus();
+  }
+ });
+
  orderBody.addEventListener('click',async e=>{
   const b=e.target.closest('[data-pp-action]');
   if(!b||busy)return;
