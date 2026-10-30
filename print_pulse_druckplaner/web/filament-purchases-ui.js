@@ -420,10 +420,15 @@
    showReview();
   }
  });
- orderBody.addEventListener('toggle',e=>{
-  if(mode!=='review'||!e.target.matches?.('details[data-pp-details]'))return;
-  const i=Number(e.target.dataset.ppDetails);
-  if(e.target.open)expandedLines.add(i);else expandedLines.delete(i);
+ // Only explicit taps remember expansion. Auto-opened warnings close again when fixed.
+ orderBody.addEventListener('click',e=>{
+  if(mode!=='review')return;
+  const summary=e.target.closest('.pp-line-summary');
+  if(!summary)return;
+  const details=summary.closest('details[data-pp-details]');
+  if(!details)return;
+  const i=Number(details.dataset.ppDetails);
+  if(details.open)expandedLines.delete(i);else expandedLines.add(i);
  },true);
  orderBody.addEventListener('change',e=>{
   if(e.target.matches('[data-pp-select]')){
