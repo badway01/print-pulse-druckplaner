@@ -45,6 +45,35 @@ class FilamentPurchases(unittest.TestCase):
         with app.connect() as db:return mod.overview(db)
     def spools(self):return app.filament_overview()['filaments']
 
+    def test_long_image_is_split_without_losing_pixels(self):
+        """Tall screenshots must become short OCR images in their original order."""
+        from io import BytesIO
+        from PIL import Image, ImageDraw, ImageChops
+        original=Image.new('RGB',(804,6794),'white')
+        painter=ImageDraw.Draw(original)
+        for i in range(12):
+            y=180+i*475
+            painter.rectangle((40,y,720,y+35),fill='black')
+            painter.text((48,y+48),f'PLA Basic - item {i+1:02d}',fill='black')
+        path=Path(self.temp.name)/'long.png'
+        original.save(path)
+        tiles=mod.tall_screenshot_tiles(path)
+        self.assertGreaterEqual(len(tiles),4)
+        rebuilt=Image.new('RGB',original.size)
+        offset=0
+        for raw in tiles:
+            with Image.open(BytesIO(raw)) as tile:
+                self.assertEqual(tile.width,804)
+                self.assertLessEqual(tile.height,1700)
+                rebuilt.paste(tile,(0,offset))
+                offset+=tile.height
+        self.assertEqual(offset,6794)
+        self.assertIsNone(ImageChops.difference(original,rebuilt).getbbox())
+        normal=Image.new('RGB',(900,900),'white')
+        short=Path(self.temp.name)/'short.png'
+        normal.save(short)
+        self.assertEqual(mod.tall_screenshot_tiles(short),[])
+
     def test_bambu_text_and_gift(self):
         content='''Bambu Lab EU Bestellbestätigung
         PLA Basic x 3
