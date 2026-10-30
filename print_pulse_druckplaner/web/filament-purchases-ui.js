@@ -362,13 +362,48 @@
   }catch(ex){error(ex.message+' Bitte Bestellung aktualisieren, nicht blind erneut buchen.');}
   finally{busy=false;}
  }
+
+ const MAX_IMPORT_BYTES=12*1024*1024;
+ async function prepareImportImage(file){
+  if(file.size<=MAX_IMPORT_BYTES)return file;
+  const mime=file.type||({'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','webp':'image/webp'}[file.name.split('.').pop().toLowerCase()]);
+  if(!['image/png','image/jpeg','image/webp'].includes(mime)){
+   throw Error('Datei zu groß (maximal 12 MB). Bitte PDF verkleinern oder Bestelltext einfügen.');
+  }
+  const url=URL.createObjectURL(file);
+  try{
+   const img=await new Promise((resolve,reject)=>{
+    const element=new Image();
+    element.onload=()=>resolve(element);
+    element.onerror=()=>reject(Error('Bild konnte nicht geöffnet werden.'));
+    element.src=url;
+   });
+   const scale=Math.min(1,2800/img.naturalWidth,9500/img.naturalHeight);
+   const canvas=document.createElement('canvas');
+   canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));
+   canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
+   const ctx=canvas.getContext('2d');
+   if(!ctx)throw Error('Bildverkleinerung wird von diesem Browser nicht unterstützt.');
+   ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
+   ctx.drawImage(img,0,0,canvas.width,canvas.height);
+   for(const quality of [0.87,0.74,0.60]){
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',quality));
+    if(blob&&blob.size<=MAX_IMPORT_BYTES){
+     return new File([blob],file.name.replace(/\.[^.]+$/,'')+'-komprimiert.jpg',{type:'image/jpeg'});
+    }
+   }
+   throw Error('Foto ist selbst nach Verkleinerung noch zu groß. Bitte einen kleineren Ausschnitt wählen.');
+  }finally{URL.revokeObjectURL(url);}
+ }
+
  async function parseSource(file=null){
   if(busy)return;
   busy=true;error('');
+  const progress=node('pp-import-progress');if(progress)progress.hidden=false;
   try{
    let result;
    if(file){
-    if(file.size>12*1024*1024)throw Error('Datei größer als 12 MB.');
+    file=await prepareImportImage(file);
     const mime=file.type||({png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',
       webp:'image/webp',pdf:'application/pdf',txt:'text/plain'}[file.name.split('.').pop().toLowerCase()]);
     const response=await fetch('api/filament-import-file',{method:'POST',
@@ -378,14 +413,14 @@
     if(!response.ok)throw Error(body.error||'Dokument konnte nicht erkannt werden.');
     result=body;
    }else{
-    const text=node('pp-import-text').value.trim();
+    const text=node('pp-import-text')?.value.trim()||'';
     if(!text)throw Error('Bitte Bestelltext einfügen oder Datei wählen.');
     result=await api('filament-import-text',{text});
    }
    await loadFilaments();
    fromPreview(result);
   }catch(ex){error(ex.message);}
-  finally{busy=false;}
+  finally{busy=false;if(progress)progress.hidden=true;}
  }
  function quickReceive(spool){
   draft=emptyDraft();
@@ -479,13 +514,25 @@
   }
   if(e.target.id==='pp-file'&&e.target.files?.[0])parseSource(e.target.files[0]);
  });
+
+ orderBody.addEventListener('input',e=>{
+  // iOS paste menu sometimes omits clipboardData from the paste event.
+  if(mode!=='import'||busy||e.target.id!=='pp-import-text')return;
+  if(e.inputType!=='insertFromPaste'&&e.inputType!=='insertReplacementText')return;
+  if(importTimer)clearTimeout(importTimer);
+  importTimer=setTimeout(()=>{
+   importTimer=null;
+   if(mode==='import'&&!busy&&node('pp-import-text')?.value.trim())parseSource();
+  },250);
+ });
+
  dialog.addEventListener('paste',e=>{
   if(mode!=='import'||busy)return;
   const files=Array.from(e.clipboardData?.items||[]).filter(i=>i.kind==='file');
   const file=files.map(i=>i.getAsFile()).find(Boolean);
   if(file){e.preventDefault();parseSource(file);return;}
   const text=e.clipboardData?.getData('text/plain')?.trim();
-  if(text){e.preventDefault();node('pp-import-text').value=text;parseSource();}
+  if(text){e.preventDefault();if(importTimer)clearTimeout(importTimer);node('pp-import-text').value=text;parseSource();}
  });
  orderBody.addEventListener('dragover',e=>{if(mode==='import'){e.preventDefault();node('pp-drop')?.classList.add('dragging');}});
  orderBody.addEventListener('dragleave',()=>node('pp-drop')?.classList.remove('dragging'));
