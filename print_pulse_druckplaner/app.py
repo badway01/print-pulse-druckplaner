@@ -2131,12 +2131,56 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     command=(['pdftotext','-layout',upload_path,'-'] if mime=='application/pdf'
                              else ['tesseract',upload_path,'stdout','-l','deu+eng','--psm','3'])
-                    result=subprocess.run(command,capture_output=True,text=True,timeout=45)
-                    if result.returncode:raise ValueError('Texterkennung fehlgeschlagen. Bitte Text einfügen oder Positionen manuell erfassen.')
-                    content=result.stdout
-                if not content.strip():raise ValueError('Keine lesbaren Bestelldaten erkannt. Bitte Positionen manuell erfassen.')
+                    result=subprocess.run(command,capture_output=True,text=True,timeout=35)
+                    if result.returncode and not mime.startswith('image/'):
+                        raise ValueError('Texterkennung fehlgeschlagen. Bitte Text einfügen oder Positionen manuell erfassen.')
+                    content=result.stdout if not result.returncode else ''
+                if not content.strip() and not mime.startswith('image/'):
+                    raise ValueError('Keine lesbaren Bestelldaten erkannt. Bitte Positionen manuell erfassen.')
                 with connect() as db:
-                    preview=filament_purchases.parse_text(content[:100000],db)
+                    preview=filament_purchases.parse_text(content[:100000],db) if content.strip() else None
+                    if mime.startswith('image/'):
+                        # Tall mobile screenshots can be reduced to the last visible
+                        # product by Tesseract's full-page layout detector. Read
+                        # independent image bands and keep the better parse.
+                        tiles=filament_purchases.tall_screenshot_tiles(upload_path)
+                        if tiles:
+                            chunks=[]
+                            import time as _ocr_time
+                            stop_at=_ocr_time.monotonic()+45
+                            for tile in tiles:
+                                remaining=stop_at-_ocr_time.monotonic()
+                                if remaining<2:break
+                                try:
+                                    segment=subprocess.run(
+                                        ['tesseract','stdin','stdout','-l','deu+eng','--psm','3'],
+                                        input=tile,capture_output=True,timeout=min(12,remaining))
+                                except subprocess.TimeoutExpired:
+                                    continue
+                                if segment.returncode==0:
+                                    chunks.append(segment.stdout.decode('utf-8','replace'))
+                            tiled_text='\n'.join(chunks)
+                            alternate=filament_purchases.parse_text(tiled_text[:100000],db) if tiled_text.strip() else None
+                            def quality(data):
+                                if not data:return (-1,-1)
+                                items=data.get('items',[])
+                                strong=sum(bool(x.get('manufacturer_code') and x.get('color')) for x in items)
+                                return (strong,len(items))
+                            if quality(alternate)>quality(preview):
+                                preview=alternate
+                            # Count unique manufacturer IDs, not duplicate progress
+                            # entries. Only metadata is retained, never the raw OCR.
+                            possible_codes=set(re.findall(r'\(\s*(\d{4,6})\s*\)',content+'\n'+tiled_text))
+                            if preview:
+                                preview['expected_positions']=max(preview.get('expected_positions',0),len(possible_codes))
+                            if not preview or len(preview.get('items',[]))<2:
+                                raise ValueError('Der lange Screenshot wurde nicht vollständig erkannt. Bitte erneut importieren oder die Bestellübersicht als zwei kürzere Bilder erfassen.')
+                            if len(preview['items'])<preview['expected_positions']:
+                                preview.setdefault('warnings',[]).insert(
+                                    0,'Nur '+str(len(preview['items']))+' von '+str(preview['expected_positions'])+
+                                    ' erkannten Farbpositionen übernommen. Fehlende Positionen bitte prüfen.')
+                    if not preview:
+                        raise ValueError('Keine lesbaren Bestelldaten erkannt. Bitte einen anderen Screenshot verwenden.')
                 preview['fingerprint']=hashlib.sha256(raw).hexdigest()
                 preview['source_type']=mime
                 return self.send(200,preview)
