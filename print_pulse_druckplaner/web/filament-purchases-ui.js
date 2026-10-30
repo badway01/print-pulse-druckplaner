@@ -578,13 +578,12 @@
  }
  function quickReceive(spool){
   draft=emptyDraft();
-  draft.vendor=spool.brand||'Manuell';
-  draft.lines=[{...emptyLine(),brand:spool.brand,color:spool.color,material:spool.material,
-   manufacturer_code:spool.manufacturer_code||'',color_hex:spool.color_hex||'',
-   internal_code:spool.internal_code||'',filament_id:spool.id,
-   quantity:spool.cart_qty||1}];
-  draft.warnings=['Bitte den tatsächlich gezahlten Positionspreis eintragen; der bisherige Lagerpreis ist nur ein Richtwert.'];
-  expandedLines=new Set([0]);selectedLines=new Set();activeLine=0;showReview();
+  draft.vendor=spool.brand||'Bambu Lab';
+  const line=newManualLine();
+  draft.lines=[line];
+  manualSelect(0,spool);
+  line.quantity=spool.cart_qty||1;
+  renderManual();
  }
  node('pp-purchase-add').addEventListener('click',startManual);
  node('pp-purchase-import')?.addEventListener('click',importView);
