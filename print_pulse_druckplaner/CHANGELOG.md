@@ -1,3 +1,10 @@
+# 0.13.10 · Bambu-Bestelldetails vollständig erkennen
+
+- Bambu-Shop-Bestelldetails aus langen iPhone-Screenshots werden als Zahlungsübersicht statt als E-Mail-Format erkannt. Material, Farbcode, Spulenmenge und Positionspreis können dabei auf getrennten Zeilen stehen.
+- Doppelte Artikel aus dem Fortschrittsbereich werden ignoriert; Mengenrabatte und Gratisrollen bleiben korrekt.
+- Bei fehlenden Produktzeilen wird deutlich vor dem Speichern gewarnt und eine unvollständige Übernahme blockiert.
+- Etsy-Historie, Filament-Bedarfsanalyse mit 50 g Standard und getrennte Wareneingangsbuchung sind unverändert.
+
 # 0.13.9 · Filamentimport fürs iPhone: eine Position nach der anderen
 
 - Mobil werden nicht länger mehrere Positionen gleichzeitig aufgeklappt. Ein Bearbeitungsbereich, kompakte Liste und „Geprüft · nächste Position“ sorgen für deutlich weniger Scrollen.

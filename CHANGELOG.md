@@ -1,3 +1,10 @@
+## 0.13.10 (2026-10-30)
+
+- Bambu-Bestelldetails-Screenshots werden anhand der Zahlungsdetails interpretiert: Material steht oft allein in einer Zeile, Farbname und Hersteller-Code in der nächsten und die Menge erst am Zeilenende. So werden alle 12 Farbpositionen und 17 Rollen der gezeigten Oktober-Bestellung erkannt, statt nur der Gratis-PETG-Rolle.
+- Der oberhalb der Zahlungsdetails sichtbare Bestellfortschritt wird nicht doppelt eingelesen. Mengenrabatte werden nicht mit Positionspreisen verwechselt, und Gratisrollen behalten den Preis 0 €.
+- Unvollständige Texterkennung wird anhand der sichtbaren Hersteller-Farbcodes erkannt, oben deutlich angezeigt und kann nicht versehentlich als vollständige Bestellung gespeichert werden.
+- Etsy-Historie, 50-g-Bedarfsanalyse und Wareneingang bleiben unverändert.
+
 ## 0.13.9 (2026-10-30)
 
 - Mobile Filamentprüfung überarbeitet: Statt vieler offener Blöcke erscheint nur die aktuell zu prüfende Position. Eine kompakte Liste zeigt alle Positionen, mit gezieltem Wechsel und Weiter-Button.

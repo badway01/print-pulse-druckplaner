@@ -24,7 +24,7 @@
  const today=()=>new Date().toISOString().slice(0,10);
  const emptyDraft=()=>({vendor:'',reference:'',ordered_on:today(),
   total_cents:null,discount_cents:0,credit_cents:0,shipping_cents:0,
-  lines:[],fingerprint:'',source_type:'manual',warnings:[]});
+  lines:[],fingerprint:'',source_type:'manual',warnings:[],expected_positions:0});
  function error(message){notice.textContent=message;notice.hidden=!message;if(message&&dialog.open)dialog.scrollTop=0;}
  function dialogOpen(title){node('pp-purchase-title').textContent=title;error('');if(!dialog.open)dialog.showModal();}
  function message(m){if(typeof flash==='function')flash(m);}
@@ -75,6 +75,7 @@
    discount_cents:preview.discount_cents||0,credit_cents:preview.credit_cents||0,
    shipping_cents:preview.shipping_cents||0,fingerprint:preview.fingerprint||'',
    source_type:preview.source_type||'text',warnings:preview.warnings||[],
+   expected_positions:Number(preview.expected_positions)||0,
    lines:(preview.items||[]).map(l=>({...emptyLine(),...l,accept_changes:[]}))
   });
   expandedLines=new Set();selectedLines=new Set();
@@ -236,11 +237,14 @@
   const sum=known?d.lines.reduce((s,l)=>s+l.gross_cents,0)-d.discount_cents-d.credit_cents+d.shipping_cents:null;
   const difference=d.total_cents!=null&&sum!=null&&sum!==d.total_cents;
   const unresolved=d.lines.filter(isUnresolved).length;
+  const missingFromSource=Math.max(0,(d.expected_positions||0)-d.lines.length);
   const matched=d.lines.filter(l=>!isUnresolved(l)&&!!existingLine(l)).length;
   const newCount=d.lines.length-unresolved-matched;
   const selected=activeLine>=0?d.lines[activeLine]:null;
   orderBody.innerHTML=
-   '<div class="pp-review-top"><div class="pp-import-summary"><span><b>'+d.lines.length+'</b> Positionen</span>'+
+   '<div class="pp-review-top">'+
+   (missingFromSource?'<p class="pp-warning"><b>Unvollständige Erkennung:</b> '+d.lines.length+' von mindestens '+d.expected_positions+' Positionen erkannt. Bitte fehlende Positionen ergänzen oder Screenshot erneut importieren.</p>':'')+
+   '<div class="pp-import-summary"><span><b>'+d.lines.length+'</b> Positionen</span>'+
    '<span class="pp-sum-ok"><b>'+matched+'</b> zugeordnet</span>'+
    '<span><b>'+newCount+'</b> neu</span>'+
    '<span class="'+(unresolved?'pp-sum-alert':'pp-sum-ok')+'"><b>'+unresolved+'</b> zu prüfen</span></div>'+
@@ -303,6 +307,10 @@
   if(busy)return;
   try{
    takeReview();
+   if(draft.expected_positions&&draft.lines.length<draft.expected_positions){
+    activeLine=-1;showReview();
+    throw Error('Unvollständiger Import: '+draft.lines.length+' von '+draft.expected_positions+' Positionen. Bitte noch nicht speichern.');
+   }
    if(draft.lines.some(isUnresolved)){
     const missing=draft.lines.filter(isUnresolved).length;
     activeLine=draft.lines.findIndex(isUnresolved);

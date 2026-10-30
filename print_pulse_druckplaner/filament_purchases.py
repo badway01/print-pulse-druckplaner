@@ -103,16 +103,45 @@ def detect_vendor(text):
         if name in head:return {'esun':'eSUN','ebay':'eBay'}.get(name,name.capitalize())
     return 'Unbekannter Händler'
 
+def parse_bambu_payment(source):
+    """Parse Bambu order-payment rows, without duplicate progress products."""
+    start=re.search(r'Zahlungsdetails',source,re.I)
+    if not start:return [],0
+    part=re.split(r'(?im)^\s*(?:Zwischensumme|Bestellrabatt|Credit verwenden|Gesamtsumme|Steuer|Nettobetrag|Lieferadresse)\b',source[start.end():])[0]
+    expected=len(re.findall(r'\(\s*\d{4,6}\s*\)',part))
+    pattern=r'(?im)^[^\n]*?\b(PLA\s*(?:Basic|Matte|Silk|Plus)|PETG\s*(?:Matte|Basic)|ABS|ASA|TPU)\s*$'
+    heads=list(re.finditer(pattern,part))
+    items=[]
+    for i,m in enumerate(heads):
+        section=part[m.end():heads[i+1].start() if i+1<len(heads) else len(part)]
+        code=re.search(r'\(\s*(\d{4,6})\s*\)',section)
+        if not code:continue
+        prefix=section[section.rfind('\n',0,code.start())+1:code.start()]
+        color=re.sub(r'^[^A-Za-zÄÖÜäöüß]+','',prefix.strip()).strip()
+        qty=re.search(r'[x×]\s*(\d{1,3})\b',section[code.end():code.end()+160],re.I)
+        if not color or not qty or not 1<=int(qty.group(1))<=100:continue
+        material=re.sub(r'(?i)^(PLA|PETG)(?=[a-z])',r'\1 ',m.group(1))
+        packaging='refill' if re.search(r'nachfüll|refill',section,re.I) else 'spool' if re.search(r'mit spule|with spool',section,re.I) else 'unknown'
+        prices=[re.search(r'(\d{1,5}[.,]\d{2})\s*(?:€|EUR)',line,re.I) for line in section.splitlines() if not re.search('mengenrabatt|discount',line,re.I)]
+        price=next((money_to_cents(x.group(1)) for x in prices if x),None)
+        gift=price==0 or bool(re.search(r'geschenk|gift',section[:220],re.I))
+        items.append({'brand':'Bambu Lab','material':' '.join(material.split()),'color':color,
+          'manufacturer_code':code.group(1),'internal_code':'','color_hex':'',
+          'quantity':int(qty.group(1)),'grams':1000,'packaging':packaging,
+          'gross_cents':0 if gift else price,'description':'Gratisartikel' if gift else ''})
+    return items,expected
+
+
 def parse_text(text, db):
     """Conservative extraction: never invent unknown colors, prices or codes."""
     if not isinstance(text,str) or not 1<=len(text)<=100000:
         raise ValueError('Bitte lesbaren Bestelltext einfügen.')
     normalized=text.replace('\u00a0',' ').replace('\r','')
     vendor=detect_vendor(normalized)
-    items=[]
+    items,expected=(parse_bambu_payment(normalized) if vendor=='Bambu Lab' else ([],0))
     # Bambu's order confirmation consistently contains material x quantity and (maker code).
     pattern=re.compile(r'\b(PLA\s*(?:Basic|Matte|Silk(?:\+)?|Plus)?|PETG\s*(?:Matte|Basic)?|ABS|ASA|TPU)\s*[x×]\s*(\d{1,3})\b',re.I)
-    hits=list(pattern.finditer(normalized))
+    hits=[] if items else list(pattern.finditer(normalized))
     for idx,match in enumerate(hits[:100]):
         segment=normalized[match.end():hits[idx+1].start() if idx+1<len(hits) else len(normalized)]
         segment=segment[:1500]
@@ -188,10 +217,11 @@ def parse_text(text, db):
     if total is not None and items and all(x['gross_cents'] is not None for x in items):
         checkout=sum(x['gross_cents'] for x in items)+shipping-credit-total
         if checkout>=0:discount=checkout
+    warning=(f'Nur {len(items)} von mindestens {expected} Positionen erkannt. Bitte prüfen.' if expected and len(items)<expected else '')
     return {'vendor':vendor,'ordered_on':dt.date.today().isoformat(),'reference':'',
-            'items':items,'total_cents':total,'discount_cents':discount,'credit_cents':credit,
+            'items':items,'expected_positions':expected,'total_cents':total,'discount_cents':discount,'credit_cents':credit,
             'shipping_cents':shipping,
-            'warnings':([] if items else ['Keine eindeutigen Produktpositionen erkannt. Bitte Positionen manuell ergänzen.'])
+            'warnings':([warning] if warning else []) + ([] if items else ['Keine eindeutigen Produktpositionen erkannt. Bitte Positionen manuell ergänzen.'])
                 + (['Unvollständige Positionen bitte einzeln prüfen.'] if any(i['needs_review'] for i in items) else [])}
 
 def distribute(deduction, weights):
