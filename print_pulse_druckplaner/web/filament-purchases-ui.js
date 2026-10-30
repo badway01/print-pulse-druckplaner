@@ -232,7 +232,9 @@
    '<div class="pp-line-heading"><h3>Filamente</h3><small>Tippen zum Öffnen · Häkchen für Mehrfachbearbeitung</small></div>'+
    d.lines.map(reviewLine).join('')+
    '<button type="button" class="secondary" data-pp-action="add">+ Position manuell hinzufügen</button>'+
-   '<div class="pp-bulk-tools"><strong>Ausgewählte Positionen gemeinsam ändern</strong>'+
+   '<div class="pp-bulk-tools"><div class="pp-bulk-head"><strong>Ausgewählte Positionen gemeinsam ändern</strong>'+ 
+   '<button type="button" class="secondary small" data-pp-action="select-all">Alle auswählen</button>'+ 
+   '<button type="button" class="secondary small" data-pp-action="select-none">Auswahl aufheben</button></div>'+
    '<div class="pp-bulk-fields"><select id="pp-bulk-field" aria-label="Feld für Mehrfachbearbeitung">'+
    '<option value="quantity">Rollenanzahl</option><option value="grams">Gramm pro Rolle</option>'+
    '<option value="gross_cents">Positionspreis gesamt (€)</option>'+
@@ -386,6 +388,8 @@
     if(requiredProblems(draft.lines[index]).length){error('Bitte zuerst die fehlenden Pflichtangaben korrigieren.');return;}
     draft.lines[index].reviewed=true;expandedLines.delete(index);showReview();return;
    }
+   if(action==='select-all'){selectedLines=new Set(draft.lines.map((_,i)=>i));showReview();return;}
+   if(action==='select-none'){selectedLines=new Set();showReview();return;}
    if(action==='bulk'){
     if(!selectedLines.size){error('Bitte zuerst mindestens eine Position auswählen.');return;}
     const field=node('pp-bulk-field').value,raw=node('pp-bulk-value').value.trim();
