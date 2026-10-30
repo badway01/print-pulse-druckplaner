@@ -103,6 +103,48 @@ def detect_vendor(text):
         if name in head:return {'esun':'eSUN','ebay':'eBay'}.get(name,name.capitalize())
     return 'Unbekannter Händler'
 
+def tall_screenshot_tiles(path, tile_height=1450):
+    """Return independent image bands for OCR, avoiding whole-page layout failures.
+
+    Returns [] for normal photos. No raw image or OCR content is persisted.
+    """
+    import io
+    from PIL import Image, ImageOps
+    with Image.open(path) as original:
+        width,height=original.size
+        if width<100 or height<2200 or height/width<3.5:
+            return []
+        if width*height>30_000_000:
+            raise ValueError('Bildauflösung ist zu groß. Bitte einen kleineren Screenshot verwenden.')
+        img=ImageOps.exif_transpose(original).convert('RGB')
+    width,height=img.size
+    tiles=[]
+    top=0
+    while top<height:
+        bottom=min(top+tile_height,height)
+        if bottom<height:
+            # Prefer a whitespace break so product names and prices stay together.
+            low=max(top+900,bottom-120)
+            high=min(height-1,bottom+120)
+            if high>=low:
+                blanks=[]
+                for y in range(low,high+1,2):
+                    values=img.crop((0,y,width,y+1)).getextrema()
+                    if all(lowest>=245 for lowest,highest in values):
+                        blanks.append(y)
+                if blanks:
+                    bottom=min(blanks,key=lambda y:abs(y-bottom))
+        if bottom<=top:
+            raise ValueError('Bild konnte nicht in Abschnitte aufgeteilt werden.')
+        output=io.BytesIO()
+        img.crop((0,top,width,bottom)).save(output,format='PNG')
+        tiles.append(output.getvalue())
+        top=bottom
+        if len(tiles)>24:
+            raise ValueError('Screenshot enthält zu viele Abschnitte.')
+    return tiles
+
+
 def parse_bambu_payment(source):
     """Parse Bambu order-payment rows, without duplicate progress products."""
     start=re.search(r'Zahlungsdetails',source,re.I)
