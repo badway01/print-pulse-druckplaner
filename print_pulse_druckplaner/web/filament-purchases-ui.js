@@ -17,7 +17,7 @@
  const orderBody=node('pp-purchase-body'),dialog=node('pp-purchase-dialog'),notice=node('pp-purchase-error');
  let orders=[],draft=null,mode='import',current=null,busy=false,loading=false;
  let receiptKey='';
- let expandedLines=new Set(),selectedLines=new Set();
+ let expandedLines=new Set(),selectedLines=new Set(),activeLine=-1,importTimer=null;
  const emptyLine=()=>({brand:'',material:'PLA',color:'',manufacturer_code:'',
   internal_code:'',color_hex:'',filament_id:null,quantity:1,grams:1000,packaging:'unknown',
   gross_cents:null,description:'',accept_changes:[]});
@@ -25,10 +25,10 @@
  const emptyDraft=()=>({vendor:'',reference:'',ordered_on:today(),
   total_cents:null,discount_cents:0,credit_cents:0,shipping_cents:0,
   lines:[],fingerprint:'',source_type:'manual',warnings:[]});
- function error(message){notice.textContent=message;notice.hidden=!message;}
+ function error(message){notice.textContent=message;notice.hidden=!message;if(message&&dialog.open)dialog.scrollTop=0;}
  function dialogOpen(title){node('pp-purchase-title').textContent=title;error('');if(!dialog.open)dialog.showModal();}
  function message(m){if(typeof flash==='function')flash(m);}
- function finish(){dialog.close();error('');draft=null;current=null;}
+ function finish(){if(importTimer)clearTimeout(importTimer);dialog.close();error('');draft=null;current=null;activeLine=-1;}
  function orderStatus(o){
   return o.status+' · '+o.received_count+'/'+o.ordered_count+' Rollen';
  }
@@ -58,11 +58,12 @@
   mode='import';
   dialogOpen('Bestellung importieren');
   orderBody.innerHTML='<p class="pp-muted">Bambu, Amazon oder andere Händler: Bild, PDF oder Text. Bei unsicheren Angaben kannst du jede Position ändern.</p>'+
-   '<label class="pp-drop" id="pp-drop"><strong>Screenshot oder Rechnung hierher ziehen</strong>'+
-   '<span class="pp-muted">PNG, JPG, WEBP, PDF oder TXT · maximal 12 MB</span>'+
+   '<label class="pp-drop" id="pp-drop"><strong>Foto, Screenshot oder PDF auswählen</strong>'+
+   '<span class="pp-muted">Bilder über 12 MB werden automatisch verkleinert. PDF maximal 12 MB.</span>'+
    '<input type="file" id="pp-file" accept="image/png,image/jpeg,image/webp,application/pdf,text/plain,.png,.jpg,.jpeg,.webp,.pdf,.txt"></label>'+
-   '<label>Bestelltext einfügen (Strg/⌘ + V) oder hier einfügen<textarea id="pp-import-text" placeholder="Bambu-Bestellübersicht hier einfügen …"></textarea></label>'+
-   '<p class="pp-muted">Tipp: Du kannst auch einen kopierten Screenshot direkt hier einfügen. Der Import startet automatisch.</p>'+ 
+   '<label>Bestelltext einfügen – startet von selbst<textarea id="pp-import-text" placeholder="Bambu-Bestellübersicht hier einfügen …"></textarea></label>'+
+   '<p class="pp-muted">Bestelltext und kopierte Screenshots werden nach dem Einfügen automatisch erkannt.</p>'+ 
+   '<p class="pp-import-progress" id="pp-import-progress" role="status" hidden>Bestellung wird erkannt …</p>'+ 
    '<div class="pp-purchase-actions"><button type="button" class="secondary" data-pp-action="manual">Ohne Dokument erfassen</button>'+
    '<button type="button" class="primary" data-pp-action="parse">Text prüfen</button></div>';
  }
@@ -77,6 +78,7 @@
    lines:(preview.items||[]).map(l=>({...emptyLine(),...l,accept_changes:[]}))
   });
   expandedLines=new Set();selectedLines=new Set();
+  activeLine=draft.lines.findIndex(isUnresolved);
   showReview();
  }
  function catalog(){
@@ -121,6 +123,20 @@
  function isUnresolved(line){
   return requiredProblems(line).length>0||(lineHints(line).length>0&&!line.reviewed);
  }
+
+ function summaryLine(line,i){
+  const issue=isUnresolved(line),found=!!existingLine(line);
+  const color=[line.material,line.color||'Farbe fehlt'].filter(Boolean).join(' · ');
+  return '<article class="pp-review-row">'+
+    '<label class="pp-review-select"><input type="checkbox" aria-label="Position '+(i+1)+' auswählen" data-pp-select="'+i+'" '+
+    (selectedLines.has(i)?'checked':'')+'></label>'+
+    '<button type="button" class="pp-review-row-btn" data-pp-action="focus" data-pp-index="'+i+'">'+
+    '<span class="pp-review-main"><strong>'+(i+1)+'. '+html(color)+'</strong>'+
+    '<small>'+html(line.manufacturer_code||'Code offen')+' · '+html(line.quantity)+' Rolle(n) · '+money(line.gross_cents)+'</small></span>'+
+    '<span class="pp-line-state '+(issue?'pp-line-attention':'pp-line-ok')+'">'+
+    (issue?'Prüfen':found?'Zugeordnet':'Neu')+'</span><span aria-hidden="true">›</span></button></article>';
+ }
+
  function reviewLine(line,i){
   const f=existingLine(line);
   const ids=catalog().slice();
@@ -146,7 +162,7 @@
     (line.quantity||0)+' Rolle(n) · '+(line.grams||1000)+' g · '+
     ({spool:'mit Spule',refill:'Refill',unknown:'Verpackung offen'}[line.packaging]||'Verpackung offen')+
     ' · '+(line.gross_cents==null?'Preis offen':money(line.gross_cents)));
-  const open=unresolved||expandedLines.has(i)?' open':'';
+  const open=' open';
   return '<article class="pp-line pp-line-compact">'+
    '<label class="pp-line-select"><input type="checkbox" data-pp-select="'+i+'" '+
     (selectedLines.has(i)?'checked':'')+'> Auswahl</label>'+
@@ -204,22 +220,33 @@
    if(line)line.accept_changes.push(el.dataset.ppAccept);
   }
  }
+
  function showReview(){
   mode='review';
-  dialogOpen('Filamente gesammelt prüfen');
+  dialogOpen('Filamentbestellung prüfen');
   const d=draft;
+  if(activeLine>=d.lines.length)activeLine=-1;
   const known=d.lines.every(l=>l.gross_cents!=null);
   const sum=known?d.lines.reduce((s,l)=>s+l.gross_cents,0)-d.discount_cents-d.credit_cents+d.shipping_cents:null;
   const difference=d.total_cents!=null&&sum!=null&&sum!==d.total_cents;
   const unresolved=d.lines.filter(isUnresolved).length;
   const matched=d.lines.filter(l=>!isUnresolved(l)&&!!existingLine(l)).length;
   const newCount=d.lines.length-unresolved-matched;
-  orderBody.innerHTML='<p class="pp-muted">Nur unklare Positionen öffnen sich automatisch. Jede Zeile bleibt per „Bearbeiten“ manuell änderbar. Keine Lagerbuchung vor Wareneingang.</p>'+
-   (d.warnings.length?'<p class="pp-warning">'+d.warnings.map(html).join(' · ')+'</p>':'')+
-   '<div class="pp-import-summary"><span><b>'+d.lines.length+'</b> Positionen</span>'+
+  const selected=activeLine>=0?d.lines[activeLine]:null;
+  orderBody.innerHTML=
+   '<div class="pp-review-top"><div class="pp-import-summary"><span><b>'+d.lines.length+'</b> Positionen</span>'+
    '<span class="pp-sum-ok"><b>'+matched+'</b> zugeordnet</span>'+
    '<span><b>'+newCount+'</b> neu</span>'+
    '<span class="'+(unresolved?'pp-sum-alert':'pp-sum-ok')+'"><b>'+unresolved+'</b> zu prüfen</span></div>'+
+   '<div class="pp-review-progress"><strong>'+unresolved+' von '+d.lines.length+' zu prüfen</strong>'+
+   '<span>'+d.lines.filter(l=>!isUnresolved(l)).length+' erledigt</span></div></div>'+
+   (selected?'<section class="pp-review-focus"><div class="pp-review-focus-heading"><strong>Position '+(activeLine+1)+' bearbeiten</strong>'+
+    '<button type="button" class="secondary small" data-pp-action="overview">Zur Liste</button></div>'+
+    reviewLine(selected,activeLine)+'</section>':
+    '<p class="pp-review-ready">'+(unresolved?'Tippe eine orange Position oder „Nächste prüfen“.':'Alle Positionen sind bereit. Du kannst sie jederzeit bearbeiten oder gesammelt speichern.')+'</p>')+
+   '<div class="pp-line-heading"><h3>Alle Positionen</h3><small>Tippe zum Bearbeiten</small></div>'+
+   '<div class="pp-review-list">'+d.lines.map(summaryLine).join('')+'</div>'+
+   (unresolved?'<button type="button" class="secondary" data-pp-action="next-issue">Nächste ungeprüfte Position öffnen</button>':'')+
    '<details class="pp-order-meta" '+(!d.vendor||difference?'open':'')+'><summary><strong>Bestelldaten</strong> · '+
    html(d.vendor||'Händler fehlt')+' · '+html(d.ordered_on)+' · '+money(d.total_cents)+' · Bearbeiten ▾</summary>'+
    '<div class="pp-purchase-fields">'+metadataInput('Händler','vendor',d.vendor)+
@@ -229,11 +256,12 @@
    metadataInput('Gesamtrabatt (€)','discount_cents',inputMoney(d.discount_cents))+
    metadataInput('Eingesetztes Guthaben (€)','credit_cents',inputMoney(d.credit_cents))+
    metadataInput('Versandkosten (€)','shipping_cents',inputMoney(d.shipping_cents))+'</div></details>'+
-   '<div class="pp-line-heading"><h3>Filamente</h3><small>Tippen zum Öffnen · Häkchen für Mehrfachbearbeitung</small></div>'+
-   d.lines.map(reviewLine).join('')+
+   (d.warnings.length?'<details class="pp-order-meta"><summary>Hinweise zur Texterkennung</summary><p class="pp-warning">'+
+      d.warnings.map(html).join(' · ')+'</p></details>':'')+
    '<button type="button" class="secondary" data-pp-action="add">+ Position manuell hinzufügen</button>'+
-   '<div class="pp-bulk-tools"><div class="pp-bulk-head"><strong>Ausgewählte Positionen gemeinsam ändern</strong>'+ 
-   '<button type="button" class="secondary small" data-pp-action="select-all">Alle auswählen</button>'+ 
+   '<details class="pp-order-meta pp-bulk-details"><summary>Mehrfachbearbeitung · '+selectedLines.size+' ausgewählt</summary>'+
+   '<div class="pp-bulk-tools"><div class="pp-bulk-head"><strong>Ausgewählte Positionen gemeinsam ändern</strong>'+
+   '<button type="button" class="secondary small" data-pp-action="select-all">Alle auswählen</button>'+
    '<button type="button" class="secondary small" data-pp-action="select-none">Auswahl aufheben</button></div>'+
    '<div class="pp-bulk-fields"><select id="pp-bulk-field" aria-label="Feld für Mehrfachbearbeitung">'+
    '<option value="quantity">Rollenanzahl</option><option value="grams">Gramm pro Rolle</option>'+
@@ -241,13 +269,13 @@
    '<option value="packaging">Verpackung</option></select>'+
    '<input id="pp-bulk-value" aria-label="Neuer Wert" placeholder="z. B. 2 oder 19,90">'+
    '<button type="button" class="secondary" data-pp-action="bulk">Auswahl ändern</button></div>'+
-   '<small class="pp-muted">Nur markierte Positionen werden geändert. Der Preis gilt je Position, nicht je Rolle.</small></div>'+
+   '<small class="pp-muted">Der Preis gilt je Position, nicht je Rolle.</small></div></details>'+
    '<p class="pp-muted">Berechnete Summe: <strong>'+money(sum)+'</strong>'+
    (difference?' · Achtung: weicht vom Rechnungsbetrag ab.':'')+'</p>'+
-   (unresolved?'<p class="pp-warning">'+unresolved+' Position(en) müssen geprüft oder korrigiert werden, bevor du alles gesammelt speichern kannst.</p>':'')+
-   '<div class="pp-purchase-actions"><button type="button" class="secondary" data-pp-action="recheck">Erkennung prüfen</button>'+
-   '<button type="button" class="secondary" data-pp-action="save">Alle '+d.lines.length+' übernehmen</button>'+
-   '<button type="button" class="primary" data-pp-action="save-receive">Speichern und jetzt erhalten</button></div>';
+   '<div class="pp-review-footer"><span><b>'+unresolved+'</b> zu prüfen</span>'+
+   '<button type="button" class="secondary" data-pp-action="save">Alle '+d.lines.length+' speichern</button>'+
+   '<button type="button" class="primary" data-pp-action="save-receive">Speichern + erhalten</button></div>';
+  dialog.scrollTop=0;
  }
  function showReceipt(order){
   current=order;
