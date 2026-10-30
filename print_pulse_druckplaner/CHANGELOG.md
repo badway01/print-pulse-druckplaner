@@ -1,3 +1,10 @@
+# 0.13.8 · Filament-Sammelimport mit manueller Bearbeitung
+
+- Kompakte Bestellliste mit automatischer Erkennung und direkter Anzeige, wie viele Positionen zugeordnet, neu oder noch zu prüfen sind.
+- Nur unklare Positionen automatisch geöffnet. Jede Farbe, Menge, Verpackung, jeder Herstellercode und Preis bleibt jederzeit manuell änderbar.
+- Kopierten Bestelltext oder Screenshot direkt einfügen, Dateien weiterhin hochladen, Positionen auswählen und gemeinsam bearbeiten; nach bestätigter Prüfung alle gesammelt übernehmen.
+- Wareneingang und Teilbuchungen bleiben getrennt. Etsy-Historie und Filament-Bedarfsanalyse (50 g Standard) bleiben erhalten.
+
 # 0.13.7 · Filamentbestellungen und sicherer Wareneingang
 
 - Filamentbestellungen mit Bild-/PDF-/Textimport, vollständiger Positionskorrektur und neuem Bestellarchiv.
