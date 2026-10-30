@@ -1,3 +1,7 @@
+## Version 0.13.12 · Manuelle Filamentbestellungen
+
+**Filament → Filamentbestellungen → + Bestellung erfassen**: Händler, Datum und optional Gesamtbetrag eingeben. Jede Position per Farbe, Bambu-Herstellercode oder internem Farbcode suchen und aus der Bibliothek auswählen; fehlende Farben direkt mit Material und Farbname neu anlegen. Rollenanzahl, Spule/Refill und Positionsgesamtpreis ergänzen. Über **Weiteres Filament hinzufügen** alle Farben in derselben Bestellung sammeln; danach **Bestellung speichern**. Erst bei tatsächlicher Lieferung über **Lieferung erfassen** den Lagerbestand erhöhen. Der bisherige Bild-/Textimport ist unter **Foto / Text (optional)** weiter erreichbar.
+
 ## Version 0.13.11 · Lange Screenshots zuverlässig lesen
 
 Der Bambu-Import prüft lange iPhone-Screenshots jetzt sowohl als ganze Seite als auch in mehreren kürzeren Abschnitten. Er übernimmt das umfangreichere Ergebnis und warnt, wenn erkannte Hersteller-Farbcodes fehlen. Wenn ein ungewöhnlich langes Bild weiterhin nur eine Position liefert, wird der Import abgebrochen, anstatt die Bestellung fälschlich als vollständig zu behandeln. Die Prüfmaske bleibt manuell bearbeitbar und Lagerbestand wird weiterhin erst beim bestätigten Wareneingang erhöht.
