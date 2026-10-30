@@ -1,3 +1,7 @@
+## Version 0.13.10 · Bambu-Bestellübersicht importieren
+
+Lange Bambu-Bestelldetails-Screenshots werden jetzt über die Zahlungsdetails ausgewertet. Farbcode, Name, Positionseinzelpreis und Menge dürfen auf verschiedenen Zeilen stehen. Eine Vollständigkeitsprüfung meldet fehlende erkannte Positionen und verhindert deren versehentliches Speichern; die Daten bleiben manuell bearbeitbar. Der gezeigte Bambu-Beleg umfasst 12 Positionen und 17 Rollen inklusive 1 Gratisrolle. Bestehende Lagerdaten und Wareneingänge werden durch den Import nicht automatisch verändert.
+
 ## Version 0.13.9 · Filament-Sammelimport auf dem Handy
 
 Die Importprüfung öffnet nur **eine Position gleichzeitig** und bietet den Button **„Geprüft · nächste Position“**. Alle anderen Filamente bleiben als kurze Übersicht sichtbar und können jederzeit einzeln ausgewählt werden. Farbe, Herstellercode, Anzahl, Preis und Spule/Refill sind direkt bearbeitbar, weitere Angaben stehen unter „Weitere Angaben“. Fehler werden oben angezeigt, die Speicheraktionen bleiben am unteren Fensterrand erreichbar. Eingefügter Bestelltext wird automatisch erkannt. Fotos über 12 MB werden vor dem Upload verkleinert; für große PDFs weiter den Text einfügen oder die Datei verkleinern. Wareneingang erfolgt weiterhin nur nach ausdrücklicher Bestätigung.
