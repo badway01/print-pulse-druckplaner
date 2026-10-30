@@ -61,6 +61,103 @@ class FilamentPurchases(unittest.TestCase):
                          [(3,'10100',3178),(2,'11100',2119),(1,'35100',0)])
         self.assertEqual(result['vendor'],'Bambu Lab')
 
+
+    def test_bambu_order_details_screenshot_ocr(self):
+        # This is the observed OCR layout of the tall Bambu order page:
+        # material heading, then color/code/packaging/quantity, then discounted total.
+        text='''Bambu Lab EU
+Fortschritt
+PLA Basic
+Jade-Weiß (10100) / Filament mit Spule /X3
+PLA Basic
+Schwarz (10101) / Filament mit Spule /X2
+
+Zahlungsdetails
+R @ PLABasic
+Jade-Weiß (10100) / Filament mit Spule /1kg x3
+Mengenrabatt -28,19€
+31,78 €
+PLA Basic
+Schwarz (10101) / Filament mit Spule /1kg x2
+Mengenrabatt -18,79€
+21,19 €
+R PLA Matte
+Anthrazit (11101) / Filament mit Spule /1kg x2
+Mengenrabatt -18,79€
+21,19 €
+PLA Matte
+Elfenbeinweiß (11100) / Filament mit Spule /1kg x2
+Mengenrabatt -18,79€
+21,19 €
+PLA Basic
+Mistelzweig-Grün (10502) /Nachfüllung/1kg x1
+Mengenrabatt -7,99€
+9,00€
+PLA Matte
+Sakura-Rosa (11201) / Nachfüllung /1kg x1
+Mengenrabatt -7,99€
+9,00€
+PLA Matte
+Dunkelgrün (11501) / Nachfüllung /1kg x1
+Mengenrabatt -7,99€
+9,00€
+PLA Basic
+Bronze (10801) /Nachfüllung / 1kg x1
+Mengenrabatt -7,99€
+9,00€
+PLA Basic
+Kastanienrot (10205) /Nachfüllung /1kg x1
+Mengenrabatt -7,99€
+9,00€
+PLA Matte
+Aschgrau (11102) / Nachfüllung /1kg x1
+Mengenrabatt -7,99€
+9,00€
+PLA Matte
+Dunkelblau (11602) / Nachfüllung /1kg x1
+Mengenrabatt -7,99€
+9,00€
+PETG Matte
+White(35100) / Filament with spool /1kg x1
+Geschenk
+0,00 €
+Zwischensumme 158,35 €
+Gesamtsumme 137,24 €'''
+        with app.connect() as db:
+            result=mod.parse_text(text,db)
+        found=result['items']
+        self.assertEqual(len(found),12)
+        self.assertEqual(sum(x['quantity'] for x in found),17)
+        self.assertEqual([x['manufacturer_code'] for x in found],
+           ['10100','10101','11101','11100','10502','11201',
+            '11501','10801','10205','11102','11602','35100'])
+        self.assertEqual(found[0]['color'],'Jade-Weiß')
+        self.assertEqual(found[0]['material'],'PLA Basic')
+        self.assertEqual((found[0]['quantity'],found[0]['gross_cents']),(3,3178))
+        self.assertEqual((found[2]['quantity'],found[2]['gross_cents']),(2,2119))
+        self.assertEqual(found[4]['packaging'],'refill')
+        self.assertEqual(found[-1]['gross_cents'],0)
+        self.assertEqual(sum(x['gross_cents'] for x in found),15835)
+        self.assertFalse(any('Nur ' in w for w in result['warnings']))
+
+    def test_incomplete_order_details_has_visible_warning(self):
+        text='''Bambu Lab
+Zahlungsdetails
+PLA Basic
+Jade-Weiß (10100) / Filament mit Spule /1kg x3
+31,78€
+PLA Matte
+Anthrazit (11101) / Filament mit Spule /1kg x2
+21,19€
+PLA Basic
+Schwarz (10101) / Filament mit Spule /1kg
+21,19€
+Zwischensumme 74,16€'''
+        with app.connect() as db:
+            result=mod.parse_text(text,db)
+        self.assertEqual(len(result['items']),2)
+        self.assertTrue(any('2 von mindestens 3' in x for x in result['warnings']))
+
     def test_order_saved_without_stock_and_partial_receipt(self):
         id=self.create(payload([line()]))
         self.assertEqual(len(self.spools()),1)
