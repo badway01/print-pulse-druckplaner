@@ -1,3 +1,11 @@
+## 0.13.12 (2026-10-30)
+
+- Filamentbestellungen werden jetzt standardmäßig manuell erfasst: kompakte Positionen statt Screenshot-Zwang. Foto-/Text-Import bleibt als optionale Schaltfläche erhalten.
+- Direkte Suche in der eigenen Filamentbibliothek nach Farbe, Material, Bambu-Herstellercode und internem Farbcode. Ein Treffer übernimmt vorhandene Stammdaten, ohne sie zu überschreiben.
+- Neue Farbe kann direkt innerhalb derselben Bestellung inklusive Material, Name, Hersteller-Code und optional internem Code/HEX angelegt werden. Farbe wird erst beim Speichern in der Filamentbibliothek erstellt; bestehende Filamente bleiben unverändert.
+- Je Position nur Menge, Spule/Refill und gesamter Positionspreis im Vordergrund; Bestellnummer, Datum, Gesamtbetrag und optionale Rabatte/Guthaben getrennt. Eine Bestellung kann mehrere Positionen enthalten.
+- Bestellung speichern und tatsächlichen Wareneingang buchen bleiben getrennte, ausdrücklich bestätigte Vorgänge. Mobile 2-Positionen-Regression prüft Bibliotheksauswahl, Neuanlage, Menge und unveränderten Lagerbestand.
+
 ## 0.13.11 (2026-10-30)
 
 - Bambu-Bestellimport auf Home Assistant stabilisiert: Sehr lange, schmale iPhone-Screenshots werden zusätzlich in mehrere kürzere Bildabschnitte zerlegt und erneut per Tesseract gelesen. Das bessere Ergebnis wird verwendet.
