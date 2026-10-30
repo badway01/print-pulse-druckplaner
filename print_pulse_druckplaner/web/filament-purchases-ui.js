@@ -175,24 +175,29 @@
    (hints.length?'<p class="pp-line-hints">'+html(hints.join(' · '))+'</p>':'')+
    '<div class="pp-line-buttons"><button type="button" class="secondary small" data-pp-action="split" data-pp-index="'+i+'">Preis aufteilen</button>'+
    '<button type="button" class="secondary small" data-pp-action="remove" data-pp-index="'+i+'">Entfernen</button></div>'+
-   '<div class="pp-line-fields">'+
-   field('Hersteller','brand',line.brand,i)+field('Material','material',line.material,i)+
-   field('Farbe','color',line.color,i)+field('Hersteller-Farbcode','manufacturer_code',line.manufacturer_code,i)+
-   field('Interner Farbcode (manuell)','internal_code',line.internal_code,i)+
-   field('HEX-Farbwert (nur aus sicherer Quelle)','color_hex',line.color_hex,i)+
-   field('Rollen','quantity',line.quantity,i,'number','min="1" max="500" step="1" inputmode="numeric"')+
-   field('Gramm pro Rolle','grams',line.grams,i,'number','min="50" max="5000" step="1" inputmode="numeric"')+
-   field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i,'text','inputmode="decimal"')+'</div>'+
-   '<div class="pp-purchase-fields"><label>Verpackung<select data-pp-line="'+i+'" data-pp-field="packaging">'+
-   [['unknown','Unbekannt'],['spool','Mit Spule'],['refill','Refill']].map(v=>
+   '<div class="pp-line-fields pp-line-key-fields">'+
+    field('Farbe','color',line.color,i)+
+    field('Hersteller-Farbcode','manufacturer_code',line.manufacturer_code,i)+
+    field('Rollen','quantity',line.quantity,i,'number','min="1" max="500" step="1" inputmode="numeric"')+
+    field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i,'text','inputmode="decimal"')+'</div>'+
+    '<div class="pp-line-basic"><label>Spule / Refill<select data-pp-line="'+i+'" data-pp-field="packaging">'+
+    [['unknown','Unbekannt'],['spool','Mit Spule'],['refill','Refill']].map(v=>
      '<option value="'+v[0]+'" '+(line.packaging===v[0]?'selected':'')+'>'+v[1]+'</option>').join('')+
-   '</select></label><label>Vorhandenes Filament zuordnen<select data-pp-line="'+i+
-   '" data-pp-field="filament_id">'+options+'</select></label>'+
-   field('Zusatzinfo','description',line.description,i)+'</div>'+changes+
-   (hints.length?'<button type="button" class="secondary small" data-pp-action="reviewed" data-pp-index="'+i+'" '+
-      (requiredProblems(line).length?'disabled title="Zuerst fehlende Pflichtangaben korrigieren"':'')+'>'+
-     (line.reviewed?'Prüfung bestätigt ✓':'Angaben geprüft / so übernehmen')+'</button>':'')+
-   '</div></details></article>';
+    '</select></label></div>'+
+    changes+
+    '<details class="pp-line-extra"><summary>Weitere Angaben bearbeiten (Hersteller, Material, interner Code …)</summary>'+
+    '<div class="pp-line-fields">'+
+    field('Hersteller','brand',line.brand,i)+field('Material','material',line.material,i)+
+    field('Interner Farbcode (manuell)','internal_code',line.internal_code,i)+
+    field('HEX-Farbwert (nur aus sicherer Quelle)','color_hex',line.color_hex,i)+
+    field('Gramm pro Rolle','grams',line.grams,i,'number','min="50" max="5000" step="1" inputmode="numeric"')+
+    '</div><div class="pp-purchase-fields"><label>Vorhandenes Filament zuordnen<select data-pp-line="'+i+
+    '" data-pp-field="filament_id">'+options+'</select></label>'+
+    field('Zusatzinfo','description',line.description,i)+'</div></details>'+
+    '<div class="pp-review-editor-actions"><button type="button" class="secondary" data-pp-action="overview">Zur Übersicht</button>'+
+    '<button type="button" class="primary" data-pp-action="reviewed" data-pp-index="'+i+'">'+
+    (hints.length?'Geprüft · nächste Position':'Weiter')+'</button></div>'+
+    '</div></details></article>';
  }
  function takeReview(){
   if(!draft)return;
@@ -214,7 +219,8 @@
     if(k==='filament_id'){line.ambiguous=false;line.existing=null;}
    }
   }
-  for(const item of draft.lines)item.accept_changes=[];
+  // Preserve previously confirmed changes to other (currently hidden) positions.
+  if(activeLine>=0&&draft.lines[activeLine])draft.lines[activeLine].accept_changes=[];
   for(const el of orderBody.querySelectorAll('[data-pp-accept]:checked')){
    const line=draft.lines[Number(el.dataset.ppLine)];
    if(line)line.accept_changes.push(el.dataset.ppAccept);
@@ -299,8 +305,9 @@
    takeReview();
    if(draft.lines.some(isUnresolved)){
     const missing=draft.lines.filter(isUnresolved).length;
-    showReview();
-    throw Error(missing+' Position(en) noch ungeprüft. Bitte öffnen, korrigieren oder ausdrücklich als geprüft markieren.');
+    activeLine=draft.lines.findIndex(isUnresolved);
+     showReview();
+     throw Error(missing+' Position(en) noch ungeprüft. Die nächste ist oben geöffnet.');
    }
    if(!draft.lines.length)throw Error('Mindestens eine Position hinzufügen.');
    for(const l of draft.lines){
@@ -388,7 +395,7 @@
    internal_code:spool.internal_code||'',filament_id:spool.id,
    quantity:spool.cart_qty||1}];
   draft.warnings=['Bitte den tatsächlich gezahlten Positionspreis eintragen; der bisherige Lagerpreis ist nur ein Richtwert.'];
-  expandedLines=new Set([0]);selectedLines=new Set();showReview();
+  expandedLines=new Set([0]);selectedLines=new Set();activeLine=0;showReview();
  }
  node('pp-purchase-add').addEventListener('click',importView);
  node('pp-purchase-close').addEventListener('click',finish);
@@ -403,7 +410,7 @@
   if(!b||busy)return;
   const action=b.dataset.ppAction;
   if(action==='parse')return parseSource();
-  if(action==='manual'){draft=emptyDraft();draft.lines=[emptyLine()];expandedLines=new Set([0]);selectedLines=new Set();showReview();return;}
+  if(action==='manual'){draft=emptyDraft();draft.lines=[emptyLine()];expandedLines=new Set([0]);selectedLines=new Set();activeLine=0;showReview();return;}
   if(action==='save'||action==='save-receive')return save(action==='save-receive');
   if(action==='receive')return bookReceipt();
   if(action==='all-zero'){
@@ -412,9 +419,16 @@
   if(mode==='review'){
    try{takeReview();}catch(ex){error(ex.message);return;}
    const index=Number(b.dataset.ppIndex);
+   if(action==='focus'){activeLine=index;showReview();return;}
+   if(action==='overview'){activeLine=-1;showReview();return;}
+   if(action==='next-issue'){activeLine=draft.lines.findIndex(isUnresolved);showReview();return;}
    if(action==='reviewed'){
-    if(requiredProblems(draft.lines[index]).length){error('Bitte zuerst die fehlenden Pflichtangaben korrigieren.');return;}
-    draft.lines[index].reviewed=true;expandedLines.delete(index);showReview();return;
+    if(requiredProblems(draft.lines[index]).length){
+     showReview();error('Bitte zuerst fehlende Pflichtangaben korrigieren.');return;
+    }
+    draft.lines[index].reviewed=true;
+    activeLine=draft.lines.findIndex(isUnresolved);
+    showReview();return;
    }
    if(action==='select-all'){selectedLines=new Set(draft.lines.map((_,i)=>i));showReview();return;}
    if(action==='select-none'){selectedLines=new Set();showReview();return;}
@@ -436,14 +450,14 @@
     for(const i of selectedLines){draft.lines[i][field]=value;draft.lines[i].reviewed=false;}
     selectedLines=new Set();showReview();message('Ausgewählte Filamente aktualisiert.');return;
    }
-   if(action==='add'){draft.lines.push(emptyLine());expandedLines.add(draft.lines.length-1);}
-   if(action==='remove'){draft.lines.splice(index,1);expandedLines=new Set();selectedLines=new Set();}
+   if(action==='add'){draft.lines.push(emptyLine());activeLine=draft.lines.length-1;}
+   if(action==='remove'){draft.lines.splice(index,1);activeLine=draft.lines.findIndex(isUnresolved);selectedLines=new Set();}
    if(action==='split'){
     const line=draft.lines[index];
     if(!line||line.quantity<2){error('Zum Aufteilen sind mindestens zwei Rollen erforderlich.');return;}
     const extra={...line,quantity:1,gross_cents:null,accept_changes:[]};
     line.quantity-=1;line.gross_cents=null;
-    draft.lines.splice(index+1,0,extra);expandedLines=new Set([index,index+1]);selectedLines=new Set();
+    draft.lines.splice(index+1,0,extra);activeLine=index;selectedLines=new Set();
    }
    showReview();
   }
