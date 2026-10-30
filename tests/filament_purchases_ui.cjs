@@ -25,7 +25,7 @@ const assert=require('node:assert/strict');
   });
   await page.goto('http://127.0.0.1:8099/');
   await page.locator('[data-workspace="filament"]').click();
-  await page.locator('#pp-purchase-add').click();
+  await page.locator('#pp-purchase-import').click();
   await page.locator('#pp-import-text').waitFor();
   await page.locator('#pp-file').setInputFiles({
    name:'zu-grosse-rechnung.pdf',mimeType:'application/pdf',buffer:Buffer.alloc(13*1024*1024)
@@ -78,6 +78,43 @@ const assert=require('node:assert/strict');
   assert.equal(order.lines[0].quantity,3);
   assert.equal(order.lines[1].quantity,3);
   assert.equal(order.received_count,0,'Saving a batch must not book stock');
+
+  // New primary workflow: manually capture a batch using saved catalog data
+  // and add another color to the catalog in the same action.
+  await page.locator('#pp-purchase-add').click();
+  assert.equal(await page.locator('#pp-purchase-title').textContent(),'Filamentbestellung erfassen');
+  assert.equal(await page.locator('#pp-m-nonexistent').count(),0);
+  await page.locator('[data-pp-m-header="reference"]').fill('MANUAL-2-COLORS');
+  await page.locator('[data-pp-m-search="0"]').fill('119000');
+  await page.locator('[data-pp-m-results="0"] [data-pp-m-action="pick"]').first().waitFor();
+  await page.locator('[data-pp-m-results="0"] [data-pp-m-action="pick"]').first().click();
+  assert((await page.locator('[data-pp-m-row="0"]').textContent()).includes('UI Testfarbe 1'),
+    'Library selection should reuse the stored color');
+  await page.locator('[data-pp-m-field="quantity"][data-pp-m-index="0"]').fill('2');
+  await page.locator('[data-pp-m-field="packaging"][data-pp-m-index="0"]').selectOption('spool');
+  await page.locator('[data-pp-m-field="_priceInput"][data-pp-m-index="0"]').fill('19,90');
+  await page.locator('[data-pp-m-action="add"]').click();
+  assert.equal(await page.locator('.pp-m-row').count(),2,'Two compact rows');
+  await page.locator('[data-pp-m-action="new"][data-pp-m-index="1"]').click();
+  await page.locator('[data-pp-m-field="color"][data-pp-m-index="1"]').fill('Neue Testfarbe 2026');
+  await page.locator('[data-pp-m-field="material"][data-pp-m-index="1"]').selectOption('PLA Matte');
+  await page.locator('[data-pp-m-field="manufacturer_code"][data-pp-m-index="1"]').fill('129991');
+  await page.locator('[data-pp-m-field="packaging"][data-pp-m-index="1"]').selectOption('refill');
+  await page.locator('[data-pp-m-field="_priceInput"][data-pp-m-index="1"]').fill('9,00');
+  await page.locator('[data-pp-m-header="_totalInput"]').fill('28,90');
+  await page.locator('[data-pp-m-action="save"]').click();
+  await page.locator('#pp-purchase-dialog').waitFor({state:'hidden'});
+  const manualOrders=await page.request.get('http://127.0.0.1:8099/api/filament-orders').then(r=>r.json());
+  const manualOrder=manualOrders.orders.find(o=>o.reference==='MANUAL-2-COLORS');
+  assert(manualOrder,'Manual purchase should persist');
+  assert.equal(manualOrder.lines.length,2);
+  assert.equal(manualOrder.received_count,0,'No inventory change before receipt');
+  assert.equal(manualOrder.ordered_count,3);
+  assert.equal(manualOrder.total_cents,2890);
+  const newLine=manualOrder.lines.find(l=>l.color==='Neue Testfarbe 2026');
+  assert(newLine&&newLine.manufacturer_code==='129991',
+   'Inline new color should be added to catalog with its manufacturer code');
+
   assert.deepEqual(errors,[],'No browser JavaScript errors');
   console.log('FILAMENT BULK UI PASS: iPhone, top warning, auto paste, one editor, next issue, batch save');
  }finally{await browser.close();}
