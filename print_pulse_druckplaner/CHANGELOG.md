@@ -1,3 +1,11 @@
+# 0.13.12 · Filamentbestellung ohne Screenshot
+
+- Neuer Standard: Filamentbestellung direkt manuell eintragen. Bestehende Farben per Suche nach Bambu-Code, internem Code, Material oder Farbe übernehmen.
+- Neue Farbe direkt beim Erfassen in die Bibliothek aufnehmen. Dabei werden die Angaben erst beim Speichern angelegt und vorhandene Stammdaten nicht ohne Rückfrage verändert.
+- Einfache Positionen: Menge, Spule/Refill und Preis; zusätzliche Daten nur bei Neuanlage. Mehrere Positionen als eine Bestellung speichern.
+- Foto-/Textimport bleibt optional. Wareneingang nur nach ausdrücklicher Buchung.
+- Die Etsy-Historie und die Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
+
 # 0.13.11 · Lange Bambu-Screenshots zuverlässiger importieren
 
 - OCR liest lange Screenshots in mehreren kürzeren Abschnitten und wählt das vollständigere Ergebnis.
