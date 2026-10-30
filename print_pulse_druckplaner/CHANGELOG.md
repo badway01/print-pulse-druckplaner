@@ -4,6 +4,7 @@
 - Erweiterte Stammdaten nur bei Bedarf aufklappen; manueller Import, Nachbearbeitung, Mehrfachauswahl und getrennte Wareneingangsbuchung bleiben.
 - Importfehler erscheinen direkt unter der Dialogüberschrift. Zu große Fotos werden vor dem Upload automatisch verkleinert, PDFs über 12 MB sofort gemeldet; Bestelltext aus der Zwischenablage wird direkt eingelesen.
 - Beim Wechsel zwischen Positionen bleiben bestätigte Katalogänderungen erhalten.
+- Die Etsy-Historie und die Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
 
 # 0.13.8 · Filament-Sammelimport mit manueller Bearbeitung
 
