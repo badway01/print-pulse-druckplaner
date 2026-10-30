@@ -1,3 +1,10 @@
+# 0.13.11 · Lange Bambu-Screenshots zuverlässiger importieren
+
+- OCR liest lange Screenshots in mehreren kürzeren Abschnitten und wählt das vollständigere Ergebnis.
+- Eine einzelne erkannte Filamentrolle aus einem langen Screenshot gilt nicht mehr als vollständige Bestellung. Stattdessen erscheint eine verständliche Fehlermeldung.
+- Fehlende erkannte Hersteller-Farbcodes werden für die Vollständigkeitsprüfung berücksichtigt.
+- Keine automatische Lagerbuchung. Vorhandene Filamente, Etsy-Historie und die Bedarfsanalyse (50 g Standard) bleiben erhalten.
+
 # 0.13.10 · Bambu-Bestelldetails vollständig erkennen
 
 - Bambu-Shop-Bestelldetails aus langen iPhone-Screenshots werden als Zahlungsübersicht statt als E-Mail-Format erkannt. Material, Farbcode, Spulenmenge und Positionspreis können dabei auf getrennten Zeilen stehen.

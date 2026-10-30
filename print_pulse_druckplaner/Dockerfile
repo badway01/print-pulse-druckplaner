@@ -4,7 +4,7 @@ ARG BUILD_ARCH
 LABEL io.hass.version="${BUILD_VERSION}" \
       io.hass.type="app" \
       io.hass.arch="${BUILD_ARCH}"
-RUN apk add --no-cache python3 tzdata py3-reportlab font-dejavu tesseract-ocr tesseract-ocr-data-deu tesseract-ocr-data-eng poppler-utils
+RUN apk add --no-cache python3 tzdata py3-reportlab py3-pillow font-dejavu tesseract-ocr tesseract-ocr-data-deu tesseract-ocr-data-eng poppler-utils
 WORKDIR /opt/print-pulse
 COPY app.py ./app.py
 COPY components.py ./components.py

@@ -1,3 +1,7 @@
+## Version 0.13.11 · Lange Screenshots zuverlässig lesen
+
+Der Bambu-Import prüft lange iPhone-Screenshots jetzt sowohl als ganze Seite als auch in mehreren kürzeren Abschnitten. Er übernimmt das umfangreichere Ergebnis und warnt, wenn erkannte Hersteller-Farbcodes fehlen. Wenn ein ungewöhnlich langes Bild weiterhin nur eine Position liefert, wird der Import abgebrochen, anstatt die Bestellung fälschlich als vollständig zu behandeln. Die Prüfmaske bleibt manuell bearbeitbar und Lagerbestand wird weiterhin erst beim bestätigten Wareneingang erhöht.
+
 ## Version 0.13.10 · Bambu-Bestellübersicht importieren
 
 Lange Bambu-Bestelldetails-Screenshots werden jetzt über die Zahlungsdetails ausgewertet. Farbcode, Name, Positionseinzelpreis und Menge dürfen auf verschiedenen Zeilen stehen. Eine Vollständigkeitsprüfung meldet fehlende erkannte Positionen und verhindert deren versehentliches Speichern; die Daten bleiben manuell bearbeitbar. Der gezeigte Bambu-Beleg umfasst 12 Positionen und 17 Rollen inklusive 1 Gratisrolle. Bestehende Lagerdaten und Wareneingänge werden durch den Import nicht automatisch verändert.
