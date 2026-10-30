@@ -1,3 +1,10 @@
+## 0.13.11 (2026-10-30)
+
+- Bambu-Bestellimport auf Home Assistant stabilisiert: Sehr lange, schmale iPhone-Screenshots werden zusätzlich in mehrere kürzere Bildabschnitte zerlegt und erneut per Tesseract gelesen. Das bessere Ergebnis wird verwendet.
+- Schutz vor fehlinterpretierten Importen: Wenn ein langer Screenshot weiterhin nur eine Filamentposition ergibt, wird der Vorgang mit einem klaren Hinweis abgebrochen, statt die Gratis-PETG-Rolle als vollständige Bestellung anzubieten.
+- Vollständigkeitsprüfung zählt erkannte Hersteller-Farbcodes über die gesamte Zahlungsübersicht; fehlende Positionen werden angezeigt und können nicht unbemerkt gespeichert werden.
+- Bestehende Produktdaten und Etsy-Import bleiben unverändert. Der Lagerbestand wird erst nach bestätigtem Wareneingang erhöht.
+
 ## 0.13.10 (2026-10-30)
 
 - Bambu-Bestelldetails-Screenshots werden anhand der Zahlungsdetails interpretiert: Material steht oft allein in einer Zeile, Farbname und Hersteller-Code in der nächsten und die Menge erst am Zeilenende. So werden alle 12 Farbpositionen und 17 Rollen der gezeigten Oktober-Bestellung erkannt, statt nur der Gratis-PETG-Rolle.
