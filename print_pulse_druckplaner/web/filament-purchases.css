@@ -77,3 +77,6 @@
  .pp-bulk-fields{grid-template-columns:1fr}
  .pp-bulk-fields button{width:100%}
 }
+
+.pp-bulk-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pp-bulk-head strong{flex:1 1 auto}
