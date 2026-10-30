@@ -1,3 +1,7 @@
+## Version 0.13.9 · Filament-Sammelimport auf dem Handy
+
+Die Importprüfung öffnet nur **eine Position gleichzeitig** und bietet den Button **„Geprüft · nächste Position“**. Alle anderen Filamente bleiben als kurze Übersicht sichtbar und können jederzeit einzeln ausgewählt werden. Farbe, Herstellercode, Anzahl, Preis und Spule/Refill sind direkt bearbeitbar, weitere Angaben stehen unter „Weitere Angaben“. Fehler werden oben angezeigt, die Speicheraktionen bleiben am unteren Fensterrand erreichbar. Eingefügter Bestelltext wird automatisch erkannt. Fotos über 12 MB werden vor dem Upload verkleinert; für große PDFs weiter den Text einfügen oder die Datei verkleinern. Wareneingang erfolgt weiterhin nur nach ausdrücklicher Bestätigung.
+
 ## Version 0.13.8 · Filament-Sammelimport
 
 Unter **Filament → Filamentbestellungen → Bestellung importieren** eine kopierte Bambu-Bestellübersicht oder einen Screenshot einfügen; alternativ PDF/Bild auswählen. Der Import zeigt eine kompakte Übersicht und öffnet nur unklare Positionen. **Bearbeiten** klappt jede Zeile auf, ohne den gesamten Auftrag auseinanderzunehmen. Fehlende Positionen kannst du ergänzen oder entfernen und ausgewählte Positionen (Rollen, Gramm, Preis, Verpackung) zusammen bearbeiten. Hinweise ohne vollständige Quelldaten müssen vor dem Sammelspeichern geprüft und ausdrücklich bestätigt werden. Übernahme bucht keine Spulen ins Lager, solange der Wareneingang nicht separat bestätigt wird.
