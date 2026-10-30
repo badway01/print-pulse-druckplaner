@@ -104,16 +104,50 @@ def detect_vendor(text):
     return 'Unbekannter Händler'
 
 
-def parse_bambu_payment(source):
-    """Bambu order-detail screenshots: separate material heading / color / quantity."""
-    start=re.search(r'(?i)\bZahlungsdetails\b',source)
-    if not start:return [],0
-    payment=source[start.end():]
-    end=re.search(r'(?im)^\s*(?:Zwischensumme|Bestellrabatt|Credit verwenden|Steuer|Gesamtsumme|Nettobetrag|Lieferadresse|Rechnungsadresse)\b',payment)
-    if end:payment=payment[:end.start()]
-    expected=len(re.findall(r'\(\s*\d{4,6}\s*\)',payment))
-    headings=[]
-    heading=re.compile(r'(?i)\b(PLA\s*(?:Basic|Matte|Silk(?:\+)?|Plus)?|PETG\s*(?:Matte|Basic)?|ABS|ASA|TPU)\s*
+def parse_bambu_payment(text):
+    """Bambu order-page rows have separate material and color/quantity lines."""
+    m=re.search(r'Zahlungsdetails',text,re.I)
+    if not m:return [],0
+    block=re.split(r'(?im)^\s*(?:Zwischensumme|Bestellrabatt|Credit verwenden|Steuer|Gesamtsumme|Nettobetrag|Lieferadresse)\b',text[m.end():])[0]
+    expected=len(re.findall(r'\(\s*\d{4,6}\s*\)',block))
+    heads=[]
+    for match in re.finditer(r'(?m)^[^\n]+$',block):
+        line=match.group().strip()
+        if len(line)>65 or re.search(r'\d|\(|€',line):continue
+        name=re.search(r'(?i)\b(PLA\s*(?:Basic|Matte|Silk|Plus)?|PETG\s*(?:Matte|Basic)?|ABS|ASA|TPU)\s*$',line)
+        if name:
+            mat=re.sub(r'(?i)^(PLA|PETG)(?=[a-z])',r'\1 ',name.group(1))
+            heads.append((match.start(),match.end(),' '.join(mat.split())))
+    items=[]
+    for idx,(_,end,material) in enumerate(heads):
+        chunk=block[end:heads[idx+1][0] if idx+1<len(heads) else len(block)]
+        code=re.search(r'\(\s*(\d{4,6})\s*\)',chunk)
+        if not code:continue
+        prefix=chunk[chunk.rfind('\n',0,code.start())+1:code.start()]
+        color=re.sub(r'^[^A-Za-zÄÖÜäöüß]+','',prefix.strip()).strip()
+        if not color or len(color)>55:continue
+        detail=chunk[code.end():]
+        qty=re.search(r'[x×]\s*(\d{1,3})\b',detail[:160],re.I)
+        if not qty or not 1<=int(qty.group(1))<=100:continue
+        units=re.search(r'(\d+(?:[.,]\d+)?)\s*(kg|g)\b',detail[:160],re.I)
+        grams=round(float(units.group(1).replace(',','.'))*(1000 if units.group(2).lower()=='kg' else 1)) if units else 1000
+        if not 50<=grams<=5000:grams=1000
+        packaging='refill' if re.search(r'nachfüll|refill',chunk[:400],re.I) else 'spool' if re.search(r'mit spule|with spool',chunk[:400],re.I) else 'unknown'
+        price=None
+        for line in chunk.splitlines():
+            if re.search(r'mengenrabatt|discount',line,re.I):continue
+            val=re.search(r'(\d{1,5}[.,]\d{2})\s*(?:€|EUR)',line,re.I)
+            if val:
+                price=money_to_cents(val.group(1))
+                break
+        gift=(price==0 or bool(re.search(r'geschenk|gratisartikel|gift',chunk[:220],re.I)))
+        items.append({'brand':'Bambu Lab','material':material,'color':color,'manufacturer_code':code.group(1),
+            'internal_code':'','color_hex':'','quantity':int(qty.group(1)),'grams':grams,
+            'packaging':packaging,'gross_cents':0 if gift else price,'description':'Gratisartikel' if gift else ''})
+    return items,expected
+
+
+def parse_text(text, db):
     """Conservative extraction: never invent unknown colors, prices or codes."""
     if not isinstance(text,str) or not 1<=len(text)<=100000:
         raise ValueError('Bitte lesbaren Bestelltext einfügen.')
