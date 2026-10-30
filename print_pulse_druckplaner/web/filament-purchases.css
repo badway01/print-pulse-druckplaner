@@ -80,3 +80,66 @@
 
 .pp-bulk-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pp-bulk-head strong{flex:1 1 auto}
+
+
+/* 0.13.9 Mobile single-position review and immediate feedback. */
+.pp-purchase-dialog{box-sizing:border-box;overflow-x:hidden;overscroll-behavior:contain}
+.pp-purchase-dialog #pp-purchase-body>*{min-width:0}
+.pp-purchase-dialog #pp-purchase-error:not([hidden]){
+ display:block;position:sticky;top:0;z-index:5;margin:0 0 12px;
+ padding:12px;border:1px solid #d28a45;border-radius:10px;
+ color:#8d430b;background:#fff3e4;font-weight:600;box-shadow:0 3px 14px #0002;
+}
+.pp-import-progress{background:var(--surface-alt,#edf3ee);padding:12px;border-radius:11px;font-weight:600}
+.pp-review-top{display:grid;gap:9px}
+.pp-review-progress{display:flex;justify-content:space-between;gap:10px;font-size:.86rem}
+.pp-review-progress span{opacity:.72}
+.pp-review-focus{min-width:0;border:1px solid var(--line,#d5dbd6);border-radius:12px;padding:10px;display:grid;gap:8px}
+.pp-review-focus-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.94rem}
+.pp-review-focus .pp-line{border:0;padding:0}
+.pp-review-focus .pp-line.pp-line-compact{display:block}
+.pp-review-focus .pp-line-select{display:none!important}
+.pp-review-focus .pp-line-summary{gap:8px;flex-wrap:wrap}
+.pp-review-focus .pp-line-summary .pp-edit-hint{display:none}
+.pp-line-extra{margin:3px 0;border:1px solid var(--line,#d5dbd6);border-radius:9px;padding:9px}
+.pp-line-extra summary{cursor:pointer;font-size:.86rem;line-height:1.5;font-weight:650}
+.pp-line-extra .pp-line-fields{margin:12px 0}
+.pp-line-extra .pp-purchase-fields{margin:10px 0}
+.pp-line-basic{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pp-line-key-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+.pp-review-editor-actions{display:flex;gap:8px;flex-wrap:wrap}
+.pp-review-editor-actions button{flex:1 1 auto}
+.pp-review-ready{margin:0;padding:12px;background:var(--surface-alt,#edf3ee);border-radius:9px}
+.pp-review-list{border:1px solid var(--line,#d5dbd6);border-radius:12px;overflow:hidden;display:grid}
+.pp-review-row{display:flex;align-items:center;gap:3px;min-width:0;border-bottom:1px solid var(--line,#d5dbd6)}
+.pp-review-row:last-child{border-bottom:0}
+.pp-review-select{flex:0 0 29px;display:flex!important;justify-content:center;padding:8px!important}
+.pp-review-select input{margin:0}
+.pp-review-row-btn{width:100%;min-width:0;display:flex;align-items:center;gap:9px;padding:12px 9px;border:0;background:transparent;color:inherit;cursor:pointer;text-align:left;font:inherit}
+.pp-review-row-btn:focus-visible{outline:2px solid #587963;outline-offset:-3px}
+.pp-review-main{flex:1;min-width:0;display:grid;gap:4px}
+.pp-review-main strong,.pp-review-main small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pp-review-main strong{font-size:.87rem}
+.pp-review-main small{font-size:.77rem;opacity:.72}
+.pp-review-row-btn>.pp-line-state{flex:0 0 auto}
+.pp-review-footer{position:sticky;bottom:0;z-index:4;display:flex;align-items:center;flex-wrap:wrap;gap:7px;
+ padding:12px 9px calc(9px + env(safe-area-inset-bottom,0px));
+ margin:8px -7px -7px;background:var(--card,#fff);border-top:1px solid var(--line,#d5dbd6);box-shadow:0 -8px 14px #00000015}
+.pp-review-footer span{margin-right:auto;font-size:.79rem}
+.pp-review-footer button{min-height:42px;font-size:.85rem}
+@media(max-width:680px){
+ .pp-purchase-dialog{width:calc(100vw - 12px);max-width:100%;max-height:calc(100dvh - 22px);
+  padding:12px;margin:auto;border-radius:16px}
+ .pp-purchase-dialog #pp-purchase-body{gap:11px}
+ .pp-review-footer span{width:100%;text-align:center}
+ .pp-review-footer button{flex:1 1 45%;padding:9px 6px}
+ .pp-review-focus{padding:9px}
+ .pp-import-summary{gap:5px}
+ .pp-import-summary>span{padding:6px 8px;font-size:.77rem}
+ .pp-import-summary b{font-size:.99rem}
+ .pp-line-fields,.pp-purchase-fields{gap:8px}
+ .pp-line-extra .pp-line-fields,.pp-line-extra .pp-purchase-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .pp-review-row-btn>.pp-line-state{font-size:.68rem;padding:4px 7px}
+ .pp-review-focus .pp-line-summary{flex-direction:column;align-items:flex-start}
+ .pp-review-focus .pp-line-summary>.pp-line-state{margin-left:0}
+}

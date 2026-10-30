@@ -17,7 +17,7 @@
  const orderBody=node('pp-purchase-body'),dialog=node('pp-purchase-dialog'),notice=node('pp-purchase-error');
  let orders=[],draft=null,mode='import',current=null,busy=false,loading=false;
  let receiptKey='';
- let expandedLines=new Set(),selectedLines=new Set();
+ let expandedLines=new Set(),selectedLines=new Set(),activeLine=-1,importTimer=null;
  const emptyLine=()=>({brand:'',material:'PLA',color:'',manufacturer_code:'',
   internal_code:'',color_hex:'',filament_id:null,quantity:1,grams:1000,packaging:'unknown',
   gross_cents:null,description:'',accept_changes:[]});
@@ -25,10 +25,10 @@
  const emptyDraft=()=>({vendor:'',reference:'',ordered_on:today(),
   total_cents:null,discount_cents:0,credit_cents:0,shipping_cents:0,
   lines:[],fingerprint:'',source_type:'manual',warnings:[]});
- function error(message){notice.textContent=message;notice.hidden=!message;}
+ function error(message){notice.textContent=message;notice.hidden=!message;if(message&&dialog.open)dialog.scrollTop=0;}
  function dialogOpen(title){node('pp-purchase-title').textContent=title;error('');if(!dialog.open)dialog.showModal();}
  function message(m){if(typeof flash==='function')flash(m);}
- function finish(){dialog.close();error('');draft=null;current=null;}
+ function finish(){if(importTimer)clearTimeout(importTimer);dialog.close();error('');draft=null;current=null;activeLine=-1;}
  function orderStatus(o){
   return o.status+' · '+o.received_count+'/'+o.ordered_count+' Rollen';
  }
@@ -58,11 +58,12 @@
   mode='import';
   dialogOpen('Bestellung importieren');
   orderBody.innerHTML='<p class="pp-muted">Bambu, Amazon oder andere Händler: Bild, PDF oder Text. Bei unsicheren Angaben kannst du jede Position ändern.</p>'+
-   '<label class="pp-drop" id="pp-drop"><strong>Screenshot oder Rechnung hierher ziehen</strong>'+
-   '<span class="pp-muted">PNG, JPG, WEBP, PDF oder TXT · maximal 12 MB</span>'+
+   '<label class="pp-drop" id="pp-drop"><strong>Foto, Screenshot oder PDF auswählen</strong>'+
+   '<span class="pp-muted">Bilder über 12 MB werden automatisch verkleinert. PDF maximal 12 MB.</span>'+
    '<input type="file" id="pp-file" accept="image/png,image/jpeg,image/webp,application/pdf,text/plain,.png,.jpg,.jpeg,.webp,.pdf,.txt"></label>'+
-   '<label>Bestelltext einfügen (Strg/⌘ + V) oder hier einfügen<textarea id="pp-import-text" placeholder="Bambu-Bestellübersicht hier einfügen …"></textarea></label>'+
-   '<p class="pp-muted">Tipp: Du kannst auch einen kopierten Screenshot direkt hier einfügen. Der Import startet automatisch.</p>'+ 
+   '<label>Bestelltext einfügen – startet von selbst<textarea id="pp-import-text" placeholder="Bambu-Bestellübersicht hier einfügen …"></textarea></label>'+
+   '<p class="pp-muted">Bestelltext und kopierte Screenshots werden nach dem Einfügen automatisch erkannt.</p>'+ 
+   '<p class="pp-import-progress" id="pp-import-progress" role="status" hidden>Bestellung wird erkannt …</p>'+ 
    '<div class="pp-purchase-actions"><button type="button" class="secondary" data-pp-action="manual">Ohne Dokument erfassen</button>'+
    '<button type="button" class="primary" data-pp-action="parse">Text prüfen</button></div>';
  }
@@ -77,6 +78,7 @@
    lines:(preview.items||[]).map(l=>({...emptyLine(),...l,accept_changes:[]}))
   });
   expandedLines=new Set();selectedLines=new Set();
+  activeLine=draft.lines.findIndex(isUnresolved);
   showReview();
  }
  function catalog(){
@@ -121,6 +123,20 @@
  function isUnresolved(line){
   return requiredProblems(line).length>0||(lineHints(line).length>0&&!line.reviewed);
  }
+
+ function summaryLine(line,i){
+  const issue=isUnresolved(line),found=!!existingLine(line);
+  const color=[line.material,line.color||'Farbe fehlt'].filter(Boolean).join(' · ');
+  return '<article class="pp-review-row">'+
+    '<label class="pp-review-select"><input type="checkbox" aria-label="Position '+(i+1)+' auswählen" data-pp-select="'+i+'" '+
+    (selectedLines.has(i)?'checked':'')+'></label>'+
+    '<button type="button" class="pp-review-row-btn" data-pp-action="focus" data-pp-index="'+i+'">'+
+    '<span class="pp-review-main"><strong>'+(i+1)+'. '+html(color)+'</strong>'+
+    '<small>'+html(line.manufacturer_code||'Code offen')+' · '+html(line.quantity)+' Rolle(n) · '+money(line.gross_cents)+'</small></span>'+
+    '<span class="pp-line-state '+(issue?'pp-line-attention':'pp-line-ok')+'">'+
+    (issue?'Prüfen':found?'Zugeordnet':'Neu')+'</span><span aria-hidden="true">›</span></button></article>';
+ }
+
  function reviewLine(line,i){
   const f=existingLine(line);
   const ids=catalog().slice();
@@ -146,7 +162,7 @@
     (line.quantity||0)+' Rolle(n) · '+(line.grams||1000)+' g · '+
     ({spool:'mit Spule',refill:'Refill',unknown:'Verpackung offen'}[line.packaging]||'Verpackung offen')+
     ' · '+(line.gross_cents==null?'Preis offen':money(line.gross_cents)));
-  const open=unresolved||expandedLines.has(i)?' open':'';
+  const open=' open';
   return '<article class="pp-line pp-line-compact">'+
    '<label class="pp-line-select"><input type="checkbox" data-pp-select="'+i+'" '+
     (selectedLines.has(i)?'checked':'')+'> Auswahl</label>'+
@@ -159,24 +175,29 @@
    (hints.length?'<p class="pp-line-hints">'+html(hints.join(' · '))+'</p>':'')+
    '<div class="pp-line-buttons"><button type="button" class="secondary small" data-pp-action="split" data-pp-index="'+i+'">Preis aufteilen</button>'+
    '<button type="button" class="secondary small" data-pp-action="remove" data-pp-index="'+i+'">Entfernen</button></div>'+
-   '<div class="pp-line-fields">'+
-   field('Hersteller','brand',line.brand,i)+field('Material','material',line.material,i)+
-   field('Farbe','color',line.color,i)+field('Hersteller-Farbcode','manufacturer_code',line.manufacturer_code,i)+
-   field('Interner Farbcode (manuell)','internal_code',line.internal_code,i)+
-   field('HEX-Farbwert (nur aus sicherer Quelle)','color_hex',line.color_hex,i)+
-   field('Rollen','quantity',line.quantity,i,'number','min="1" max="500" step="1" inputmode="numeric"')+
-   field('Gramm pro Rolle','grams',line.grams,i,'number','min="50" max="5000" step="1" inputmode="numeric"')+
-   field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i,'text','inputmode="decimal"')+'</div>'+
-   '<div class="pp-purchase-fields"><label>Verpackung<select data-pp-line="'+i+'" data-pp-field="packaging">'+
-   [['unknown','Unbekannt'],['spool','Mit Spule'],['refill','Refill']].map(v=>
+   '<div class="pp-line-fields pp-line-key-fields">'+
+    field('Farbe','color',line.color,i)+
+    field('Hersteller-Farbcode','manufacturer_code',line.manufacturer_code,i)+
+    field('Rollen','quantity',line.quantity,i,'number','min="1" max="500" step="1" inputmode="numeric"')+
+    field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i,'text','inputmode="decimal"')+'</div>'+
+    '<div class="pp-line-basic"><label>Spule / Refill<select data-pp-line="'+i+'" data-pp-field="packaging">'+
+    [['unknown','Unbekannt'],['spool','Mit Spule'],['refill','Refill']].map(v=>
      '<option value="'+v[0]+'" '+(line.packaging===v[0]?'selected':'')+'>'+v[1]+'</option>').join('')+
-   '</select></label><label>Vorhandenes Filament zuordnen<select data-pp-line="'+i+
-   '" data-pp-field="filament_id">'+options+'</select></label>'+
-   field('Zusatzinfo','description',line.description,i)+'</div>'+changes+
-   (hints.length?'<button type="button" class="secondary small" data-pp-action="reviewed" data-pp-index="'+i+'" '+
-      (requiredProblems(line).length?'disabled title="Zuerst fehlende Pflichtangaben korrigieren"':'')+'>'+
-     (line.reviewed?'Prüfung bestätigt ✓':'Angaben geprüft / so übernehmen')+'</button>':'')+
-   '</div></details></article>';
+    '</select></label></div>'+
+    changes+
+    '<details class="pp-line-extra"><summary>Weitere Angaben bearbeiten (Hersteller, Material, interner Code …)</summary>'+
+    '<div class="pp-line-fields">'+
+    field('Hersteller','brand',line.brand,i)+field('Material','material',line.material,i)+
+    field('Interner Farbcode (manuell)','internal_code',line.internal_code,i)+
+    field('HEX-Farbwert (nur aus sicherer Quelle)','color_hex',line.color_hex,i)+
+    field('Gramm pro Rolle','grams',line.grams,i,'number','min="50" max="5000" step="1" inputmode="numeric"')+
+    '</div><div class="pp-purchase-fields"><label>Vorhandenes Filament zuordnen<select data-pp-line="'+i+
+    '" data-pp-field="filament_id">'+options+'</select></label>'+
+    field('Zusatzinfo','description',line.description,i)+'</div></details>'+
+    '<div class="pp-review-editor-actions"><button type="button" class="secondary" data-pp-action="overview">Zur Übersicht</button>'+
+    '<button type="button" class="primary" data-pp-action="reviewed" data-pp-index="'+i+'">'+
+    (hints.length?'Geprüft · nächste Position':'Weiter')+'</button></div>'+
+    '</div></details></article>';
  }
  function takeReview(){
   if(!draft)return;
@@ -198,28 +219,40 @@
     if(k==='filament_id'){line.ambiguous=false;line.existing=null;}
    }
   }
-  for(const item of draft.lines)item.accept_changes=[];
+  // Preserve previously confirmed changes to other (currently hidden) positions.
+  if(activeLine>=0&&draft.lines[activeLine])draft.lines[activeLine].accept_changes=[];
   for(const el of orderBody.querySelectorAll('[data-pp-accept]:checked')){
    const line=draft.lines[Number(el.dataset.ppLine)];
    if(line)line.accept_changes.push(el.dataset.ppAccept);
   }
  }
+
  function showReview(){
   mode='review';
-  dialogOpen('Filamente gesammelt prüfen');
+  dialogOpen('Filamentbestellung prüfen');
   const d=draft;
+  if(activeLine>=d.lines.length)activeLine=-1;
   const known=d.lines.every(l=>l.gross_cents!=null);
   const sum=known?d.lines.reduce((s,l)=>s+l.gross_cents,0)-d.discount_cents-d.credit_cents+d.shipping_cents:null;
   const difference=d.total_cents!=null&&sum!=null&&sum!==d.total_cents;
   const unresolved=d.lines.filter(isUnresolved).length;
   const matched=d.lines.filter(l=>!isUnresolved(l)&&!!existingLine(l)).length;
   const newCount=d.lines.length-unresolved-matched;
-  orderBody.innerHTML='<p class="pp-muted">Nur unklare Positionen öffnen sich automatisch. Jede Zeile bleibt per „Bearbeiten“ manuell änderbar. Keine Lagerbuchung vor Wareneingang.</p>'+
-   (d.warnings.length?'<p class="pp-warning">'+d.warnings.map(html).join(' · ')+'</p>':'')+
-   '<div class="pp-import-summary"><span><b>'+d.lines.length+'</b> Positionen</span>'+
+  const selected=activeLine>=0?d.lines[activeLine]:null;
+  orderBody.innerHTML=
+   '<div class="pp-review-top"><div class="pp-import-summary"><span><b>'+d.lines.length+'</b> Positionen</span>'+
    '<span class="pp-sum-ok"><b>'+matched+'</b> zugeordnet</span>'+
    '<span><b>'+newCount+'</b> neu</span>'+
    '<span class="'+(unresolved?'pp-sum-alert':'pp-sum-ok')+'"><b>'+unresolved+'</b> zu prüfen</span></div>'+
+   '<div class="pp-review-progress"><strong>'+unresolved+' von '+d.lines.length+' zu prüfen</strong>'+
+   '<span>'+d.lines.filter(l=>!isUnresolved(l)).length+' erledigt</span></div></div>'+
+   (selected?'<section class="pp-review-focus"><div class="pp-review-focus-heading"><strong>Position '+(activeLine+1)+' bearbeiten</strong>'+
+    '<button type="button" class="secondary small" data-pp-action="overview">Zur Liste</button></div>'+
+    reviewLine(selected,activeLine)+'</section>':
+    '<p class="pp-review-ready">'+(unresolved?'Tippe eine orange Position oder „Nächste prüfen“.':'Alle Positionen sind bereit. Du kannst sie jederzeit bearbeiten oder gesammelt speichern.')+'</p>')+
+   '<div class="pp-line-heading"><h3>Alle Positionen</h3><small>Tippe zum Bearbeiten</small></div>'+
+   '<div class="pp-review-list">'+d.lines.map(summaryLine).join('')+'</div>'+
+   (unresolved?'<button type="button" class="secondary" data-pp-action="next-issue">Nächste ungeprüfte Position öffnen</button>':'')+
    '<details class="pp-order-meta" '+(!d.vendor||difference?'open':'')+'><summary><strong>Bestelldaten</strong> · '+
    html(d.vendor||'Händler fehlt')+' · '+html(d.ordered_on)+' · '+money(d.total_cents)+' · Bearbeiten ▾</summary>'+
    '<div class="pp-purchase-fields">'+metadataInput('Händler','vendor',d.vendor)+
@@ -229,11 +262,12 @@
    metadataInput('Gesamtrabatt (€)','discount_cents',inputMoney(d.discount_cents))+
    metadataInput('Eingesetztes Guthaben (€)','credit_cents',inputMoney(d.credit_cents))+
    metadataInput('Versandkosten (€)','shipping_cents',inputMoney(d.shipping_cents))+'</div></details>'+
-   '<div class="pp-line-heading"><h3>Filamente</h3><small>Tippen zum Öffnen · Häkchen für Mehrfachbearbeitung</small></div>'+
-   d.lines.map(reviewLine).join('')+
+   (d.warnings.length?'<details class="pp-order-meta"><summary>Hinweise zur Texterkennung</summary><p class="pp-warning">'+
+      d.warnings.map(html).join(' · ')+'</p></details>':'')+
    '<button type="button" class="secondary" data-pp-action="add">+ Position manuell hinzufügen</button>'+
-   '<div class="pp-bulk-tools"><div class="pp-bulk-head"><strong>Ausgewählte Positionen gemeinsam ändern</strong>'+ 
-   '<button type="button" class="secondary small" data-pp-action="select-all">Alle auswählen</button>'+ 
+   '<details class="pp-order-meta pp-bulk-details"><summary>Mehrfachbearbeitung · '+selectedLines.size+' ausgewählt</summary>'+
+   '<div class="pp-bulk-tools"><div class="pp-bulk-head"><strong>Ausgewählte Positionen gemeinsam ändern</strong>'+
+   '<button type="button" class="secondary small" data-pp-action="select-all">Alle auswählen</button>'+
    '<button type="button" class="secondary small" data-pp-action="select-none">Auswahl aufheben</button></div>'+
    '<div class="pp-bulk-fields"><select id="pp-bulk-field" aria-label="Feld für Mehrfachbearbeitung">'+
    '<option value="quantity">Rollenanzahl</option><option value="grams">Gramm pro Rolle</option>'+
@@ -241,13 +275,13 @@
    '<option value="packaging">Verpackung</option></select>'+
    '<input id="pp-bulk-value" aria-label="Neuer Wert" placeholder="z. B. 2 oder 19,90">'+
    '<button type="button" class="secondary" data-pp-action="bulk">Auswahl ändern</button></div>'+
-   '<small class="pp-muted">Nur markierte Positionen werden geändert. Der Preis gilt je Position, nicht je Rolle.</small></div>'+
+   '<small class="pp-muted">Der Preis gilt je Position, nicht je Rolle.</small></div></details>'+
    '<p class="pp-muted">Berechnete Summe: <strong>'+money(sum)+'</strong>'+
    (difference?' · Achtung: weicht vom Rechnungsbetrag ab.':'')+'</p>'+
-   (unresolved?'<p class="pp-warning">'+unresolved+' Position(en) müssen geprüft oder korrigiert werden, bevor du alles gesammelt speichern kannst.</p>':'')+
-   '<div class="pp-purchase-actions"><button type="button" class="secondary" data-pp-action="recheck">Erkennung prüfen</button>'+
-   '<button type="button" class="secondary" data-pp-action="save">Alle '+d.lines.length+' übernehmen</button>'+
-   '<button type="button" class="primary" data-pp-action="save-receive">Speichern und jetzt erhalten</button></div>';
+   '<div class="pp-review-footer"><span><b>'+unresolved+'</b> zu prüfen</span>'+
+   '<button type="button" class="secondary" data-pp-action="save">Alle '+d.lines.length+' speichern</button>'+
+   '<button type="button" class="primary" data-pp-action="save-receive">Speichern + erhalten</button></div>';
+  dialog.scrollTop=0;
  }
  function showReceipt(order){
   current=order;
@@ -271,8 +305,9 @@
    takeReview();
    if(draft.lines.some(isUnresolved)){
     const missing=draft.lines.filter(isUnresolved).length;
-    showReview();
-    throw Error(missing+' Position(en) noch ungeprüft. Bitte öffnen, korrigieren oder ausdrücklich als geprüft markieren.');
+    activeLine=draft.lines.findIndex(isUnresolved);
+     showReview();
+     throw Error(missing+' Position(en) noch ungeprüft. Die nächste ist oben geöffnet.');
    }
    if(!draft.lines.length)throw Error('Mindestens eine Position hinzufügen.');
    for(const l of draft.lines){
@@ -327,13 +362,48 @@
   }catch(ex){error(ex.message+' Bitte Bestellung aktualisieren, nicht blind erneut buchen.');}
   finally{busy=false;}
  }
+
+ const MAX_IMPORT_BYTES=12*1024*1024;
+ async function prepareImportImage(file){
+  if(file.size<=MAX_IMPORT_BYTES)return file;
+  const mime=file.type||({'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','webp':'image/webp'}[file.name.split('.').pop().toLowerCase()]);
+  if(!['image/png','image/jpeg','image/webp'].includes(mime)){
+   throw Error('Datei zu groß (maximal 12 MB). Bitte PDF verkleinern oder Bestelltext einfügen.');
+  }
+  const url=URL.createObjectURL(file);
+  try{
+   const img=await new Promise((resolve,reject)=>{
+    const element=new Image();
+    element.onload=()=>resolve(element);
+    element.onerror=()=>reject(Error('Bild konnte nicht geöffnet werden.'));
+    element.src=url;
+   });
+   const scale=Math.min(1,2800/img.naturalWidth,9500/img.naturalHeight);
+   const canvas=document.createElement('canvas');
+   canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));
+   canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
+   const ctx=canvas.getContext('2d');
+   if(!ctx)throw Error('Bildverkleinerung wird von diesem Browser nicht unterstützt.');
+   ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
+   ctx.drawImage(img,0,0,canvas.width,canvas.height);
+   for(const quality of [0.87,0.74,0.60]){
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',quality));
+    if(blob&&blob.size<=MAX_IMPORT_BYTES){
+     return new File([blob],file.name.replace(/\.[^.]+$/,'')+'-komprimiert.jpg',{type:'image/jpeg'});
+    }
+   }
+   throw Error('Foto ist selbst nach Verkleinerung noch zu groß. Bitte einen kleineren Ausschnitt wählen.');
+  }finally{URL.revokeObjectURL(url);}
+ }
+
  async function parseSource(file=null){
   if(busy)return;
   busy=true;error('');
+  const progress=node('pp-import-progress');if(progress)progress.hidden=false;
   try{
    let result;
    if(file){
-    if(file.size>12*1024*1024)throw Error('Datei größer als 12 MB.');
+    file=await prepareImportImage(file);
     const mime=file.type||({png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',
       webp:'image/webp',pdf:'application/pdf',txt:'text/plain'}[file.name.split('.').pop().toLowerCase()]);
     const response=await fetch('api/filament-import-file',{method:'POST',
@@ -343,14 +413,14 @@
     if(!response.ok)throw Error(body.error||'Dokument konnte nicht erkannt werden.');
     result=body;
    }else{
-    const text=node('pp-import-text').value.trim();
+    const text=node('pp-import-text')?.value.trim()||'';
     if(!text)throw Error('Bitte Bestelltext einfügen oder Datei wählen.');
     result=await api('filament-import-text',{text});
    }
    await loadFilaments();
    fromPreview(result);
   }catch(ex){error(ex.message);}
-  finally{busy=false;}
+  finally{busy=false;if(progress)progress.hidden=true;}
  }
  function quickReceive(spool){
   draft=emptyDraft();
@@ -360,7 +430,7 @@
    internal_code:spool.internal_code||'',filament_id:spool.id,
    quantity:spool.cart_qty||1}];
   draft.warnings=['Bitte den tatsächlich gezahlten Positionspreis eintragen; der bisherige Lagerpreis ist nur ein Richtwert.'];
-  expandedLines=new Set([0]);selectedLines=new Set();showReview();
+  expandedLines=new Set([0]);selectedLines=new Set();activeLine=0;showReview();
  }
  node('pp-purchase-add').addEventListener('click',importView);
  node('pp-purchase-close').addEventListener('click',finish);
@@ -375,7 +445,7 @@
   if(!b||busy)return;
   const action=b.dataset.ppAction;
   if(action==='parse')return parseSource();
-  if(action==='manual'){draft=emptyDraft();draft.lines=[emptyLine()];expandedLines=new Set([0]);selectedLines=new Set();showReview();return;}
+  if(action==='manual'){draft=emptyDraft();draft.lines=[emptyLine()];expandedLines=new Set([0]);selectedLines=new Set();activeLine=0;showReview();return;}
   if(action==='save'||action==='save-receive')return save(action==='save-receive');
   if(action==='receive')return bookReceipt();
   if(action==='all-zero'){
@@ -384,9 +454,16 @@
   if(mode==='review'){
    try{takeReview();}catch(ex){error(ex.message);return;}
    const index=Number(b.dataset.ppIndex);
+   if(action==='focus'){activeLine=index;showReview();return;}
+   if(action==='overview'){activeLine=-1;showReview();return;}
+   if(action==='next-issue'){activeLine=draft.lines.findIndex(isUnresolved);showReview();return;}
    if(action==='reviewed'){
-    if(requiredProblems(draft.lines[index]).length){error('Bitte zuerst die fehlenden Pflichtangaben korrigieren.');return;}
-    draft.lines[index].reviewed=true;expandedLines.delete(index);showReview();return;
+    if(requiredProblems(draft.lines[index]).length){
+     showReview();error('Bitte zuerst fehlende Pflichtangaben korrigieren.');return;
+    }
+    draft.lines[index].reviewed=true;
+    activeLine=draft.lines.findIndex(isUnresolved);
+    showReview();return;
    }
    if(action==='select-all'){selectedLines=new Set(draft.lines.map((_,i)=>i));showReview();return;}
    if(action==='select-none'){selectedLines=new Set();showReview();return;}
@@ -408,14 +485,14 @@
     for(const i of selectedLines){draft.lines[i][field]=value;draft.lines[i].reviewed=false;}
     selectedLines=new Set();showReview();message('Ausgewählte Filamente aktualisiert.');return;
    }
-   if(action==='add'){draft.lines.push(emptyLine());expandedLines.add(draft.lines.length-1);}
-   if(action==='remove'){draft.lines.splice(index,1);expandedLines=new Set();selectedLines=new Set();}
+   if(action==='add'){draft.lines.push(emptyLine());activeLine=draft.lines.length-1;}
+   if(action==='remove'){draft.lines.splice(index,1);activeLine=draft.lines.findIndex(isUnresolved);selectedLines=new Set();}
    if(action==='split'){
     const line=draft.lines[index];
     if(!line||line.quantity<2){error('Zum Aufteilen sind mindestens zwei Rollen erforderlich.');return;}
     const extra={...line,quantity:1,gross_cents:null,accept_changes:[]};
     line.quantity-=1;line.gross_cents=null;
-    draft.lines.splice(index+1,0,extra);expandedLines=new Set([index,index+1]);selectedLines=new Set();
+    draft.lines.splice(index+1,0,extra);activeLine=index;selectedLines=new Set();
    }
    showReview();
   }
@@ -437,13 +514,25 @@
   }
   if(e.target.id==='pp-file'&&e.target.files?.[0])parseSource(e.target.files[0]);
  });
+
+ orderBody.addEventListener('input',e=>{
+  // iOS paste menu sometimes omits clipboardData from the paste event.
+  if(mode!=='import'||busy||e.target.id!=='pp-import-text')return;
+  if(e.inputType!=='insertFromPaste'&&e.inputType!=='insertReplacementText')return;
+  if(importTimer)clearTimeout(importTimer);
+  importTimer=setTimeout(()=>{
+   importTimer=null;
+   if(mode==='import'&&!busy&&node('pp-import-text')?.value.trim())parseSource();
+  },250);
+ });
+
  dialog.addEventListener('paste',e=>{
   if(mode!=='import'||busy)return;
   const files=Array.from(e.clipboardData?.items||[]).filter(i=>i.kind==='file');
   const file=files.map(i=>i.getAsFile()).find(Boolean);
   if(file){e.preventDefault();parseSource(file);return;}
   const text=e.clipboardData?.getData('text/plain')?.trim();
-  if(text){e.preventDefault();node('pp-import-text').value=text;parseSource();}
+  if(text){e.preventDefault();if(importTimer)clearTimeout(importTimer);node('pp-import-text').value=text;parseSource();}
  });
  orderBody.addEventListener('dragover',e=>{if(mode==='import'){e.preventDefault();node('pp-drop')?.classList.add('dragging');}});
  orderBody.addEventListener('dragleave',()=>node('pp-drop')?.classList.remove('dragging'));
