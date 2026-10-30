@@ -201,7 +201,7 @@ def parse_bambu_payment(source):
     warning=(f'Nur {len(items)} von mindestens {expected} Farbpositionen erkannt. Bitte vor dem Speichern nachprüfen.'
              if expected and len(items)<expected else '')
     return {'vendor':vendor,'ordered_on':dt.date.today().isoformat(),'reference':'',
-            'items':items,'total_cents':total,'discount_cents':discount,'credit_cents':credit,
+            'items':items,'expected_positions':expected,'total_cents':total,'discount_cents':discount,'credit_cents':credit,
             'shipping_cents':shipping,
             'warnings':([warning] if warning else []) + ([] if items else ['Keine eindeutigen Produktpositionen erkannt. Bitte Positionen manuell ergänzen.'])
                 + (['Unvollständige Positionen bitte einzeln prüfen.'] if any(i['needs_review'] for i in items) else [])}
