@@ -25,7 +25,7 @@ jobs:
       - name: Python-Code pruefen
         run: |
           python -m py_compile print_pulse_druckplaner/app.py print_pulse_druckplaner/local_orders.py print_pulse_druckplaner/local_order_pdf.py print_pulse_druckplaner/economics.py print_pulse_druckplaner/filament_planner.py print_pulse_druckplaner/filament_purchases.py
-          python -m pip install 'reportlab>=3.6,<6'
+          python -m pip install 'reportlab>=3.6,<6' 'pillow>=10,<13'
 
       - name: JavaScript auf Syntax prüfen
         run: |
