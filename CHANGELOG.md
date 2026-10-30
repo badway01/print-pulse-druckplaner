@@ -4,7 +4,7 @@
 - Häufige Korrekturen sofort sichtbar; Hersteller, Material, interne Codes, HEX und sonstige Details in einem separaten aufklappbaren Bereich. Manuelle Bearbeitung und Mehrfachänderung bleiben.
 - Fehlerhinweise erscheinen direkt oben in der Importmaske statt ganz unten. Über 12 MB große Bilddateien werden vor der Texterkennung lokal verkleinert; PDFs zeigen bei Überschreitung sofort eine klare Meldung.
 - Einfügen von Text über die iOS-Zwischenablage löst den Import automatisch aus; der manuelle Text-Button bleibt als Alternative.
-- Fix: Manuell bestätigte Änderungen an bestehenden Filamentstammdaten bleiben beim Wechsel zwischen Positionen erhalten.
+- Fix: Manuell bestätigte Änderungen an bestehenden Filamentstammdaten bleiben beim Wechsel zwischen Positionen erhalten. Die Etsy-Historie und die Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
 
 ## 0.13.8 (2026-10-30)
 
