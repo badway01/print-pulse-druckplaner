@@ -103,6 +103,640 @@ def detect_vendor(text):
         if name in head:return {'esun':'eSUN','ebay':'eBay'}.get(name,name.capitalize())
     return 'Unbekannter Händler'
 
+
+def parse_bambu_payment(source):
+    """Bambu order-detail screenshots: separate material heading / color / quantity."""
+    start=re.search(r'(?i)\bZahlungsdetails\b',source)
+    if not start:return [],0
+    payment=source[start.end():]
+    end=re.search(r'(?im)^\s*(?:Zwischensumme|Bestellrabatt|Credit verwenden|Steuer|Gesamtsumme|Nettobetrag|Lieferadresse|Rechnungsadresse)\b',payment)
+    if end:payment=payment[:end.start()]
+    expected=len(re.findall(r'\(\s*\d{4,6}\s*\)',payment))
+    headings=[]
+    heading=re.compile(r'(?i)\b(PLA\s*(?:Basic|Matte|Silk(?:\+)?|Plus)?|PETG\s*(?:Matte|Basic)?|ABS|ASA|TPU)\s*
+    """Conservative extraction: never invent unknown colors, prices or codes."""
+    if not isinstance(text,str) or not 1<=len(text)<=100000:
+        raise ValueError('Bitte lesbaren Bestelltext einfügen.')
+    normalized=text.replace('\u00a0',' ').replace('\r','')
+    vendor=detect_vendor(normalized)
+    items,expected=(parse_bambu_payment(normalized) if vendor=='Bambu Lab' else ([],0))
+    # Bambu's order confirmation consistently contains material x quantity and (maker code).
+    pattern=re.compile(r'\b(PLA\s*(?:Basic|Matte|Silk(?:\+)?|Plus)?|PETG\s*(?:Matte|Basic)?|ABS|ASA|TPU)\s*[x×]\s*(\d{1,3})\b',re.I)
+    hits=[] if items else list(pattern.finditer(normalized))
+    for idx,match in enumerate(hits[:100]):
+        segment=normalized[match.end():hits[idx+1].start() if idx+1<len(hits) else len(normalized)]
+        segment=segment[:1500]
+        material=' '.join(match.group(1).split())
+        quantity=int(match.group(2))
+        if quantity<1 or quantity>100:continue
+        c=re.search(r'([A-Za-zÄÖÜäöüß][\wÄÖÜäöüß\- ]{1,45}?)\s*\((\d{4,6})\)',segment)
+        color=c.group(1).strip() if c else ''
+        code=c.group(2) if c else ''
+        if color and len(color)>30:color=color[-30:].split('/')[-1].strip()
+        grams=1000
+        g=re.search(r'(\d+(?:[.,]\d+)?)\s*(kg|g)\b',segment,re.I)
+        if g:
+            value=float(g.group(1).replace(',','.'))
+            grams=round(value*(1000 if g.group(2).lower()=='kg' else 1))
+        amounts=re.findall(r'(?<![-−])€\s*(\d{1,5}[.,]\d{2})',segment)
+        if not amounts:
+            amounts=re.findall(r'\b(\d{1,5}[.,]\d{2})\s*(?:€|EUR)\b',segment,re.I)
+        is_gift=bool(re.search(r'geschenk|gift|free|kostenlos',segment[:350],re.I))
+        price=0 if is_gift else money_to_cents(amounts[0]) if amounts else None
+        packing='refill' if re.search('nachfüll|refill',segment,re.I) else (
+            'spool' if re.search('mit spule|with spool',segment,re.I) else 'unknown')
+        row={'brand':vendor if vendor!='Unbekannter Händler' else '',
+             'material':material,'color':color,'manufacturer_code':code,
+             'internal_code':'','color_hex':'','quantity':quantity,'grams':grams,
+             'packaging':packing,'gross_cents':price,'description':''}
+        if is_gift:row['description']='Gratisartikel'
+        items.append(row)
+    # General fallback: extract recognizable product lines conservatively;
+    # OCR layouts and seller formats are inherently variable.
+    if not items:
+        for raw in normalized.splitlines():
+            line=re.sub(r'\s+',' ',raw).strip()
+            if not re.search(r'\b(PLA\+?|PETG|ABS|ASA|TPU)\b',line,re.I):continue
+            if len(line)<12 or len(line)>320:continue
+            m=re.search(r'\b(PLA\+?|PLA\s+(?:Basic|Matte|Silk)|PETG(?:\s+Matte)?|ABS|ASA|TPU)\b',line,re.I)
+            if not m:continue
+            material=m.group(1)
+            qty=re.search(r'\b(\d{1,2})\s*[x×]\s*1\s*kg\b|\b(\d{1,2})er[- ]?pack\b',line,re.I)
+            quantity=int(next((x for x in qty.groups() if x),1)) if qty else 1
+            grams=1000
+            price=re.search(r'€\s*(\d{1,5}[.,]\d{2})|(\d{1,5}[.,]\d{2})\s*€',line)
+            amount=money_to_cents(price.group(1) or price.group(2)) if price else None
+            maker=next((s for s in ('Bambu Lab','SUNLU','eSUN','Polymaker','Prusament','ELEGOO','ERYONE','Creality') if key(s) in key(line)),vendor if vendor not in ('Amazon','eBay','Unbekannter Händler') else '')
+            # Unknown color is intentionally blank and must be supplied in the review.
+            items.append({'brand':maker,'material':material,'color':'',
+             'manufacturer_code':'','internal_code':'','color_hex':'',
+             'quantity':quantity,'grams':grams,'packaging':'unknown',
+             'gross_cents':amount,'description':line[:180]})
+            if len(items)>=40:break
+    for item in items:
+        existing,ambiguous=suggest_matches(db,item) if item['brand'] and item['color'] else (None,False)
+        item['filament_id']=existing['id'] if existing else None
+        item['existing']=existing
+        item['ambiguous']=ambiguous
+        item['needs_review']=not (item['brand'] and item['color'] and item['material'] and item['gross_cents'] is not None and not ambiguous)
+        if existing:
+            item['changes']={k:{'old':existing[k],'new':item[k]} for k in ('manufacturer_code','color_hex')
+               if item.get(k) and item[k]!=existing[k]}
+    # Optional invoice-level figures. Avoid counting line-item bulk rebates a
+    # second time; infer the *additional* checkout rebate from the final total.
+    total=None
+    m=re.search(r'(?i)Gesamtsumme[^\n]{0,140}?[€ ]\s*(\d{1,6}[.,]\d{2})',normalized)
+    if not m:m=re.search(r'(?i)Bruttobetrag[^\n]{0,140}?[€ ]\s*(\d{1,6}[.,]\d{2})',normalized)
+    if m:total=money_to_cents(m.group(1))
+    credit=0
+    m=re.search(r'(?i)Credit verwenden[^\n]{0,100}?[-−]?\s*(\d{1,6}[.,]\d{2})',normalized)
+    if m:credit=money_to_cents(m.group(1)) or 0
+    shipping=0
+    m=re.search(r'(?im)^\s*[\|* ]*Versand[^\n]{0,100}?€\s*(\d{1,6}[.,]\d{2})',normalized)
+    if m:shipping=money_to_cents(m.group(1)) or 0
+    discount=0
+    if total is not None and items and all(x['gross_cents'] is not None for x in items):
+        checkout=sum(x['gross_cents'] for x in items)+shipping-credit-total
+        if checkout>=0:discount=checkout
+    warning=(f'Nur {len(items)} von mindestens {expected} Farbpositionen erkannt. Bitte vor dem Speichern nachprüfen.'
+             if expected and len(items)<expected else '')
+    return {'vendor':vendor,'ordered_on':dt.date.today().isoformat(),'reference':'',
+            'items':items,'total_cents':total,'discount_cents':discount,'credit_cents':credit,
+            'shipping_cents':shipping,
+            'warnings':([warning] if warning else []) + ([] if items else ['Keine eindeutigen Produktpositionen erkannt. Bitte Positionen manuell ergänzen.'])
+                + (['Unvollständige Positionen bitte einzeln prüfen.'] if any(i['needs_review'] for i in items) else [])}
+
+def distribute(deduction, weights):
+    total=sum(weights)
+    if total<=0:return [0]*len(weights)
+    amounts=[(deduction*w)//total for w in weights]
+    remainders=sorted(range(len(weights)),key=lambda i:(-(deduction*weights[i]%total),i))
+    for i in remainders[:deduction-sum(amounts)]:amounts[i]+=1
+    return amounts
+
+def overview(db):
+    orders=[]
+    for order in db.execute('SELECT * FROM pp_filament_orders ORDER BY created DESC,id DESC'):
+        obj=dict(order)
+        lines=[dict(r) for r in db.execute("""
+          SELECT l.*,f.internal_code,f.color_hex AS stored_hex,f.price_cents AS last_price_cents
+          FROM pp_filament_order_lines l JOIN filament_spools f ON l.filament_id=f.id
+          WHERE l.order_id=? ORDER BY l.id""",(obj['id'],))]
+        for ln in lines:
+            f=db.execute("SELECT brand,material,color,manufacturer_code FROM filament_spools WHERE id=?",(ln['filament_id'],)).fetchone()
+            ln.update(dict(f))
+            ln['remaining']=ln['quantity']-ln['received']
+        obj['lines']=lines
+        qty=sum(l['quantity'] for l in lines)
+        received=sum(l['received'] for l in lines)
+        obj['status']='Erhalten' if qty and received==qty else ('Teilweise erhalten' if received else 'Bestellt')
+        obj['received_count']=received
+        obj['ordered_count']=qty
+        orders.append(obj)
+    return {'orders':orders}
+
+def create(db,data):
+    vendor=label(data.get('vendor',''),100,'Händler',True)
+    reference=label(data.get('reference',''),100,'Bestellnummer')
+    ordered_on=label(data.get('ordered_on',''),10,'Bestelldatum')
+    if ordered_on:
+        try:dt.date.fromisoformat(ordered_on)
+        except ValueError:raise ValueError('Ungültiges Bestelldatum.')
+    source_type=label(data.get('source_type','manual'),25,'Quelle')
+    fingerprint=label(data.get('fingerprint',''),100,'Importkennung')
+    if fingerprint and not re.fullmatch(r'[0-9a-f]{64}',fingerprint):
+        raise ValueError('Ungültige Importkennung.')
+    raw=data.get('lines')
+    if not isinstance(raw,list) or not 1<=len(raw)<=100:
+        raise ValueError('Mindestens eine, höchstens 100 Positionen erforderlich.')
+    discount=num(data.get('discount_cents',0),0,10000000,'Rabatt')
+    credit=num(data.get('credit_cents',0),0,10000000,'Guthaben')
+    shipping=num(data.get('shipping_cents',0),0,10000000,'Versand')
+    total=data.get('total_cents')
+    if total is not None:total=num(total,0,100000000,'Rechnungsbetrag')
+    now=int(time.time())
+    order_id=secrets.token_hex(12)
+    if fingerprint:
+        duplicate=db.execute("SELECT id FROM pp_filament_orders WHERE fingerprint=?",(fingerprint,)).fetchone()
+        if duplicate:raise ValueError('Diese Bestellunterlage wurde bereits importiert. Bitte die gespeicherte Bestellung öffnen.')
+    clean=[]
+    for entry in raw:
+        if not isinstance(entry,dict):raise ValueError('Ungültige Bestellposition.')
+        item={k:label(entry.get(k,''),maxlen,k,k in ('brand','material','color'))
+              for k,maxlen in [('brand',70),('material',45),('color',70),('manufacturer_code',24),('internal_code',24),('color_hex',7),('packaging',12),('description',200)]}
+        item['quantity']=num(entry.get('quantity'),1,500,'Rollenanzahl')
+        item['grams']=num(entry.get('grams'),50,5000,'Gramm pro Rolle')
+        item['gross_cents']=entry.get('gross_cents')
+        if item['gross_cents'] is not None:item['gross_cents']=num(item['gross_cents'],0,10000000,'Positionspreis')
+        if item['color_hex'] and not re.fullmatch(r'#[0-9a-fA-F]{6}',item['color_hex']):
+            raise ValueError('HEX-Farbe muss ein sechsstelliger Farbcode sein.')
+        if item['internal_code'] and not re.fullmatch(r'[0-9]+(?:[.,][0-9]+)?',item['internal_code']):
+            raise ValueError('Interner Farbcode muss numerisch sein.')
+        item['internal_code']=item['internal_code'].replace(',','.')
+        if item['manufacturer_code'] and not re.fullmatch(r'[A-Za-z0-9._/-]+',item['manufacturer_code']):
+            raise ValueError('Herstellercode enthält ungültige Zeichen.')
+        if item['packaging'] not in ('spool','refill','unknown'):
+            raise ValueError('Unbekannte Verpackungsart.')
+        item['filament_id']=entry.get('filament_id')
+        if item['filament_id'] is not None:item['filament_id']=num(item['filament_id'],1,999999999,'Filament-Zuordnung')
+        item['accept_changes']=entry.get('accept_changes') or []
+        if not isinstance(item['accept_changes'],list) or any(f not in ('manufacturer_code','color_hex','brand','material','color') for f in item['accept_changes']):
+            raise ValueError('Ungültige Stammdatenänderung.')
+        clean.append(item)
+    known=[i['gross_cents'] for i in clean]
+    if total is not None and all(x is not None for x in known):
+        expected=sum(known)-discount-credit+shipping
+        if expected!=total and data.get('confirm_total_difference') is not True:
+            raise ValueError(f'Positionssumme {expected/100:.2f} € stimmt nicht mit Gesamtbetrag {total/100:.2f} € überein. Bitte korrigieren oder Abweichung ausdrücklich bestätigen.')
+    db.execute("""INSERT INTO pp_filament_orders
+      (id,vendor,reference,ordered_on,total_cents,discount_cents,credit_cents,shipping_cents,fingerprint,source_type,created,updated)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+      (order_id,vendor,reference,ordered_on,total,discount,credit,shipping,fingerprint,source_type,now,now))
+    weights=[v or 0 for v in known]
+    # Known price lines receive proportional order-wide discounts (free lines stay free).
+    deduction=discount+credit
+    if deduction>sum(weights):raise ValueError('Rabatte überschreiten die Positionssumme.')
+    allocated=distribute(deduction,weights)
+    for item,deduct in zip(clean,allocated):
+        fid=item['filament_id']
+        matched,ambiguous=suggest_matches(db,item)
+        if fid is not None:
+            f=db.execute('SELECT * FROM filament_spools WHERE id=?',(fid,)).fetchone()
+            if not f:raise ValueError('Filament nicht gefunden.')
+            if key(f['brand'])!=key(item['brand']) and 'brand' not in item['accept_changes']:
+                raise ValueError('Herstellerabweichung muss ausdrücklich übernommen werden.')
+            if material_key(f['material'])!=material_key(item['material']) and 'material' not in item['accept_changes']:
+                raise ValueError('Materialabweichung muss ausdrücklich übernommen werden.')
+            if matched and matched['id']!=fid:raise ValueError('Filamentzuordnung passt nicht zum Herstellercode.')
+        elif ambiguous:raise ValueError('Mehrdeutiges Filament: vorhandene Farbe manuell zuordnen.')
+        elif matched:fid=matched['id']
+        else:
+            # The source may not contain a HEX code. Use neutral default, not guessed colors.
+            db.execute("""INSERT INTO filament_spools
+             (brand,color,material,color_hex,price_cents,purchase_url,stock_qty,open_qty,cart_qty,
+              internal_code,manufacturer_code,notes,created,updated)
+             VALUES (?,?,?,?,NULL,'',0,0,0,?,?,?, ?,?)""",
+             (item['brand'],item['color'],item['material'],item['color_hex'] or '#c1c9c1',
+              item['internal_code'],item['manufacturer_code'],'Per Bestellung automatisch angelegt',now,now))
+            fid=db.execute('SELECT last_insert_rowid()').fetchone()[0]
+        if fid and (matched or item['filament_id']):
+            old=db.execute('SELECT * FROM filament_spools WHERE id=?',(fid,)).fetchone()
+            changes={}
+            for field in item['accept_changes']:
+                incoming=item[field]
+                if incoming and incoming!=old[field]:
+                    changes[field]=incoming
+            if changes:
+                identity=(key(changes.get('brand',old['brand'])),material_key(changes.get('material',old['material'])),key(changes.get('color',old['color'])))
+                for candidate in db.execute('SELECT id,brand,material,color FROM filament_spools WHERE id<>?',(fid,)):
+                    if identity==(key(candidate['brand']),material_key(candidate['material']),key(candidate['color'])):
+                        raise ValueError('Stammdatenänderung würde eine bestehende Farbe duplizieren.')
+                sets=','.join(k+'=?' for k in changes)
+                db.execute('UPDATE filament_spools SET '+sets+',updated=? WHERE id=?',
+                           (*changes.values(),now,fid))
+                for name,value in changes.items():
+                    db.execute('INSERT INTO pp_filament_catalog_audit (order_id,filament_id,field,old_value,new_value,created) VALUES (?,?,?,?,?,?)',
+                               (order_id,fid,name,str(old[name] or ''),value,now))
+            # Internal numbers only if manually entered, and never overwrite an existing assignment.
+            if item['internal_code'] and not old['internal_code']:
+                conflict=db.execute('SELECT id FROM filament_spools WHERE internal_code=? AND id<>?',
+                                    (item['internal_code'],fid)).fetchone()
+                if conflict:raise ValueError('Interner Farbcode bereits vergeben.')
+                db.execute('UPDATE filament_spools SET internal_code=?,updated=? WHERE id=?',
+                           (item['internal_code'],now,fid))
+        effective=item['gross_cents']-deduct if item['gross_cents'] is not None else None
+        if effective is not None and effective<0:raise ValueError('Negativer Positionspreis.')
+        db.execute("""INSERT INTO pp_filament_order_lines
+          (order_id,filament_id,quantity,grams,packaging,gross_cents,effective_cents,description,created)
+          VALUES (?,?,?,?,?,?,?,?,?)""",(order_id,fid,item['quantity'],item['grams'],
+          item['packaging'],item['gross_cents'],effective,item['description'],now))
+    return order_id
+
+def receive(db,data):
+    order_id=label(data.get('order_id',''),50,'Bestellung',True)
+    request_key=label(data.get('request_key',''),100,'Buchungskennung',True)
+    if not re.fullmatch(r'[A-Za-z0-9_-]{16,100}',request_key):
+        raise ValueError('Ungültige Buchungskennung.')
+    prior=db.execute('SELECT id FROM pp_filament_receipts WHERE request_key=?',(request_key,)).fetchone()
+    if prior:return prior['id']
+    if not db.execute('SELECT 1 FROM pp_filament_orders WHERE id=?',(order_id,)).fetchone():
+        raise ValueError('Bestellung nicht gefunden.')
+    quantities=data.get('lines')
+    if not isinstance(quantities,list) or not quantities:raise ValueError('Keine erhaltenen Rollen ausgewählt.')
+    seen=set();changes=[];now=int(time.time())
+    for entry in quantities:
+        if not isinstance(entry,dict):raise ValueError('Ungültige Wareneingangsposition.')
+        line_id=num(entry.get('id'),1,999999999,'Position')
+        if line_id in seen:raise ValueError('Doppelte Wareneingangsposition.')
+        seen.add(line_id)
+        qty=num(entry.get('quantity'),0,500,'Erhaltene Rollen')
+        before=num(entry.get('expected_received'),0,500,'Veraltete Mengenprüfung')
+        line=db.execute('SELECT * FROM pp_filament_order_lines WHERE id=? AND order_id=?',(line_id,order_id)).fetchone()
+        if not line:raise ValueError('Position nicht gefunden.')
+        if line['received']!=before:raise ValueError('Die Bestellung wurde zwischenzeitlich verändert. Bitte neu öffnen.')
+        if qty>line['quantity']-before:raise ValueError('Mehr Rollen als bestellt ausgewählt.')
+        if qty:changes.append((line,qty))
+    if not changes:raise ValueError('Bitte mindestens eine erhaltene Rolle auswählen.')
+    receipt_id=secrets.token_hex(12)
+    for line,qty in changes:
+        db.execute('UPDATE pp_filament_order_lines SET received=received+? WHERE id=?',
+                   (qty,line['id']))
+        # Exact cumulative rounding prevents price drift over partial receipts.
+        cost=None
+        if line['effective_cents'] is not None:
+            old=round(line['effective_cents']*line['received']/line['quantity'])
+            new=round(line['effective_cents']*(line['received']+qty)/line['quantity'])
+            cost=new-old
+        f=db.execute('SELECT stock_qty,cart_qty FROM filament_spools WHERE id=?',
+                     (line['filament_id'],)).fetchone()
+        if not f or f['stock_qty']+qty>100000:raise ValueError('Filamentbestand überschreitet das Limit.')
+        # Free promotional spools have a zero actual cost, but never replace
+        # the reference / last paid price with zero.
+        paid=(round(line['effective_cents']/line['quantity'])
+              if line['effective_cents'] is not None and line['effective_cents']>0 else None)
+        db.execute("""UPDATE filament_spools SET stock_qty=stock_qty+?,
+          cart_qty=MAX(0,cart_qty-?),price_cents=COALESCE(?,price_cents),updated=? WHERE id=?""",
+          (qty,qty,paid,now,line['filament_id']))
+        db.execute("""INSERT INTO pp_filament_cost_history
+          (receipt_id,line_id,filament_id,quantity,cost_cents,created) VALUES (?,?,?,?,?,?)""",
+          (receipt_id,line['id'],line['filament_id'],qty,cost,now))
+    db.execute('INSERT INTO pp_filament_receipts (id,order_id,request_key,quantities_json,created) VALUES (?,?,?,?,?)',
+      (receipt_id,order_id,request_key,json.dumps([{'line':l['id'],'quantity':q} for l,q in changes]),now))
+    db.execute('UPDATE pp_filament_orders SET updated=? WHERE id=?',(now,order_id))
+    return receipt_id
+)
+    for match in re.finditer(r'(?m)^[^\n]+
+    """Conservative extraction: never invent unknown colors, prices or codes."""
+    if not isinstance(text,str) or not 1<=len(text)<=100000:
+        raise ValueError('Bitte lesbaren Bestelltext einfügen.')
+    normalized=text.replace('\u00a0',' ').replace('\r','')
+    vendor=detect_vendor(normalized)
+    items=[]
+    # Bambu's order confirmation consistently contains material x quantity and (maker code).
+    pattern=re.compile(r'\b(PLA\s*(?:Basic|Matte|Silk(?:\+)?|Plus)?|PETG\s*(?:Matte|Basic)?|ABS|ASA|TPU)\s*[x×]\s*(\d{1,3})\b',re.I)
+    hits=list(pattern.finditer(normalized))
+    for idx,match in enumerate(hits[:100]):
+        segment=normalized[match.end():hits[idx+1].start() if idx+1<len(hits) else len(normalized)]
+        segment=segment[:1500]
+        material=' '.join(match.group(1).split())
+        quantity=int(match.group(2))
+        if quantity<1 or quantity>100:continue
+        c=re.search(r'([A-Za-zÄÖÜäöüß][\wÄÖÜäöüß\- ]{1,45}?)\s*\((\d{4,6})\)',segment)
+        color=c.group(1).strip() if c else ''
+        code=c.group(2) if c else ''
+        if color and len(color)>30:color=color[-30:].split('/')[-1].strip()
+        grams=1000
+        g=re.search(r'(\d+(?:[.,]\d+)?)\s*(kg|g)\b',segment,re.I)
+        if g:
+            value=float(g.group(1).replace(',','.'))
+            grams=round(value*(1000 if g.group(2).lower()=='kg' else 1))
+        amounts=re.findall(r'(?<![-−])€\s*(\d{1,5}[.,]\d{2})',segment)
+        if not amounts:
+            amounts=re.findall(r'\b(\d{1,5}[.,]\d{2})\s*(?:€|EUR)\b',segment,re.I)
+        is_gift=bool(re.search(r'geschenk|gift|free|kostenlos',segment[:350],re.I))
+        price=0 if is_gift else money_to_cents(amounts[0]) if amounts else None
+        packing='refill' if re.search('nachfüll|refill',segment,re.I) else (
+            'spool' if re.search('mit spule|with spool',segment,re.I) else 'unknown')
+        row={'brand':vendor if vendor!='Unbekannter Händler' else '',
+             'material':material,'color':color,'manufacturer_code':code,
+             'internal_code':'','color_hex':'','quantity':quantity,'grams':grams,
+             'packaging':packing,'gross_cents':price,'description':''}
+        if is_gift:row['description']='Gratisartikel'
+        items.append(row)
+    # General fallback: extract recognizable product lines conservatively;
+    # OCR layouts and seller formats are inherently variable.
+    if not items:
+        for raw in normalized.splitlines():
+            line=re.sub(r'\s+',' ',raw).strip()
+            if not re.search(r'\b(PLA\+?|PETG|ABS|ASA|TPU)\b',line,re.I):continue
+            if len(line)<12 or len(line)>320:continue
+            m=re.search(r'\b(PLA\+?|PLA\s+(?:Basic|Matte|Silk)|PETG(?:\s+Matte)?|ABS|ASA|TPU)\b',line,re.I)
+            if not m:continue
+            material=m.group(1)
+            qty=re.search(r'\b(\d{1,2})\s*[x×]\s*1\s*kg\b|\b(\d{1,2})er[- ]?pack\b',line,re.I)
+            quantity=int(next((x for x in qty.groups() if x),1)) if qty else 1
+            grams=1000
+            price=re.search(r'€\s*(\d{1,5}[.,]\d{2})|(\d{1,5}[.,]\d{2})\s*€',line)
+            amount=money_to_cents(price.group(1) or price.group(2)) if price else None
+            maker=next((s for s in ('Bambu Lab','SUNLU','eSUN','Polymaker','Prusament','ELEGOO','ERYONE','Creality') if key(s) in key(line)),vendor if vendor not in ('Amazon','eBay','Unbekannter Händler') else '')
+            # Unknown color is intentionally blank and must be supplied in the review.
+            items.append({'brand':maker,'material':material,'color':'',
+             'manufacturer_code':'','internal_code':'','color_hex':'',
+             'quantity':quantity,'grams':grams,'packaging':'unknown',
+             'gross_cents':amount,'description':line[:180]})
+            if len(items)>=40:break
+    for item in items:
+        existing,ambiguous=suggest_matches(db,item) if item['brand'] and item['color'] else (None,False)
+        item['filament_id']=existing['id'] if existing else None
+        item['existing']=existing
+        item['ambiguous']=ambiguous
+        item['needs_review']=not (item['brand'] and item['color'] and item['material'] and item['gross_cents'] is not None and not ambiguous)
+        if existing:
+            item['changes']={k:{'old':existing[k],'new':item[k]} for k in ('manufacturer_code','color_hex')
+               if item.get(k) and item[k]!=existing[k]}
+    # Optional invoice-level figures. Avoid counting line-item bulk rebates a
+    # second time; infer the *additional* checkout rebate from the final total.
+    total=None
+    m=re.search(r'(?i)Gesamtsumme[^\n]{0,140}?[€ ]\s*(\d{1,6}[.,]\d{2})',normalized)
+    if not m:m=re.search(r'(?i)Bruttobetrag[^\n]{0,140}?[€ ]\s*(\d{1,6}[.,]\d{2})',normalized)
+    if m:total=money_to_cents(m.group(1))
+    credit=0
+    m=re.search(r'(?i)Credit verwenden[^\n]{0,100}?[-−]?\s*(\d{1,6}[.,]\d{2})',normalized)
+    if m:credit=money_to_cents(m.group(1)) or 0
+    shipping=0
+    m=re.search(r'(?im)^\s*[\|* ]*Versand[^\n]{0,100}?€\s*(\d{1,6}[.,]\d{2})',normalized)
+    if m:shipping=money_to_cents(m.group(1)) or 0
+    discount=0
+    if total is not None and items and all(x['gross_cents'] is not None for x in items):
+        checkout=sum(x['gross_cents'] for x in items)+shipping-credit-total
+        if checkout>=0:discount=checkout
+    return {'vendor':vendor,'ordered_on':dt.date.today().isoformat(),'reference':'',
+            'items':items,'total_cents':total,'discount_cents':discount,'credit_cents':credit,
+            'shipping_cents':shipping,
+            'warnings':([] if items else ['Keine eindeutigen Produktpositionen erkannt. Bitte Positionen manuell ergänzen.'])
+                + (['Unvollständige Positionen bitte einzeln prüfen.'] if any(i['needs_review'] for i in items) else [])}
+
+def distribute(deduction, weights):
+    total=sum(weights)
+    if total<=0:return [0]*len(weights)
+    amounts=[(deduction*w)//total for w in weights]
+    remainders=sorted(range(len(weights)),key=lambda i:(-(deduction*weights[i]%total),i))
+    for i in remainders[:deduction-sum(amounts)]:amounts[i]+=1
+    return amounts
+
+def overview(db):
+    orders=[]
+    for order in db.execute('SELECT * FROM pp_filament_orders ORDER BY created DESC,id DESC'):
+        obj=dict(order)
+        lines=[dict(r) for r in db.execute("""
+          SELECT l.*,f.internal_code,f.color_hex AS stored_hex,f.price_cents AS last_price_cents
+          FROM pp_filament_order_lines l JOIN filament_spools f ON l.filament_id=f.id
+          WHERE l.order_id=? ORDER BY l.id""",(obj['id'],))]
+        for ln in lines:
+            f=db.execute("SELECT brand,material,color,manufacturer_code FROM filament_spools WHERE id=?",(ln['filament_id'],)).fetchone()
+            ln.update(dict(f))
+            ln['remaining']=ln['quantity']-ln['received']
+        obj['lines']=lines
+        qty=sum(l['quantity'] for l in lines)
+        received=sum(l['received'] for l in lines)
+        obj['status']='Erhalten' if qty and received==qty else ('Teilweise erhalten' if received else 'Bestellt')
+        obj['received_count']=received
+        obj['ordered_count']=qty
+        orders.append(obj)
+    return {'orders':orders}
+
+def create(db,data):
+    vendor=label(data.get('vendor',''),100,'Händler',True)
+    reference=label(data.get('reference',''),100,'Bestellnummer')
+    ordered_on=label(data.get('ordered_on',''),10,'Bestelldatum')
+    if ordered_on:
+        try:dt.date.fromisoformat(ordered_on)
+        except ValueError:raise ValueError('Ungültiges Bestelldatum.')
+    source_type=label(data.get('source_type','manual'),25,'Quelle')
+    fingerprint=label(data.get('fingerprint',''),100,'Importkennung')
+    if fingerprint and not re.fullmatch(r'[0-9a-f]{64}',fingerprint):
+        raise ValueError('Ungültige Importkennung.')
+    raw=data.get('lines')
+    if not isinstance(raw,list) or not 1<=len(raw)<=100:
+        raise ValueError('Mindestens eine, höchstens 100 Positionen erforderlich.')
+    discount=num(data.get('discount_cents',0),0,10000000,'Rabatt')
+    credit=num(data.get('credit_cents',0),0,10000000,'Guthaben')
+    shipping=num(data.get('shipping_cents',0),0,10000000,'Versand')
+    total=data.get('total_cents')
+    if total is not None:total=num(total,0,100000000,'Rechnungsbetrag')
+    now=int(time.time())
+    order_id=secrets.token_hex(12)
+    if fingerprint:
+        duplicate=db.execute("SELECT id FROM pp_filament_orders WHERE fingerprint=?",(fingerprint,)).fetchone()
+        if duplicate:raise ValueError('Diese Bestellunterlage wurde bereits importiert. Bitte die gespeicherte Bestellung öffnen.')
+    clean=[]
+    for entry in raw:
+        if not isinstance(entry,dict):raise ValueError('Ungültige Bestellposition.')
+        item={k:label(entry.get(k,''),maxlen,k,k in ('brand','material','color'))
+              for k,maxlen in [('brand',70),('material',45),('color',70),('manufacturer_code',24),('internal_code',24),('color_hex',7),('packaging',12),('description',200)]}
+        item['quantity']=num(entry.get('quantity'),1,500,'Rollenanzahl')
+        item['grams']=num(entry.get('grams'),50,5000,'Gramm pro Rolle')
+        item['gross_cents']=entry.get('gross_cents')
+        if item['gross_cents'] is not None:item['gross_cents']=num(item['gross_cents'],0,10000000,'Positionspreis')
+        if item['color_hex'] and not re.fullmatch(r'#[0-9a-fA-F]{6}',item['color_hex']):
+            raise ValueError('HEX-Farbe muss ein sechsstelliger Farbcode sein.')
+        if item['internal_code'] and not re.fullmatch(r'[0-9]+(?:[.,][0-9]+)?',item['internal_code']):
+            raise ValueError('Interner Farbcode muss numerisch sein.')
+        item['internal_code']=item['internal_code'].replace(',','.')
+        if item['manufacturer_code'] and not re.fullmatch(r'[A-Za-z0-9._/-]+',item['manufacturer_code']):
+            raise ValueError('Herstellercode enthält ungültige Zeichen.')
+        if item['packaging'] not in ('spool','refill','unknown'):
+            raise ValueError('Unbekannte Verpackungsart.')
+        item['filament_id']=entry.get('filament_id')
+        if item['filament_id'] is not None:item['filament_id']=num(item['filament_id'],1,999999999,'Filament-Zuordnung')
+        item['accept_changes']=entry.get('accept_changes') or []
+        if not isinstance(item['accept_changes'],list) or any(f not in ('manufacturer_code','color_hex','brand','material','color') for f in item['accept_changes']):
+            raise ValueError('Ungültige Stammdatenänderung.')
+        clean.append(item)
+    known=[i['gross_cents'] for i in clean]
+    if total is not None and all(x is not None for x in known):
+        expected=sum(known)-discount-credit+shipping
+        if expected!=total and data.get('confirm_total_difference') is not True:
+            raise ValueError(f'Positionssumme {expected/100:.2f} € stimmt nicht mit Gesamtbetrag {total/100:.2f} € überein. Bitte korrigieren oder Abweichung ausdrücklich bestätigen.')
+    db.execute("""INSERT INTO pp_filament_orders
+      (id,vendor,reference,ordered_on,total_cents,discount_cents,credit_cents,shipping_cents,fingerprint,source_type,created,updated)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+      (order_id,vendor,reference,ordered_on,total,discount,credit,shipping,fingerprint,source_type,now,now))
+    weights=[v or 0 for v in known]
+    # Known price lines receive proportional order-wide discounts (free lines stay free).
+    deduction=discount+credit
+    if deduction>sum(weights):raise ValueError('Rabatte überschreiten die Positionssumme.')
+    allocated=distribute(deduction,weights)
+    for item,deduct in zip(clean,allocated):
+        fid=item['filament_id']
+        matched,ambiguous=suggest_matches(db,item)
+        if fid is not None:
+            f=db.execute('SELECT * FROM filament_spools WHERE id=?',(fid,)).fetchone()
+            if not f:raise ValueError('Filament nicht gefunden.')
+            if key(f['brand'])!=key(item['brand']) and 'brand' not in item['accept_changes']:
+                raise ValueError('Herstellerabweichung muss ausdrücklich übernommen werden.')
+            if material_key(f['material'])!=material_key(item['material']) and 'material' not in item['accept_changes']:
+                raise ValueError('Materialabweichung muss ausdrücklich übernommen werden.')
+            if matched and matched['id']!=fid:raise ValueError('Filamentzuordnung passt nicht zum Herstellercode.')
+        elif ambiguous:raise ValueError('Mehrdeutiges Filament: vorhandene Farbe manuell zuordnen.')
+        elif matched:fid=matched['id']
+        else:
+            # The source may not contain a HEX code. Use neutral default, not guessed colors.
+            db.execute("""INSERT INTO filament_spools
+             (brand,color,material,color_hex,price_cents,purchase_url,stock_qty,open_qty,cart_qty,
+              internal_code,manufacturer_code,notes,created,updated)
+             VALUES (?,?,?,?,NULL,'',0,0,0,?,?,?, ?,?)""",
+             (item['brand'],item['color'],item['material'],item['color_hex'] or '#c1c9c1',
+              item['internal_code'],item['manufacturer_code'],'Per Bestellung automatisch angelegt',now,now))
+            fid=db.execute('SELECT last_insert_rowid()').fetchone()[0]
+        if fid and (matched or item['filament_id']):
+            old=db.execute('SELECT * FROM filament_spools WHERE id=?',(fid,)).fetchone()
+            changes={}
+            for field in item['accept_changes']:
+                incoming=item[field]
+                if incoming and incoming!=old[field]:
+                    changes[field]=incoming
+            if changes:
+                identity=(key(changes.get('brand',old['brand'])),material_key(changes.get('material',old['material'])),key(changes.get('color',old['color'])))
+                for candidate in db.execute('SELECT id,brand,material,color FROM filament_spools WHERE id<>?',(fid,)):
+                    if identity==(key(candidate['brand']),material_key(candidate['material']),key(candidate['color'])):
+                        raise ValueError('Stammdatenänderung würde eine bestehende Farbe duplizieren.')
+                sets=','.join(k+'=?' for k in changes)
+                db.execute('UPDATE filament_spools SET '+sets+',updated=? WHERE id=?',
+                           (*changes.values(),now,fid))
+                for name,value in changes.items():
+                    db.execute('INSERT INTO pp_filament_catalog_audit (order_id,filament_id,field,old_value,new_value,created) VALUES (?,?,?,?,?,?)',
+                               (order_id,fid,name,str(old[name] or ''),value,now))
+            # Internal numbers only if manually entered, and never overwrite an existing assignment.
+            if item['internal_code'] and not old['internal_code']:
+                conflict=db.execute('SELECT id FROM filament_spools WHERE internal_code=? AND id<>?',
+                                    (item['internal_code'],fid)).fetchone()
+                if conflict:raise ValueError('Interner Farbcode bereits vergeben.')
+                db.execute('UPDATE filament_spools SET internal_code=?,updated=? WHERE id=?',
+                           (item['internal_code'],now,fid))
+        effective=item['gross_cents']-deduct if item['gross_cents'] is not None else None
+        if effective is not None and effective<0:raise ValueError('Negativer Positionspreis.')
+        db.execute("""INSERT INTO pp_filament_order_lines
+          (order_id,filament_id,quantity,grams,packaging,gross_cents,effective_cents,description,created)
+          VALUES (?,?,?,?,?,?,?,?,?)""",(order_id,fid,item['quantity'],item['grams'],
+          item['packaging'],item['gross_cents'],effective,item['description'],now))
+    return order_id
+
+def receive(db,data):
+    order_id=label(data.get('order_id',''),50,'Bestellung',True)
+    request_key=label(data.get('request_key',''),100,'Buchungskennung',True)
+    if not re.fullmatch(r'[A-Za-z0-9_-]{16,100}',request_key):
+        raise ValueError('Ungültige Buchungskennung.')
+    prior=db.execute('SELECT id FROM pp_filament_receipts WHERE request_key=?',(request_key,)).fetchone()
+    if prior:return prior['id']
+    if not db.execute('SELECT 1 FROM pp_filament_orders WHERE id=?',(order_id,)).fetchone():
+        raise ValueError('Bestellung nicht gefunden.')
+    quantities=data.get('lines')
+    if not isinstance(quantities,list) or not quantities:raise ValueError('Keine erhaltenen Rollen ausgewählt.')
+    seen=set();changes=[];now=int(time.time())
+    for entry in quantities:
+        if not isinstance(entry,dict):raise ValueError('Ungültige Wareneingangsposition.')
+        line_id=num(entry.get('id'),1,999999999,'Position')
+        if line_id in seen:raise ValueError('Doppelte Wareneingangsposition.')
+        seen.add(line_id)
+        qty=num(entry.get('quantity'),0,500,'Erhaltene Rollen')
+        before=num(entry.get('expected_received'),0,500,'Veraltete Mengenprüfung')
+        line=db.execute('SELECT * FROM pp_filament_order_lines WHERE id=? AND order_id=?',(line_id,order_id)).fetchone()
+        if not line:raise ValueError('Position nicht gefunden.')
+        if line['received']!=before:raise ValueError('Die Bestellung wurde zwischenzeitlich verändert. Bitte neu öffnen.')
+        if qty>line['quantity']-before:raise ValueError('Mehr Rollen als bestellt ausgewählt.')
+        if qty:changes.append((line,qty))
+    if not changes:raise ValueError('Bitte mindestens eine erhaltene Rolle auswählen.')
+    receipt_id=secrets.token_hex(12)
+    for line,qty in changes:
+        db.execute('UPDATE pp_filament_order_lines SET received=received+? WHERE id=?',
+                   (qty,line['id']))
+        # Exact cumulative rounding prevents price drift over partial receipts.
+        cost=None
+        if line['effective_cents'] is not None:
+            old=round(line['effective_cents']*line['received']/line['quantity'])
+            new=round(line['effective_cents']*(line['received']+qty)/line['quantity'])
+            cost=new-old
+        f=db.execute('SELECT stock_qty,cart_qty FROM filament_spools WHERE id=?',
+                     (line['filament_id'],)).fetchone()
+        if not f or f['stock_qty']+qty>100000:raise ValueError('Filamentbestand überschreitet das Limit.')
+        # Free promotional spools have a zero actual cost, but never replace
+        # the reference / last paid price with zero.
+        paid=(round(line['effective_cents']/line['quantity'])
+              if line['effective_cents'] is not None and line['effective_cents']>0 else None)
+        db.execute("""UPDATE filament_spools SET stock_qty=stock_qty+?,
+          cart_qty=MAX(0,cart_qty-?),price_cents=COALESCE(?,price_cents),updated=? WHERE id=?""",
+          (qty,qty,paid,now,line['filament_id']))
+        db.execute("""INSERT INTO pp_filament_cost_history
+          (receipt_id,line_id,filament_id,quantity,cost_cents,created) VALUES (?,?,?,?,?,?)""",
+          (receipt_id,line['id'],line['filament_id'],qty,cost,now))
+    db.execute('INSERT INTO pp_filament_receipts (id,order_id,request_key,quantities_json,created) VALUES (?,?,?,?,?)',
+      (receipt_id,order_id,request_key,json.dumps([{'line':l['id'],'quantity':q} for l,q in changes]),now))
+    db.execute('UPDATE pp_filament_orders SET updated=? WHERE id=?',(now,order_id))
+    return receipt_id
+,payment):
+        row=match.group(0).strip()
+        if len(row)>65 or re.search(r'\d|\(|€',row):continue
+        name=heading.search(row)
+        if name:
+            material=re.sub(r'(?i)^(PLA|PETG)(?=[A-Za-z])',r'\1 ',name.group(1))
+            headings.append((match.start(),match.end(),' '.join(material.split())))
+    items=[]
+    for idx,(_,end_pos,material) in enumerate(headings):
+        segment=payment[end_pos:headings[idx+1][0] if idx+1<len(headings) else len(payment)]
+        code_match=re.search(r'\(\s*(\d{4,6})\s*\)',segment)
+        if not code_match:continue
+        prefix=segment[segment.rfind('\n',0,code_match.start())+1:code_match.start()]
+        color=re.sub(r'^[^A-Za-zÄÖÜäöüß]+','',prefix.strip()).strip()
+        color=re.sub(r'(?i)^(?:R\s+|D\s+)','',color).strip()
+        if not color or len(color)>55:continue
+        detail=segment[code_match.end():]
+        qty=re.search(r'[x×]\s*(\d{1,3})\b',detail[:160],re.I)
+        if not qty:continue
+        quantity=int(qty.group(1))
+        if not 1<=quantity<=100:continue
+        units=re.search(r'(\d+(?:[.,]\d+)?)\s*(kg|g)\b',detail[:160],re.I)
+        grams=(round(float(units.group(1).replace(',','.'))*
+               (1000 if units.group(2).lower()=='kg' else 1)) if units else 1000)
+        if not 50<=grams<=5000:grams=1000
+        packaging=('refill' if re.search(r'nachfüll|refill',segment[:400],re.I)
+                   else 'spool' if re.search(r'mit spule|with spool',segment[:400],re.I)
+                   else 'unknown')
+        price=None
+        for raw in segment.splitlines():
+            if re.search(r'(?i)mengenrabatt|^.*(?:rabatt|discount)\s*[-−]',raw):continue
+            found=re.search(r'\b(\d{1,5}[.,]\d{2})\s*(?:€|EUR)',raw,re.I)
+            if found:
+                price=money_to_cents(found.group(1))
+                break
+        gift=price==0 or bool(re.search(r'(?i)geschenk|gratisartikel|gift\b',segment[:220]))
+        items.append({'brand':'Bambu Lab','material':material,'color':color,
+            'manufacturer_code':code_match.group(1),'internal_code':'','color_hex':'',
+            'quantity':quantity,'grams':grams,'packaging':packaging,
+            'gross_cents':0 if gift else price,
+            'description':'Gratisartikel' if gift else ''})
+    return items,expected
+
 def parse_text(text, db):
     """Conservative extraction: never invent unknown colors, prices or codes."""
     if not isinstance(text,str) or not 1<=len(text)<=100000:
