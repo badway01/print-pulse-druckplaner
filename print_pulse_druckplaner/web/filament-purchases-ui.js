@@ -170,7 +170,11 @@
     '<button type="button" class="primary" data-pp-m-action="save">Bestellung speichern</button>'+
     '<button type="button" class="secondary" data-pp-m-action="save-receive">Speichern + erhalten</button></div>';
  }
- function startManual(){
+ async function startManual(){
+  // Ensure the actual library is ready, even if a user opens the dialog fast.
+  if(typeof filamentData!=='undefined'&&!filamentData&&typeof loadFilaments==='function'){
+   try{await loadFilaments();}catch(ex){message('Bibliothek konnte noch nicht geladen werden.');}
+  }
   draft=emptyDraft();
   draft.vendor='Bambu Lab';
   draft.source_type='manual';
