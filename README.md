@@ -1,3 +1,7 @@
+## Version 0.13.8 · Filament-Sammelimport
+
+Unter **Filament → Filamentbestellungen → Bestellung importieren** eine kopierte Bambu-Bestellübersicht oder einen Screenshot einfügen; alternativ PDF/Bild auswählen. Der Import zeigt eine kompakte Übersicht und öffnet nur unklare Positionen. **Bearbeiten** klappt jede Zeile auf, ohne den gesamten Auftrag auseinanderzunehmen. Fehlende Positionen kannst du ergänzen oder entfernen und ausgewählte Positionen (Rollen, Gramm, Preis, Verpackung) zusammen bearbeiten. Hinweise ohne vollständige Quelldaten müssen vor dem Sammelspeichern geprüft und ausdrücklich bestätigt werden. Übernahme bucht keine Spulen ins Lager, solange der Wareneingang nicht separat bestätigt wird.
+
 ## Version 0.13.7 · Filamentbestellungen & Wareneingang
 
 Im Reiter **Filament** gibt es jetzt einen separaten Bereich **Filamentbestellungen**. Du kannst einen Screenshot, eine PDF-Rechnung oder kopierten Bestelltext importieren und jede Position vor dem Speichern vollständig korrigieren. Der Import läuft lokal über Tesseract/PDF-Text; die Erkennung ist händlerunabhängig, aber unbekannte Produktlayouts erfordern eine manuelle Prüfung.

@@ -1,3 +1,10 @@
+## 0.13.8 (2026-10-30)
+
+- Filament-Sammelimport: erkannte Bestellpositionen als kompakte Übersicht statt 14 einzeln geöffneter Prüfmasken. Unklare Farben, Preise und abweichende Stammdaten öffnen sich zur Kontrolle.
+- Jede Position lässt sich weiterhin manuell bearbeiten, ergänzen, entfernen, aufteilen oder ausdrücklich als geprüft bestätigen. Mehrere markierte Positionen können Menge, Gramm, Verpackung oder Positionspreis gemeinsam ändern.
+- Kopierten Bestelltext oder Screenshot direkt in die Importmaske einfügen; Screenshot/PDF/TXT-Upload bleibt verfügbar.
+- Gesamtübernahme erst nach Prüfung offener Hinweise. Bestehender Wareneingang und Teilmengenbuchung bleiben unverändert; Filament-Bedarfsanalyse mit Etsy-Historie und 50 g Standard bleibt erhalten.
+
 ## 0.13.7 (2026-10-29)
 
 - Neue Filamentbestellungen mit lokalem Screenshot-/PDF-/Textimport (Tesseract OCR und PDF-Text), unabhängig vom Händler; unbekannte Positionen müssen manuell geprüft werden.
