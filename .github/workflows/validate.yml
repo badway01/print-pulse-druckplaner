@@ -65,12 +65,12 @@ jobs:
             if curl -fsS http://127.0.0.1:8099/api/status >/dev/null; then break; fi
             sleep 1
           done
-          node tests/filament_purchases_ui.cjs
           node tests/dialog_ui.cjs
           node tests/stock_orders_ui.cjs
           node tests/ui.cjs
           node tests/ui_safari.cjs
           node tests/local_ui.cjs
+          node tests/filament_purchases_ui.cjs
 
       - name: Ansichten der Bedienprüfung
         if: always()
