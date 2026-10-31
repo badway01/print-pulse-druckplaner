@@ -104,6 +104,57 @@
   return files.filter(f=>!dedicated.has(f.printer)||String(f.variant_id)===vid)
     .sort((a,b)=>Number(b.created)-Number(a.created)||String(b.id).localeCompare(String(a.id)));
  }
+
+ // Single-product orders use the live product masters, not a snapshot from
+ // the moment the Etsy order was received.
+ function productOrderMaster(line){
+  const files=masterChoices(line),lid=listingOf(line),vid=variantOf(line);
+  const saved=(printTools.order_master_defaults||[]).filter(d=>String(d.listing_id)===lid &&
+   (!d.variant_id||String(d.variant_id)===vid))
+   .sort((a,b)=>Number(String(b.variant_id)===vid)-Number(String(a.variant_id)===vid));
+  for(const def of saved){
+   const file=files.find(f=>f.id===def.file_id);
+   if(file)return {file,files,pinned:true};
+  }
+  const kinds=new Set(files.map(f=>f.printer+'|'+masterBase(f.filename)));
+  return {file:kinds.size===1?files[0]||null:null,files,pinned:false};
+ }
+ function productMasterHtml(line){
+  if(!listingOf(line))return '';
+  const {file,files,pinned}=productOrderMaster(line);
+  const mac=typeof masterSlicerMac==='function'&&masterSlicerMac();
+  if(!files.length)return '<div class="simple-pos-master-empty"><b>Druckprojekt</b><span>Noch keine Master-3MF hinterlegt.</span></div>';
+  const open=file?(mac?'<a class="simple-part-master-open" href="'+
+   esc(masterSlicerUrl(file,file.printer==='Snapmaker U1'?'snapmaker':'bambu'))+'">In '+
+   (file.printer==='Snapmaker U1'?'Snapmaker Orca':'Bambu Studio')+' öffnen ↗</a>':
+   '<a class="simple-part-master-open" href="api/master-download?id='+encodeURIComponent(file.id)+'" download>3MF herunterladen</a>'):'';
+  const choices='<div class="simple-part-master-assign"><select data-order-master-select aria-label="3MF-Projekt auswählen">'+
+   '<option value="">3MF-Projekt wählen…</option>'+files.map(f=>'<option value="'+esc(f.id)+'"'+
+   (f.id===file?.id?' selected':'')+'>'+esc(f.filename+' · '+f.printer+(f.variant_id?' · Variante':''))+'</option>').join('')+
+   '</select><button type="button" class="secondary" data-order-master-save>Als Standard speichern</button></div>';
+  return '<section class="simple-pos-master-product"><strong>Druckprojekt direkt öffnen</strong>'+
+   (file?'<div class="simple-part-master-current"><span class="simple-part-master-filename">'+
+    esc(file.filename)+' · '+esc(file.printer)+(pinned?' · Standard':'')+'</span>'+open+'</div>':
+    '<p class="simple-part-master-hint">Mehrere Druckprojekte vorhanden. Wähle einmal das passende Projekt.</p>')+
+   (files.length>1?(file?'<details class="simple-part-master-change"><summary>Projekt wechseln</summary>'+choices+'</details>':choices):'')+
+   '</section>';
+ }
+ async function saveProductOrderMaster(button){
+  const found=locate();if(!found)return;
+  const id=button.closest('.simple-pos-master-product')?.querySelector('[data-order-master-select]')?.value;
+  const file=masterChoices(found.line).find(f=>f.id===id);
+  if(!file){flash('Bitte passende 3MF auswählen.',true);return;}
+  button.disabled=true;
+  try{
+   const result=await api('order-master-default',{listing_id:listingOf(found.line),
+     variant_id:variantOf(found.line),file_id:file.id});
+   const lid=listingOf(found.line);
+   printTools.order_master_defaults=[...(printTools.order_master_defaults||[]).filter(d=>String(d.listing_id)!==lid),...(result.order_master_defaults||[])];
+   printTools.files=[...(printTools.files||[]).filter(f=>String(f.listing_id)!==lid),...(result.files||[])];
+   positionSnapshot='';draw();flash('3MF für bestehende und zukünftige Bestellungen gespeichert.');
+  }catch(err){flash('3MF-Zuordnung fehlgeschlagen: '+err.message,true);}
+  finally{button.disabled=false;}
+ }
  function partMasterResolution(line,part){
   const files=masterChoices(line),vid=variantOf(line);
   const maps=(printTools.component_links||[]).filter(m=>String(m.component_id)===String(part.id)&&
@@ -157,9 +208,10 @@
   masterOrderLoading=lid;
   try{
    const result=await api('print-tools?listing_id='+encodeURIComponent(lid));
-   if(!Array.isArray(result.files)||!Array.isArray(result.component_links))throw Error('Unvollständige 3MF-Daten');
+   if(!Array.isArray(result.files)||!Array.isArray(result.component_links)||!Array.isArray(result.order_master_defaults))throw Error('Unvollständige 3MF-Daten');
    printTools.files=[...(printTools.files||[]).filter(f=>String(f.listing_id)!==lid),...result.files];
    printTools.component_links=[...(printTools.component_links||[]).filter(f=>String(f.listing_id)!==lid),...result.component_links];
+   printTools.order_master_defaults=[...(printTools.order_master_defaults||[]).filter(f=>String(f.listing_id)!==lid),...result.order_master_defaults];
    if(focus.open&&locate()?.line&&listingOf(locate().line)===lid){positionSnapshot='';draw();}
   }catch(err){flash('3MF-Verknüpfungen konnten nicht geladen werden: '+err.message,true);}
   finally{if(masterOrderLoading===lid)masterOrderLoading='';}
@@ -218,7 +270,8 @@
   const found=locate();if(!found){if(focus.open)focus.close();return;}
   const snapshot=JSON.stringify([selected,found.line,findItem(found.line.item_id)?.i?.on_hand,
    (printTools.files||[]).filter(f=>String(f.listing_id)===listingOf(found.line)),
-   (printTools.component_links||[]).filter(m=>String(m.listing_id)===listingOf(found.line))]);
+   (printTools.component_links||[]).filter(m=>String(m.listing_id)===listingOf(found.line)),
+   (printTools.order_master_defaults||[]).filter(m=>String(m.listing_id)===listingOf(found.line))]);
   if(focus.open&&snapshot===positionSnapshot)return;
   positionSnapshot=snapshot;
   const {o,line}=found,st=status(line),component=composed(line);
@@ -239,7 +292,7 @@
    '<div><small>BESTELLUNG #'+esc(o.id)+' · '+q+' STÜCK</small><h3>'+esc(orderShortProductTitle(line.title))+'</h3></div></div>'+
    orderVariantLabels(line.variant)+
    (labels.length?'<div class="simple-pos-extras">'+labels.map(x=>'<strong>'+esc(x)+'</strong>').join('')+'</div>':'')+
-   (partMode?componentPartRows(line):component?'<div class="simple-pos-parts"><strong>Bauteile</strong><p class="hint">Bitte zuerst die Bauteile im Produktkatalog hinterlegen.</p></div>':'')+
+   (partMode?componentPartRows(line):productMasterHtml(line))+
    '<div class="simple-pos-state '+st[1]+'"><strong>'+esc(st[0])+'</strong>'+
    '<small>'+done(line)+' von '+q+' fertig'+(!component&&printing?' · '+printing+' im Druck':'')+'</small></div>'+
    (start||finish||readyUnits>0||undoable>1?
@@ -324,6 +377,8 @@
   if(event.target.closest('[data-focus-close]')){focus.close();return;}
   const mapping=event.target.closest('[data-part-master-save]');
   if(mapping){savePartMaster(mapping);return;}
+  const productMaster=event.target.closest('[data-order-master-save]');
+  if(productMaster){saveProductOrderMaster(productMaster);return;}
   const part=event.target.closest('[data-focus-part-action]');
   if(part){partAction(part);return;}
   const a=event.target.closest('[data-focus-action]');if(a){action(a.dataset.focusAction);return;}

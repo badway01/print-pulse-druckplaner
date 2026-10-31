@@ -1,3 +1,11 @@
+## 0.13.18 (2026-10-31)
+
+- 3MF-Direktstart in vorhandenen und zukünftigen Bestellpositionen ohne Bauteile. Das gemeinsame Detailfenster funktioniert sowohl im Dashboard als auch unter „Bestellungen“.
+- Live-Abfrage der aktuellen Masterdateien bei jedem Öffnen; keine erneute Etsy-Bestellung oder Umbuchung erforderlich.
+- Bei mehreren Masterprojekten kann pro Produktvariante ein Standard-Projekt gespeichert werden. Zugehörigkeit zu Produkt/Variante wird serverseitig geprüft.
+- Eigener Desktop- und Bestellungen-Browsertest plus Migrationstest. Bestehende Dateien und Bestellstatus unverändert.
+- Filament-Bedarfsanalyse mit 50 g Standard und Etsy-Historie unverändert.
+
 ## 0.13.17 (2026-10-31)
 
 - Direkt aus jeder Bestellposition die passende Bauteil-Master-3MF im Slicer öffnen, z. B. Schale → Schale.3mf und Scrunchie-Halter → Halter.3mf.

@@ -32,12 +32,12 @@ const assert=require('node:assert/strict');
        components_enabled:true,components:parts}]}];
    await route.fulfill({response,json:data});
   });
-  await page.route('**/api/print-tools?listing_id=101',route=>route.fulfill({json:{files,profiles:[],component_links:links}}));
+  await page.route('**/api/print-tools?listing_id=101',route=>route.fulfill({json:{files,profiles:[],component_links:links,order_master_defaults:[]}}));
   await page.route('**/api/master-component-link',route=>{
    saved=route.request().postDataJSON();
    links=[{component_id:saved.component_id,variant_id:saved.variant_id,printer:saved.printer,
            file_id:saved.file_id,listing_id:'101'}];
-   return route.fulfill({json:{files,profiles:[],component_links:links}});
+   return route.fulfill({json:{files,profiles:[],component_links:links,order_master_defaults:[]}});
   });
   await page.goto('http://127.0.0.1:8099/');
   await page.locator('[data-order-position="test-part-line"]').first().click();

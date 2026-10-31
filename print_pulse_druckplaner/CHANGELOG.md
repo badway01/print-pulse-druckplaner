@@ -1,3 +1,11 @@
+# 0.13.18 · 3MF-Direktzugriff für alle vorhandenen Bestellungen
+
+- Auch einfache Bestellpositionen ohne einzeln erfasste Bauteile zeigen das gespeicherte Master-3MF-Projekt direkt im Dialog (Dashboard und Bestellungen).
+- Die 3MF-Zuordnung wird beim Öffnen der Bestellung aus dem aktuellen Produktkatalog geladen. Ältere Bestellungen brauchen weder Bearbeitung noch erneutes Anlegen.
+- Bei genau einem passenden Druckprojekt (auch mehreren Revisionen mit gleichem Namen) erscheint der Slicer-Button automatisch. Bei mehreren unterschiedlichen Projekten kann eine Datei als Standard für die Produktvariante dauerhaft gespeichert werden.
+- Der bestehende Mac-SMB-Helfer öffnet die Originaldatei ohne neue Installation; auf anderen Geräten bleibt der Download.
+- Der Klick auf „Im Slicer öffnen“ ist unabhängig von der Produktionsbuchung. Etsy-Historie, Druckstatus und Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
+
 # 0.13.17 · 3MF-Direktstart in der Bestellposition je Bauteil
 
 - Im Bestellungs-Detaildialog erhält jedes separat druckbare Bauteil eine direkte 3MF-Aktion: „In Bambu Studio öffnen“ bzw. „In Snapmaker Orca öffnen“.
