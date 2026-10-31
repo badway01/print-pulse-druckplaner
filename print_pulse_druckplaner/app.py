@@ -53,7 +53,7 @@ except ImportError:
     _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.17'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.18'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -279,6 +279,11 @@ def init_db():
           printer TEXT NOT NULL,filename TEXT NOT NULL,relative_path TEXT NOT NULL UNIQUE,
           bytes INTEGER NOT NULL,created INTEGER NOT NULL);
         CREATE INDEX IF NOT EXISTS master_files_listing ON master_files(listing_id);
+        -- Product-level default 3MF for existing and future orders without parts.
+        CREATE TABLE IF NOT EXISTS pp_order_master_defaults(
+          listing_id TEXT NOT NULL,variant_id TEXT NOT NULL DEFAULT '',
+          file_id TEXT NOT NULL,updated INTEGER NOT NULL,
+          PRIMARY KEY(listing_id,variant_id));
         -- Dismissed suggestions are only a display preference. Nothing is
         -- removed from Etsy orders, product stock or print reservations.
         CREATE TABLE IF NOT EXISTS priority_dismissals(
@@ -1366,6 +1371,11 @@ def print_tools_overview(listing_id=None):
             WHERE f.listing_id=c.listing_id""" +
             (' AND c.listing_id=?' if listing_id else '') +
             ' ORDER BY m.component_id,m.variant_id,m.printer',args)]
+        defaults=[dict(r) for r in db.execute("""SELECT d.listing_id,d.variant_id,d.file_id
+            FROM pp_order_master_defaults d JOIN master_files f ON f.id=d.file_id
+            WHERE f.listing_id=d.listing_id""" +
+            (' AND d.listing_id=?' if listing_id else '') +
+            ' ORDER BY d.listing_id,d.variant_id',args)]
         # v0.11.x stores two optional filament columns. Old installations may
         # contain older columns; read the common fields without changing data.
         cols={col['name'] for col in db.execute('PRAGMA table_info(filament_spools)')}
@@ -1403,8 +1413,34 @@ def print_tools_overview(listing_id=None):
                         'brand':f['brand'],'material':f['material'],'hex':f['color_hex'],
                         'slot':label+' · '+str(number)})
         row['sources']=clean
-    return {'profiles':profiles,'files':files,'component_links':links}
+    return {'profiles':profiles,'files':files,'component_links':links,'order_master_defaults':defaults}
 
+
+
+
+def save_order_master_default(data):
+    """Persist a default project for all existing and future orders of a product/variant."""
+    lid=str(data.get('listing_id') or '')
+    vid=str(data.get('variant_id') or '')
+    fid=str(data.get('file_id') or '')
+    if not lid.isdigit() or len(lid)>32 or (fid and not re.fullmatch(r'[a-f0-9]{24}',fid)):
+        raise ValueError('Ungültiges Produkt oder 3MF-ID.')
+    with connect() as db:
+        if not db.execute('SELECT 1 FROM stock_listings WHERE id=?',(lid,)).fetchone():
+            raise ValueError('Produkt nicht gefunden.')
+        if vid and not db.execute('SELECT 1 FROM stock_items WHERE id=? AND listing_id=?',(vid,lid)).fetchone():
+            raise ValueError('Variante gehört nicht zum Produkt.')
+        if fid:
+            record=db.execute('SELECT listing_id,variant_id FROM master_files WHERE id=?',(fid,)).fetchone()
+            if not record or record['listing_id']!=lid or record['variant_id'] not in ('',vid):
+                raise ValueError('3MF-Datei gehört nicht zu diesem Produkt bzw. dieser Variante.')
+            db.execute("""INSERT INTO pp_order_master_defaults(listing_id,variant_id,file_id,updated)
+                VALUES(?,?,?,?) ON CONFLICT(listing_id,variant_id)
+                DO UPDATE SET file_id=excluded.file_id,updated=excluded.updated""",
+                (lid,vid,fid,int(time.time())))
+        else:
+            db.execute('DELETE FROM pp_order_master_defaults WHERE listing_id=? AND variant_id=?',(lid,vid))
+    return print_tools_overview(lid)
 
 
 def save_component_master_link(data):
@@ -2306,6 +2342,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,save_print_profile(data))
             if path=='/api/master-component-link':
                 return self.send(200,save_component_master_link(data))
+            if path=='/api/order-master-default':
+                return self.send(200,save_order_master_default(data))
             if path=='/api/filament-history':
                 return self.send(202,filament_history_import())
             if path=='/api/filament-plan':
