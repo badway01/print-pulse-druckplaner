@@ -7,7 +7,7 @@ let orderSort='ship';
 let workspace='production',filamentView='colors',filamentData=null,filamentBusy=false,filamentLoading=false;
 let filamentSort='default';
 try{const saved=localStorage.getItem('pp-filament-sort');if(['default','stock-desc','stock-asc','internal-code','manufacturer-code','hex-code'].includes(saved))filamentSort=saved;}catch{}
-let printTools={profiles:[],files:[],component_links:[]}, masterContext=null,masterSources=[],masterBusy=false;
+let printTools={profiles:[],files:[],component_links:[],order_master_defaults:[]}, masterContext=null,masterSources=[],masterBusy=false;
 let printerLive=null,printerLoading=false,printerEntities=[],printerConfigId=null,printerConfigBusy=false;
 let etsyAlertExpanded=false,etsyAlertFocused=null;
 try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
@@ -1647,6 +1647,7 @@ async function openMasterEditor(id){
   printTools.profiles=[...printTools.profiles.filter(r=>r.listing_id!==id),...tool.profiles];
   printTools.files=[...printTools.files.filter(r=>r.listing_id!==id),...tool.files];
   printTools.component_links=[...(printTools.component_links||[]).filter(r=>r.listing_id!==id),...(tool.component_links||[])];
+  printTools.order_master_defaults=[...(printTools.order_master_defaults||[]).filter(r=>r.listing_id!==id),...(tool.order_master_defaults||[])];
   filamentData=spool;
   masterSelectionChanged();
   $('master-upload-details').open=!printTools.files.some(f=>f.listing_id===id&&f.variant_id===''&&f.printer==='H2D');
@@ -1784,6 +1785,7 @@ async function uploadMaster(){
    if(!Array.isArray(tool.files))throw Error('Dateiliste unvollständig.');
    printTools.files=[...printTools.files.filter(r=>r.listing_id!==target.listing_id),...tool.files];
    printTools.component_links=[...(printTools.component_links||[]).filter(r=>r.listing_id!==target.listing_id),...(tool.component_links||[])];
+   printTools.order_master_defaults=[...(printTools.order_master_defaults||[]).filter(r=>r.listing_id!==target.listing_id),...(tool.order_master_defaults||[])];
    renderMasterFiles();render();renderCatalog();
   }catch(error){
    console.warn('3MF-Datei gespeichert, aber Dateiliste nicht neu ladbar:',error);
