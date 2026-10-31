@@ -1,3 +1,10 @@
+## 0.13.14 (2026-10-31)
+
+- Neue Slicer-Direktlinks für Mac mit Bambu Studio und Snapmaker Orca je gespeicherter 3MF-Datei.
+- Mac-Helfer zum einmaligen Einrichten über den 3MF-Dialog herunterladbar. Die Datei wird weiter über Home Assistant Ingress mit der angemeldeten Browser-Sitzung übertragen und anschließend lokal in der gewünschten App geöffnet.
+- Keine öffentlichen Download-Tokens oder Netzwerkfreigaben nötig. Normaler 3MF-Download bleibt als Fallback.
+- Die Etsy-Historie und die Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
+
 ## 0.13.13 (2026-10-31)
 
 - Master-3MF-Filamentbelegung auf große Farbswatches, kompakte AMS-Plätze und durchsuchbare Farb-Kacheln umgestellt (interner Code, Farbe, Material und Hersteller-Code).
