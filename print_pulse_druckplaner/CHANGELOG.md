@@ -1,3 +1,10 @@
+# 0.13.14 · Master-3MF direkt im Slicer öffnen
+
+- Auf dem Mac pro Masterdatei „In Bambu Studio öffnen“ und „In Snapmaker Orca öffnen“.
+- Einmalig installierbarer lokaler Mac-Helfer. Der Safari-Download bleibt durch die HA-Anmeldung geschützt; keine neue öffentliche Dateischnittstelle.
+- 3MF-Dateien erhalten beim Slicer-Download einen eindeutigen Dateinamen. Die vorhandenen Download- und Speicherfunktionen bleiben erhalten.
+- Etsy-Historie und Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
+
 # 0.13.13 · Master-3MF: Farben visuell belegen und Speichermeldung korrigieren
 
 - AMS-Plätze mit gut sichtbaren Farbfeldern, kurzen Farbnamen und internen Nummern statt endloser Filament-Dropdowns.

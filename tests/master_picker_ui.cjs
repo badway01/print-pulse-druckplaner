@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 (async()=>{
  const browser=await chromium.launch({headless:true});
  try{
-  const page=await browser.newPage({viewport:{width:1100,height:900}});
+  const page=await browser.newPage({viewport:{width:1100,height:900},userAgent:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15'});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const spools=[
    {id:1,internal_code:'5',brand:'Bambu Lab',color:'Schwarz',material:'PLA Basic',color_hex:'#000000',manufacturer_code:'10101'},
@@ -44,10 +44,14 @@ const assert=require('node:assert/strict');
   assert.equal(saved.sources[0].slots[0],2);
   await page.locator('#master-upload-input').setInputFiles({name:'Schale.3mf',mimeType:'model/3mf',buffer:Buffer.from('testdatei')});
   await page.locator('#master-upload').click();
-  await page.waitForFunction(()=>document.querySelector('#master-upload-status').textContent.includes('abgelegt'));
+  await page.waitForFunction(()=>document.querySelector('#master-upload-status').textContent.includes('Nur die Aktualisierung'));
   assert(uploaded);
   assert.match(await page.locator('#master-upload-status').innerText(),/Nur die Aktualisierung/);
   assert.match(await page.locator('#master-files').innerText(),/Schale\.3mf/);
+  assert.equal(await page.locator('[data-master-slicer-file]').count(),2);
+  assert.match(await page.locator('[data-master-slicer-file]').first().getAttribute('href'),/^printpulse3mf:\/\/bambu\/[a-f0-9]{24}$/);
+  assert.match(await page.locator('[data-master-slicer-file]').last().getAttribute('href'),/^printpulse3mf:\/\/snapmaker\/[a-f0-9]{24}$/);
+  assert.equal(await page.locator('.master-slicer-help a[download]').count(),1);
   assert.doesNotMatch(await page.locator('#master-upload-status').innerText(),/Upload fehlgeschlagen/);
   assert.deepEqual(errors,[],'No JavaScript browser errors');
   await page.setViewportSize({width:390,height:780});

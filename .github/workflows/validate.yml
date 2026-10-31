@@ -47,6 +47,7 @@ jobs:
           node --check tests/local_ui.cjs
           node --check tests/filament_purchases_ui.cjs
           node --check tests/master_picker_ui.cjs
+          bash -n print_pulse_druckplaner/web/install-slicer-helper-mac.command
 
       - name: Private Daten suchen
         run: python scripts/check_public.py

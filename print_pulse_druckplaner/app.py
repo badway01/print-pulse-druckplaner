@@ -53,7 +53,7 @@ except ImportError:
     _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.13'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.14'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2066,14 +2066,17 @@ class Handler(BaseHTTPRequestHandler):
                 log.exception('Druckprofile: Abruf fehlgeschlagen (keine gespeicherten Daten verändert)')
                 return self.send(500,{'error':'Druckprofile momentan nicht lesbar. Die gespeicherten Druckprofile und 3MF-Dateien bleiben erhalten. Bitte das App-Protokoll prüfen.'})
         if path=='/api/master-download':
-            file_id=(urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get('id') or [''])[0]
+            params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            file_id=(params.get('id') or [''])[0]
+            launcher=(params.get('launcher') or [''])[0]=='mac'
             try:
                 row,file=master_download_record(file_id)
                 with file.open('rb') as stream:
                     self.send_response(200)
                     self.send_header('Content-Type','model/3mf')
                     self.send_header('Content-Length',str(row['bytes']))
-                    self.send_header('Content-Disposition',"attachment; filename*=UTF-8''"+urllib.parse.quote(row['filename']))
+                    download_name=('PP3MF-'+row['id']+'-'+row['filename']) if launcher else row['filename']
+                    self.send_header('Content-Disposition',"attachment; filename*=UTF-8''"+urllib.parse.quote(download_name))
                     self.send_header('X-Content-Type-Options','nosniff')
                     self.send_header('Cache-Control','no-store')
                     self.end_headers()
@@ -2081,7 +2084,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except (ValueError,FileNotFoundError):
                 return self.send(404,{'error':'Datei nicht verfügbar.'})
-        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml')}
+        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')

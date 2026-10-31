@@ -1705,13 +1705,22 @@ function openMasterPicker(source,slot){
  $('master-filament-search').focus();
 }
 
+function masterSlicerMac(){
+ return /Macintosh/.test(navigator.userAgent) && !('ontouchend' in document);
+}
 function renderMasterFiles(){
  const x=selectedMasterTarget();
  const files=printTools.files.filter(f=>f.listing_id===x.listing_id&&f.variant_id===x.variant_id&&f.printer===x.printer);
- updateHTML($('master-files'),files.length?files.map(f=>
-  '<div class="master-file"><div><b>'+esc(f.filename)+'</b><small>'+new Date(f.created*1000).toLocaleString('de-DE')+' · '+(f.bytes/1048576).toFixed(1)+' MB</small></div><a class="secondary small" href="api/master-download?id='+encodeURIComponent(f.id)+'" download>Herunterladen</a></div>'
- ).join(''):'<p class="hint">Noch keine Masterdatei für diese Kombination vorhanden.</p>');
+ const mac=masterSlicerMac();
+ updateHTML($('master-files'),files.length?files.map(f=>{
+  const id=encodeURIComponent(f.id);
+  const nativeOptions=mac?'<a class="secondary small master-slicer-link" data-master-slicer-file="'+esc(f.id)+'" href="printpulse3mf://bambu/'+id+'">In Bambu Studio öffnen</a>'+
+   '<a class="secondary small master-slicer-link" data-master-slicer-file="'+esc(f.id)+'" href="printpulse3mf://snapmaker/'+id+'">In Snapmaker Orca öffnen</a>':'';
+  return '<div class="master-file"><div class="master-file-details"><b>'+esc(f.filename)+'</b><small>'+new Date(f.created*1000).toLocaleString('de-DE')+' · '+(f.bytes/1048576).toFixed(1)+' MB</small></div><div class="master-file-actions">'+nativeOptions+
+   '<a class="secondary small" href="api/master-download?id='+id+'" download>Herunterladen</a></div></div>';
+ }).join(''):'<p class="hint">Noch keine Masterdatei für diese Kombination vorhanden.</p>');
 }
+
 async function saveMaster(){
  if(masterBusy||!masterContext)return;
  masterBusy=true;$('master-save').disabled=true;
@@ -1823,6 +1832,22 @@ $('master-editor').addEventListener('keydown',event=>{
 $('master-editor').addEventListener('close',()=>closeMasterPicker(false));
 $('master-save').addEventListener('click',saveMaster);
 $('master-upload').addEventListener('click',uploadMaster);
+$('master-files').addEventListener('click',event=>{
+ const link=event.target.closest('[data-master-slicer-file]');
+ if(!link||!masterSlicerMac())return;
+ const id=link.dataset.masterSlicerFile;
+ if(!/^[a-f0-9]{24}$/.test(id)){event.preventDefault();flash('Ungültige Masterdatei-ID.',true);return;}
+ // Ingress-authenticated download happens in the browser. The local helper
+ // only opens the matching file from Downloads, never a remote HA URL.
+ const download=document.createElement('a');
+ download.href='api/master-download?id='+encodeURIComponent(id)+'&launcher=mac';
+ download.download='PP3MF-'+id+'-Master.3mf';
+ download.hidden=true;
+ document.body.appendChild(download);
+ download.click();
+ download.remove();
+ $('master-slicer-status').textContent='Die Datei wird heruntergeladen und im gewählten Slicer geöffnet. Safari kann einmalig um Erlaubnis fragen.';
+});
 $('master-copy-path').addEventListener('click',copyMasterPath);
 $('master-upload-input').addEventListener('change',()=>{$('master-upload-status').textContent='';});
 
