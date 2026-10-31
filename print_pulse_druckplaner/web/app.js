@@ -1716,7 +1716,10 @@ function renderMasterFiles(){
  const x=selectedMasterTarget();
  const files=printTools.files.filter(f=>f.listing_id===x.listing_id&&f.variant_id===x.variant_id&&f.printer===x.printer);
  const mac=masterSlicerMac();
- const host=/^[a-zA-Z0-9.-]+$/.test(window.location.hostname)?window.location.hostname:'';
+ const candidate=window.location.hostname.toLowerCase();
+ // Never cause macOS to contact an arbitrary SMB host from a deep link.
+ // Only local/private HA addresses can be offered as an auto-mount hint.
+ const host=/^(10\.(\d{1,3}\.){2}\d{1,3}|192\.168\.(\d{1,3}\.)\d{1,3}|172\.(1[6-9]|2\d|3[01])\.(\d{1,3}\.)\d{1,3}|[a-z0-9-]+\.local)$/.test(candidate)?candidate:'';
  const hostQuery=host?'?server='+encodeURIComponent(host):'';
  $('master-file-count').textContent=files.length===1?'1 Projektdatei':files.length+' Projektdateien';
  updateHTML($('master-files'),files.length?files.map((f,index)=>{
