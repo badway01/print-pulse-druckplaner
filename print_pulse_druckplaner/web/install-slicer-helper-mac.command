@@ -66,7 +66,7 @@ if [ -z "$FILE" ]; then
     # Only an explicitly chosen local file is opened; never pick an arbitrary
     # 3MF from another order based on recency or a similar product name.
     FILE="$(/usr/bin/osascript -e 'POSIX path of (choose file with prompt "Print & Pulse: 3MF-Datei auswählen. Falls sie nicht heruntergeladen wurde, zuerst in Home Assistant auf Herunterladen klicken.")' 2>/dev/null || true)"
-    if [[ ! -f "$FILE" || "$FILE" != *.[3][mM][fF] && "$FILE" != *.[3][M][fF] && "$FILE" != *.[3][mM][Ff] ]]; then
+    if [[ ! -f "$FILE" || "$FILE" != *.[3][mM][fF] ]]; then
         echo "Keine gültige 3MF ausgewählt. Bitte in Home Assistant auf Herunterladen klicken und die Datei anschließend auswählen."
         exit 1
     fi
