@@ -58,6 +58,7 @@ if [ "$SLICER" = bambu ]; then
     { echo "Bambu Studio wurde nicht gefunden. Öffne die Datei über den Finder."; exit 1; }
 else
     /usr/bin/open -a "Snapmaker Orca" "$FILE" ||
+    /usr/bin/open -a "Snapmaker_Orca" "$FILE" ||
     /usr/bin/open -a "Snapmaker OrcaSlicer" "$FILE" ||
     { echo "Snapmaker Orca wurde nicht gefunden. Öffne die Datei über den Finder."; exit 1; }
 fi
