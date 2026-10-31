@@ -32,7 +32,10 @@ BASE_URL="${URL%%\?*}"
 SERVER_HINT=""
 if [[ "$URL" == *"?server="* ]]; then
     SERVER_HINT="${URL#*\?server=}"
-    if [[ ! "$SERVER_HINT" =~ ^[A-Za-z0-9.-]+$ ]]; then
+    if [[ ! "$SERVER_HINT" =~ ^10\.([0-9]{1,3}\.){2}[0-9]{1,3}$ &&
+          ! "$SERVER_HINT" =~ ^192\.168\.([0-9]{1,3}\.)[0-9]{1,3}$ &&
+          ! "$SERVER_HINT" =~ ^172\.(1[6-9]|2[0-9]|3[01])\.([0-9]{1,3}\.)[0-9]{1,3}$ &&
+          ! "$SERVER_HINT" =~ ^[a-zA-Z0-9-]+\.local$ ]]; then
         SERVER_HINT=""
     fi
 fi
@@ -83,7 +86,7 @@ SEARCH_DIRS=(
     "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Downloads"
 )
 FILE=""
-for ((attempt=0;attempt<60;attempt++)); do
+for ((attempt=0;attempt<8;attempt++)); do
     for directory in "${SEARCH_DIRS[@]}"; do
         [ -d "$directory" ] || continue
         for candidate in "$directory"/PP3MF-"$FILE_ID"-*.3mf; do
