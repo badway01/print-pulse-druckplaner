@@ -5,6 +5,8 @@
 - Eindeutige Statushinweise direkt im 3MF-Dialog; vorhandene Belegungen und alle Masterdatei-Versionen bleiben unverändert.
 - Regressionstest für Farbwahl, Profil-Speichern und Nachladefehler nach erfolgreichem 3MF-Upload.
 
+- Die Etsy-Historie und die Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
+
 ## 0.13.12 (2026-10-30)
 
 - Filamentbestellungen werden jetzt standardmäßig manuell erfasst: kompakte Positionen statt Screenshot-Zwang. Foto-/Text-Import bleibt als optionale Schaltfläche erhalten.
