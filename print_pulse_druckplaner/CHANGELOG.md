@@ -5,6 +5,8 @@
 - 3MF-Upload bestätigt das erfolgreiche Ablegen separat. Ein später fehlgeschlagenes Nachladen der Dateiliste wird nicht mehr fälschlich als Upload-Fehler ausgegeben.
 - Direkt im Dialog wird angezeigt, ob Filamentbelegung oder 3MF-Datei gespeichert wurde. Bestehende Profile, Masterdateien und Druckerzuordnungen bleiben erhalten.
 
+- Die Etsy-Historie und die Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
+
 # 0.13.12 · Filamentbestellung ohne Screenshot
 
 - Neuer Standard: Filamentbestellung direkt manuell eintragen. Bestehende Farben per Suche nach Bambu-Code, internem Code, Material oder Farbe übernehmen.
