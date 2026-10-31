@@ -1,3 +1,11 @@
+# 0.13.16 · Master-3MF-Projekte übersichtlich anzeigen und direkt vom Netzwerk öffnen
+
+- Master-3MF-Dateien als übersichtliche Projektkarten mit gut lesbarem Dateinamen, Drucker, Datum, Dateigröße und klar getrennten Bambu-/Snapmaker-Aktionen.
+- Filamentbelegung, neue Uploads und Einrichtungsdetails sind aufklappbar. Bestehende 3MF-Dateien erscheinen zuerst und sind auch mobil gut bedienbar.
+- Neuer Mac-Helfer öffnet bevorzugt die unveränderte Original-3MF aus der Home-Assistant-Samba-Freigabe unter /share/print-pulse/masterdateien. Die eindeutige Datei-ID identifiziert exakt die richtige Projektversion.
+- Falls nötig, kann der Mac die lokale SMB-Freigabe einmalig verbinden. Ist sie nicht erreichbar, bleibt die lokale Dateiauswahl als Notlösung. Ein Browser-Download wird beim Öffnen nicht mehr automatisch ausgelöst.
+- Bereits gespeicherte Masterdateien, Druckprofile, Filamentdaten sowie Etsy-Historie und Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
+
 # 0.13.15 · Mac-Slicer: Downloadpfad erkennen und Datei auswählen
 
 - Safari kann 3MF-Downloads anders benennen, blockieren oder in einem abweichenden Ordner speichern. Der lokale Helfer sucht jetzt auch im konfigurierten Safari-Ordner und in iCloud-Downloads.
