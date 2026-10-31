@@ -43,7 +43,7 @@ const assert=require('node:assert/strict');
   await page.locator('#master-save').click();
   await page.waitForFunction(()=>document.querySelector('#master-profile-status').textContent.includes('gespeichert'));
   assert.equal(saved.sources[0].slots[0],2);
-  await page.locator('#master-upload-details summary').click();
+  if(!await page.locator('#master-upload-details').evaluate(el=>el.open)) await page.locator('#master-upload-details summary').click();
   await page.locator('#master-upload-input').setInputFiles({name:'Schale.3mf',mimeType:'model/3mf',buffer:Buffer.from('testdatei')});
   await page.locator('#master-upload').click();
   await page.waitForFunction(()=>document.querySelector('#master-upload-status').textContent.includes('Nur die Aktualisierung'));
