@@ -1,3 +1,11 @@
+## 0.13.15 (2026-10-31)
+
+- Safari kann 3MF-Downloads anders benennen, blockieren oder in einem abweichenden Ordner speichern. Der lokale Helfer sucht jetzt auch im konfigurierten Safari-Ordner und in iCloud-Downloads.
+- Falls keine eindeutige 3MF-Datei gefunden wird, öffnet sich eine native Dateiauswahl. Es wird keine zufällig ähnliche Datei ungefragt geladen.
+- Der normale Download bleibt erhalten; neue Hilfe erklärt die sichere zweistufige Ausweichlösung.
+- Für den verbesserten Mac-Helfer ist die einmalige Neuinstallation nötig. Bestehende Masterdateien werden nicht verändert.
+- Etsy-Historie und Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
+
 ## 0.13.14 (2026-10-31)
 
 - Neue Slicer-Direktlinks für Mac mit Bambu Studio und Snapmaker Orca je gespeicherter 3MF-Datei.
