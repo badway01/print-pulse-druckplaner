@@ -292,7 +292,7 @@
    '<div><small>BESTELLUNG #'+esc(o.id)+' · '+q+' STÜCK</small><h3>'+esc(orderShortProductTitle(line.title))+'</h3></div></div>'+
    orderVariantLabels(line.variant)+
    (labels.length?'<div class="simple-pos-extras">'+labels.map(x=>'<strong>'+esc(x)+'</strong>').join('')+'</div>':'')+
-   (partMode?componentPartRows(line):component?'<div class="simple-pos-parts"><strong>Bauteile</strong><p class="hint">Bitte zuerst die Bauteile im Produktkatalog hinterlegen.</p></div>':productMasterHtml(line))+
+   (partMode?componentPartRows(line):productMasterHtml(line))+
    '<div class="simple-pos-state '+st[1]+'"><strong>'+esc(st[0])+'</strong>'+
    '<small>'+done(line)+' von '+q+' fertig'+(!component&&printing?' · '+printing+' im Druck':'')+'</small></div>'+
    (start||finish||readyUnits>0||undoable>1?
