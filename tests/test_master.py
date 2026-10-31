@@ -142,7 +142,7 @@ class MasterTests(unittest.TestCase):
         file,path=app.master_download_record(result['id'])
         self.assertEqual(file['filename'],original)
         self.assertEqual(path.read_bytes(),content)
-        self.assertIn('My_Acorn_beide_gr_en.3mf',path.name)
+        self.assertIn('My_Acorn_beide_gr__en.3mf',path.name)
 
     def test_reject_invalid_file_and_profile(self):
         self.spool()
