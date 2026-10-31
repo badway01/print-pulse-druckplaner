@@ -53,7 +53,7 @@ except ImportError:
     _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.18'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.19'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -1526,6 +1526,23 @@ def save_print_profile(data):
     return print_tools_overview(lid)
 
 
+def decode_master_upload_name(params):
+    """Accept URL-safe UTF-8 filenames without sending non-ASCII URL query bytes.
+
+    Keep the old filename parameter for existing clients.
+    """
+    encoded=(params.get('filename_b64') or [''])[0]
+    if not encoded:
+        return (params.get('filename') or [''])[0]
+    if len(encoded)>900 or not re.fullmatch(r'[A-Za-z0-9_-]+',encoded):
+        raise ValueError('Ungültiger kodierter 3MF-Dateiname.')
+    try:
+        padded=encoded+'='*((-len(encoded))%4)
+        return base64.urlsafe_b64decode(padded).decode('utf-8','strict')
+    except (ValueError,UnicodeError) as exc:
+        raise ValueError('3MF-Dateiname ist nicht gültig kodiert.') from exc
+
+
 def safe_master_basename(filename):
     if not isinstance(filename,str) or not filename.lower().endswith('.3mf') or len(filename)>160:
         raise ValueError('Nur .3mf-Dateien bis 160 Zeichen hochladen.')
@@ -2181,7 +2198,19 @@ class Handler(BaseHTTPRequestHandler):
                 if not 4<=length<=MAX_MASTER_SIZE:
                     return self.send(413,{'error':'Maximal 100 MB pro 3MF-Datei.'})
                 params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query,keep_blank_values=True)
-                meta={key:(params.get(key) or [''])[0] for key in ('listing_id','variant_id','printer','filename')}
+                # New clients send ASCII-safe metadata headers. Avoid query strings
+                # for binary uploads through Home Assistant's ingress proxy.
+                if self.headers.get('X-PP-Filename-B64') is not None:
+                    meta={
+                        'listing_id':self.headers.get('X-PP-Listing',''),
+                        'variant_id':self.headers.get('X-PP-Variant',''),
+                        'printer':self.headers.get('X-PP-Printer',''),
+                    }
+                    meta['filename']=decode_master_upload_name({
+                        'filename_b64':[self.headers.get('X-PP-Filename-B64','')]})
+                else:
+                    meta={key:(params.get(key) or [''])[0] for key in ('listing_id','variant_id','printer')}
+                    meta['filename']=decode_master_upload_name(params)
                 self.connection.settimeout(120)
                 return self.send(200,store_master_file(meta,self.rfile,length))
             except (ValueError,OSError) as exc:

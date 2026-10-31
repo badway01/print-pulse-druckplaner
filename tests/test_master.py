@@ -123,6 +123,27 @@ class MasterTests(unittest.TestCase):
         self.assertEqual(cleared['order_master_defaults'],[])
         self.assertEqual(len(cleared['files']),1)
 
+    def test_url_safe_unicode_master_filename_and_legacy_compatibility(self):
+        import base64
+        original='My_Acorn_beide_größen.3mf'
+        token=base64.urlsafe_b64encode(original.encode('utf-8')).decode('ascii').rstrip('=')
+        self.assertEqual(app.decode_master_upload_name({'filename_b64':[token]}),original)
+        self.assertEqual(app.decode_master_upload_name({'filename':[original]}),original)
+        for corrupt in ('nicht+base64','***','%C3%B6'):
+            with self.assertRaises(ValueError):
+                app.decode_master_upload_name({'filename_b64':[corrupt]})
+        with io.BytesIO() as buf:
+            with zipfile.ZipFile(buf,'w') as z:
+                z.writestr('[Content_Types].xml','<Types/>')
+            content=buf.getvalue()
+        result=app.store_master_file({'listing_id':'123','printer':'H2D','variant_id':'',
+           'filename':app.decode_master_upload_name({'filename_b64':[token]})},
+           io.BytesIO(content),len(content))
+        file,path=app.master_download_record(result['id'])
+        self.assertEqual(file['filename'],original)
+        self.assertEqual(path.read_bytes(),content)
+        self.assertIn('My_Acorn_beide_gr__en.3mf',path.name)
+
     def test_reject_invalid_file_and_profile(self):
         self.spool()
         with self.assertRaises(ValueError):

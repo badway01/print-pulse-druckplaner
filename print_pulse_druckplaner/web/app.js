@@ -1767,9 +1767,30 @@ async function uploadMaster(){
  status.textContent='3MF-Datei wird abgelegt …';status.dataset.state='pending';
  let stored=false;
  try{
-  const q=new URLSearchParams({...target,filename:file.name});
-  const res=await fetch('api/master-upload?'+q,{method:'POST',headers:{'Content-Type':'application/octet-stream','X-PP-Upload':'1'},body:file});
-  const data=await res.json();
+  // Some Safari/Home Assistant ingress paths reject percent-encoded Unicode
+  // in query strings. Transfer the name as ASCII-only base64url and preserve
+  // the original filename in the stored master record.
+  const nameBytes=new TextEncoder().encode(file.name);
+  const nameToken=btoa(String.fromCharCode(...nameBytes))
+   .split('+').join('-').split('/').join('_').replace(/=+$/,'');
+  const res=await fetch('api/master-upload',{
+   method:'POST',credentials:'same-origin',
+   headers:{
+    'Content-Type':'application/octet-stream','X-PP-Upload':'1',
+    'X-PP-Listing':target.listing_id,'X-PP-Variant':target.variant_id,
+    'X-PP-Printer':target.printer,'X-PP-Filename-B64':nameToken
+   },body:file
+  });
+  const raw=await res.text();
+  let data;
+  try{data=JSON.parse(raw);}
+  catch{
+   const type=res.headers.get('content-type')||'unbekannt';
+   const hint=/<(?:!doctype|html|head|body)/i.test(raw)?
+    'Home Assistant hat statt JSON eine Webseite gesendet (Ingress-/Proxy-Fehler).':
+    raw.trim()?'Der Server hat unerwarteten Text gesendet.':'Der Server hat leer geantwortet.';
+   throw Error(hint+' HTTP '+res.status+', Inhaltstyp '+type+'. Prüfe die Add-on-Protokolle; die Datei könnte trotzdem gespeichert worden sein.');
+  }
   if(!res.ok)throw Error(data.error||'Upload fehlgeschlagen.');
   if(!data.ok||!data.id)throw Error('Speicherbestätigung unvollständig. Bitte die Dateiliste prüfen.');
   stored=true;

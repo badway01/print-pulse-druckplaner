@@ -11,7 +11,7 @@ const assert=require('node:assert/strict');
    {id:2,internal_code:'11',brand:'Bambu Lab',color:'Sakura Pink',material:'PLA Matte',color_hex:'#ff99ee',manufacturer_code:'11201'},
    {id:3,internal_code:'16',brand:'Bambu Lab',color:'Gelb',material:'PLA Basic',color_hex:'#f4ee2a',manufacturer_code:'10102'}
   ];
-  let saved=null,uploaded=false,refreshFails=false;
+  let saved=null,uploaded=false,refreshFails=false,uploadName=null,uploadHeaders=null;
   await page.route('**/api/filaments',route=>route.fulfill({json:{filaments:spools}}));
   await page.route('**/api/print-tools*',route=>{
    if(refreshFails)return route.fulfill({status:500,json:{error:'Test: Nachladen vorübergehend nicht möglich'}});
@@ -23,6 +23,13 @@ const assert=require('node:assert/strict');
   });
   await page.route('**/api/master-upload*',async route=>{
    uploaded=true;refreshFails=true;
+   const request=route.request();
+   assert.equal(new URL(request.url()).search,'','Upload URL has no filename query params');
+   uploadHeaders=request.headers();
+   const token=uploadHeaders['x-pp-filename-b64'];
+   assert(token,'ASCII-safe filename header is present');
+   uploadName=Buffer.from(token.replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('utf8');
+   assert.equal(uploadHeaders['x-pp-printer'],'H2D');
    return route.fulfill({json:{ok:true,id:'abcdef012345abcdef012345',bytes:1234}});
   });
   await page.goto('http://127.0.0.1:8099/');
@@ -44,14 +51,15 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>document.querySelector('#master-profile-status').textContent.includes('gespeichert'));
   assert.equal(saved.sources[0].slots[0],2);
   if(!await page.locator('#master-upload-details').evaluate(el=>el.open)) await page.locator('#master-upload-details summary').click();
-  await page.locator('#master-upload-input').setInputFiles({name:'Schale.3mf',mimeType:'model/3mf',buffer:Buffer.from('testdatei')});
+  await page.locator('#master-upload-input').setInputFiles({name:'My_Acorn_beide_größen.3mf',mimeType:'model/3mf',buffer:Buffer.from('testdatei')});
   await page.locator('#master-upload').click();
   await page.waitForFunction(()=>document.querySelector('#master-upload-status').textContent.includes('Nur die Aktualisierung'));
   assert(uploaded);
+  assert.equal(uploadName,'My_Acorn_beide_größen.3mf');
   assert.match(await page.locator('#master-upload-status').innerText(),/Nur die Aktualisierung/);
-  assert.match(await page.locator('#master-files').innerText(),/Schale\.3mf/);
+  assert.match(await page.locator('#master-files').innerText(),/My_Acorn_beide_größen\.3mf/);
   assert.equal(await page.locator('.master-project-card').count(),1);
-  assert.match(await page.locator('.master-project-name strong').innerText(),/Schale\.3mf/);
+  assert.match(await page.locator('.master-project-name strong').innerText(),/My_Acorn_beide_größen\.3mf/);
   assert.equal(await page.locator('#master-file-count').innerText(),'1 Projektdatei');
   assert.equal(await page.locator('[data-master-slicer-file]').count(),2);
   assert.match(await page.locator('[data-master-slicer-file]').first().getAttribute('href'),/^printpulse3mf:\/\/bambu\/[a-f0-9]{24}$/);
@@ -59,6 +67,19 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('.master-slicer-help a[download]').count(),1);
   assert.equal(await page.locator('.master-slicer-help').getAttribute('open'),null);
   assert.doesNotMatch(await page.locator('#master-upload-status').innerText(),/Upload fehlgeschlagen/);
+  // Safari used to turn an HTML ingress response into an opaque
+  // "The string did not match the expected pattern" JSON error.
+  await page.unroute('**/api/master-upload*');
+  await page.route('**/api/master-upload*',route=>route.fulfill({
+   status:502,contentType:'text/html',body:'<!doctype html><html><body>Bad Gateway</body></html>'
+  }));
+  await page.locator('#master-upload-input').setInputFiles({
+   name:'My_Acorn_beide_groessen.3mf',mimeType:'model/3mf',buffer:Buffer.from('testdatei')
+  });
+  await page.locator('#master-upload').click();
+  await page.waitForFunction(()=>document.querySelector('#master-upload-status').textContent.includes('HTTP 502'));
+  assert.match(await page.locator('#master-upload-status').innerText(),/Ingress-.?\/?.?Proxy-Fehler|Ingress-\/Proxy-Fehler/);
+  assert.doesNotMatch(await page.locator('#master-upload-status').innerText(),/The string did not match/);
   assert.deepEqual(errors,[],'No JavaScript browser errors');
   await page.setViewportSize({width:390,height:780});
   await page.locator('[data-master-slot-open="1"]').click();

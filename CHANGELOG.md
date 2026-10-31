@@ -1,3 +1,11 @@
+## 0.13.19 (2026-10-31)
+
+- Die bisherige 3MF-Upload-URL mit Dateinamen und anderen Parametern wird durch einen POST auf den festen Endpunkt ohne Querystring ersetzt. Produkt, Variante, Drucker und Originaldateiname werden getrennt in ASCII-sicheren HTTP-Headern übergeben.
+- Umlaute und Sonderzeichen wie in „My_Acorn_beide_größen.3mf“ können übertragen und als Originaldateiname gespeichert werden; ältere Clients mit Query-Parametern bleiben kompatibel.
+- Safari-Fehlermeldung „The string did not match the expected pattern“ wird bei HTML- oder leeren Proxy-Antworten durch HTTP-Status und aussagekräftige Fehlermeldung ersetzt. Ein Upload wird nur nach expliziter JSON-Bestätigung als erfolgreich markiert.
+- Tests für deutschen Dateinamen, Browser-Upload ohne Querystring und HTTP-502-Ingress-Antwort.
+- Masterdateien, Filamentprofile, Produktions-/Lagerbuchungen, Etsy-Historie und Bedarfsanalyse mit 50 g Standard bleiben unverändert.
+
 ## 0.13.18 (2026-10-31)
 
 - 3MF-Direktstart in vorhandenen und zukünftigen Bestellpositionen ohne Bauteile. Das gemeinsame Detailfenster funktioniert sowohl im Dashboard als auch unter „Bestellungen“.
