@@ -1,3 +1,11 @@
+## 0.13.17 (2026-10-31)
+
+- Direkt aus jeder Bestellposition die passende Bauteil-Master-3MF im Slicer öffnen, z. B. Schale → Schale.3mf und Scrunchie-Halter → Halter.3mf.
+- Sichere automatische Zuordnung bei eindeutigem Dateinamen; optional eigene dauerhafte Dateiauswahl bei Mehrdeutigkeit. Servervalidierung verhindert fremde Produkt-/Varianten-/Druckerzuordnungen.
+- Neue persistente Tabelle für Bauteil-3MF-Verknüpfungen. Bereits vorhandene Masterdateien und Druck-/Lagerstatus bleiben unberührt.
+- Browser- und Regressionstests für Direktlinks und dauerhafte Bauteilzuordnung.
+- Etsy-Historie und Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
+
 ## 0.13.16 (2026-10-31)
 
 - Klar gegliederte Master-3MF-Projektkarten mit hervorgehobenem Dateinamen, Drucker, Stand und primärem Slicer-Button, responsive für Smartphone und Desktop.
