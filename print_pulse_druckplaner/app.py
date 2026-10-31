@@ -2198,8 +2198,19 @@ class Handler(BaseHTTPRequestHandler):
                 if not 4<=length<=MAX_MASTER_SIZE:
                     return self.send(413,{'error':'Maximal 100 MB pro 3MF-Datei.'})
                 params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query,keep_blank_values=True)
-                meta={key:(params.get(key) or [''])[0] for key in ('listing_id','variant_id','printer')}
-                meta['filename']=decode_master_upload_name(params)
+                # New clients send ASCII-safe metadata headers. Avoid query strings
+                # for binary uploads through Home Assistant's ingress proxy.
+                if self.headers.get('X-PP-Filename-B64') is not None:
+                    meta={
+                        'listing_id':self.headers.get('X-PP-Listing',''),
+                        'variant_id':self.headers.get('X-PP-Variant',''),
+                        'printer':self.headers.get('X-PP-Printer',''),
+                    }
+                    meta['filename']=decode_master_upload_name({
+                        'filename_b64':[self.headers.get('X-PP-Filename-B64','')]})
+                else:
+                    meta={key:(params.get(key) or [''])[0] for key in ('listing_id','variant_id','printer')}
+                    meta['filename']=decode_master_upload_name(params)
                 self.connection.settimeout(120)
                 return self.send(200,store_master_file(meta,self.rfile,length))
             except (ValueError,OSError) as exc:
