@@ -1767,9 +1767,20 @@ async function uploadMaster(){
  status.textContent='3MF-Datei wird abgelegt …';status.dataset.state='pending';
  let stored=false;
  try{
-  const q=new URLSearchParams({...target,filename:file.name});
-  const res=await fetch('api/master-upload?'+q,{method:'POST',headers:{'Content-Type':'application/octet-stream','X-PP-Upload':'1'},body:file});
-  const data=await res.json();
+  // Some Safari/Home Assistant ingress paths reject percent-encoded Unicode
+  // in query strings. Transfer the name as ASCII-only base64url and preserve
+  // the original filename in the stored master record.
+  const nameBytes=new TextEncoder().encode(file.name);
+  const nameToken=btoa(String.fromCharCode(...nameBytes))
+   .replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+  const q=new URLSearchParams({...target,filename_b64:nameToken});
+  const res=await fetch('api/master-upload?'+q,{method:'POST',headers:{'Content-Type':'application/octet-stream','X-PP-Upload':'1'},credentials:'same-origin',body:file});
+  const raw=await res.text();
+  let data;
+  try{data=JSON.parse(raw);}
+  catch{
+   throw Error('Home Assistant hat keine gültige Upload-Antwort geliefert (HTTP '+res.status+'). Bitte Add-on-Protokoll prüfen.');
+  }
   if(!res.ok)throw Error(data.error||'Upload fehlgeschlagen.');
   if(!data.ok||!data.id)throw Error('Speicherbestätigung unvollständig. Bitte die Dateiliste prüfen.');
   stored=true;
