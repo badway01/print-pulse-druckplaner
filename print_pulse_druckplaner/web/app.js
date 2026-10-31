@@ -7,7 +7,7 @@ let orderSort='ship';
 let workspace='production',filamentView='colors',filamentData=null,filamentBusy=false,filamentLoading=false;
 let filamentSort='default';
 try{const saved=localStorage.getItem('pp-filament-sort');if(['default','stock-desc','stock-asc','internal-code','manufacturer-code','hex-code'].includes(saved))filamentSort=saved;}catch{}
-let printTools={profiles:[],files:[]}, masterContext=null,masterSources=[],masterBusy=false;
+let printTools={profiles:[],files:[],component_links:[]}, masterContext=null,masterSources=[],masterBusy=false;
 let printerLive=null,printerLoading=false,printerEntities=[],printerConfigId=null,printerConfigBusy=false;
 let etsyAlertExpanded=false,etsyAlertFocused=null;
 try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
@@ -1646,6 +1646,7 @@ async function openMasterEditor(id){
  try{const [tool,spool]=await Promise.all([api('print-tools?listing_id='+encodeURIComponent(id)),api('filaments')]);
   printTools.profiles=[...printTools.profiles.filter(r=>r.listing_id!==id),...tool.profiles];
   printTools.files=[...printTools.files.filter(r=>r.listing_id!==id),...tool.files];
+  printTools.component_links=[...(printTools.component_links||[]).filter(r=>r.listing_id!==id),...(tool.component_links||[])];
   filamentData=spool;
   masterSelectionChanged();
   $('master-upload-details').open=!printTools.files.some(f=>f.listing_id===id&&f.variant_id===''&&f.printer==='H2D');
@@ -1712,21 +1713,22 @@ function openMasterPicker(source,slot){
 function masterSlicerMac(){
  return /Macintosh/.test(navigator.userAgent) && !('ontouchend' in document);
 }
+function masterSlicerUrl(file,slicer='bambu'){
+ if(!file||!/^[a-f0-9]{24}$/.test(file.id)||!['bambu','snapmaker'].includes(slicer))return '';
+ const candidate=window.location.hostname.toLowerCase();
+ const host=/^(10\.(\d{1,3}\.){2}\d{1,3}|192\.168\.(\d{1,3}\.)\d{1,3}|172\.(1[6-9]|2\d|3[01])\.(\d{1,3}\.)\d{1,3}|[a-z0-9-]+\.local)$/.test(candidate)?candidate:'';
+ return 'printpulse3mf://'+slicer+'/'+file.id+(host?'?server='+encodeURIComponent(host):'');
+}
 function renderMasterFiles(){
  const x=selectedMasterTarget();
  const files=printTools.files.filter(f=>f.listing_id===x.listing_id&&f.variant_id===x.variant_id&&f.printer===x.printer);
  const mac=masterSlicerMac();
- const candidate=window.location.hostname.toLowerCase();
- // Never cause macOS to contact an arbitrary SMB host from a deep link.
- // Only local/private HA addresses can be offered as an auto-mount hint.
- const host=/^(10\.(\d{1,3}\.){2}\d{1,3}|192\.168\.(\d{1,3}\.)\d{1,3}|172\.(1[6-9]|2\d|3[01])\.(\d{1,3}\.)\d{1,3}|[a-z0-9-]+\.local)$/.test(candidate)?candidate:'';
- const hostQuery=host?'?server='+encodeURIComponent(host):'';
  $('master-file-count').textContent=files.length===1?'1 Projektdatei':files.length+' Projektdateien';
  updateHTML($('master-files'),files.length?files.map((f,index)=>{
   const id=encodeURIComponent(f.id), stamp=new Date(f.created*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'});
   const printerLabel=x.printer||'Drucker';
-  const bambu='<a class="master-action master-action-'+(printerLabel==='Snapmaker U1'?'secondary':'primary')+'" data-master-slicer-file="'+esc(f.id)+'" href="printpulse3mf://bambu/'+id+hostQuery+'">In Bambu Studio öffnen</a>';
-  const snap='<a class="master-action master-action-'+(printerLabel==='Snapmaker U1'?'primary':'secondary')+'" data-master-slicer-file="'+esc(f.id)+'" href="printpulse3mf://snapmaker/'+id+hostQuery+'">In Snapmaker Orca öffnen</a>';
+  const bambu='<a class="master-action master-action-'+(printerLabel==='Snapmaker U1'?'secondary':'primary')+'" data-master-slicer-file="'+esc(f.id)+'" href="'+esc(masterSlicerUrl(f,'bambu'))+'">In Bambu Studio öffnen</a>';
+  const snap='<a class="master-action master-action-'+(printerLabel==='Snapmaker U1'?'primary':'secondary')+'" data-master-slicer-file="'+esc(f.id)+'" href="'+esc(masterSlicerUrl(f,'snapmaker'))+'">In Snapmaker Orca öffnen</a>';
   const actions=mac?(printerLabel==='Snapmaker U1'?snap+bambu:bambu+snap):'';
   const download='<a class="master-file-download" href="api/master-download?id='+id+'" download>3MF herunterladen</a>';
   return '<article class="master-file master-project-card"><div class="master-project-top"><span class="master-project-icon" aria-hidden="true">3MF</span><div class="master-project-info"><div class="master-project-name">'+
@@ -1781,6 +1783,7 @@ async function uploadMaster(){
    const tool=await api('print-tools?listing_id='+encodeURIComponent(target.listing_id));
    if(!Array.isArray(tool.files))throw Error('Dateiliste unvollständig.');
    printTools.files=[...printTools.files.filter(r=>r.listing_id!==target.listing_id),...tool.files];
+   printTools.component_links=[...(printTools.component_links||[]).filter(r=>r.listing_id!==target.listing_id),...(tool.component_links||[])];
    renderMasterFiles();render();renderCatalog();
   }catch(error){
    console.warn('3MF-Datei gespeichert, aber Dateiliste nicht neu ladbar:',error);

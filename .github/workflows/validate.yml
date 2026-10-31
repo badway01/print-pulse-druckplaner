@@ -47,6 +47,7 @@ jobs:
           node --check tests/local_ui.cjs
           node --check tests/filament_purchases_ui.cjs
           node --check tests/master_picker_ui.cjs
+          node --check tests/order_part_master_ui.cjs
           bash -n print_pulse_druckplaner/web/install-slicer-helper-mac.command
 
       - name: Private Daten suchen
@@ -70,6 +71,7 @@ jobs:
           node tests/dialog_ui.cjs
           node tests/stock_orders_ui.cjs
           node tests/master_picker_ui.cjs
+          node tests/order_part_master_ui.cjs
           node tests/ui.cjs
           node tests/ui_safari.cjs
           node tests/local_ui.cjs

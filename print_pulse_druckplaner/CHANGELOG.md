@@ -1,3 +1,11 @@
+# 0.13.17 · 3MF-Direktstart in der Bestellposition je Bauteil
+
+- Im Bestellungs-Detaildialog erhält jedes separat druckbare Bauteil eine direkte 3MF-Aktion: „In Bambu Studio öffnen“ bzw. „In Snapmaker Orca öffnen“.
+- Eindeutige Dateinamen wie Schale.3mf und Halter.3mf werden automatisch dem entsprechenden Bauteil zugeordnet. Bei mehreren möglichen Projekten gibt es eine explizite, dauerhaft speicherbare 3MF-Zuordnung.
+- Die Zuordnung ist pro Bauteil, Variante und Drucker gespeichert, auf passende Dateien desselben Etsy-Produkts begrenzt und wird auch in bestehenden und späteren Bestellungen angezeigt.
+- Öffnen startet ausschließlich den lokalen Slicer; bestehende Buttons „Drucken“, „Fertig“ und der Lagerbestand bleiben unabhängig und unverändert.
+- Etsy-Historie und Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
+
 # 0.13.16 · Master-3MF-Projekte übersichtlich anzeigen und direkt vom Netzwerk öffnen
 
 - Master-3MF-Dateien als übersichtliche Projektkarten mit gut lesbarem Dateinamen, Drucker, Datum, Dateigröße und klar getrennten Bambu-/Snapmaker-Aktionen.

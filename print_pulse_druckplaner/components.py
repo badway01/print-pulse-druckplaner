@@ -43,6 +43,16 @@ def schema(db):
     if 'color' not in part_columns:
         db.execute("ALTER TABLE pp_components ADD COLUMN color TEXT NOT NULL DEFAULT ''")
 
+    # Optional, per-component 3MF mapping. A product may have several master
+    # projects and each component can use a different printer/variant.
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_component_master_links(
+        component_id TEXT NOT NULL,variant_id TEXT NOT NULL DEFAULT '',
+        printer TEXT NOT NULL,file_id TEXT NOT NULL,
+        updated INTEGER NOT NULL,
+        PRIMARY KEY(component_id,variant_id,printer)
+    )""")
+    db.execute('CREATE INDEX IF NOT EXISTS pp_component_master_file ON pp_component_master_links(file_id)')
+
 
 def option(line, name):
     if not name:

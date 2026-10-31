@@ -87,6 +87,100 @@
    if(line)return {o,line};
   }return null;
  };
+ // Match order parts to the latest saved 3MF for this product and printer.
+ // A distinct filename match is allowed automatically. Ambiguity requires
+ // explicit assignment, which is stored across all future orders.
+ const masterBase=s=>String(s||'').replace(/\.3mf$/i,'').toLocaleLowerCase('de')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9äöüß]+/g,' ').trim();
+ const words=s=>masterBase(s).split(/\s+/).filter(Boolean);
+ const listingOf=line=>String(line.listing_id||findItem(line.item_id)?.p?.id||'');
+ const variantOf=line=>String(line.item_id||'');
+ function masterChoices(line){
+  const lid=listingOf(line),vid=variantOf(line);
+  const files=(printTools?.files||[]).filter(f=>String(f.listing_id)===lid&&(!f.variant_id||String(f.variant_id)===vid));
+  // If a matching variant-specific master exists for the same printer, avoid
+  // using a generic master for that printer as an automatic suggestion.
+  const dedicated=new Set(files.filter(f=>String(f.variant_id)===vid&&vid).map(f=>f.printer));
+  return files.filter(f=>!dedicated.has(f.printer)||String(f.variant_id)===vid)
+    .sort((a,b)=>Number(b.created)-Number(a.created)||String(b.id).localeCompare(String(a.id)));
+ }
+ function partMasterResolution(line,part){
+  const files=masterChoices(line),vid=variantOf(line);
+  const maps=(printTools.component_links||[]).filter(m=>String(m.component_id)===String(part.id)&&
+    (!m.variant_id||String(m.variant_id)===vid));
+  const chosen=maps.sort((a,b)=>Number(String(b.variant_id)===vid)-Number(String(a.variant_id)===vid))
+    .map(m=>files.find(f=>f.id===m.file_id&&f.printer===m.printer)).find(Boolean);
+  if(chosen)return {file:chosen,files,linked:true};
+  const partWords=words(part.name);
+  const matches=files.map(f=>{
+   const base=masterBase(f.filename), fw=words(f.filename);
+   const exact=base===masterBase(part.name);
+   // "Halter.3mf" -> "Scrunchie-Halter", but never match an unrelated
+   // "Halterung" just because it has a similar substring.
+   const subset=fw.length>0&&fw.every(w=>partWords.includes(w));
+   return {file:f,score:exact?2:subset?1:0,base};
+  }).filter(x=>x.score>0);
+  const best=Math.max(0,...matches.map(x=>x.score));
+  const bestMatches=matches.filter(x=>x.score===best);
+  const basenames=new Set(bestMatches.map(x=>x.base));
+  if(best>0&&basenames.size===1){
+   // Only the newest revision of the one unambiguous filename.
+   const matched=bestMatches.sort((a,b)=>Number(b.file.created)-Number(a.file.created))[0].file;
+   return {file:matched,files,linked:false};
+  }
+  return {file:null,files,linked:false};
+ }
+ function partMasterHtml(line,part){
+  const result=partMasterResolution(line,part),file=result.file;
+  if(!result.files.length)return '<div class="simple-part-master hint">Noch keine 3MF für dieses Produkt gespeichert.</div>';
+  const mac=typeof masterSlicerMac==='function'&&masterSlicerMac();
+  const target=file?file.printer==='Snapmaker U1'?'snapmaker':'bambu':null;
+  const action=file?(mac?'<a class="simple-part-master-open" href="'+esc(masterSlicerUrl(file,target))+
+    '" title="'+esc(file.filename)+'">In '+(target==='snapmaker'?'Snapmaker Orca':'Bambu Studio')+' öffnen ↗</a>':
+    '<a class="simple-part-master-open" href="api/master-download?id='+encodeURIComponent(file.id)+'" download>3MF herunterladen</a>'):'';
+  const select='<select data-part-master-select aria-label="Master-3MF für '+esc(part.name)+' wählen">'+
+   '<option value="">3MF-Datei auswählen…</option>'+result.files.map(f=>
+    '<option value="'+esc(f.id)+'" '+(file?.id===f.id?'selected':'')+'>'+esc(f.filename+' · '+f.printer+
+     (f.variant_id?' · Variante':''))+'</option>').join('')+'</select>';
+  const change='<div class="simple-part-master-assign">'+select+
+   '<button type="button" class="secondary" data-part-master-save>Zuordnung speichern</button></div>';
+  return '<div class="simple-part-master">'+
+   (file?'<div class="simple-part-master-current"><span class="simple-part-master-filename">3MF: '+esc(file.filename)+
+      ' · '+esc(file.printer)+'</span>'+action+'</div>':
+    '<span class="simple-part-master-hint">Noch keine eindeutige 3MF-Zuordnung</span>')+
+   (file?'<details class="simple-part-master-change"><summary>Andere 3MF zuordnen</summary>'+change+'</details>':change)+
+   '</div>';
+ }
+ let masterOrderLoading='';
+ async function ensureOrderMasterFiles(line){
+  const lid=listingOf(line);if(!lid||masterOrderLoading===lid)return;
+  masterOrderLoading=lid;
+  try{
+   const result=await api('print-tools?listing_id='+encodeURIComponent(lid));
+   if(!Array.isArray(result.files)||!Array.isArray(result.component_links))throw Error('Unvollständige 3MF-Daten');
+   printTools.files=[...(printTools.files||[]).filter(f=>String(f.listing_id)!==lid),...result.files];
+   printTools.component_links=[...(printTools.component_links||[]).filter(f=>String(f.listing_id)!==lid),...result.component_links];
+   if(focus.open&&locate()?.line&&listingOf(locate().line)===lid){positionSnapshot='';draw();}
+  }catch(err){flash('3MF-Verknüpfungen konnten nicht geladen werden: '+err.message,true);}
+  finally{if(masterOrderLoading===lid)masterOrderLoading='';}
+ }
+ async function savePartMaster(button){
+  const row=button.closest('[data-focus-component-id]'),found=locate();
+  if(!row||!found)return;
+  const fileId=row.querySelector('[data-part-master-select]')?.value||'';
+  const file=(printTools.files||[]).find(f=>f.id===fileId);
+  if(!file){flash('Bitte zuerst die passende 3MF auswählen.',true);return;}
+  button.disabled=true;
+  try{
+   const next=await api('master-component-link',{component_id:row.dataset.focusComponentId,
+      variant_id:variantOf(found.line),printer:file.printer,file_id:file.id});
+   const lid=listingOf(found.line);
+   printTools.component_links=[...(printTools.component_links||[]).filter(m=>String(m.listing_id)!==lid),...(next.component_links||[])];
+   printTools.files=[...(printTools.files||[]).filter(f=>String(f.listing_id)!==lid),...(next.files||[])];
+   positionSnapshot='';draw();flash('3MF dauerhaft mit diesem Bauteil verknüpft.');
+  }catch(err){flash('3MF-Zuordnung fehlgeschlagen: '+err.message,true);}
+  finally{button.disabled=false;}
+ }
  // Read the latest product component definitions for every open order.
  function componentPartRows(line){
   const remaining=num(line.remaining),units=Math.max(1,num(line.quantity));
@@ -110,6 +204,7 @@
     '<div class="simple-pos-part-head"><div><strong>'+esc(part.name)+'</strong>'+
     (part.color||part.label?'<small>'+esc([part.color,part.label].filter(Boolean).join(' · '))+'</small>':'')+
     '</div><span class="simple-pos-part-status">'+esc(status)+'</span></div>'+
+    partMasterHtml(line,part)+
     (part.error?'<p class="component-error">'+esc(part.error)+'</p>':
     '<div class="simple-pos-part-progress"><b>'+ready+' / '+need+' bereit</b>'+
      (running?'<span>'+running+' im Druck</span>':'')+
@@ -121,7 +216,9 @@
  }
  function draw(){
   const found=locate();if(!found){if(focus.open)focus.close();return;}
-  const snapshot=JSON.stringify([selected,found.line,findItem(found.line.item_id)?.i?.on_hand]);
+  const snapshot=JSON.stringify([selected,found.line,findItem(found.line.item_id)?.i?.on_hand,
+   (printTools.files||[]).filter(f=>String(f.listing_id)===listingOf(found.line)),
+   (printTools.component_links||[]).filter(m=>String(m.listing_id)===listingOf(found.line))]);
   if(focus.open&&snapshot===positionSnapshot)return;
   positionSnapshot=snapshot;
   const {o,line}=found,st=status(line),component=composed(line);
@@ -161,6 +258,7 @@
   selected=String(tid);if(!locate())return;
   if(details.open)details.close();
   draw();if(!focus.open)focus.showModal();
+  ensureOrderMasterFiles(locate().line);
  }
  async function action(kind){
   const found=locate();if(!found||busy)return;
@@ -224,6 +322,8 @@
  });
  focus.addEventListener('click',event=>{
   if(event.target.closest('[data-focus-close]')){focus.close();return;}
+  const mapping=event.target.closest('[data-part-master-save]');
+  if(mapping){savePartMaster(mapping);return;}
   const part=event.target.closest('[data-focus-part-action]');
   if(part){partAction(part);return;}
   const a=event.target.closest('[data-focus-action]');if(a){action(a.dataset.focusAction);return;}
