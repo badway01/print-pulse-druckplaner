@@ -98,6 +98,31 @@ class MasterTests(unittest.TestCase):
         self.assertEqual(result['component_links'],[])
         self.assertEqual(len(app.print_tools_overview('123')['files']),1)
 
+    def test_order_master_default_inherits_existing_and_new_orders(self):
+        with io.BytesIO() as buf:
+            with zipfile.ZipFile(buf,'w') as z:
+                z.writestr('[Content_Types].xml','<Types/>')
+            content=buf.getvalue()
+        one=app.store_master_file({'listing_id':'123','printer':'H2D',
+              'variant_id':'','filename':'MagSafe_Master.3mf'},io.BytesIO(content),len(content))
+        chosen=app.save_order_master_default({'listing_id':'123','variant_id':'variant1','file_id':one['id']})
+        self.assertEqual(len(chosen['order_master_defaults']),1)
+        self.assertEqual(chosen['order_master_defaults'][0]['file_id'],one['id'])
+        self.assertEqual(app.print_tools_overview('123')['order_master_defaults'][0]['variant_id'],'variant1')
+        app.init_db()
+        self.assertEqual(len(app.print_tools_overview('123')['order_master_defaults']),1)
+        with app.connect() as db:
+            db.execute("INSERT INTO stock_listings(id,title,image,state,updated) VALUES('124','Andere','','active',0)")
+        for bad in ({'listing_id':'124','variant_id':'','file_id':one['id']},
+                    {'listing_id':'123','variant_id':'missing','file_id':one['id']},
+                    {'listing_id':'123','variant_id':'variant1','file_id':'a'*24}):
+            with self.assertRaises(ValueError):
+                app.save_order_master_default(bad)
+        self.assertEqual(app.print_tools_overview('124')['order_master_defaults'],[])
+        cleared=app.save_order_master_default({'listing_id':'123','variant_id':'variant1','file_id':''})
+        self.assertEqual(cleared['order_master_defaults'],[])
+        self.assertEqual(len(cleared['files']),1)
+
     def test_reject_invalid_file_and_profile(self):
         self.spool()
         with self.assertRaises(ValueError):
@@ -140,7 +165,7 @@ class MasterTests(unittest.TestCase):
               purchase_url TEXT NOT NULL DEFAULT '',stock_qty INTEGER NOT NULL DEFAULT 0,
               cart_qty INTEGER NOT NULL DEFAULT 0,created INTEGER NOT NULL,updated INTEGER NOT NULL)""")
             db.execute("DROP TABLE filament_spools_new")
-        self.assertEqual(app.print_tools_overview(),{'profiles':[],'files':[],'component_links':[]})
+        self.assertEqual(app.print_tools_overview(),{'profiles':[],'files':[],'component_links':[],'order_master_defaults':[]})
 
     def test_existing_filament_schema_is_migrated(self):
         with app.connect() as db:
@@ -170,7 +195,7 @@ class MasterTests(unittest.TestCase):
             db.execute("""INSERT INTO print_profiles(profile_id,printer_name,preset)
                           VALUES(7,'Altgerät','Unverändert')""")
         app.init_db()
-        self.assertEqual(app.print_tools_overview(),{'profiles':[],'files':[],'component_links':[]})
+        self.assertEqual(app.print_tools_overview(),{'profiles':[],'files':[],'component_links':[],'order_master_defaults':[]})
         fid=self.spool()
         saved=app.save_print_profile({'listing_id':'123','variant_id':'variant1','printer':'H2D',
                  'sources':[{'type':'external','slots':[fid]}]})
