@@ -7,9 +7,10 @@ const assert=require('node:assert/strict');
   const page=await browser.newPage({viewport:{width:1080,height:860},
    userAgent:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15'});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const firstId='a'.repeat(24), secondId='b'.repeat(24);
   const files=[
-   {id:'111111111111111111111111',listing_id:'101',variant_id:'',printer:'H2D',filename:'Schale.3mf',created:40,bytes:150000},
-   {id:'222222222222222222222222',listing_id:'101',variant_id:'',printer:'H2D',filename:'Halter.3mf',created:41,bytes:150000}
+   {id:firstId,listing_id:'101',variant_id:'',printer:'H2D',filename:'Schale.3mf',created:40,bytes:150000},
+   {id:secondId,listing_id:'101',variant_id:'',printer:'H2D',filename:'Halter.3mf',created:41,bytes:150000}
   ];
   let saved=null,links=[];
   await page.route('**/api/print-tools?listing_id=101',route=>route.fulfill({json:{files,profiles:[],component_links:links}}));
@@ -47,18 +48,18 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>document.querySelectorAll('#order-position .simple-part-master-open').length===2);
   const rows=page.locator('#order-position .simple-pos-part');
   assert.equal(await rows.count(),2);
-  assert.match(await rows.nth(0).locator('.simple-part-master-open').getAttribute('href'),/bambu\/111111111111111111111111/);
-  assert.match(await rows.nth(1).locator('.simple-part-master-open').getAttribute('href'),/bambu\/222222222222222222222222/);
+  assert.match(await rows.nth(0).locator('.simple-part-master-open').getAttribute('href'),new RegExp('bambu/'+firstId));
+  assert.match(await rows.nth(1).locator('.simple-part-master-open').getAttribute('href'),new RegExp('bambu/'+secondId));
   assert.equal(await page.locator('#order-position [data-focus-part-action="start"]').count(),2);
   assert.match(await rows.nth(0).innerText(),/Schale/);
   assert.match(await rows.nth(1).innerText(),/Scrunchie-Halter/);
   await rows.nth(0).locator('.simple-part-master-change summary').click();
-  await rows.nth(0).locator('[data-part-master-select]').selectOption('222222222222222222222222');
+  await rows.nth(0).locator('[data-part-master-select]').selectOption(secondId);
   await rows.nth(0).locator('[data-part-master-save]').click();
   await page.waitForFunction(()=>document.querySelector('#toast')?.textContent.includes('verknüpft'));
   assert.equal(saved.component_id,'part-schale');
   assert.equal(saved.printer,'H2D');
-  assert.match(await rows.nth(0).locator('.simple-part-master-open').getAttribute('href'),/222222222222222222222222/);
+  assert.match(await rows.nth(0).locator('.simple-part-master-open').getAttribute('href'),new RegExp(secondId));
   assert.deepEqual(errors,[]);
   console.log('ORDER PART MASTER PASS: correct 3MF per part, direct links, persistent mapping, print buttons');
  }finally{await browser.close();}
