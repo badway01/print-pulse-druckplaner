@@ -13,6 +13,25 @@ const assert=require('node:assert/strict');
    {id:secondId,listing_id:'101',variant_id:'',printer:'H2D',filename:'Halter.3mf',created:41,bytes:150000}
   ];
   let saved=null,links=[];
+  await page.route('**/api/status',async route=>{
+   const response=await route.fetch(),data=await response.json();
+   const product=data.products.find(p=>p.id==='101');
+   const item=product.items[0];
+   const parts=['Schale','Scrunchie-Halter'].map((name,i)=>({
+     id:i?'part-halter':'part-schale',name,color:'11. Pink-Pastell',
+     kind:'demand',label:'',required:1,available:0,printing:0,finished:0,
+     consumed:0,booked:0,stock:0,error:''
+   }));
+   product.components_enabled=true;
+   product.components=parts;
+   const now=Math.floor(Date.now()/1000);
+   data.orders=[{id:'test-order',customer:'Testkunde',created:now-3600,ship_by:now+86400,
+     quantity:1,items:[{listing_id:'101',item_id:item.id,transaction_id:'test-part-line',
+       title:'Scrunchie Organizer',variant:'Farbe: Rosa',image:'',
+       quantity:1,remaining:1,printing:0,finished:0,allocated:0,assembled:0,
+       components_enabled:true,components:parts}]}];
+   await route.fulfill({response,json:data});
+  });
   await page.route('**/api/print-tools?listing_id=101',route=>route.fulfill({json:{files,profiles:[],component_links:links}}));
   await page.route('**/api/master-component-link',route=>{
    saved=route.request().postDataJSON();
@@ -21,30 +40,7 @@ const assert=require('node:assert/strict');
    return route.fulfill({json:{files,profiles:[],component_links:links}});
   });
   await page.goto('http://127.0.0.1:8099/');
-  await page.waitForFunction(()=>typeof model!=='undefined'&&model?.orders?.length>0);
-  await page.evaluate(()=>{
-   const order=model.orders.find(o=>(o.items||[]).some(l=>String(l.listing_id)==='101'));
-   if(!order)throw Error('Preview order missing');
-   const line=order.items.find(l=>String(l.listing_id)==='101');
-   const qty=Math.max(1,Number(line.quantity)||1);
-   line.components_enabled=true;
-   line.remaining=qty;
-   line.components=['Schale','Scrunchie-Halter'].map((name,i)=>({
-     id:i?'part-halter':'part-schale',name,color:'11. Pink-Pastell',kind:'demand',
-     label:'',required:qty,available:0,printing:0,finished:0,consumed:0,booked:0,stock:0,error:''
-   }));
-  });
-  // The last injected statement is intentionally not used as app state.
-  await page.evaluate(()=>{
-   const order=model.orders.find(o=>(o.items||[]).some(l=>String(l.listing_id)==='101'));
-   const line=order.items.find(l=>String(l.listing_id)==='101');
-   if(!line.components?.length)throw Error('Component fixture missing');
-   printTools.files=[];
-   printTools.component_links=[];
-   render();
-  });
-  const tid=await page.evaluate(()=>model.orders.find(o=>(o.items||[]).some(l=>String(l.listing_id)==='101')).items.find(l=>String(l.listing_id)==='101').transaction_id);
-  await page.locator('[data-order-position="'+tid+'"]').first().click();
+  await page.locator('[data-order-position="test-part-line"]').first().click();
   await page.waitForFunction(()=>document.querySelectorAll('#order-position .simple-part-master-open').length===2);
   const rows=page.locator('#order-position .simple-pos-part');
   assert.equal(await rows.count(),2);
