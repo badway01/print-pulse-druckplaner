@@ -33,25 +33,44 @@ else
     echo "Ungültiger Öffnen-Link."
     exit 1
 fi
+# Safari can save to custom folders or iCloud Drive. Search a restricted
+# set of expected locations, then offer an explicit Finder picker instead of
+# failing with an opaque missing-file error.
 DOWNLOADS="$HOME/Downloads"
-[ -d "$DOWNLOADS" ] || { echo "Ordner Downloads nicht gefunden."; exit 1; }
+SAFARI_DOWNLOADS="$(/usr/bin/defaults read com.apple.Safari DownloadsPath 2>/dev/null || true)"
+if [[ "$SAFARI_DOWNLOADS" == "~/"* ]]; then
+    SAFARI_DOWNLOADS="$HOME/${SAFARI_DOWNLOADS#\~/}"
+fi
+SEARCH_DIRS=(
+    "$DOWNLOADS"
+    "$SAFARI_DOWNLOADS"
+    "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Downloads"
+)
 FILE=""
-for ((attempt=0;attempt<160;attempt++)); do
-    # The browser downloads under an exact ID-prefixed filename. Ignore
-    # partially downloaded Safari files until the completed .3mf exists.
-    for candidate in "$DOWNLOADS"/PP3MF-"$FILE_ID"-*.3mf; do
-        if [ -f "$candidate" ] && [ -s "$candidate" ]; then
-            FILE="$candidate"
-            break
-        fi
+for ((attempt=0;attempt<60;attempt++)); do
+    for directory in "${SEARCH_DIRS[@]}"; do
+        [ -d "$directory" ] || continue
+        for candidate in "$directory"/PP3MF-"$FILE_ID"-*.3mf; do
+            if [ -f "$candidate" ] && [ -s "$candidate" ]; then
+                FILE="$candidate"
+                break 2
+            fi
+        done
     done
     [ -n "$FILE" ] && break
     sleep 0.25
 done
-[ -n "$FILE" ] || {
-    echo "3MF nicht in Downloads gefunden. Prüfe, ob Safari Dateien im Ordner Downloads speichert, oder öffne die Datei manuell."
-    exit 1
-}
+
+if [ -z "$FILE" ]; then
+    # Safari may have blocked a background download or stored it elsewhere.
+    # Only an explicitly chosen local file is opened; never pick an arbitrary
+    # 3MF from another order based on recency or a similar product name.
+    FILE="$(/usr/bin/osascript -e 'POSIX path of (choose file with prompt "Print & Pulse: 3MF-Datei auswählen. Falls sie nicht heruntergeladen wurde, zuerst in Home Assistant auf Herunterladen klicken.")' 2>/dev/null || true)"
+    if [[ ! -f "$FILE" || "$FILE" != *.[3][mM][fF] && "$FILE" != *.[3][M][fF] && "$FILE" != *.[3][mM][Ff] ]]; then
+        echo "Keine gültige 3MF ausgewählt. Bitte in Home Assistant auf Herunterladen klicken und die Datei anschließend auswählen."
+        exit 1
+    fi
+fi
 if [ "$SLICER" = bambu ]; then
     /usr/bin/open -a "BambuStudio" "$FILE" ||
     /usr/bin/open -a "Bambu Studio" "$FILE" ||
