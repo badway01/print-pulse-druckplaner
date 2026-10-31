@@ -53,7 +53,7 @@ except ImportError:
     _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.16'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.17'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -1359,6 +1359,13 @@ def print_tools_overview(listing_id=None):
         files=[dict(r) for r in db.execute(
             'SELECT id,listing_id,variant_id,printer,filename,bytes,created FROM master_files'
             +where+' ORDER BY created DESC,id DESC',args)]
+        links=[dict(r) for r in db.execute("""SELECT m.component_id,m.variant_id,m.printer,m.file_id,
+            c.listing_id FROM pp_component_master_links m
+            JOIN pp_components c ON c.id=m.component_id
+            JOIN master_files f ON f.id=m.file_id
+            WHERE f.listing_id=c.listing_id""" +
+            (' AND c.listing_id=?' if listing_id else '') +
+            ' ORDER BY m.component_id,m.variant_id,m.printer',args)]
         # v0.11.x stores two optional filament columns. Old installations may
         # contain older columns; read the common fields without changing data.
         cols={col['name'] for col in db.execute('PRAGMA table_info(filament_spools)')}
@@ -1396,8 +1403,44 @@ def print_tools_overview(listing_id=None):
                         'brand':f['brand'],'material':f['material'],'hex':f['color_hex'],
                         'slot':label+' · '+str(number)})
         row['sources']=clean
-    return {'profiles':profiles,'files':files}
+    return {'profiles':profiles,'files':files,'component_links':links}
 
+
+
+def save_component_master_link(data):
+    """Attach one verified master revision to a component for a printer/variant.
+
+    Never use a filename guess on the server and never modify existing 3MF data.
+    """
+    cid=str(data.get('component_id') or '')
+    fid=str(data.get('file_id') or '')
+    vid=str(data.get('variant_id') or '')
+    printer=str(data.get('printer') or '')
+    if not re.fullmatch(r'[a-zA-Z0-9_-]{1,80}',cid) or printer not in PRINTERS:
+        raise ValueError('Ungültiges Bauteil oder Drucker.')
+    if fid and not re.fullmatch(r'[a-f0-9]{24}',fid):
+        raise ValueError('Ungültige 3MF-Datei-ID.')
+    with connect() as db:
+        part=db.execute('SELECT listing_id FROM pp_components WHERE id=?',(cid,)).fetchone()
+        if not part: raise ValueError('Bauteil nicht vorhanden.')
+        if vid and not db.execute('SELECT 1 FROM stock_items WHERE id=? AND listing_id=?',
+                                  (vid,part['listing_id'])).fetchone():
+            raise ValueError('Variante gehört nicht zu diesem Produkt.')
+        if fid:
+            file=db.execute('SELECT listing_id,variant_id,printer FROM master_files WHERE id=?',(fid,)).fetchone()
+            if not file or file['listing_id']!=part['listing_id'] or file['printer']!=printer:
+                raise ValueError('3MF-Datei gehört nicht zu Bauteil und Drucker.')
+            if file['variant_id'] not in ('',vid):
+                raise ValueError('3MF-Datei ist nicht für diese Variante gespeichert.')
+            db.execute("""INSERT INTO pp_component_master_links
+                (component_id,variant_id,printer,file_id,updated) VALUES(?,?,?,?,?)
+                ON CONFLICT(component_id,variant_id,printer)
+                DO UPDATE SET file_id=excluded.file_id,updated=excluded.updated""",
+                (cid,vid,printer,fid,int(time.time())))
+        else:
+            db.execute('DELETE FROM pp_component_master_links WHERE component_id=? AND variant_id=? AND printer=?',
+                       (cid,vid,printer))
+    return print_tools_overview(part['listing_id'])
 
 def validate_profile_target(db, data):
     lid=str(data.get('listing_id') or '')
@@ -2261,6 +2304,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,save_printer_bindings(data))
             if path=='/api/print-profile':
                 return self.send(200,save_print_profile(data))
+            if path=='/api/master-component-link':
+                return self.send(200,save_component_master_link(data))
             if path=='/api/filament-history':
                 return self.send(202,filament_history_import())
             if path=='/api/filament-plan':
