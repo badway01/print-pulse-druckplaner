@@ -1772,7 +1772,7 @@ async function uploadMaster(){
   // the original filename in the stored master record.
   const nameBytes=new TextEncoder().encode(file.name);
   const nameToken=btoa(String.fromCharCode(...nameBytes))
-   .replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+   .split('+').join('-').split('/').join('_').replace(/=+$/,'');
   const q=new URLSearchParams({...target,filename_b64:nameToken});
   const res=await fetch('api/master-upload?'+q,{method:'POST',headers:{'Content-Type':'application/octet-stream','X-PP-Upload':'1'},credentials:'same-origin',body:file});
   const raw=await res.text();
