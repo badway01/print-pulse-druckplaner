@@ -1623,6 +1623,9 @@ function findMasterProfile(){
  return printTools.profiles.find(p=>p.listing_id===x.listing_id&&p.variant_id===x.variant_id&&p.printer===x.printer);
 }
 function masterSelectionChanged(){
+ closeMasterPicker(false);
+ $('master-upload-status').textContent='';
+ $('master-profile-status').textContent='';
  const existing=findMasterProfile();
  masterSources=existing?JSON.parse(JSON.stringify(existing.sources)):[];
  renderMasterSources();renderMasterFiles();
@@ -1644,14 +1647,64 @@ async function openMasterEditor(id){
   masterSelectionChanged();
  }catch(err){flash(err.message,true);}
 }
+function masterSwatchHex(value){
+ return /^#[0-9a-f]{6}$/i.test(String(value||''))?value:'#c9d0c9';
+}
+function masterFilament(fid){
+ return (filamentData?.filaments||[]).find(f=>String(f.id)===String(fid))||null;
+}
+function masterSlotMarkup(fid,sourceIndex,slotIndex){
+ const f=masterFilament(fid);
+ const name=f?f.color:fid?'Filament nicht mehr vorhanden':'Nicht belegt';
+ const subtitle=f?[(f.internal_code?'Intern '+f.internal_code:''),f.brand,f.material].filter(Boolean).join(' · '):fid?'Bitte neu zuordnen':'Tippen und Farbe wählen';
+ const swatch=f?'<span class="master-slot-color" style="background:'+esc(masterSwatchHex(f.color_hex))+'"></span>':'<span class="master-slot-color master-slot-empty"></span>';
+ return '<div class="master-slot"><span class="master-slot-label">Platz '+(slotIndex+1)+'</span>'+
+  '<button type="button" class="master-slot-button'+(f?' is-assigned':'')+'" data-master-slot-open="'+slotIndex+'" data-master-source="'+sourceIndex+'" aria-label="Platz '+(slotIndex+1)+': '+esc(name)+'. Filament wählen">'+
+  swatch+'<span class="master-slot-text"><strong>'+esc(name)+'</strong><small>'+esc(subtitle)+'</small></span><span class="master-slot-arrow" aria-hidden="true">⌄</span></button></div>';
+}
 function renderMasterSources(){
- const filaments=filamentData?.filaments||[];
  updateHTML($('master-sources'),masterSources.length?masterSources.map((s,n)=>
-  '<div class="master-source" data-master-source="'+n+'"><div class="master-source-title"><b>'+esc(s.label)+'</b><button type="button" class="text-button" data-master-remove="'+n+'">Entfernen</button></div><div class="master-slots">'+s.slots.map((fid,j)=>
-   '<label><span>Platz '+(j+1)+'</span><select data-master-source="'+n+'" data-master-slot="'+j+'"><option value="">Nicht belegt</option>'+filaments.map(f=>'<option value="'+f.id+'" '+(f.id===fid?'selected':'')+'>'+esc((f.internal_code?'Intern '+f.internal_code+' · ':'')+f.brand+' · '+f.color+' · '+f.material+' · HEX '+f.color_hex+(filamentManufacturerCode(f)?' · Hersteller '+filamentManufacturerCode(f):''))+'</option>').join('')+'</select>'
-   +(fid?'<span class="master-slot-swatch" style="background:'+esc(filaments.find(f=>f.id===fid)?.color_hex||'#ffffff')+'"></span>':'')+'</label>').join('')+'</div></div>'
+  '<div class="master-source" data-master-source="'+n+'"><div class="master-source-title"><b>'+esc(s.label)+'</b><button type="button" class="text-button" data-master-remove="'+n+'">Entfernen</button></div><div class="master-slots">'+
+  s.slots.map((fid,j)=>masterSlotMarkup(fid,n,j)).join('')+'</div></div>'
  ).join(''):'<p class="hint">Noch keine Filamentquelle zugeordnet. Füge ein AMS, AMS HT oder eine externe Spule hinzu.</p>');
 }
+let masterPickerTarget=null;
+function closeMasterPicker(returnFocus=true){
+ const target=masterPickerTarget;
+ masterPickerTarget=null;
+ $('master-filament-picker-overlay').hidden=true;
+ if(returnFocus&&target){
+  $('master-sources').querySelector('[data-master-source="'+target.source+'"][data-master-slot-open="'+target.slot+'"]')?.focus();
+ }
+}
+function renderMasterPickerResults(){
+ if(!masterPickerTarget)return;
+ const q=String($('master-filament-search').value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+ const terms=q.split(/\s+/).filter(Boolean);
+ const spools=(filamentData?.filaments||[]).filter(f=>{
+  const haystack=[f.internal_code,f.manufacturer_code,f.brand,f.color,f.material,f.color_hex].join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  return terms.every(term=>haystack.includes(term));
+ }).sort((a,b)=>String(a.internal_code||'zzz').localeCompare(String(b.internal_code||'zzz'),'de',{numeric:true})||String(a.color||'').localeCompare(String(b.color||''),'de'));
+ const selected=masterSources[masterPickerTarget.source]?.slots[masterPickerTarget.slot];
+ $('master-filament-count').textContent=spools.length+' Farben';
+ updateHTML($('master-filament-results'),'<button type="button" class="master-picker-choice master-picker-empty'+(!selected?' is-selected':'')+'" data-master-pick="" aria-pressed="'+(!selected)+'">'+
+  '<span class="master-picker-color master-slot-empty"></span><span><strong>Nicht belegt</strong><small>Platz freilassen</small></span></button>'+
+  spools.map(f=>'<button type="button" class="master-picker-choice'+(String(f.id)===String(selected)?' is-selected':'')+'" data-master-pick="'+esc(f.id)+'" aria-pressed="'+(String(f.id)===String(selected))+'">'+
+   '<span class="master-picker-color" style="background:'+esc(masterSwatchHex(f.color_hex))+'"></span><span><strong>'+esc(f.color)+'</strong><small>'+
+   esc([(f.internal_code?'Intern '+f.internal_code:''),f.brand,f.material].filter(Boolean).join(' · '))+'</small>'+
+   (f.manufacturer_code?'<small>Hersteller '+esc(f.manufacturer_code)+'</small>':'')+'</span></button>').join('')+
+   (!spools.length?'<p class="master-picker-no-results">Keine Farbe gefunden. Bitte Suchbegriff ändern oder die Farbe zuerst in der Filamentbibliothek anlegen.</p>':''));
+}
+function openMasterPicker(source,slot){
+ if(!masterSources[source]||slot<0||slot>=masterSources[source].slots.length)return;
+ masterPickerTarget={source,slot};
+ $('master-filament-picker-title').textContent=masterSources[source].label+' · Platz '+(slot+1);
+ $('master-filament-search').value='';
+ $('master-filament-picker-overlay').hidden=false;
+ renderMasterPickerResults();
+ $('master-filament-search').focus();
+}
+
 function renderMasterFiles(){
  const x=selectedMasterTarget();
  const files=printTools.files.filter(f=>f.listing_id===x.listing_id&&f.variant_id===x.variant_id&&f.printer===x.printer);
@@ -1664,26 +1717,60 @@ async function saveMaster(){
  masterBusy=true;$('master-save').disabled=true;
  try{const next=await api('print-profile',{...selectedMasterTarget(),sources:masterSources});
   printTools.profiles=[...printTools.profiles.filter(r=>r.listing_id!==masterContext.id),...next.profiles];
-  render();renderCatalog();flash('Filamentbelegung gespeichert.');
+  render();renderCatalog();
+  $('master-profile-status').textContent='✓ Filamentbelegung gespeichert.';
+  $('master-profile-status').dataset.state='success';
+  window.markDruckplanerDialogSaved?.('master-editor');
+  flash('Filamentbelegung gespeichert.');
  }catch(err){flash(err.message,true);}
  finally{masterBusy=false;$('master-save').disabled=false;}
 }
 async function uploadMaster(){
  if(masterBusy||!masterContext)return;
  const file=$('master-upload-input').files[0];
- if(!file||!file.name.toLowerCase().endsWith('.3mf')){flash('Bitte eine .3mf-Datei auswählen.',true);return;}
- if(file.size>100*1024*1024){flash('Maximal 100 MB pro Datei.',true);return;}
+ const status=$('master-upload-status');
+ if(!file||!file.name.toLowerCase().endsWith('.3mf')){
+  status.textContent='Bitte eine .3mf-Datei auswählen.';status.dataset.state='error';return;
+ }
+ if(file.size>100*1024*1024){
+  status.textContent='Maximal 100 MB pro Datei.';status.dataset.state='error';return;
+ }
+ const target=selectedMasterTarget();
  masterBusy=true;$('master-upload').disabled=true;
- try{const q=new URLSearchParams({...selectedMasterTarget(),filename:file.name});
+ status.textContent='3MF-Datei wird abgelegt …';status.dataset.state='pending';
+ let stored=false;
+ try{
+  const q=new URLSearchParams({...target,filename:file.name});
   const res=await fetch('api/master-upload?'+q,{method:'POST',headers:{'Content-Type':'application/octet-stream','X-PP-Upload':'1'},body:file});
-  const data=await res.json();if(!res.ok)throw Error(data.error||'Upload fehlgeschlagen.');
-  const tool=await api('print-tools?listing_id='+encodeURIComponent(masterContext.id));
-  printTools.files=[...printTools.files.filter(r=>r.listing_id!==masterContext.id),...tool.files];
-  $('master-upload-input').value='';renderMasterFiles();render();renderCatalog();
-  flash('Masterdatei abgelegt. Frühere Versionen bleiben erhalten.');
- }catch(err){flash(err.message,true);}
- finally{masterBusy=false;$('master-upload').disabled=false;}
+  const data=await res.json();
+  if(!res.ok)throw Error(data.error||'Upload fehlgeschlagen.');
+  if(!data.ok||!data.id)throw Error('Speicherbestätigung unvollständig. Bitte die Dateiliste prüfen.');
+  stored=true;
+  $('master-upload-input').value='';
+  // The file has been written. A list-refresh failure must not be called an upload failure.
+  printTools.files=[{id:data.id,...target,filename:file.name,bytes:data.bytes||file.size,created:Math.floor(Date.now()/1000)},...printTools.files.filter(f=>f.id!==data.id)];
+  status.textContent='✓ Datei sicher abgelegt. Die Filamentbelegung kannst du separat speichern.';
+  status.dataset.state='success';
+  try{renderMasterFiles();render();renderCatalog();}
+  catch(error){console.warn('Master-3MF-Anzeige:',error);}
+  try{
+   const tool=await api('print-tools?listing_id='+encodeURIComponent(target.listing_id));
+   if(!Array.isArray(tool.files))throw Error('Dateiliste unvollständig.');
+   printTools.files=[...printTools.files.filter(r=>r.listing_id!==target.listing_id),...tool.files];
+   renderMasterFiles();render();renderCatalog();
+  }catch(error){
+   console.warn('3MF-Datei gespeichert, aber Dateiliste nicht neu ladbar:',error);
+   status.textContent='✓ Datei ist abgelegt. Nur die Aktualisierung der Dateiliste ist fehlgeschlagen. Beim erneuten Öffnen prüfen, nicht nochmals hochladen.';
+   status.dataset.state='warning';
+  }
+ }catch(err){
+  console.error('3MF-Upload:',err);
+  status.textContent=stored?'✓ Datei abgelegt. Die Anzeige konnte nicht aktualisiert werden.':
+   'Upload nicht bestätigt: '+err.message+' Bitte vor einem erneuten Versuch die Dateiliste prüfen.';
+  status.dataset.state=stored?'warning':'error';
+ }finally{masterBusy=false;$('master-upload').disabled=false;}
 }
+
 async function copyMasterPath(){
  if(!masterContext)return;
  const path='\\\\homeassistant\\share\\print-pulse\\masterdateien\\'+masterContext.id+'\\'+$('master-printer').value.replace(/[^a-zA-Z0-9_-]/g,'-');
@@ -1706,6 +1793,8 @@ $('master-add').addEventListener('click',()=>{
  renderMasterSources();
 });
 $('master-sources').addEventListener('click',event=>{
+ const slot=event.target.closest('[data-master-slot-open]');
+ if(slot){openMasterPicker(Number(slot.dataset.masterSource),Number(slot.dataset.masterSlotOpen));return;}
  const b=event.target.closest('[data-master-remove]');if(!b)return;
  masterSources.splice(Number(b.dataset.masterRemove),1);
  for(const type of ['ams','ams_ht','external']){
@@ -1713,14 +1802,29 @@ $('master-sources').addEventListener('click',event=>{
  }
  renderMasterSources();
 });
-$('master-sources').addEventListener('change',event=>{
- const b=event.target.closest('select[data-master-slot]');if(!b)return;
- masterSources[Number(b.dataset.masterSource)].slots[Number(b.dataset.masterSlot)]=b.value?Number(b.value):null;
+$('master-filament-search').addEventListener('input',renderMasterPickerResults);
+$('master-filament-picker-overlay').addEventListener('click',event=>{
+ if(event.target.id==='master-filament-picker-overlay'||event.target.closest('[data-master-picker-close]')){closeMasterPicker();return;}
+ const chosen=event.target.closest('[data-master-pick]');
+ if(!chosen||!masterPickerTarget)return;
+ const {source,slot}=masterPickerTarget;
+ masterSources[source].slots[slot]=chosen.dataset.masterPick?Number(chosen.dataset.masterPick):null;
+ closeMasterPicker(false);
  renderMasterSources();
+ $('master-profile-status').textContent='Belegung geändert · bitte speichern.';
+ $('master-profile-status').dataset.state='pending';
+ $('master-sources').querySelector('[data-master-source="'+source+'"][data-master-slot-open="'+slot+'"]')?.focus();
 });
+$('master-editor').addEventListener('keydown',event=>{
+ if(event.key==='Escape'&&!$('master-filament-picker-overlay').hidden){
+  event.preventDefault();event.stopPropagation();closeMasterPicker();
+ }
+},true);
+$('master-editor').addEventListener('close',()=>closeMasterPicker(false));
 $('master-save').addEventListener('click',saveMaster);
 $('master-upload').addEventListener('click',uploadMaster);
 $('master-copy-path').addEventListener('click',copyMasterPath);
+$('master-upload-input').addEventListener('change',()=>{$('master-upload-status').textContent='';});
 
 
 
