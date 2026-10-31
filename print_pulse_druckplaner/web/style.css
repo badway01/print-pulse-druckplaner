@@ -2475,3 +2475,64 @@ html[data-theme="dark"] .order-countdown.ready{background:#57452f;color:#f5d6a2}
 .master-slicer-help a{display:inline-block;padding:8px 10px;border:1px solid var(--border-strong);border-radius:8px;text-decoration:none;color:var(--green)}
 #master-slicer-status:empty{display:none}
 @media(max-width:650px){.master-file{display:block}.master-file-actions{justify-content:flex-start;margin-top:9px}.master-file-actions a{min-height:39px}}
+
+/* v0.13.16 – Masterprojekte als übersichtliche Projektkarten. */
+.master-editor{width:min(770px,calc(100vw - 28px));max-width:770px}
+.master-editor .dialog-heading h2{font-size:19px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-width:0}
+.master-dialog-subtitle{color:var(--muted);margin:2px 0 16px;font-size:12px}
+.master-editor .master-context{margin-bottom:19px}
+.master-editor .master-context label{font-size:12px;color:var(--muted)}
+.master-editor .master-context select{min-height:43px;font-size:13px;background:var(--surface);color:var(--ink)}
+.master-projects-section{margin:8px 0 14px}
+.master-section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:12px 0 12px}
+.master-editor .master-section-heading h3{margin:0 0 4px;font-size:16px;color:var(--ink)}
+.master-section-heading p{font-size:12px;color:var(--muted);margin:0}
+.master-files-count{flex-shrink:0;color:var(--muted);font-size:11px;font-weight:600;background:var(--surface-soft);border:1px solid var(--line);padding:5px 8px;border-radius:7px}
+.master-project-list{display:grid;gap:11px}
+.master-file.master-project-card{display:block;flex:none;margin:0;padding:16px;border:1.5px solid var(--border-strong);border-radius:13px;background:var(--surface);box-shadow:0 2px 7px #12251b0b}
+.master-project-top{display:flex;align-items:center;gap:12px;min-width:0}
+.master-project-icon{display:flex;align-items:center;justify-content:center;flex:0 0 48px;width:48px;height:48px;border-radius:11px;background:var(--surface-soft);border:1px solid var(--border-strong);font-size:13px;font-weight:800;letter-spacing:-.2px;color:var(--green)}
+.master-project-info{flex:1;min-width:0}
+.master-project-name{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.master-project-name strong{font-size:16px;line-height:1.35;overflow-wrap:anywhere;color:var(--ink)}
+.master-project-latest{border-radius:5px;background:var(--surface-soft);color:var(--muted);border:1px solid var(--line);font-size:10px;font-weight:650;padding:3px 5px}
+.master-project-meta{display:flex;align-items:center;gap:5px 12px;flex-wrap:wrap;margin-top:5px;color:var(--muted);font-size:11px}
+.master-project-meta span+span:before{content:"·";margin-right:10px}
+.master-project-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:13px;margin-top:13px;border-top:1px solid var(--line)}
+.master-project-actions .master-action{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:9px 13px;border-radius:9px;font-size:12px;font-weight:700;text-decoration:none;border:1.5px solid var(--green);white-space:normal;line-height:1.25}
+.master-project-actions .master-action-primary{color:#fff;background:var(--green)}
+.master-project-actions .master-action-secondary{color:var(--green);background:var(--surface)}
+.master-project-actions .master-action:hover{filter:brightness(.96)}
+.master-project-actions .master-file-download{display:inline-flex;align-items:center;padding:9px 4px;min-height:40px;font-size:11px;font-weight:600;text-decoration:underline;text-underline-offset:3px;color:var(--muted);margin-left:auto}
+.master-files-empty{padding:18px;border:1px dashed var(--border-strong);border-radius:12px;background:var(--surface-soft)}
+.master-files-empty strong{font-size:13px}.master-files-empty p{font-size:12px;color:var(--muted);margin:5px 0 0}
+.master-editor .master-detail-group{border:1px solid var(--border-strong);border-radius:11px;margin:10px 0;background:var(--surface);overflow:visible}
+.master-editor .master-detail-group>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;cursor:pointer;padding:13px 16px;font-weight:700;color:var(--ink);font-size:13px;list-style:none}
+.master-editor .master-detail-group>summary::-webkit-details-marker{display:none}
+.master-editor .master-detail-group>summary:before{content:"▸";color:var(--green);font-size:15px;margin-right:2px}
+.master-editor .master-detail-group[open]>summary:before{content:"▾"}
+.master-editor .master-detail-group>summary span{flex:1}
+.master-editor .master-detail-group>summary small{color:var(--muted);font-size:11px;font-weight:500;text-align:right}
+.master-editor .master-detail-group[open]>summary{border-bottom:1px solid var(--line)}
+.master-editor .master-detail-content{padding:13px 16px 17px}
+.master-detail-content p{font-size:12px;line-height:1.55;color:var(--muted);margin:7px 0 10px}
+.master-detail-content strong{color:var(--ink)}
+.master-detail-content code{overflow-wrap:anywhere;font-size:11px;color:var(--green)}
+.master-editor .master-slicer-help{margin:13px 0 3px;font-size:12px}
+.master-upload-actions{display:flex;gap:8px;flex-wrap:wrap}
+.master-editor #master-slicer-status:not(:empty){background:var(--surface-soft);border-radius:7px;padding:8px 10px;margin-top:9px;font-size:11px}
+.master-editor #master-upload-status:not(:empty){margin-top:10px}
+@media(max-width:670px){
+ .master-editor{width:calc(100vw - 20px);padding:17px 13px}
+ .master-editor .dialog-heading h2{font-size:16px}
+ .master-editor .master-context{gap:8px}
+ .master-section-heading{align-items:start}
+ .master-files-count{font-size:10px}
+ .master-project-name strong{font-size:14px}
+ .master-file.master-project-card{padding:12px}
+ .master-project-icon{width:40px;height:40px;flex-basis:40px;font-size:11px}
+ .master-project-actions .master-action{flex:1 1 43%;font-size:11px;padding:8px}
+ .master-project-actions .master-file-download{flex:1 1 100%;justify-content:flex-start;margin-left:0;min-height:28px}
+ .master-editor .master-detail-group>summary{padding:12px 10px}
+ .master-editor .master-detail-content{padding:12px}
+}

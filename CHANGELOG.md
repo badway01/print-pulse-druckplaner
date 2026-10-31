@@ -1,3 +1,11 @@
+## 0.13.16 (2026-10-31)
+
+- Klar gegliederte Master-3MF-Projektkarten mit hervorgehobenem Dateinamen, Drucker, Stand und primärem Slicer-Button, responsive für Smartphone und Desktop.
+- Filamentbelegung und Dateiablage in eingeklappte Bereiche verschoben; individuelle Farben bleiben über die Farbswatches wählbar.
+- Mac-Slicer-Helfer öffnet Master-3MF-Projekte direkt aus der bestehenden Home-Assistant-Share über die unveränderliche Datei-ID, statt bei jedem Klick einen neuen Safari-Download und Bestätigungsdialog auszulösen. Voraussetzung: die Samba-Share ist im lokalen Netz verfügbar; erste Netzlaufwerk-Anmeldung kann nötig sein.
+- Kein automatischer Dateidownload beim Slicer-Button; sicherer lokaler Dateiauswahl-Fallback, falls SMB nicht verfügbar ist.
+- Etsy-Historie und Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert. Es erfolgt keine Änderung vorhandener Masterdateien oder Filamentprofile.
+
 ## 0.13.15 (2026-10-31)
 
 - Safari kann 3MF-Downloads anders benennen, blockieren oder in einem abweichenden Ordner speichern. Der lokale Helfer sucht jetzt auch im konfigurierten Safari-Ordner und in iCloud-Downloads.

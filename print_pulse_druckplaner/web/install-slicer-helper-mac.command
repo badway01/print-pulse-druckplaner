@@ -26,13 +26,52 @@ cat > "$WORK/open-slicer.sh" <<'OPENER'
 # Accept only known slicers and a 24-char file ID. No remote URLs or commands.
 set -euo pipefail
 URL="$1"
-if [[ "$URL" =~ ^printpulse3mf://(bambu|snapmaker)/([a-f0-9]{24})/?$ ]]; then
+# The host hint comes from the HA page's hostname, never user-supplied script.
+# Only simple local DNS names/IPs are accepted and used as a Samba host.
+BASE_URL="${URL%%\?*}"
+SERVER_HINT=""
+if [[ "$URL" == *"?server="* ]]; then
+    SERVER_HINT="${URL#*\?server=}"
+    if [[ ! "$SERVER_HINT" =~ ^10\.([0-9]{1,3}\.){2}[0-9]{1,3}$ &&
+          ! "$SERVER_HINT" =~ ^192\.168\.([0-9]{1,3}\.)[0-9]{1,3}$ &&
+          ! "$SERVER_HINT" =~ ^172\.(1[6-9]|2[0-9]|3[01])\.([0-9]{1,3}\.)[0-9]{1,3}$ &&
+          ! "$SERVER_HINT" =~ ^[a-zA-Z0-9-]+\.local$ ]]; then
+        SERVER_HINT=""
+    fi
+fi
+if [[ "$BASE_URL" =~ ^printpulse3mf://(bambu|snapmaker)/([a-f0-9]{24})/?$ ]]; then
     SLICER="${BASH_REMATCH[1]}"
     FILE_ID="${BASH_REMATCH[2]}"
 else
     echo "Ungültiger Öffnen-Link."
     exit 1
 fi
+# Preferred workflow: open the *original* immutable 3MF straight from the
+# Home Assistant /share network volume. Only an ID-matching master is opened.
+find_network_master() {
+    local volume root candidate
+    for volume in /Volumes/*; do
+        [ -d "$volume" ] || continue
+        root="$volume/print-pulse/masterdateien"
+        [ -d "$root" ] || continue
+        for candidate in "$root"/*/*/"$FILE_ID"-*.3mf; do
+            if [ -f "$candidate" ] && [ -s "$candidate" ]; then
+                printf '%s' "$candidate"
+                return 0
+            fi
+        done
+    done
+    return 1
+}
+FILE="$(find_network_master || true)"
+if [ -z "$FILE" ] && [ -n "$SERVER_HINT" ]; then
+    # macOS Keychain may remember SMB credentials after the first connection.
+    # On a first connection Finder may request Samba username/password.
+    /usr/bin/osascript -e 'mount volume "smb://'"$SERVER_HINT"'/share"' >/dev/null 2>&1 || true
+    FILE="$(find_network_master || true)"
+fi
+if [ -z "$FILE" ]; 
+then
 # Safari can save to custom folders or iCloud Drive. Search a restricted
 # set of expected locations, then offer an explicit Finder picker instead of
 # failing with an opaque missing-file error.
@@ -47,7 +86,7 @@ SEARCH_DIRS=(
     "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Downloads"
 )
 FILE=""
-for ((attempt=0;attempt<60;attempt++)); do
+for ((attempt=0;attempt<8;attempt++)); do
     for directory in "${SEARCH_DIRS[@]}"; do
         [ -d "$directory" ] || continue
         for candidate in "$directory"/PP3MF-"$FILE_ID"-*.3mf; do
@@ -62,7 +101,8 @@ for ((attempt=0;attempt<60;attempt++)); do
 done
 
 if [ -z "$FILE" ]; then
-    # Safari may have blocked a background download or stored it elsewhere.
+    # No network master was available and no completed download was found.
+    # Fall back to a deliberate user-selected file, never guess another order.
     # Only an explicitly chosen local file is opened; never pick an arbitrary
     # 3MF from another order based on recency or a similar product name.
     FILE="$(/usr/bin/osascript -e 'POSIX path of (choose file with prompt "Print & Pulse: 3MF-Datei auswählen. Falls sie nicht heruntergeladen wurde, zuerst in Home Assistant auf Herunterladen klicken.")' 2>/dev/null || true)"
@@ -70,6 +110,7 @@ if [ -z "$FILE" ]; then
         echo "Keine gültige 3MF ausgewählt. Bitte in Home Assistant auf Herunterladen klicken und die Datei anschließend auswählen."
         exit 1
     fi
+fi
 fi
 if [ "$SLICER" = bambu ]; then
     /usr/bin/open -a "BambuStudio" "$FILE" ||
@@ -100,4 +141,5 @@ if [ -x "$REGISTER" ]; then "$REGISTER" -f "$APP"; fi
 printf '\nPrint & Pulse Slicer-Helfer ist installiert:\n%s\n\n' "$APP"
 printf 'Jetzt im HA-Druckplaner eine Master-3MF-Datei auf "In Bambu Studio öffnen"\n'
 printf 'oder "In Snapmaker Orca öffnen" anklicken. Safari darf die App öffnen.\n'
-printf 'Wichtig: Downloads muss der Safari-Downloadordner sein.\n'
+printf 'Direktzugriff: Samba Share unter macOS via Finder verbinden (smb://Home-Assistant-IP/share).\n'
+printf 'Danach oeffnen die Buttons gespeicherte Masterdateien ohne erneuten Download.\n'
