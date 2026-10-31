@@ -1841,7 +1841,7 @@ $('master-files').addEventListener('click',event=>{
  // only opens the matching file from Downloads, never a remote HA URL.
  const download=document.createElement('a');
  download.href='api/master-download?id='+encodeURIComponent(id)+'&launcher=mac';
- download.download='PP3MF-'+id+'.3mf';
+ download.download='PP3MF-'+id+'-Master.3mf';
  download.hidden=true;
  document.body.appendChild(download);
  download.click();
