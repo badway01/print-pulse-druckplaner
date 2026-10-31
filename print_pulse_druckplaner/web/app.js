@@ -1629,6 +1629,9 @@ function masterSelectionChanged(){
  const existing=findMasterProfile();
  masterSources=existing?JSON.parse(JSON.stringify(existing.sources)):[];
  renderMasterSources();renderMasterFiles();
+ const slots=masterSources.flatMap(s=>s.slots||[]);
+ const filled=slots.filter(Boolean).length;
+ $('master-colors-summary').textContent=filled?filled+' von '+slots.length+' Plätzen belegt':'Noch keine Farben zugeordnet';
 }
 async function openMasterEditor(id){
  const p=model?.products.find(p=>p.id===id);
@@ -1645,6 +1648,7 @@ async function openMasterEditor(id){
   printTools.files=[...printTools.files.filter(r=>r.listing_id!==id),...tool.files];
   filamentData=spool;
   masterSelectionChanged();
+  $('master-upload-details').open=!printTools.files.some(f=>f.listing_id===id&&f.variant_id===''&&f.printer==='H2D');
  }catch(err){flash(err.message,true);}
 }
 function masterSwatchHex(value){
@@ -1712,13 +1716,21 @@ function renderMasterFiles(){
  const x=selectedMasterTarget();
  const files=printTools.files.filter(f=>f.listing_id===x.listing_id&&f.variant_id===x.variant_id&&f.printer===x.printer);
  const mac=masterSlicerMac();
- updateHTML($('master-files'),files.length?files.map(f=>{
-  const id=encodeURIComponent(f.id);
-  const nativeOptions=mac?'<a class="secondary small master-slicer-link" data-master-slicer-file="'+esc(f.id)+'" href="printpulse3mf://bambu/'+id+'">In Bambu Studio öffnen</a>'+
-   '<a class="secondary small master-slicer-link" data-master-slicer-file="'+esc(f.id)+'" href="printpulse3mf://snapmaker/'+id+'">In Snapmaker Orca öffnen</a>':'';
-  return '<div class="master-file"><div class="master-file-details"><b>'+esc(f.filename)+'</b><small>'+new Date(f.created*1000).toLocaleString('de-DE')+' · '+(f.bytes/1048576).toFixed(1)+' MB</small></div><div class="master-file-actions">'+nativeOptions+
-   '<a class="secondary small" href="api/master-download?id='+id+'" download>Herunterladen</a></div></div>';
- }).join(''):'<p class="hint">Noch keine Masterdatei für diese Kombination vorhanden.</p>');
+ const host=/^[a-zA-Z0-9.-]+$/.test(window.location.hostname)?window.location.hostname:'';
+ const hostQuery=host?'?server='+encodeURIComponent(host):'';
+ $('master-file-count').textContent=files.length===1?'1 Projektdatei':files.length+' Projektdateien';
+ updateHTML($('master-files'),files.length?files.map((f,index)=>{
+  const id=encodeURIComponent(f.id), stamp=new Date(f.created*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'});
+  const printerLabel=x.printer||'Drucker';
+  const bambu='<a class="master-action master-action-'+(printerLabel==='Snapmaker U1'?'secondary':'primary')+'" data-master-slicer-file="'+esc(f.id)+'" href="printpulse3mf://bambu/'+id+hostQuery+'">In Bambu Studio öffnen</a>';
+  const snap='<a class="master-action master-action-'+(printerLabel==='Snapmaker U1'?'primary':'secondary')+'" data-master-slicer-file="'+esc(f.id)+'" href="printpulse3mf://snapmaker/'+id+hostQuery+'">In Snapmaker Orca öffnen</a>';
+  const actions=mac?(printerLabel==='Snapmaker U1'?snap+bambu:bambu+snap):'';
+  const download='<a class="master-file-download" href="api/master-download?id='+id+'" download>3MF herunterladen</a>';
+  return '<article class="master-file master-project-card"><div class="master-project-top"><span class="master-project-icon" aria-hidden="true">3MF</span><div class="master-project-info"><div class="master-project-name">'+
+   '<strong title="'+esc(f.filename)+'">'+esc(f.filename)+'</strong>'+(index===0?'<span class="master-project-latest">Neueste</span>':'')+'</div>'+
+   '<div class="master-project-meta"><span>'+esc(printerLabel)+'</span><span>'+esc(stamp)+'</span><span>'+(f.bytes/1048576).toFixed(1)+' MB</span></div></div></div>'+
+   '<div class="master-project-actions">'+actions+download+'</div></article>';
+ }).join(''):'<div class="master-files-empty"><strong>Noch keine 3MF-Datei hinterlegt</strong><p>Lege dein fertig eingerichtetes Druckprojekt unter „Neue Masterdatei speichern“ ab. Alle im Projekt gespeicherten Einstellungen bleiben enthalten.</p></div>');
 }
 
 async function saveMaster(){
@@ -1837,16 +1849,10 @@ $('master-files').addEventListener('click',event=>{
  if(!link||!masterSlicerMac())return;
  const id=link.dataset.masterSlicerFile;
  if(!/^[a-f0-9]{24}$/.test(id)){event.preventDefault();flash('Ungültige Masterdatei-ID.',true);return;}
- // Ingress-authenticated download happens in the browser. The local helper
- // only opens the matching file from Downloads, never a remote HA URL.
- const download=document.createElement('a');
- download.href='api/master-download?id='+encodeURIComponent(id)+'&launcher=mac';
- download.download='PP3MF-'+id+'-Master.3mf';
- download.hidden=true;
- document.body.appendChild(download);
- download.click();
- download.remove();
- $('master-slicer-status').textContent='Die Datei wird heruntergeladen und im gewählten Slicer geöffnet. Safari kann einmalig um Erlaubnis fragen.';
+ // Open the immutable project directly from the mounted HA Samba /share.
+ // No background download is triggered. macOS may require a one-time
+ // share login; unavailable shares fall back to a local file picker.
+ $('master-slicer-status').textContent='Die gespeicherte Projektdatei wird über das Home-Assistant-Netzlaufwerk geöffnet. Falls die Verbindung noch fehlt, richte einmalig die Samba-Freigabe ein.';
 });
 $('master-copy-path').addEventListener('click',copyMasterPath);
 $('master-upload-input').addEventListener('change',()=>{$('master-upload-status').textContent='';});
