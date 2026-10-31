@@ -1,3 +1,10 @@
+# 0.13.13 · Master-3MF: Farben visuell belegen und Speichermeldung korrigieren
+
+- AMS-Plätze mit gut sichtbaren Farbfeldern, kurzen Farbnamen und internen Nummern statt endloser Filament-Dropdowns.
+- Suche nach Farbe, Material, internem Code oder Hersteller-Farbcode; direkte Zuordnung per Farbkachel auch mobil.
+- 3MF-Upload bestätigt das erfolgreiche Ablegen separat. Ein später fehlgeschlagenes Nachladen der Dateiliste wird nicht mehr fälschlich als Upload-Fehler ausgegeben.
+- Direkt im Dialog wird angezeigt, ob Filamentbelegung oder 3MF-Datei gespeichert wurde. Bestehende Profile, Masterdateien und Druckerzuordnungen bleiben erhalten.
+
 # 0.13.12 · Filamentbestellung ohne Screenshot
 
 - Neuer Standard: Filamentbestellung direkt manuell eintragen. Bestehende Farben per Suche nach Bambu-Code, internem Code, Material oder Farbe übernehmen.
