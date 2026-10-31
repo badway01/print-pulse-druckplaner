@@ -44,7 +44,7 @@ const assert=require('node:assert/strict');
   assert.equal(saved.sources[0].slots[0],2);
   await page.locator('#master-upload-input').setInputFiles({name:'Schale.3mf',mimeType:'model/3mf',buffer:Buffer.from('testdatei')});
   await page.locator('#master-upload').click();
-  await page.waitForFunction(()=>document.querySelector('#master-upload-status').textContent.includes('abgelegt'));
+  await page.waitForFunction(()=>document.querySelector('#master-upload-status').textContent.includes('Nur die Aktualisierung'));
   assert(uploaded);
   assert.match(await page.locator('#master-upload-status').innerText(),/Nur die Aktualisierung/);
   assert.match(await page.locator('#master-files').innerText(),/Schale\.3mf/);
