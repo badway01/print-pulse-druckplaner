@@ -67,6 +67,19 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('.master-slicer-help a[download]').count(),1);
   assert.equal(await page.locator('.master-slicer-help').getAttribute('open'),null);
   assert.doesNotMatch(await page.locator('#master-upload-status').innerText(),/Upload fehlgeschlagen/);
+  // Safari used to turn an HTML ingress response into an opaque
+  // "The string did not match the expected pattern" JSON error.
+  await page.unroute('**/api/master-upload*');
+  await page.route('**/api/master-upload*',route=>route.fulfill({
+   status:502,contentType:'text/html',body:'<!doctype html><html><body>Bad Gateway</body></html>'
+  }));
+  await page.locator('#master-upload-input').setInputFiles({
+   name:'My_Acorn_beide_groessen.3mf',mimeType:'model/3mf',buffer:Buffer.from('testdatei')
+  });
+  await page.locator('#master-upload').click();
+  await page.waitForFunction(()=>document.querySelector('#master-upload-status').textContent.includes('HTTP 502'));
+  assert.match(await page.locator('#master-upload-status').innerText(),/Ingress-.?\/?.?Proxy-Fehler|Ingress-\/Proxy-Fehler/);
+  assert.doesNotMatch(await page.locator('#master-upload-status').innerText(),/The string did not match/);
   assert.deepEqual(errors,[],'No JavaScript browser errors');
   await page.setViewportSize({width:390,height:780});
   await page.locator('[data-master-slot-open="1"]').click();
