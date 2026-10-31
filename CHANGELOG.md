@@ -1,3 +1,12 @@
+## 0.13.13 (2026-10-31)
+
+- Master-3MF-Filamentbelegung auf große Farbswatches, kompakte AMS-Plätze und durchsuchbare Farb-Kacheln umgestellt (interner Code, Farbe, Material und Hersteller-Code).
+- Upload und nachfolgendes Aktualisieren der Dateiliste sind jetzt getrennte Schritte. Eine bereits gespeicherte 3MF-Datei wird bei einem Nachladefehler nicht mehr als fehlgeschlagener Upload gemeldet und bleibt im Dialog sichtbar.
+- Eindeutige Statushinweise direkt im 3MF-Dialog; vorhandene Belegungen und alle Masterdatei-Versionen bleiben unverändert.
+- Regressionstest für Farbwahl, Profil-Speichern und Nachladefehler nach erfolgreichem 3MF-Upload.
+
+- Die Etsy-Historie und die Filament-Bedarfsanalyse mit 50 g Standard bleiben unverändert.
+
 ## 0.13.12 (2026-10-30)
 
 - Filamentbestellungen werden jetzt standardmäßig manuell erfasst: kompakte Positionen statt Screenshot-Zwang. Foto-/Text-Import bleibt als optionale Schaltfläche erhalten.

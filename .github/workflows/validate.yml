@@ -46,6 +46,7 @@ jobs:
           node --check tests/ui_safari.cjs
           node --check tests/local_ui.cjs
           node --check tests/filament_purchases_ui.cjs
+          node --check tests/master_picker_ui.cjs
 
       - name: Private Daten suchen
         run: python scripts/check_public.py
@@ -67,6 +68,7 @@ jobs:
           done
           node tests/dialog_ui.cjs
           node tests/stock_orders_ui.cjs
+          node tests/master_picker_ui.cjs
           node tests/ui.cjs
           node tests/ui_safari.cjs
           node tests/local_ui.cjs

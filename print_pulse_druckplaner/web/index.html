@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.5"><script src="app.js?v=0.13.6" defer></script><script src="components-ui.js?v=0.13.3" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.1" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.13.3" defer></script><script src="dialog-behavior.js?v=0.12.6" defer></script><script src="order-zoom-ui.js?v=0.13.3" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script><script src="filament-planner-ui.js?v=0.13.5" defer></script><script src="filament-purchases-ui.js?v=0.13.12" defer></script><link rel="stylesheet" href="filament-purchases.css?v=0.13.12"><link rel="stylesheet" href="filament-planner.css?v=0.13.5"></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.13"><script src="app.js?v=0.13.13" defer></script><script src="components-ui.js?v=0.13.3" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.1" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.13.3" defer></script><script src="dialog-behavior.js?v=0.13.13" defer></script><script src="order-zoom-ui.js?v=0.13.3" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script><script src="filament-planner-ui.js?v=0.13.5" defer></script><script src="filament-purchases-ui.js?v=0.13.12" defer></script><link rel="stylesheet" href="filament-purchases.css?v=0.13.12"><link rel="stylesheet" href="filament-planner.css?v=0.13.5"></head>
 <body>
 <header><a class="brand" href="./" aria-label="Print &amp; Pulse Startseite"><img class="brand-logo" src="brand.svg" width="190" height="98" alt="Print &amp; Pulse – Designs mit Herz"></a><div class="theme-switch" role="group" aria-label="Darstellung wählen">
  <button type="button" class="theme-option" data-theme-mode="light" aria-label="Heller Modus" title="Hell" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
@@ -335,13 +335,21 @@
 <dialog id="master-editor" class="master-editor"><div class="dialog-heading"><h2 id="master-title">Masterdateien &amp; Farben</h2><button type="button" data-close="master-editor" class="icon-button" aria-label="Schließen">×</button></div>
 <p class="hint">Die Filamentbelegung wird je Produkt, optional je Variante, und Drucker gespeichert.</p>
 <div class="master-context"><label>Variante<select id="master-variant"></select></label><label>Drucker<select id="master-printer"></select></label></div>
-<h3>Filamentbelegung</h3><div id="master-sources"></div>
+<h3>Filamentbelegung</h3><p class="hint">AMS-Platz antippen, Farbe ansehen und aus deiner Filamentbibliothek auswählen.</p><div id="master-sources"></div>
+<div id="master-filament-picker-overlay" class="master-picker-overlay" hidden>
+ <section class="master-filament-picker" role="region" aria-labelledby="master-filament-picker-title">
+  <div class="master-picker-heading"><div><strong id="master-filament-picker-title">Filament auswählen</strong><small>Deine gespeicherten Farben</small></div><button type="button" class="master-picker-close" data-master-picker-close aria-label="Farbauswahl schließen">×</button></div>
+  <label class="master-picker-search-label">Farbe, interne Nummer oder Bambu-Code suchen<input id="master-filament-search" type="search" autocomplete="off" placeholder="z. B. Sakura, 11 oder 11201"></label>
+  <div id="master-filament-count" class="master-picker-count"></div>
+  <div id="master-filament-results" class="master-picker-grid"></div>
+ </section>
+</div>
 <div class="master-add-source"><select id="master-source-type" aria-label="Filamentquelle hinzufügen"><option value="ams">AMS (4 Plätze)</option><option value="ams_ht">AMS HT (1 Platz)</option><option value="external">Externe Spule (1 Platz)</option></select><button type="button" id="master-add" class="secondary">+ Hinzufügen</button></div>
-<button type="button" id="master-save" class="primary">Belegung speichern</button>
+<button type="button" id="master-save" class="primary">Belegung speichern</button><p id="master-profile-status" class="master-inline-status" role="status" aria-live="polite"></p>
 <h3>Master-3MF-Dateien</h3><div id="master-files"></div>
 <label class="master-upload">Neue Masterdatei (.3mf)<input id="master-upload-input" type="file" accept=".3mf" /></label>
 <button type="button" id="master-upload" class="secondary">Datei sicher ablegen</button>
-<button type="button" id="master-copy-path" class="secondary">Ordnerpfad kopieren</button>
+<button type="button" id="master-copy-path" class="secondary">Ordnerpfad kopieren</button><p id="master-upload-status" class="master-inline-status" role="status" aria-live="polite"></p>
 <p class="hint">Jeder Upload bleibt als eigene Version erhalten. Über „Ordnerpfad kopieren“ öffnest du den Speicherort im Windows-Explorer. Die Samba-Freigabe muss separat eingerichtet sein.</p>
 </dialog>
 <dialog id="printer-config-dialog" class="printer-config-dialog"><div class="dialog-heading"><h2 id="printer-config-title">Drucker-Sensoren zuordnen</h2><button type="button" data-close="printer-config-dialog" class="icon-button" aria-label="Schließen">×</button></div>

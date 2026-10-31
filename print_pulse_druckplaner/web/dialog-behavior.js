@@ -34,6 +34,10 @@
     return true;
   }
   window.closeDruckplanerDialog = closeDialog;
+  window.markDruckplanerDialogSaved = id => {
+    const state = stateByDialog.get(document.getElementById(id));
+    if (state) state.dirty = false;
+  };
 
   for (const dialog of document.querySelectorAll('dialog')) {
     const state = {dirty: false, backdropStart: false};
@@ -60,7 +64,7 @@
     dialog.addEventListener('change', markEdited);
     dialog.addEventListener('click', event => {
       if (dialogsWithEdits.has(dialog.id) &&
-          event.target.closest?.('#local-add-line,[data-local-remove],[data-local-choose],#master-add,[data-master-remove]')) {
+          event.target.closest?.('#local-add-line,[data-local-remove],[data-local-choose],#master-add,[data-master-remove],[data-master-pick]')) {
         state.dirty = true;
       }
     });
@@ -80,6 +84,12 @@
   let backdropPress = null;
   document.addEventListener('pointerdown', event => {
     const dialog = topModal();
+    // A colour picker can occupy space outside the dialog rectangle.
+    // Interacting with it must never dismiss or discard the master editor.
+    if (dialog?.id === 'master-editor' && !document.getElementById('master-filament-picker-overlay')?.hidden) {
+      backdropPress = null;
+      return;
+    }
     backdropPress = dialog && outside(event, dialog)
       ? {dialog, pointerId: event.pointerId} : null;
   }, true);
