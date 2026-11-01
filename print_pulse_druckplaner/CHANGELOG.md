@@ -1,3 +1,12 @@
+# 0.13.21 · 3D-Druck-Kostenrechner nach Chargen- und Verkaufskosten
+
+- Aufgeräumte responsive Print-&-Pulse-Oberfläche mit Live-Ergebnis, Preisstufen und ausklappbaren Kostenangaben.
+- Druckkosten pro kompletter Charge und pro Stück, getrennt von verkauften Stückzahlen und Zahl der Bestellungen. Mehrfarbige Drucke und Suchfeld mit numerischer Lagerfarbensortierung.
+- Hinterlegte Druckerstrom-/Anschaffungs-/Wartungswerte, Fehldruckreserve, konfigurierbarer Strom- und Arbeitsstundensatz sowie optionale Fixkostenumlage.
+- Etsy-Gebühren inklusive Offsite Ads, Versandkosten, Rabatten, Listinggebühr USD/EUR und einstellbarer USt. auf Verkäufergebühren; Direktverkauf ohne Plattformgebühren.
+- Preisempfehlungen mit Break-even/20/40/60 % Umsatzmargen inklusive aller Gebühren und optionaler ,90-/ ,99-Rundung.
+- Rechner speichern ohne Druckerfreigaben zu verändern. Historische Kalkulationen bleiben erhalten; Katalogvormerkung ohne Etsy-Preisänderung.
+
 # 0.13.20 · Master-3MF gezielt löschen
 
 - Papierkorb neben jeder hinterlegten Master-3MF mit Dateiname in der Löschbestätigung.
