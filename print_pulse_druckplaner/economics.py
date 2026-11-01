@@ -11,6 +11,14 @@ import re
 import html
 import urllib.request
 import xml.etree.ElementTree as ET
+try:
+    from . import cost_v2
+except ImportError:
+    import importlib.util
+    from pathlib import Path
+    _spec = importlib.util.spec_from_file_location("pp_cost_v2", Path(__file__).with_name("cost_v2.py"))
+    cost_v2 = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(cost_v2)
 from html.parser import HTMLParser
 
 
@@ -71,6 +79,7 @@ def schema(db):
         saved INTEGER NOT NULL,
         result_json TEXT NOT NULL);
     """)
+    cost_v2.schema(db)
 
 
 # Initial rates checked against Etsy's official seller-fee pages (27 October 2026).
@@ -251,8 +260,13 @@ def read(db, listing_id=None):
     where = " WHERE listing_id=?" if listing_id else ""
     rows = [dict(r) for r in db.execute(
         "SELECT * FROM pp_cost_profiles" + where + " ORDER BY listing_id,variant_id,printer", args)]
+    cols = {r[1] for r in db.execute("PRAGMA table_info(filament_spools)")}
+    extra = ("spool_g" if "spool_g" in cols else "1000 AS spool_g") + "," + (
+        "manufacturer_code" if "manufacturer_code" in cols else "'' AS manufacturer_code")
     filaments = {r["id"]: dict(r) for r in db.execute(
-        "SELECT id,brand,color,material,color_hex,internal_code,price_cents,stock_qty,open_qty FROM filament_spools")}
+        "SELECT id,brand,color,material,color_hex,internal_code,price_cents,stock_qty,open_qty," + extra + " FROM filament_spools")}
+    settings = cost_v2.get_settings(db, PRINTERS)
+    fees = fee_rates(db)
     for row in rows:
         try:
             raw_fields = json.loads(row.pop("fields_json"))
@@ -263,7 +277,8 @@ def read(db, listing_id=None):
             if "etsy_enabled" not in raw_fields and raw_fields.get("selling_eur", 0) > 0:
                 fields["etsy_enabled"] = 1  # retain legacy saved sales calculations
             row["fields"], row["materials"] = fields, materials
-            row["result"] = calculate(fields, materials, filaments)
+            row["result"] = (cost_v2.calculate(fields, materials, filaments, settings, row["printer"], fees)
+                             if fields.get("calc_version") == 2 else calculate(fields, materials, filaments))
         except (ValueError, TypeError, KeyError, ZeroDivisionError):
             row["fields"], row["materials"] = dict(DEFAULTS), []
             row["result"] = {"complete": False, "missing_prices": ["Profil prüfen"]}
@@ -272,14 +287,20 @@ def read(db, listing_id=None):
     for investment in investments:
         investment["result"] = investment_result(investment)
     return {"profiles": rows, "investments": investments, "printers": list(PRINTERS),
-            "filaments": list(filaments.values()), "etsy_fees": fee_rates(db)}
+            "filaments": list(filaments.values()), "etsy_fees": fees, "cost_settings": settings,
+            "catalog_recommendations": [dict(r) for r in db.execute(
+                "SELECT listing_id,variant_id,printer,result_json,updated FROM pp_catalog_cost_recommendations")]}
 
 def save_profile(db, data):
     listing_id, variant_id, printer = target(db, data)
-    status = data.get("status")
+    previous = db.execute("SELECT status,notes FROM pp_cost_profiles WHERE listing_id=? AND variant_id=? AND printer=?",
+                          (listing_id, variant_id, printer)).fetchone()
+    # Saving cost calculations cannot grant, revoke or alter printer approval.
+    status = data.get("status") if data.get("approval_change") is True else (
+        previous["status"] if previous else "untested")
     if status not in STATUSES:
         raise ValueError("Druckstatus muss offen, freigegeben oder problematisch sein.")
-    notes = text(data.get("notes", ""), 1000)
+    notes = text(data.get("notes", previous["notes"] if previous else ""), 1000)
     supplied = data.get("fields")
     if not isinstance(supplied, dict):
         raise ValueError("Kalkulationsdaten fehlen.")
@@ -298,6 +319,23 @@ def save_profile(db, data):
             fields[key] = int(amount)
         else:
             fields[key] = amount
+    if supplied.get("calc_version") == 2:
+        fields["calc_version"] = 2
+        for key, default in cost_v2.V2_FIELDS.items():
+            if key == "calc_version":
+                continue
+            maximum = 100 if key == "discount_percent" else 100000
+            val = number(supplied.get(key, default), key, 0, maximum)
+            if key in ("sales_units", "orders_count"):
+                if val != int(val) or not 1 <= val <= 1000:
+                    raise ValueError("Verkaufs-/Bestellmenge muss 1–1000 sein.")
+                fields[key] = int(val)
+            elif key in ("shipping_free", "overhead_enabled"):
+                if val not in (0, 1):
+                    raise ValueError("Schalter muss 0 oder 1 sein.")
+                fields[key] = int(val)
+            else:
+                fields[key] = val
     materials = data.get("materials")
     if not isinstance(materials, list) or len(materials) > 24:
         raise ValueError("Maximal 24 Filamentpositionen erlaubt.")
@@ -375,7 +413,19 @@ def save_investment(db, data):
 
 def mutate(db, data):
     action = data.get("action")
-    if action == "save-profile":
+    if action == "save-cost-settings":
+        cost_v2.save_settings(db, data.get("settings"), PRINTERS)
+    elif action == "save-catalog-recommendation":
+        listing_id, variant_id, printer = target(db, data)
+        snapshot = next((p for p in read(db, listing_id)["profiles"]
+                         if p["variant_id"] == variant_id and p["printer"] == printer), None)
+        if snapshot is None or not snapshot["result"].get("complete"):
+            raise ValueError("Erst eine vollständige Kalkulation speichern.")
+        db.execute("INSERT INTO pp_catalog_cost_recommendations(listing_id,variant_id,printer,result_json,updated) "
+                   "VALUES(?,?,?,?,?) ON CONFLICT(listing_id,variant_id,printer) DO UPDATE SET "
+                   "result_json=excluded.result_json,updated=excluded.updated",
+                   (listing_id, variant_id, printer, json.dumps(snapshot["result"], ensure_ascii=False), int(time.time())))
+    elif action == "save-profile":
         save_profile(db, data)
     elif action == "save-investment":
         save_investment(db, data)
