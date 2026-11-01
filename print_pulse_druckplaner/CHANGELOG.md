@@ -2,6 +2,7 @@
 
 - Papierkorb neben jeder hinterlegten Master-3MF mit Dateiname in der Löschbestätigung.
 - Entfernt gezielt die gespeicherte Datei und ihre Bauteil-/Bestellzuordnungen. Andere Dateien, Filamentprofile, Bestellungen und Lagerbestände bleiben erhalten.
+- Filament-Bedarfsanalyse mit 50 g Standard und Etsy-Historie bleiben unverändert.
 - Dateiliste und Anzahl aktualisieren sich direkt; fehlgeschlagene Löschvorgänge werden angezeigt.
 
 # 0.13.19 · Safari 3MF Upload gegen Proxy- und Dateinamenfehler absichern
