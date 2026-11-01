@@ -2572,3 +2572,9 @@ html[data-theme="dark"] .order-countdown.ready{background:#57452f;color:#f5d6a2}
  #order-position .simple-pos-master-product .simple-part-master-current{align-items:stretch}
  #order-position .simple-pos-master-product .simple-part-master-open{width:100%}
 }
+
+/* Master project deletion: touch-sized button beside each filename. */
+.master-delete{display:inline-flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:1px solid var(--line,#d5d9d3);border-radius:10px;background:transparent;color:#b44339;cursor:pointer}
+.master-delete:hover{background:rgba(180,67,57,.1)}
+.master-delete:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.master-delete:disabled{opacity:.5;cursor:wait}

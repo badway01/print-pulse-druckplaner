@@ -39,6 +39,46 @@ class MasterTests(unittest.TestCase):
         self.assertEqual(f['notes'],'Eigener interner Code')
         return f['id']
 
+    def test_delete_master_removes_only_selected_file_and_links(self):
+        buf=io.BytesIO()
+        with zipfile.ZipFile(buf,'w') as z:
+            z.writestr('[Content_Types].xml','<Types/>')
+        body=buf.getvalue()
+        meta={'listing_id':'123','variant_id':'','printer':'H2D','filename':'Größen.3mf'}
+        first=app.store_master_file(meta,io.BytesIO(body),len(body))['id']
+        other=app.store_master_file(meta,io.BytesIO(body),len(body))['id']
+        _,path=app.master_download_record(first)
+        with app.connect() as db:
+            db.execute("INSERT INTO pp_components(id,listing_id,name,kind,updated) VALUES('part','123','Schale','demand',0)")
+        app.save_component_master_link({'component_id':'part','variant_id':'','printer':'H2D','file_id':first})
+        app.save_order_master_default({'listing_id':'123','variant_id':'','file_id':first})
+        app.delete_master_file({'id':first})
+        self.assertFalse(path.exists())
+        result=app.print_tools_overview('123')
+        self.assertEqual([f['id'] for f in result['files']],[other])
+        self.assertEqual(result['component_links'],[])
+        self.assertEqual(result['order_master_defaults'],[])
+        self.assertEqual(app.master_download_record(other)[1].read_bytes(),body)
+        self.assertTrue(app.delete_master_file({'id':first})['ok'])
+
+    def test_delete_master_failure_preserves_record_and_missing_file_can_be_removed(self):
+        from unittest.mock import patch
+        buf=io.BytesIO()
+        with zipfile.ZipFile(buf,'w') as z:
+            z.writestr('[Content_Types].xml','<Types/>')
+        body=buf.getvalue()
+        meta={'listing_id':'123','variant_id':'','printer':'H2D','filename':'Test.3mf'}
+        fid=app.store_master_file(meta,io.BytesIO(body),len(body))['id']
+        _,path=app.master_download_record(fid)
+        with patch.object(Path,'rename',side_effect=PermissionError('denied')):
+            with self.assertRaises(PermissionError):app.delete_master_file({'id':fid})
+        self.assertEqual(app.master_download_record(fid)[1].read_bytes(),body)
+        path.unlink()
+        app.delete_master_file({'id':fid})
+        self.assertEqual(app.print_tools_overview('123')['files'],[])
+        for invalid in ('../outside',None,123):
+            with self.assertRaises(ValueError):app.delete_master_file({'id':invalid})
+
     def test_profile_slots_and_immutable_revisions(self):
         fid=self.spool()
         payload={'listing_id':'123','variant_id':'variant1','printer':'H2D',

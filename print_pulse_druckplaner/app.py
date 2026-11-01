@@ -53,7 +53,7 @@ except ImportError:
     _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.19'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.20'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -1586,6 +1586,39 @@ def store_master_file(meta, stream, length):
     return {'ok':True,'id':upload_id,'bytes':length}
 
 
+def delete_master_file(data):
+    file_id=data.get('id')
+    if not isinstance(file_id,str) or not re.fullmatch(r'[a-f0-9]{24}',file_id):
+        raise ValueError('Ungültige Datei-ID.')
+    moved=False
+    try:
+        with connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row=db.execute('SELECT * FROM master_files WHERE id=?',(file_id,)).fetchone()
+            if not row:
+                return {'ok':True,'id':file_id}
+            path=MASTER_ROOT / row['relative_path']
+            if not path.resolve().is_relative_to(MASTER_ROOT.resolve()):
+                raise ValueError('Ungültiger Dateipfad.')
+            staged=path.with_name(path.name+'.deleting-'+secrets.token_hex(6))
+            if path.exists():
+                path.rename(staged)
+                moved=True
+            db.execute('DELETE FROM pp_component_master_links WHERE file_id=?',(file_id,))
+            db.execute('DELETE FROM pp_order_master_defaults WHERE file_id=?',(file_id,))
+            db.execute('DELETE FROM master_files WHERE id=?',(file_id,))
+    except BaseException:
+        if moved:
+            staged.rename(path)
+        raise
+    if moved:
+        try:
+            staged.unlink()
+        except OSError:
+            log.warning('Gelöschte Masterdatei konnte nicht endgültig entfernt werden: %s',file_id)
+    return {'ok':True,'id':file_id}
+
+
 def master_download_record(file_id):
     if not re.fullmatch(r'[a-f0-9]{24}',file_id or ''):
         raise ValueError('Ungültige Datei-ID.')
@@ -2367,6 +2400,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,{'priority_dismissed':dismissed})
             if path=='/api/printer-config':
                 return self.send(200,save_printer_bindings(data))
+            if path=='/api/master-delete':
+                return self.send(200,delete_master_file(data))
             if path=='/api/print-profile':
                 return self.send(200,save_print_profile(data))
             if path=='/api/master-component-link':

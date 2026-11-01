@@ -1734,9 +1734,32 @@ function renderMasterFiles(){
   const download='<a class="master-file-download" href="api/master-download?id='+id+'" download>3MF herunterladen</a>';
   return '<article class="master-file master-project-card"><div class="master-project-top"><span class="master-project-icon" aria-hidden="true">3MF</span><div class="master-project-info"><div class="master-project-name">'+
    '<strong title="'+esc(f.filename)+'">'+esc(f.filename)+'</strong>'+(index===0?'<span class="master-project-latest">Neueste</span>':'')+'</div>'+
-   '<div class="master-project-meta"><span>'+esc(printerLabel)+'</span><span>'+esc(stamp)+'</span><span>'+(f.bytes/1048576).toFixed(1)+' MB</span></div></div></div>'+
+   '<div class="master-project-meta"><span>'+esc(printerLabel)+'</span><span>'+esc(stamp)+'</span><span>'+(f.bytes/1048576).toFixed(1)+' MB</span></div></div>'+
+   '<button type="button" class="master-delete" data-master-delete="'+esc(f.id)+'" title="3MF löschen" aria-label="'+esc(f.filename)+' löschen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div>'+
    '<div class="master-project-actions">'+actions+download+'</div></article>';
  }).join(''):'<div class="master-files-empty"><strong>Noch keine 3MF-Datei hinterlegt</strong><p>Lege dein fertig eingerichtetes Druckprojekt unter „Neue Masterdatei speichern“ ab. Alle im Projekt gespeicherten Einstellungen bleiben enthalten.</p></div>');
+}
+
+async function deleteMasterFile(id){
+ if(masterBusy)return;
+ const file=printTools.files.find(f=>f.id===id);
+ if(!file)return;
+ if(!window.confirm('3MF-Datei „'+file.filename+'“ endgültig löschen?\n\nDie gespeicherte Datei und ihre Zuordnungen zu Bauteilen und Bestellungen werden entfernt.'))return;
+ masterBusy=true;
+ document.querySelectorAll('[data-master-delete]').forEach(b=>b.disabled=true);
+ try{
+  const result=await api('master-delete',{id});
+  if(!result.ok)throw Error('Löschen wurde nicht bestätigt.');
+  printTools.files=printTools.files.filter(f=>f.id!==id);
+  printTools.component_links=(printTools.component_links||[]).filter(f=>f.file_id!==id);
+  printTools.order_master_defaults=(printTools.order_master_defaults||[]).filter(f=>f.file_id!==id);
+  renderMasterFiles();render();renderCatalog();
+  flash('3MF-Datei gelöscht.');
+ }catch(error){flash(error.message,true);}
+ finally{
+  masterBusy=false;
+  document.querySelectorAll('[data-master-delete]').forEach(b=>b.disabled=false);
+ }
 }
 
 async function saveMaster(){
@@ -1874,6 +1897,8 @@ $('master-editor').addEventListener('close',()=>closeMasterPicker(false));
 $('master-save').addEventListener('click',saveMaster);
 $('master-upload').addEventListener('click',uploadMaster);
 $('master-files').addEventListener('click',event=>{
+ const remove=event.target.closest('[data-master-delete]');
+ if(remove){deleteMasterFile(remove.dataset.masterDelete);return;}
  const link=event.target.closest('[data-master-slicer-file]');
  if(!link||!masterSlicerMac())return;
  const id=link.dataset.masterSlicerFile;

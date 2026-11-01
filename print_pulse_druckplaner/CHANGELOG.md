@@ -1,3 +1,9 @@
+# 0.13.20 · Master-3MF gezielt löschen
+
+- Papierkorb neben jeder hinterlegten Master-3MF mit Dateiname in der Löschbestätigung.
+- Entfernt gezielt die gespeicherte Datei und ihre Bauteil-/Bestellzuordnungen. Andere Dateien, Filamentprofile, Bestellungen und Lagerbestände bleiben erhalten.
+- Dateiliste und Anzahl aktualisieren sich direkt; fehlgeschlagene Löschvorgänge werden angezeigt.
+
 # 0.13.19 · Safari 3MF Upload gegen Proxy- und Dateinamenfehler absichern
 
 - Die bisherige 3MF-Upload-URL mit Dateinamen und anderen Parametern wird durch einen POST auf den festen Endpunkt ohne Querystring ersetzt. Produkt, Variante, Drucker und Originaldateiname werden getrennt in ASCII-sicheren HTTP-Headern übergeben.

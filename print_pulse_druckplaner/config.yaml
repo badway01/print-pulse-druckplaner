@@ -1,5 +1,5 @@
 name: "Print & Pulse Druckplaner"
-version: "0.13.19"
+version: "0.13.20"
 slug: "print_pulse_druckplaner"
 description: "Lager und Bestellungen: Etsy-Aufträge, Bestände und Nachdruckbedarf"
 arch:
