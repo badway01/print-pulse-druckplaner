@@ -208,7 +208,7 @@ function econPreview(){
   '<p class="hint">Noch keine erfolgreich getesteten Drucker für diese Variante hinterlegt.</p>';
 }
 function econRenderInvestmentList(){
- const target=$('econ-investment-list');if(!target||!economyData)return;
+ const target=$('econ-invest-list');if(!target||!economyData)return;
  target.innerHTML=economyData.investments.length?economyData.investments.map(inv=>
   '<div class="econ-investment-item"><div><b>'+esc(inv.name)+'</b><small>'+esc(inv.printer||'Drucker offen')+
   ' · '+(inv.result.payback_months===null?'Keine positive Amortisation':inv.result.payback_months+' Monate Amortisation')+
@@ -298,105 +298,6 @@ function openEconomicsForProduct(id,variant=''){
   }
  });
 }
-$('econ-product').addEventListener('change',()=>{econRenderSelects();$('econ-variant').value='';econLoadProfile();});
-for(const id of ['econ-variant','econ-printer'])$(id).addEventListener('change',econLoadProfile);
-document.querySelectorAll('[data-econ-tab]').forEach(b=>b.addEventListener('click',()=>econShowTab(b.dataset.econTab)));
-$('econ-printer-checklist').addEventListener('click',event=>{
- const button=event.target.closest('[data-econ-printer-pick]');if(!button)return;
- $('econ-printer').value=button.dataset.econPrinterPick;econLoadProfile();
-});
-$('econ-add-material').addEventListener('click',()=>{
- economyMaterials.push({filament_id:0,grams:0,spool_g:1000});econRenderMaterials();econPreview();
-});
-$('econ-materials').addEventListener('input',event=>{
- const el=event.target,idx=Number(el.dataset.econMatIndex);
- if(!Number.isInteger(idx)||!economyMaterials[idx])return;
- const field=el.dataset.econMatField;
- if(!['filament_id','grams','spool_g'].includes(field))return;
- economyMaterials[idx][field]=field==='filament_id'?Number(el.value):econNum(el.value);
- econPreview();
-});
-$('econ-materials').addEventListener('change',event=>{
- const el=event.target;if(!el.dataset.econMatField)return;
- const idx=Number(el.dataset.econMatIndex),field=el.dataset.econMatField;
- if(economyMaterials[idx])economyMaterials[idx][field]=field==='filament_id'?Number(el.value):econNum(el.value);
- econPreview();
-});
-$('econ-materials').addEventListener('click',event=>{
- const button=event.target.closest('[data-econ-remove]');if(!button)return;
- economyMaterials.splice(Number(button.dataset.econRemove),1);econRenderMaterials();econPreview();
-});
-$('econ-form').addEventListener('input',econPreview);
-$('econ-etsy-toggle').addEventListener('change',()=>{
- econSetMode($('econ-etsy-toggle').checked);
- econPreview();
-});
-$('econ-fees-refresh').addEventListener('click',async()=>{
- const button=$('econ-fees-refresh');
- button.disabled=true;button.textContent='Prüfe Etsy …';
- try{
-  const previous=econNum($('econ-offsite').value);
-  const oldRates=economyData?.etsy_fees||{};
-  economyData=await api('economics',{action:'refresh-etsy-fees'});
-  econApplyFeeRates();
-  if(previous&&previous===econNum(oldRates.offsite_standard_percent,15))
-   $('econ-offsite').value=String(economyData.etsy_fees.offsite_standard_percent);
-  else if(previous&&previous===econNum(oldRates.offsite_reduced_percent,12))
-   $('econ-offsite').value=String(economyData.etsy_fees.offsite_reduced_percent);
-  econPreview();
-  flash('Etsy-Gebühren und EZB-Kurs erfolgreich geprüft. Werte in der aktuellen Maske aktualisiert; bitte speichern.');
- }catch(err){flash('Online-Update nicht möglich: '+err.message,true);}
- finally{button.disabled=false;button.textContent='Gebühren online aktualisieren';}
-});
-$('econ-form').addEventListener('submit',async event=>{
- event.preventDefault();
- const data={
-  action:'save-profile',listing_id:$('econ-product').value,
-  variant_id:$('econ-variant').value,printer:$('econ-printer').value,
-  status:$('econ-form').elements.status.value,notes:$('econ-form').elements.notes.value,
-  fields:econFields(),materials:economyMaterials.filter(m=>Number(m.filament_id)>0).map(m=>({
-   filament_id:Number(m.filament_id),grams:Number(m.grams),spool_g:Number(m.spool_g)||1000}))
- };
- const button=$('econ-save');button.disabled=true;
- try{
-  economyData=await api('economics',data);econRefresh();
-  if(typeof renderPriorityUI==='function')renderPriorityUI();
-  if(typeof renderCatalog==='function')renderCatalog();
-  flash('Kalkulation und Druckerfreigabe gespeichert.');
- }catch(err){flash(err.message,true);}
- finally{button.disabled=false;}
-});
-$('econ-invest-form').addEventListener('input',econInvestmentPreview);
-$('econ-invest-form').addEventListener('submit',async event=>{
- event.preventDefault();
- const form=event.target;
- const body={action:'save-investment',id:economyInvestmentId,
-  listing_id:$('econ-product').value,variant_id:$('econ-variant').value};
- for(const key of ['name','printer','notes'])body[key]=form.elements[key].value;
- for(const key of ['purchase_eur','setup_eur','monthly_units','contribution_eur','monthly_extra_eur'])
-  body[key]=econNum(form.elements[key].value);
- const save=$('econ-invest-save');save.disabled=true;
- try{economyData=await api('economics',body);econRefresh();econFillInvestForm();flash('Investitionsszenario gespeichert.');}
- catch(err){flash(err.message,true);}
- finally{save.disabled=false;}
-});
-$('econ-invest-new').addEventListener('click',()=>econFillInvestForm());
-$('econ-invest-list').addEventListener('click',async event=>{
- const edit=event.target.closest('[data-econ-invest-edit]');
- if(edit){econFillInvestForm(economyData.investments.find(i=>i.id===Number(edit.dataset.econInvestEdit)));return;}
- const del=event.target.closest('[data-econ-invest-delete]');
- if(!del||!confirm('Dieses Investitionsszenario löschen?'))return;
- try{economyData=await api('economics',{action:'delete-investment',id:Number(del.dataset.econInvestDelete)});
-  econRenderInvestmentList();flash('Szenario gelöscht.');
- }catch(err){flash(err.message,true);}
-});
-document.addEventListener('click',event=>{
- const button=event.target.closest('[data-econ-open]');
- if(button){openEconomicsForProduct(button.dataset.econOpen,button.dataset.econVariant||'');}
-});
-// Prime printer approvals for the dashboard even if the calculator tab is not opened.
-loadEconomics();
-
 $('econ-product').addEventListener('change',()=>{ $('econ-variant').value='';econRenderSelects();econLoadProfile(); });
 for(const id of ['econ-variant','econ-printer'])$(id).addEventListener('change',econLoadProfile);
 $('econ-channel').addEventListener('change',econPreview);
