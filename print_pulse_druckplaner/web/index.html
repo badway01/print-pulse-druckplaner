@@ -96,69 +96,67 @@
  </div>
  <p id="econ-message" role="status" class="hint">Kalkulationen werden beim Öffnen geladen.</p>
  <div id="econ-cost-pane">
-  <div class="econ-selects">
-   <label>Produkt<select id="econ-product"></select></label>
-   <label>Variante<select id="econ-variant"><option value="">Standard / alle Varianten</option></select></label>
-   <label>Drucker<select id="econ-printer"></select></label>
-  </div>
-  <div id="econ-printer-checklist" class="econ-printer-checklist" aria-label="Erfolgreich getestete Drucker je Produkt"></div>
-  <div class="econ-columns">
-   <form id="econ-form" class="econ-panel">
-    <div class="econ-panel-head"><h3>Druckerfreigabe &amp; Kalkulation</h3><small id="econ-record">Noch nicht geladen.</small></div>
-    <div class="econ-verification">
-     <label>Testergebnis
-      <select name="status"><option value="untested">Noch nicht getestet</option><option value="approved">✓ Erfolgreich gedruckt · freigegeben</option><option value="issue">! Druckfehler · nicht freigegeben</option></select>
-     </label>
-     <label>Notizen zum Druckergebnis<textarea name="notes" rows="2" maxlength="1000" placeholder="Naht, Einstellungen, Qualität …"></textarea></label>
+  <div class="econ-columns econ-v2-columns">
+   <form id="econ-form" class="econ-panel econ-v2-input">
+    <div class="econ-panel-head"><h3>3D-Druck kalkulieren</h3><small id="econ-record">Noch nicht geladen</small></div>
+    <div class="econ-fields econ-main-fields">
+     <label>Produkt<select id="econ-product"></select></label>
+     <label>Variante<select id="econ-variant"><option value="">Standard / alle Varianten</option></select></label>
+     <label>Drucker<select id="econ-printer"></select></label>
+     <label>Verkaufskanal<select id="econ-channel"><option value="etsy">Etsy</option><option value="direct">Direktverkauf</option></select></label>
     </div>
-    <h4>Filamente aus deinem Lager</h4>
-    <p class="hint">Spulenpreis stammt aus deiner Filamentverwaltung. Gramm und Spulengewicht werden je Druckprofil eingetragen. Bei mehreren Farben separate Positionen hinzufügen.</p>
-    <div id="econ-materials"></div>
-    <button type="button" id="econ-add-material" class="secondary small">+ Filament hinzufügen</button>
-    <h4>Reine Druckkosten</h4>
-    <p class="hint">Nur Material, Strom und optional Maschinenkosten. Stunden und Minuten wie in Bambu Studio eingeben.</p>
-    <div class="econ-fields">
-     <label>Stück je Druck<input type="number" name="batch_units" min="1" max="1000" step="1" value="1" required></label>
-     <label>Druckdauer je Druck
-      <span class="econ-duration"><span><input id="econ-hours" type="number" min="0" max="166" step="1" value="0" aria-label="Druckstunden"><small>Stunden</small></span><span><input id="econ-minutes" type="number" min="0" max="59" step="1" value="0" aria-label="Druckminuten"><small>Minuten</small></span></span>
-     </label>
-     <label>Leistungsaufnahme (W)<input type="number" name="power_watts" min="0" step="1" value="120"></label>
-     <label>Strompreis (€/kWh)<input type="number" name="energy_eur_kwh" min="0" step="0.01" value="0.35"></label>
-     <label>Maschinenkosten (€/h, optional)<input type="number" name="machine_eur_hour" min="0" step="0.01" value="0"></label>
+    <h4>Filament der gesamten Druckcharge</h4>
+    <p class="hint">Suche nach Lagernummer, Farbe, Marke oder Farbcode. Spulenpreis aus dem Lager.</p>
+    <div id="econ-materials"></div><button type="button" id="econ-add-material" class="secondary small">+ Weitere Farbe</button>
+    <div class="econ-fields econ-primary-fields">
+     <label>Gedruckte Stückzahl<input name="batch_units" type="number" value="1" min="1" max="1000" step="1" inputmode="numeric"></label>
+     <label>Druckzeit der gesamten Charge<span class="econ-duration"><span><input id="econ-hours" type="number" value="0" min="0" max="166" step="1" aria-label="Stunden"><small>Stunden</small></span><span><input id="econ-minutes" type="number" value="0" min="0" max="59" step="1" aria-label="Minuten"><small>Minuten</small></span></span></label>
     </div>
-    <div class="econ-etsy-activation"><label class="econ-toggle"><input type="checkbox" id="econ-etsy-toggle"><span><b>Auch Etsy-Verkauf berechnen</b><small>Optional: Verkaufspreis, Versand, Arbeitszeit und Gebühren dazurechnen.</small></span></label></div>
-    <div id="econ-etsy-details" class="econ-etsy-details" hidden>
-     <h4>Verkauf, Arbeitszeit und Versand</h4>
+    <details id="econ-extras" class="econ-v2-details"><summary>Weitere Kosten &amp; Verkaufsdetails <span>optional</span></summary>
      <div class="econ-fields">
-      <label>Arbeitszeit je Stück (Min.)<input type="number" name="labor_minutes" min="0" step="0.1" value="0"></label>
-      <label>Arbeitskosten (€/h)<input type="number" name="labor_eur_hour" min="0" step="0.01" value="0"></label>
-      <label>Verpackung je Stück (€)<input type="number" name="packaging_eur" min="0" step="0.01" value="0"></label>
-      <label>Weitere Kosten je Stück (€)<input type="number" name="other_eur" min="0" step="0.01" value="0"></label>
-      <label>Verkaufspreis je Stück (€)<input type="number" name="selling_eur" min="0" step="0.01" value="0"></label>
-      <label>Stück pro Bestellung<input type="number" name="units_per_order" min="1" max="1000" step="1" value="1"></label>
-      <label>Vom Kunden bezahlter Versand je Bestellung (€)<input type="number" name="shipping_paid_eur" min="0" step="0.01" value="0"></label>
-      <label>Tatsächliche Versandkosten je Bestellung (€)<input type="number" name="shipping_cost_eur" min="0" step="0.01" value="0"></label>
-      <label>Offsite Ads (nur bei zugeordneten Verkäufen)<select name="offsite_percent" id="econ-offsite"><option value="0">Keine Offsite Ads</option><option value="15">15 % (unter 10.000 USD)</option><option value="12">12 % (ab 10.000 USD)</option></select></label>
-      <label>Sonstige Gebühren je Stück (€)<input type="number" name="additional_fee_eur" min="0" step="0.01" value="0"></label>
+      <label>Aktueller Artikelpreis (€ / Stück)<input name="selling_eur" type="number" min="0" step=".01" value="0"></label>
+      <label>Verkaufte Stückzahl<input name="sales_units" type="number" min="1" max="1000" step="1" value="1"></label>
+      <label>Anzahl Bestellungen<input name="orders_count" type="number" min="1" max="1000" step="1" value="1"></label>
+      <label>Etsy-Rabatt (%)<input name="discount_percent" type="number" min="0" max="100" step=".1" value="0"></label>
+      <label>Kunde zahlt Versand (€ / Bestellung)<input name="shipping_paid_eur" type="number" min="0" step=".01" value="0"></label>
+      <label>Eigene Versandkosten (€ / Bestellung)<input name="shipping_cost_eur" type="number" min="0" step=".01" value="0"></label>
+      <label class="econ-inline-check"><input name="shipping_free" type="checkbox"> Versand für Kunden kostenfrei</label>
+      <label>Verpackung (€ / verkauftes Stück)<input name="packaging_eur" type="number" min="0" step=".01" value="0"></label>
+      <label>Arbeitszeit (Min. / Stück)<input name="labor_minutes" type="number" min="0" step=".1" value="0"></label>
+      <label>Zusatzteile / sonstige Kosten (€ / Stück)<input name="other_eur" type="number" min="0" step=".01" value="0"></label>
+      <label class="econ-etsy-only">Offsite Ads<select name="offsite_percent" id="econ-offsite"><option value="0">Keine</option><option value="15">15 %</option><option value="12">12 %</option></select></label>
+      <label class="econ-etsy-only">Weitere Etsy-Gebühren (€ / Stück)<input name="additional_fee_eur" type="number" min="0" step=".01" value="0"></label>
+      <label class="econ-inline-check"><input name="overhead_enabled" type="checkbox"> Monatliche Fixkosten anteilig einrechnen</label>
      </div>
-     <input type="hidden" name="etsy_percent" value="10.5">
-     <input type="hidden" name="etsy_fixed_eur" value="0.30">
-     <input type="hidden" name="listing_fee_eur" value="0">
-     <div class="econ-fees-box">
-      <div class="econ-fees-top"><div><b>Offizielle Etsy-Gebühren (Deutschland)</b><small id="econ-fees-checked">Gebührenstand wird geladen.</small></div><button type="button" class="secondary small" id="econ-fees-refresh">Gebühren online aktualisieren</button></div>
-      <div id="econ-fees-status" class="econ-fees-status"></div>
-      <p class="hint">Zahlungspauschale pro Bestellung. Einstellgebühr wird per EZB-Kurs umgerechnet. Etsy-Ads-Klickkosten, Etsy Plus und mögliche USt. auf Verkäufergebühren nicht pauschal enthalten.</p>
-     </div>
-    </div>
-    <button type="submit" id="econ-save" class="primary">Kalkulation &amp; Druckerfreigabe speichern</button>
+     <div class="econ-fees-box econ-etsy-only"><div class="econ-fees-top"><div><b>Etsy-Gebühren Deutschland</b><small id="econ-fees-checked">Gebührenstand wird geladen</small></div><button type="button" id="econ-fees-refresh" class="secondary small">Gebühren online prüfen</button></div><div id="econ-fees-status" class="econ-fees-status"></div></div>
+    </details>
+    <input type="hidden" name="power_watts" value="120"><input type="hidden" name="energy_eur_kwh" value=".35">
+    <input type="hidden" name="machine_eur_hour" value="0"><input type="hidden" name="labor_eur_hour" value="0">
+    <input type="hidden" name="etsy_percent" value="10.5"><input type="hidden" name="etsy_fixed_eur" value=".30">
+    <input type="hidden" name="listing_fee_eur" value=".18"><input type="hidden" name="units_per_order" value="1">
+    <div class="econ-save-actions"><button id="econ-save" type="submit" class="primary">Kalkulation speichern</button><button id="econ-catalog-save" type="button" class="secondary">Preis im Katalog vormerken</button></div>
+    <details class="econ-v2-details econ-approvals"><summary>Druckerfreigaben separat verwalten</summary>
+     <div id="econ-printer-checklist" class="econ-printer-checklist"></div>
+     <div class="econ-verification"><label>Testergebnis<select name="status"><option value="untested">Noch nicht getestet</option><option value="approved">Erfolgreich getestet · freigegeben</option><option value="issue">Nachbessern</option></select></label><label>Notizen<textarea name="notes" rows="2" maxlength="1000"></textarea></label></div>
+     <button id="econ-approval-save" type="button" class="secondary">Freigabe ausdrücklich speichern</button>
+    </details>
    </form>
-   <aside class="econ-aside">
-    <div class="econ-panel"><h3>Kalkulation je Stück</h3><div id="econ-results" aria-live="polite"></div></div>
-    <div class="econ-panel"><h3>Freigegebene Drucker im Vergleich</h3><div id="econ-comparison"></div>
-    <p class="hint">Nur Drucker, auf denen du einen erfolgreichen Druck bestätigt hast. Keine automatische Fernsteuerung.</p></div>
-   </aside>
+   <aside class="econ-aside econ-v2-aside"><div class="econ-panel econ-v2-output">
+    <div class="econ-output-head"><span>Empfohlener Standardpreis / Stück</span><button id="econ-settings-open" type="button" class="secondary small">⚙ Einstellungen</button></div>
+    <div id="econ-price-main" class="econ-price-main">—</div>
+    <div id="econ-prices" class="econ-price-tiers"></div>
+    <h3>Kostenaufstellung</h3><div id="econ-results" aria-live="polite"></div>
+   </div><details class="econ-panel econ-v2-details"><summary>Freigegebene Drucker vergleichen</summary><div id="econ-comparison"></div></details></aside>
   </div>
  </div>
+ <dialog id="econ-cost-settings" class="econ-settings-dialog"><form id="econ-settings-form">
+  <div class="dialog-heading"><h2>Kosten-Einstellungen</h2><button type="button" data-econ-settings-close class="icon-button" aria-label="Schließen">×</button></div>
+  <p class="hint">Zentrale Standards – historische Kalkulationen werden nicht rückwirkend überschrieben.</p>
+  <div id="econ-settings-fields" class="econ-fields"></div><h3>Drucker – Strom, Abschreibung, Wartung</h3>
+  <label>Drucker auswählen<select id="econ-settings-printer"></select></label>
+  <div id="econ-printer-settings-fields" class="econ-fields"></div>
+  <div class="econ-save-actions"><button class="primary" type="submit">Einstellungen speichern</button><button type="button" class="secondary" data-econ-settings-close>Schließen</button></div>
+ </form></dialog>
  <div id="econ-invest-pane" hidden>
   <div class="econ-columns">
    <form id="econ-invest-form" class="econ-panel">
