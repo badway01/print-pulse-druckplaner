@@ -1585,7 +1585,8 @@ function renderCatalog(){
   const profiles=printTools.profiles.filter(f=>f.listing_id===p.id).length;
   const img=thumbnail(p.image);
   return '<article class="catalog-item" data-catalog-item="'+esc(p.id)+'">'+(img?'<img src="'+esc(img)+'" alt="" loading="lazy">':'<div class="catalog-placeholder">P+</div>')+
-   '<div><b>'+esc(p.title)+'</b><small>'+files+' Masterdatei(en) · '+profiles+' Druckprofil(e)</small><small>'+esc(typeof economicsPrinterText==='function'?economicsPrinterText(p.id):'Druckerfreigaben werden geladen')+'</small></div><button type="button" class="secondary small" data-econ-open="'+esc(p.id)+'">Kalkulieren</button><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">3MF &amp; Belegung</button></article>';
+   '<div><b>'+esc(p.title)+'</b><small>'+files+' Masterdatei(en) · '+profiles+' Druckprofil(e)</small><small>'+esc(typeof economicsPrinterText==='function'?economicsPrinterText(p.id):'Druckerfreigaben werden geladen')+'</small>'+
+    (typeof economicsCatalogPriceText==='function'&&economicsCatalogPriceText(p.id)?'<small class="econ-catalog-hint">'+esc(economicsCatalogPriceText(p.id))+'</small>':'')+'</div><button type="button" class="secondary small" data-econ-open="'+esc(p.id)+'">Kalkulieren</button><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">3MF &amp; Belegung</button></article>';
  }).join(''):'<p class="hint">Kein aktives Produkt passt zur Suche.</p>');
 }
 let masterToolsLoading=false;
