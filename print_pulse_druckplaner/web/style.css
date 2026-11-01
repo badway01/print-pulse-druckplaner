@@ -2578,3 +2578,79 @@ html[data-theme="dark"] .order-countdown.ready{background:#57452f;color:#f5d6a2}
 .master-delete:hover{background:rgba(180,67,57,.1)}
 .master-delete:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 .master-delete:disabled{opacity:.5;cursor:wait}
+
+/* Print & Pulse v0.13.21 — compact 3D cost calculator only, no purple or upsells. */
+#calculator-shell.econ-shell{background:#f8faf8;border-color:#e1e9e3}
+#econ-cost-pane .econ-v2-columns{grid-template-columns:minmax(0,1.08fr) minmax(320px,.92fr);gap:18px}
+#econ-cost-pane .econ-panel{background:#fff;border:1px solid #e1e8e2;border-radius:16px;box-shadow:0 4px 20px #223d2d08}
+#econ-cost-pane .econ-v2-input{padding:23px}
+#econ-cost-pane .econ-v2-input h4{margin:24px 0 7px;font-size:14px;color:var(--green)}
+#econ-cost-pane .econ-main-fields{grid-template-columns:repeat(2,minmax(0,1fr));margin:16px 0}
+#econ-cost-pane .econ-primary-fields{margin:21px 0;align-items:end}
+#econ-cost-pane input,#econ-cost-pane select{min-height:46px;border-radius:10px;border:1px solid #d8e1db}
+#econ-cost-pane input:focus,#econ-cost-pane select:focus{border-color:var(--green)}
+#econ-cost-pane .econ-material-line{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(110px,.65fr);gap:9px 13px;background:#fafcf9;border:1px solid #e1e9e2;border-radius:12px;padding:13px;margin:10px 0}
+#econ-cost-pane .econ-filament-field{grid-row:span 2}
+#econ-cost-pane .econ-filament-field input{margin:3px 0 8px;font-size:13px}
+#econ-cost-pane .econ-material-line .econ-mat-info{grid-column:2;align-self:start;color:#567264;font-size:11px;line-height:1.5}
+#econ-cost-pane .econ-mat-weight{grid-column:1;min-width:0;font-size:11px;color:var(--muted)}
+#econ-cost-pane .econ-mat-weight summary{cursor:pointer}
+#econ-cost-pane .econ-mat-weight label{margin-top:8px}
+#econ-cost-pane .econ-material-line>button{grid-column:2;justify-self:end}
+#econ-cost-pane .econ-v2-details{margin:17px 0 9px;border:1px solid #e2eae4;border-radius:12px;padding:13px;background:#fafcfb}
+#econ-cost-pane .econ-v2-details summary{cursor:pointer;color:var(--green);font-weight:750;font-size:13px;list-style-position:inside}
+#econ-cost-pane .econ-v2-details summary span{font-weight:400;color:var(--muted);font-size:11px;margin-left:6px}
+#econ-cost-pane .econ-v2-details[open]>summary{margin-bottom:16px}
+#econ-cost-pane .econ-inline-check{display:flex;flex-direction:row;align-items:center;gap:9px;justify-content:flex-start;min-height:43px}
+#econ-cost-pane .econ-inline-check input{min-height:20px;width:19px;height:19px;flex:0 0 19px}
+#econ-cost-pane .econ-save-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
+#econ-cost-pane .econ-save-actions button{min-height:44px;flex:1 1 auto}
+#econ-cost-pane .econ-v2-aside{display:block}
+#econ-cost-pane .econ-v2-output{padding:24px}
+#econ-cost-pane .econ-output-head{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;color:var(--muted);font-weight:650}
+#econ-cost-pane .econ-output-head button{flex-shrink:0}
+#econ-cost-pane .econ-price-main{font-size:clamp(38px,4vw,53px);line-height:1.25;letter-spacing:-1.5px;font-weight:800;color:#2f6850;margin:9px 0 20px;font-variant-numeric:tabular-nums}
+#econ-cost-pane .econ-price-tiers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:24px}
+#econ-cost-pane .econ-price-card{display:flex;flex-direction:column;gap:7px;min-height:99px;padding:14px;border:1px solid transparent;border-radius:12px}
+#econ-cost-pane .econ-price-card span{font-size:12px;font-weight:700}
+#econ-cost-pane .econ-price-card strong{font-size:24px;line-height:1.1;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+#econ-cost-pane .econ-price-card small{font-size:10px;line-height:1.4}
+#econ-cost-pane .econ-price-card.break-even{background:#f0f2f2;border-color:#e3e6e6;color:#555f5b}
+#econ-cost-pane .econ-price-card.minimum{background:#fff2e2;border-color:#f4e0c8;color:#995f24}
+#econ-cost-pane .econ-price-card.standard{background:#e7f3ec;border-color:#cce4d4;color:#2d694a}
+#econ-cost-pane .econ-price-card.luxury{background:#f8f0d7;border-color:#eee0ab;color:#886b25}
+#econ-cost-pane .econ-v2-output h3{margin:21px 0 8px;padding-top:14px;border-top:1px solid #e3ebe4}
+#econ-cost-pane .econ-result-row{font-size:12px;line-height:1.5;gap:8px}
+#econ-cost-pane .econ-total{margin-top:10px;margin-bottom:7px;border-color:#7a9c87}
+#econ-cost-pane .econ-total .econ-result-row:last-child{font-size:13px}
+#econ-cost-pane .econ-approvals .econ-printer-checklist{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:16px}
+#econ-cost-pane .econ-approvals .econ-verification{background:#f3f7f3}
+#econ-cost-pane [hidden]{display:none!important}
+#econ-cost-settings{width:min(720px,calc(100% - 22px));max-height:90vh;background:#fff;border-color:#dae6dc}
+#econ-cost-settings .econ-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+#econ-cost-settings h3{margin:25px 0 12px;color:var(--green)}
+#econ-cost-settings label{display:flex;flex-direction:column;gap:6px;font-weight:650;font-size:12px}
+#econ-cost-settings input,#econ-cost-settings select{padding:10px;border-radius:9px;border:1px solid #d4e0d7;background:#fff;color:#283c30;min-height:44px}
+#econ-cost-settings .econ-save-actions{display:flex;gap:10px;margin-top:22px}
+@media(max-width:1050px){
+ #econ-cost-pane .econ-v2-columns{grid-template-columns:1fr}
+ #econ-cost-pane .econ-v2-aside{display:block}
+ #econ-cost-pane .econ-v2-output{position:static}
+}
+@media(max-width:600px){
+ #calculator-shell.econ-shell{padding:10px;margin:10px 0}
+ #econ-cost-pane .econ-main-fields{grid-template-columns:1fr 1fr;gap:10px}
+ #econ-cost-pane .econ-primary-fields{grid-template-columns:1fr 1fr;gap:9px}
+ #econ-cost-pane .econ-v2-input,#econ-cost-pane .econ-v2-output{padding:14px}
+ #econ-cost-pane .econ-material-line{grid-template-columns:1fr 105px;gap:8px}
+ #econ-cost-pane .econ-filament-field{grid-row:span 2}
+ #econ-cost-pane .econ-price-card{padding:11px;min-height:94px}
+ #econ-cost-pane .econ-price-card strong{font-size:21px}
+ #econ-cost-pane .econ-output-head{flex-wrap:wrap}
+ #econ-cost-settings .econ-fields{grid-template-columns:1fr 1fr;gap:9px}
+}
+@media(max-width:390px){
+ #econ-cost-pane .econ-main-fields,#econ-cost-pane .econ-primary-fields{grid-template-columns:1fr}
+ #econ-cost-pane .econ-price-tiers{grid-template-columns:1fr 1fr}
+ #econ-cost-settings .econ-fields{grid-template-columns:1fr}
+}
