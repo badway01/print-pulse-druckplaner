@@ -57,7 +57,7 @@ function econMaterialInfo(m){
  if(!f)return 'Bitte Filament auswählen';
  if(f.price_cents===null)return 'Kein Preis im Filamentlager hinterlegt';
  const weight=econNum(m.spool_g,f.spool_g||1000)||1000;
- return econMoney(f.price_cents/100)+' / '+weight+' g · '+econMoney(f.price_cents/100/weight)+' pro g';
+ return econMoney(f.price_cents/100)+' / '+weight+' g · '+(f.price_cents/100/weight).toLocaleString('de-DE',{minimumFractionDigits:4,maximumFractionDigits:4})+' €/g';
 }
 function econRenderMaterials(){
  const el=$('econ-materials');if(!el)return;
@@ -279,6 +279,18 @@ function economicsApprovedFor(item){
   return profile?.status==='approved';
  });
 }
+function economicsCatalogPriceText(listingId){
+ if(!economyData)return '';
+ const items=(economyData.catalog_recommendations||[]).filter(row=>String(row.listing_id)===String(listingId));
+ if(!items.length)return '';
+ const sorted=[...items].sort((a,b)=>b.updated-a.updated);
+ try{
+  const row=sorted[0],result=JSON.parse(row.result_json);
+  const suggested=result.recommendations?.standard?.price_eur;
+  if(suggested===null||suggested===undefined)return '';
+  return 'Kalkulation hinterlegt: '+econMoney(suggested)+' Standard ('+row.printer+(row.variant_id?' · Variante':'')+') · Etsy-Preis unverändert';
+ }catch{return '';}
+}
 function economicsPrinterText(listingId,variantId=''){
  if(!economyData)return '';
  const printers=economicsApprovedFor({listingId,itemId:variantId});
@@ -365,16 +377,18 @@ async function econSave(approval=false){
   if(typeof renderPriorityUI==='function')renderPriorityUI();
   if(typeof renderCatalog==='function')renderCatalog();
   flash(approval?'Druckerfreigabe ausdrücklich gespeichert.':'Kalkulation gespeichert. Freigabestatus unverändert.');
- }catch(err){flash(err.message,true);}finally{b.disabled=false;}
+  return true;
+ }catch(err){flash(err.message,true);return false;}finally{b.disabled=false;}
 }
 $('econ-form').addEventListener('submit',e=>{e.preventDefault();econSave(false);});
 $('econ-approval-save').addEventListener('click',()=>econSave(true));
 $('econ-catalog-save').addEventListener('click',async()=>{
  const b=$('econ-catalog-save');b.disabled=true;
  try{
-  await econSave(false);
+  if(!await econSave(false))return;
   economyData=await api('economics',{action:'save-catalog-recommendation',
    listing_id:$('econ-product').value,variant_id:$('econ-variant').value,printer:$('econ-printer').value});
+  if(typeof renderCatalog==='function')renderCatalog();
   flash('Preisempfehlung vorgemerkt – Etsy-Preis nicht verändert.');
  }catch(err){flash(err.message,true);}finally{b.disabled=false;}
 });
