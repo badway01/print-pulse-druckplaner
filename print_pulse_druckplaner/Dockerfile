@@ -12,6 +12,7 @@ COPY local_orders.py ./local_orders.py
 COPY local_order_pdf.py ./local_order_pdf.py
 COPY safety.py ./safety.py
 COPY economics.py ./economics.py
+COPY cost_v2.py ./cost_v2.py
 COPY filament_planner.py ./filament_planner.py
 COPY filament_purchases.py ./filament_purchases.py
 COPY web ./web
