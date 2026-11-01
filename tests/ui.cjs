@@ -300,7 +300,7 @@ const installedVersion=(await page.locator('#app-version').textContent()).trim()
 const latestRelease=await page.locator('#release-history-content .release-entry').first().textContent();
 assert.match(installedVersion,/^v\d+\.\d+\.\d+$/);
 assert(latestRelease.includes(installedVersion.slice(1)),'latest packaged release matches app version');
-assert(latestRelease.includes('Filament')&&latestRelease.includes('Etsy')&&latestRelease.includes('50 g'),'current release documents filament demand analysis and Etsy history');
+assert(latestRelease.includes('Etsy')&&latestRelease.includes('Preisstufen')&&latestRelease.includes('Drucker'),'current release documents fees, pricing tiers and printer costs');
 await page.locator('#etsy-import-panel summary').click();
 await page.locator('#etsy-import-rows').getByText('Keine neuen aktiven Artikel', {exact:false}).waitFor();
 await page.locator('[data-close="settings"]').click();
