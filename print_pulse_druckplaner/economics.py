@@ -296,7 +296,7 @@ def save_profile(db, data):
     previous = db.execute("SELECT status,notes FROM pp_cost_profiles WHERE listing_id=? AND variant_id=? AND printer=?",
                           (listing_id, variant_id, printer)).fetchone()
     # Saving cost calculations cannot grant, revoke or alter printer approval.
-    status = data.get("status") if data.get("approval_change") is True else (
+    status = data.get("status") if (data.get("approval_change") is True or (supplied_version := (data.get("fields") or {}).get("calc_version")) != 2) else (
         previous["status"] if previous else "untested")
     if status not in STATUSES:
         raise ValueError("Druckstatus muss offen, freigegeben oder problematisch sein.")
