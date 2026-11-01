@@ -1,3 +1,12 @@
+## 0.13.21 (2026-11-01)
+
+- 3D-Kostenrechner in übersichtlichem Print-&-Pulse-Zweispaltenlayout: nur wesentliche Felder sichtbar, mobile Anordnung und große vierstufige Preisempfehlung.
+- Chargenmenge, Verkaufsmenge und Anzahl Etsy-Bestellungen separat. Mehrfarbige Drucke, numerische Filamentsuche, vorhandene Spulenpreise und optionale Gewichte.
+- Strom, Abschreibung, Wartung, Fehldruckreserve und zentral gespeicherte Kostenstandards pro Drucker.
+- Etsy-Gebühren mit Versand, Rabatten, Offsite Ads, USD-Listinggebühr und einstellbarer Behandlung der Verkäufergebühren-Umsatzsteuer. Bei Direktverkauf keine Etsy-Gebühren.
+- Mathematisch korrekt nach der Umsatzmarge kalkulierte Preisstufen 0/20/40/60 %, optional auf ,90 / ,99 gerundet; tatsächliche Marge wird neu bestimmt.
+- Bestehende Druckerfreigaben bleiben von neuen Kalkulationen getrennt; historische Preisschnappschüsse bleiben unverändert. Optionale Preisempfehlung im Katalog ohne Etsy-Preisänderung.
+
 ## 0.13.20 (2026-11-01)
 
 - Papierkorb neben jeder hinterlegten Master-3MF mit Dateiname in der Löschbestätigung.
