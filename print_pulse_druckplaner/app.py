@@ -308,6 +308,8 @@ def init_db():
             db.execute("ALTER TABLE filament_spools ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
         if 'open_qty' not in columns:
             db.execute("ALTER TABLE filament_spools ADD COLUMN open_qty INTEGER NOT NULL DEFAULT 0 CHECK(open_qty>=0)")
+        if 'spool_g' not in columns:
+            db.execute("ALTER TABLE filament_spools ADD COLUMN spool_g REAL NOT NULL DEFAULT 1000 CHECK(spool_g>0)")
         # Preserve legacy data: migrate compatible master assignments once.
         # Incompatible print_profiles tables remain entirely untouched.
         # Idempotent first-run bootstrap: only Etsy catalog quantities, never local stock.
