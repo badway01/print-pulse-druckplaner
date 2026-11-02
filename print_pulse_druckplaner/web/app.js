@@ -1644,6 +1644,8 @@ async function openMasterEditor(id){
  $('master-variant').value='';
  $('master-printer').value='H2D';
  $('master-editor').showModal();
+ $('master-share-path').textContent=masterShareFolderUrl();
+ void refreshMasterShareInbox();
  try{const [tool,spool]=await Promise.all([api('print-tools?listing_id='+encodeURIComponent(id)),api('filaments')]);
   printTools.profiles=[...printTools.profiles.filter(r=>r.listing_id!==id),...tool.profiles];
   printTools.files=[...printTools.files.filter(r=>r.listing_id!==id),...tool.files];
@@ -1941,6 +1943,97 @@ async function uploadMaster(){
  }finally{masterBusy=false;$('master-upload').disabled=false; if(stored||!masterUploadPending)progress.hidden=true;}
 }
 
+
+let masterShareInbox=[];
+function masterShareFolderUrl(){
+ const hostname=window.location.hostname||'homeassistant.local';
+ return 'smb://'+hostname+'/share/print-pulse/3mf-eingang';
+}
+async function copyMasterShareFolder(){
+ const path=masterShareFolderUrl();
+ try{
+  await navigator.clipboard.writeText(path);
+  flash('Ordneradresse kopiert. Im Finder mit ⌘ K öffnen und 3MF hineinkopieren.');
+ }catch{
+  window.prompt('Im Finder mit ⌘ K verbinden:',path);
+ }
+}
+async function refreshMasterShareInbox(){
+ const status=$('master-share-status');
+ const select=$('master-share-file');
+ const refresh=$('master-share-refresh');
+ const importButton=$('master-share-import');
+ const previous=select.value;
+ refresh.disabled=true;
+ importButton.disabled=true;
+ status.textContent='3MF-Eingangsordner wird gelesen …';
+ status.dataset.state='pending';
+ try{
+  const data=await masterUploadApi('master-share-inbox',undefined,12000);
+  if(!Array.isArray(data.files))throw Error('Ungültige Dateiliste vom Eingangsordner.');
+  masterShareInbox=data.files;
+  select.innerHTML=data.files.length?data.files.map(f=>
+   '<option value="'+esc(f.filename)+'">'+esc(f.filename)+' · '+(f.bytes/1048576).toFixed(1)+' MB</option>'
+  ).join(''):'<option value="">Noch keine 3MF-Datei im Eingangsordner</option>';
+  if(data.files.some(f=>f.filename===previous))select.value=previous;
+  importButton.disabled=!data.files.length||masterBusy;
+  status.textContent=data.files.length?data.files.length+' 3MF-Datei(en) verfügbar. Datei auswählen und übernehmen.':
+   'Noch keine 3MF gefunden. Im Finder eine 3MF in den Eingangsordner kopieren und anschließend „Dateiliste aktualisieren“ wählen.';
+  status.dataset.state=data.files.length?'success':'warning';
+ }catch(error){
+  masterShareInbox=[];
+  select.innerHTML='<option value="">Dateiliste momentan nicht verfügbar</option>';
+  status.textContent='Eingangsordner nicht erreichbar: '+error.message;
+  status.dataset.state='error';
+ }finally{refresh.disabled=false;}
+}
+async function importMasterFromShare(){
+ if(masterBusy||!masterContext)return;
+ const filename=$('master-share-file').value;
+ const status=$('master-share-status');
+ if(!masterShareInbox.some(f=>f.filename===filename)){
+  status.textContent='Bitte zuerst eine 3MF aus dem Eingangsordner auswählen.';
+  status.dataset.state='error';
+  return;
+ }
+ const target=selectedMasterTarget();
+ masterBusy=true;
+ $('master-share-import').disabled=true;
+ $('master-share-refresh').disabled=true;
+ status.textContent='3MF wird direkt im Home Assistant geprüft und übernommen …';
+ status.dataset.state='pending';
+ let saved=false;
+ try{
+  const result=await masterUploadApi('master-share-import',{...target,filename},120000);
+  if(!result.ok||!result.id)throw Error('Keine Bestätigung der lokalen Speicherung.');
+  saved=true;
+  printTools.files=[{id:result.id,...target,filename,bytes:result.bytes,created:Math.floor(Date.now()/1000)},...printTools.files.filter(f=>f.id!==result.id)];
+  status.textContent='✓ '+filename+' wurde direkt aus dem Eingangsordner in die Masterdateien übernommen. Die Quelldatei bleibt im Ordner.';
+  status.dataset.state='success';
+  window.markDruckplanerDialogSaved?.('master-editor');
+  renderMasterFiles();renderCatalog();render();
+  try{
+   const tool=await masterUploadApi('print-tools?listing_id='+encodeURIComponent(target.listing_id),undefined,12000);
+   if(!Array.isArray(tool.files))throw Error('Dateiliste unvollständig.');
+   printTools.files=[...printTools.files.filter(f=>f.listing_id!==target.listing_id),...tool.files];
+   printTools.component_links=[...(printTools.component_links||[]).filter(f=>f.listing_id!==target.listing_id),...(tool.component_links||[])];
+   printTools.order_master_defaults=[...(printTools.order_master_defaults||[]).filter(f=>f.listing_id!==target.listing_id),...(tool.order_master_defaults||[])];
+   renderMasterFiles();renderCatalog();render();
+  }catch(error){
+   console.warn('3MF gespeichert, Liste nicht aktualisiert:',error);
+   status.textContent='✓ Datei sicher übernommen. Nur das Nachladen der Liste ist fehlgeschlagen. Nicht nochmals importieren.';
+   status.dataset.state='warning';
+  }
+ }catch(error){
+  status.textContent=saved?'✓ Datei übernommen. Anzeige konnte nicht aktualisiert werden.':
+   'Übernahme nicht abgeschlossen: '+error.message;
+  status.dataset.state=saved?'warning':'error';
+ }finally{
+  masterBusy=false;
+  $('master-share-import').disabled=!masterShareInbox.length;
+  $('master-share-refresh').disabled=false;
+ }
+}
 async function copyMasterPath(){
  if(!masterContext)return;
  const path='\\\\homeassistant\\share\\print-pulse\\masterdateien\\'+masterContext.id+'\\'+$('master-printer').value.replace(/[^a-zA-Z0-9_-]/g,'-');
@@ -1992,6 +2085,10 @@ $('master-editor').addEventListener('keydown',event=>{
 },true);
 $('master-editor').addEventListener('close',()=>closeMasterPicker(false));
 $('master-save').addEventListener('click',saveMaster);
+$('master-share-folder').addEventListener('click',copyMasterShareFolder);
+$('master-share-refresh').addEventListener('click',refreshMasterShareInbox);
+$('master-share-import').addEventListener('click',importMasterFromShare);
+$('master-share-file').addEventListener('change',()=>{$('master-share-import').disabled=!$('master-share-file').value||masterBusy;});
 $('master-upload').addEventListener('click',uploadMaster);
 $('master-files').addEventListener('click',event=>{
  const remove=event.target.closest('[data-master-delete]');
