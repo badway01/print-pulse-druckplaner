@@ -40,8 +40,8 @@ class MasterTests(unittest.TestCase):
                 half=max(1,len(body)//2)
                 for piece in (body[:half],body[half:]):
                     if piece:
-                        conn.send(('%X\\r\\n'%len(piece)).encode()+piece+b'\\r\\n')
-                conn.send(b'0\\r\\n\\r\\n')
+                        conn.send(('%X\r\n'%len(piece)).encode()+piece+b'\r\n')
+                conn.send(b'0\r\n\r\n')
                 response=conn.getresponse()
                 payload=json.loads(response.read())
                 self.assertEqual(response.status,200,payload)
@@ -57,7 +57,7 @@ class MasterTests(unittest.TestCase):
             meta={'listing_id':'123','variant_id':'','printer':'H2D',
                   'filename':'Geist Größe.3mf','size':len(contents)}
             started=post_chunked('/api/master-upload-start',
-                                __import__('json').dumps(meta).encode(),'application/json')
+                                json.dumps(meta).encode(),'application/json')
             session=started['upload_id']
             posted=post_chunked('/api/master-upload-chunk',contents,
                 'application/octet-stream',{'X-PP-Upload':'1',
@@ -73,12 +73,12 @@ class MasterTests(unittest.TestCase):
             thread.join(3)
 
     def test_chunked_http_body_rejects_truncation_and_size_overrun(self):
-        content=io.BytesIO(b'3\\r\\nabc\\r\\n0\\r\\n\\r\\n')
+        content=io.BytesIO(b'3\r\nabc\r\n0\r\n\r\n')
         output=io.BytesIO()
         self.assertEqual(app.read_chunked_http_body(content,output,3),3)
         self.assertEqual(output.getvalue(),b'abc')
-        for broken,limit in ((b'4\\r\\nab',10),(b'5\\r\\nabcde\\r\\n0\\r\\n\\r\\n',4),
-                             (b'x\\r\\nhi\\r\\n',10)):
+        for broken,limit in ((b'4\r\nab',10),(b'5\r\nabcde\r\n0\r\n\r\n',4),
+                             (b'x\r\nhi\r\n',10)):
             with self.assertRaises(ValueError):
                 app.read_chunked_http_body(io.BytesIO(broken),io.BytesIO(),limit)
 
