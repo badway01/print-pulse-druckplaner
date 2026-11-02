@@ -2181,6 +2181,57 @@ def version_history():
     return {'version':APP_VERSION,'releases':entries}
 
 
+
+def read_chunked_http_body(stream,output,limit):
+    """Decode a bounded HTTP/1.1 chunked body from Supervisor ingress_stream.
+
+    The Supervisor removes Content-Length and forwards an async request stream;
+    aiohttp can then use Transfer-Encoding: chunked. BaseHTTPRequestHandler
+    does not decode that framing automatically.
+    """
+    total=0
+    while True:
+        header=stream.readline(96)
+        if not header.endswith(b'\r\n'):
+            raise ValueError('Unvollständiger HTTP-Dateiteil.')
+        size_hex=header[:-2].split(b';',1)[0]
+        if not 1<=len(size_hex)<=16 or not re.fullmatch(rb'[0-9a-fA-F]+',size_hex):
+            raise ValueError('Ungültiger HTTP-Übertragungsblock.')
+        block_size=int(size_hex,16)
+        if not block_size:
+            for _ in range(16):
+                trailer=stream.readline(4096)
+                if trailer==b'\r\n':
+                    return total
+                if not trailer.endswith(b'\r\n'):
+                    raise ValueError('Unvollständiger HTTP-Abschluss.')
+            raise ValueError('Zu viele HTTP-Abschlusszeilen.')
+        if total+block_size>limit:
+            raise ValueError('Upload überschreitet die maximale Übertragungsgröße.')
+        remaining=block_size
+        while remaining:
+            part=stream.read(min(65536,remaining))
+            if not part:
+                raise ValueError('Datenübertragung wurde unterbrochen.')
+            output.write(part)
+            remaining-=len(part)
+            total+=len(part)
+        if stream.read(2)!=b'\r\n':
+            raise ValueError('Ungültiger Abschluss eines HTTP-Dateiteils.')
+
+
+def max_ingress_post_body(path):
+    if path=='/api/master-upload':
+        return MAX_MASTER_SIZE
+    if path=='/api/master-upload-chunk':
+        return MASTER_CHUNK_SIZE
+    if path=='/api/filament-import-file':
+        return 12*1024*1024
+    if path=='/api/filament-import-text':
+        return 128000
+    return 60000
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version='PrintPulseLager/0.1'
 
@@ -2342,6 +2393,36 @@ class Handler(BaseHTTPRequestHandler):
         return self.send(404,{'error':'Nicht gefunden.'})
 
     def do_POST(self):
+        if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
+        transfer=self.headers.get('Transfer-Encoding','').strip().lower()
+        if transfer and transfer!='chunked':
+            return self.send(415,{'error':'Nicht unterstützter HTTP-Übertragungsmodus.'})
+        if not transfer:
+            return self._handle_POST()
+        # Supervisor ingress_stream forwards a chunked HTTP/1.1 request body.
+        # Decode with a strict per-endpoint cap and spool to disk when needed.
+        # Keep the existing POST handlers unchanged, including JSON mutations.
+        try:
+            self.connection.settimeout(60)
+            with tempfile.SpooledTemporaryFile(max_size=1024*1024,mode='w+b') as decoded:
+                length=read_chunked_http_body(
+                    self.rfile,decoded,max_ingress_post_body(
+                        urllib.parse.urlsplit(self.path).path))
+                decoded.seek(0)
+                source=self.rfile
+                self.rfile=decoded
+                self.headers['Content-Length']=str(length)
+                del self.headers['Transfer-Encoding']
+                try:
+                    return self._handle_POST()
+                finally:
+                    self.rfile=source
+        except (ValueError,TimeoutError,OSError) as error:
+            self.close_connection=True
+            return self.send(413 if 'überschreitet' in str(error) else 400,
+                             {'error':str(error)[:200]})
+
+    def _handle_POST(self):
         if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
         if urllib.parse.urlsplit(self.path).path=='/api/master-upload-chunk':
             if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
