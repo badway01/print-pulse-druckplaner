@@ -53,12 +53,14 @@ except ImportError:
     _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.21'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.22'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
 MASTER_ROOT = Path(os.environ.get("PP_MASTER_DIR", "/share/print-pulse/masterdateien"))
 MAX_MASTER_SIZE = 100 * 1024 * 1024
+MASTER_CHUNK_SIZE = 512 * 1024  # Keep each request below typical HA ingress limits.
+MASTER_UPLOAD_LOCK = threading.RLock()
 PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","A1 mini","Prusa MK4")
 MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1")
 MONITOR_FIELDS = ("status","progress","remaining","filename","nozzle","nozzle_left","nozzle_right",
@@ -1588,6 +1590,118 @@ def store_master_file(meta, stream, length):
     return {'ok':True,'id':upload_id,'bytes':length}
 
 
+
+def master_upload_paths(upload_id):
+    if not isinstance(upload_id,str) or not re.fullmatch(r'[a-f0-9]{24}',upload_id):
+        raise ValueError('Ungültige Upload-ID.')
+    root=DB_PATH.parent / 'master-upload-parts'
+    return root / (upload_id+'.json'),root / (upload_id+'.part')
+
+
+def master_upload_record(upload_id):
+    info,part=master_upload_paths(upload_id)
+    if not info.is_file():
+        raise ValueError('Upload nicht mehr vorhanden. Bitte erneut starten.')
+    record=json.loads(info.read_text(encoding='utf-8'))
+    if record.get('upload_id')!=upload_id:
+        raise ValueError('Ungültige Upload-Sitzung.')
+    return record,info,part
+
+
+def start_master_upload(data):
+    """Create a short-lived, disk-backed upload session without changing existing masters."""
+    size=data.get('size')
+    if type(size) is not int or not 4<=size<=MAX_MASTER_SIZE:
+        raise ValueError('3MF-Datei muss zwischen 4 Byte und 100 MB groß sein.')
+    filename=safe_master_basename(data.get('filename'))
+    with connect() as db:
+        listing,variant,printer=validate_profile_target(db,data)
+    with MASTER_UPLOAD_LOCK:
+        root=DB_PATH.parent / 'master-upload-parts'
+        root.mkdir(parents=True,exist_ok=True)
+        # Abandoned partial uploads are never used as published master files.
+        for old in root.glob('*.json'):
+            try:
+                if time.time()-old.stat().st_mtime>24*3600:
+                    old.with_suffix('.part').unlink(missing_ok=True)
+                    old.unlink(missing_ok=True)
+            except OSError:
+                pass
+        upload_id=secrets.token_hex(12)
+        info,part=master_upload_paths(upload_id)
+        record={'upload_id':upload_id,'filename':filename,'listing_id':listing,
+                'variant_id':variant,'printer':printer,'size':size,'created':int(time.time())}
+        with info.open('x',encoding='utf-8') as out:
+            json.dump(record,out,ensure_ascii=False)
+        with part.open('xb'):
+            pass
+    return {'ok':True,'upload_id':upload_id,'chunk_size':MASTER_CHUNK_SIZE,'offset':0}
+
+
+def master_upload_state(upload_id):
+    with MASTER_UPLOAD_LOCK:
+        record,info,part=master_upload_record(upload_id)
+        finished=record.get('result')
+        offset=record['size'] if finished else (part.stat().st_size if part.exists() else 0)
+        return {'ok':True,'offset':offset,'size':record['size'],'complete':bool(finished),
+                'result':finished}
+
+
+def write_master_chunk(upload_id,offset,body):
+    """Idempotent append: a retried or partly written chunk must not corrupt bytes."""
+    if type(offset) is not int or offset<0:
+        raise ValueError('Ungültige Position der Teilübertragung.')
+    if not isinstance(body,bytes) or not 1<=len(body)<=MASTER_CHUNK_SIZE:
+        raise ValueError('Teilübertragung überschreitet 512 KB.')
+    with MASTER_UPLOAD_LOCK:
+        record,info,part=master_upload_record(upload_id)
+        if record.get('result'):
+            return {'ok':True,'offset':record['size']}
+        if offset+len(body)>record['size']:
+            raise ValueError('Mehr Daten als angekündigt.')
+        with part.open('r+b') as out:
+            out.seek(0,2)
+            current=out.tell()
+            if offset>current:
+                raise ValueError('Teil fehlt. Bitte Übertragungsstand aktualisieren.')
+            overlap=min(current-offset,len(body))
+            if overlap:
+                out.seek(offset)
+                if out.read(overlap)!=body[:overlap]:
+                    raise ValueError('Dateiteile stimmen nicht überein. Upload neu beginnen.')
+            if overlap<len(body):
+                out.seek(0,2)
+                out.write(body[overlap:])
+                out.flush()
+            total=out.seek(0,2)
+    return {'ok':True,'offset':total}
+
+
+def finish_master_upload(upload_id):
+    """Publish only fully transferred CRC-valid archives, and confirm retries consistently."""
+    with MASTER_UPLOAD_LOCK:
+        record,info,part=master_upload_record(upload_id)
+        if record.get('result'):
+            return record['result']
+        if not part.exists() or part.stat().st_size!=record['size']:
+            raise ValueError('Upload ist noch nicht vollständig.')
+        try:
+            with zipfile.ZipFile(part,'r') as archive:
+                if archive.testzip() is not None:
+                    raise ValueError('Die 3MF-Datei enthält beschädigte Daten.')
+        except (zipfile.BadZipFile,EOFError,RuntimeError) as exc:
+            raise ValueError('Die Datei ist kein intaktes 3MF-/ZIP-Archiv.') from exc
+        with part.open('rb') as stream:
+            result=store_master_file(record,stream,record['size'])
+        # Keep the small receipt for idempotent retries, but discard the staging bytes.
+        record['result']=result
+        saved=info.with_suffix('.tmp')
+        saved.write_text(json.dumps(record,ensure_ascii=False),encoding='utf-8')
+        saved.replace(info)
+        part.unlink(missing_ok=True)
+        return result
+
+
 def delete_master_file(data):
     file_id=data.get('id')
     if not isinstance(file_id,str) or not re.fullmatch(r'[a-f0-9]{24}',file_id):
@@ -2094,6 +2208,12 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
         path=urllib.parse.urlsplit(self.path).path
         if path=='/api/status': return self.send(200,overview())
+        if path=='/api/master-upload-state':
+            if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
+                return self.send(403,{'error':'Ungültiger Ursprung.'})
+            query=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            try:return self.send(200,master_upload_state((query.get('id') or [''])[0]))
+            except ValueError as exc:return self.send(400,{'error':str(exc)})
         if path=='/api/import-candidates': return self.send(200,import_overview())
         if path=='/api/local-orders':
             with connect() as db:
@@ -2223,6 +2343,25 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
+        if urllib.parse.urlsplit(self.path).path=='/api/master-upload-chunk':
+            if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
+                return self.send(403,{'error':'Ungültiger Ursprung.'})
+            if self.headers.get('Content-Type')!='application/octet-stream' or self.headers.get('X-PP-Upload')!='1':
+                return self.send(415,{'error':'3MF-Teilstück erwartet.'})
+            try:
+                length=int(self.headers.get('Content-Length','0'))
+                if not 1<=length<=MASTER_CHUNK_SIZE:
+                    return self.send(413,{'error':'Teil darf maximal 512 KB groß sein.'})
+                offset=int(self.headers.get('X-PP-Offset','-1'))
+                self.connection.settimeout(60)
+                body=self.rfile.read(length)
+                if len(body)!=length: raise ValueError('Teilstück nicht vollständig empfangen.')
+                return self.send(200,write_master_chunk(self.headers.get('X-PP-Upload-ID'),offset,body))
+            except (ValueError,OSError) as exc:
+                return self.send(400,{'error':str(exc)[:200]})
+            except Exception:
+                log.exception('Fehler bei 3MF-Teilstück')
+                return self.send(500,{'error':'Dateiteil konnte nicht gespeichert werden.'})
         if urllib.parse.urlsplit(self.path).path=='/api/master-upload':
             if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
                 return self.send(403,{'error':'Ungültiger Ursprung.'})
@@ -2402,6 +2541,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,{'priority_dismissed':dismissed})
             if path=='/api/printer-config':
                 return self.send(200,save_printer_bindings(data))
+            if path=='/api/master-upload-start':
+                return self.send(200,start_master_upload(data))
+            if path=='/api/master-upload-finish':
+                return self.send(200,finish_master_upload(data.get('upload_id')))
             if path=='/api/master-delete':
                 return self.send(200,delete_master_file(data))
             if path=='/api/print-profile':
