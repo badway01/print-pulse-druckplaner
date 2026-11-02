@@ -11,16 +11,29 @@ const assert=require('node:assert/strict');
    {id:2,internal_code:'11',brand:'Bambu Lab',color:'Sakura Pink',material:'PLA Matte',color_hex:'#ff99ee',manufacturer_code:'11201'},
    {id:3,internal_code:'16',brand:'Bambu Lab',color:'Gelb',material:'PLA Basic',color_hex:'#f4ee2a',manufacturer_code:'10102'}
   ];
-  let saved=null,uploaded=false,refreshFails=false,uploadName=null,uploadBytes=0,received=0,proxyRejected=false;
+  let saved=null,uploaded=false,refreshFails=false,uploadName=null,uploadBytes=0,received=0,proxyRejected=false,shareMeta=null;
+  const shareFileId='123123123123123123123123';
   const uploadId='abcabcabcabcabcabcabcabc';
   await page.route('**/api/filaments',route=>route.fulfill({json:{filaments:spools}}));
   await page.route('**/api/print-tools*',route=>{
    if(refreshFails)return route.fulfill({status:500,json:{error:'Test: Nachladen vorübergehend nicht möglich'}});
-   return route.fulfill({json:{profiles:[],files:[]}});
+   const shareFiles=shareMeta?[{...shareMeta,id:shareFileId,bytes:200000,created:Math.floor(Date.now()/1000)}]:[];
+   return route.fulfill({json:{profiles:[],files:shareFiles}});
   });
   await page.route('**/api/print-profile',async route=>{
    saved=route.request().postDataJSON();
    return route.fulfill({json:{profiles:[{...saved,sources:saved.sources,colors:[]}],files:[]}});
+  });
+  await page.route('**/api/master-share-inbox',route=>route.fulfill({
+   json:{folder:'/share/print-pulse/3mf-eingang',
+    files:[{filename:'Samba Größe.3mf',bytes:200000,modified:1234}]}
+  }));
+  await page.route('**/api/master-share-import',route=>{
+   shareMeta=route.request().postDataJSON();
+   assert.equal(shareMeta.filename,'Samba Größe.3mf');
+   assert.equal(shareMeta.printer,'H2D');
+   assert(shareMeta.listing_id);
+   return route.fulfill({json:{ok:true,id:shareFileId,bytes:200000}});
   });
   await page.route('**/api/master-upload-start',route=>{
    const meta=route.request().postDataJSON();
@@ -139,7 +152,16 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>document.querySelector('#master-file-count').textContent==='0 Projektdateien');
   assert.equal(deletes,2);
   assert.equal(await page.locator('.master-project-card').count(),0);
-  assert.deepEqual(errors,[],'No JavaScript errors after deletion');
-  console.log('MASTER PICKER PASS: swatches, chunked upload, 413 fallback, mobile, delete and failure');
+  assert.match(await page.locator('#master-share-path').innerText(),/smb:\/\/.*\/share\/print-pulse\/3mf-eingang/);
+  refreshFails=false;
+  await page.locator('#master-share-refresh').click();
+  await page.locator('#master-share-file').selectOption('Samba Größe.3mf');
+  await page.locator('#master-share-import').click();
+  await page.waitForFunction(()=>document.querySelector('#master-share-status').textContent.includes('übernommen'));
+  assert.equal(await page.locator('#master-file-count').innerText(),'1 Projektdatei');
+  assert.match(await page.locator('.master-project-name strong').innerText(),/Samba Größe\.3mf/);
+  assert.equal(shareMeta.filename,'Samba Größe.3mf');
+  assert.deepEqual(errors,[],'No JavaScript errors after Samba import');
+  console.log('MASTER PICKER PASS: Samba import, swatches, chunked fallback, mobile, delete and failure');
  }finally{await browser.close();}
 })().catch(err=>{console.error(err);process.exit(1)});
