@@ -1,5 +1,5 @@
 name: "Print & Pulse Druckplaner"
-version: "0.13.22"
+version: "0.13.23"
 slug: "print_pulse_druckplaner"
 description: "Lager und Bestellungen: Etsy-Aufträge, Bestände und Nachdruckbedarf"
 arch:
@@ -10,6 +10,7 @@ init: false
 map:
   - share:rw
 ingress: true
+ingress_stream: true
 ingress_port: 8099
 ingress_entry: /
 panel_icon: mdi:printer-3d
