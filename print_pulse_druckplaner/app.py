@@ -12,6 +12,7 @@ import os
 import re
 import secrets
 import sqlite3
+import stat
 import threading
 import time
 import tempfile
@@ -53,11 +54,12 @@ except ImportError:
     _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.24'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.25'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
 MASTER_ROOT = Path(os.environ.get("PP_MASTER_DIR", "/share/print-pulse/masterdateien"))
+MASTER_IMPORT_ROOT = Path(os.environ.get("PP_MASTER_IMPORT_DIR", "/share/print-pulse/3mf-eingang"))
 MAX_MASTER_SIZE = 100 * 1024 * 1024
 MASTER_CHUNK_SIZE = 2 * 1024 * 1024  # Streaming ingress: fewer requests, adaptive fallback in client.
 MASTER_UPLOAD_LOCK = threading.RLock()
@@ -1591,6 +1593,85 @@ def store_master_file(meta, stream, length):
 
 
 
+
+def master_share_import_directory():
+    """The only directory from which the web UI may import Samba files."""
+    if MASTER_IMPORT_ROOT.is_symlink():
+        raise ValueError('Der 3MF-Eingangsordner darf keine Verknüpfung sein.')
+    MASTER_IMPORT_ROOT.mkdir(parents=True, exist_ok=True)
+    return MASTER_IMPORT_ROOT
+
+
+def master_share_imports():
+    """Only list plain .3mf files from the fixed Samba inbox; no paths exposed."""
+    root=master_share_import_directory()
+    files=[]
+    with os.scandir(root) as scan:
+        for entry in scan:
+            try:
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+                if entry.name!=safe_master_basename(entry.name):
+                    continue
+                info=entry.stat(follow_symlinks=False)
+                if not 4<=info.st_size<=MAX_MASTER_SIZE:
+                    continue
+                files.append({'filename':entry.name,'bytes':info.st_size,
+                              'modified':int(info.st_mtime)})
+            except (ValueError,OSError):
+                continue
+    files.sort(key=lambda f:(-f['modified'],f['filename'].casefold()))
+    return {'files':files[:150],'folder':'/share/print-pulse/3mf-eingang'}
+
+
+def import_master_from_share(data):
+    """Register a Mac/SMB copied file as an immutable master for a product.
+
+    The UI supplies only an exact basename and validated product/printer data,
+    never an arbitrary source path. Keep the original file in the inbox.
+    """
+    name=data.get('filename')
+    if not isinstance(name,str) or name!=safe_master_basename(name):
+        raise ValueError('Bitte eine Datei aus dem 3MF-Eingangsordner auswählen.')
+    with connect() as db:
+        validate_profile_target(db,data)
+    root=master_share_import_directory()
+    source_path=root/name
+    if source_path.is_symlink():
+        raise ValueError('Verknüpfungen können nicht importiert werden.')
+    flags=os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_CLOEXEC',0)
+    try:
+        handle=os.open(source_path,flags)
+    except FileNotFoundError as exc:
+        raise ValueError('Datei nicht gefunden. Bitte Eingang aktualisieren.') from exc
+    except OSError as exc:
+        raise ValueError('3MF-Datei ist nicht lesbar. Bitte Finder-Freigabe prüfen.') from exc
+    with os.fdopen(handle,'rb') as stream:
+        info=os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError('Nur echte 3MF-Dateien können übernommen werden.')
+        if not 4<=info.st_size<=MAX_MASTER_SIZE:
+            raise ValueError('3MF-Dateien dürfen maximal 100 MB groß sein.')
+        # A Finder copy may still be running. Check archive and CRC, then
+        # require unchanged source size + mtime before publishing.
+        try:
+            with zipfile.ZipFile(stream,'r') as archive:
+                if archive.testzip() is not None:
+                    raise ValueError('Die 3MF-Datei ist beschädigt oder noch nicht fertig kopiert.')
+        except (zipfile.BadZipFile,EOFError,RuntimeError) as exc:
+            raise ValueError('Die 3MF-Datei ist unvollständig. Bitte Kopieren beenden.') from exc
+        verified=os.fstat(stream.fileno())
+        if (info.st_size,info.st_mtime_ns)!=(verified.st_size,verified.st_mtime_ns):
+            raise ValueError('Datei wird noch kopiert. Bitte anschließend erneut übernehmen.')
+        stream.seek(0)
+        result=store_master_file({**data,'filename':name},stream,info.st_size)
+        final=os.fstat(stream.fileno())
+        if (info.st_size,info.st_mtime_ns)!=(final.st_size,final.st_mtime_ns):
+            delete_master_file({'id':result['id']})
+            raise ValueError('Quelldatei wurde während der Übernahme verändert. Bitte erneut versuchen.')
+    return result
+
+
 def master_upload_paths(upload_id):
     if not isinstance(upload_id,str) or not re.fullmatch(r'[a-f0-9]{24}',upload_id):
         raise ValueError('Ungültige Upload-ID.')
@@ -2259,6 +2340,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
         path=urllib.parse.urlsplit(self.path).path
         if path=='/api/status': return self.send(200,overview())
+        if path=='/api/master-share-inbox':
+            try:return self.send(200,master_share_imports())
+            except (OSError,ValueError) as exc:return self.send(400,{'error':str(exc)[:200]})
         if path=='/api/master-upload-state':
             if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
                 return self.send(403,{'error':'Ungültiger Ursprung.'})
@@ -2622,6 +2706,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,{'priority_dismissed':dismissed})
             if path=='/api/printer-config':
                 return self.send(200,save_printer_bindings(data))
+            if path=='/api/master-share-import':
+                return self.send(200,import_master_from_share(data))
             if path=='/api/master-upload-start':
                 return self.send(200,start_master_upload(data))
             if path=='/api/master-upload-finish':
