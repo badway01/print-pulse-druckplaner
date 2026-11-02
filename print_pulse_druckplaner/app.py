@@ -53,13 +53,13 @@ except ImportError:
     _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.23'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.24'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
 MASTER_ROOT = Path(os.environ.get("PP_MASTER_DIR", "/share/print-pulse/masterdateien"))
 MAX_MASTER_SIZE = 100 * 1024 * 1024
-MASTER_CHUNK_SIZE = 128 * 1024  # Keep each request below typical HA ingress limits.
+MASTER_CHUNK_SIZE = 2 * 1024 * 1024  # Streaming ingress: fewer requests, adaptive fallback in client.
 MASTER_UPLOAD_LOCK = threading.RLock()
 PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","A1 mini","Prusa MK4")
 MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1")
@@ -1652,7 +1652,7 @@ def write_master_chunk(upload_id,offset,body):
     if type(offset) is not int or offset<0:
         raise ValueError('Ungültige Position der Teilübertragung.')
     if not isinstance(body,bytes) or not 1<=len(body)<=MASTER_CHUNK_SIZE:
-        raise ValueError('Teilübertragung überschreitet 128 KB.')
+        raise ValueError('Teilübertragung überschreitet 2 MB.')
     with MASTER_UPLOAD_LOCK:
         record,info,part=master_upload_record(upload_id)
         if record.get('result'):
@@ -2432,7 +2432,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 length=int(self.headers.get('Content-Length','0'))
                 if not 1<=length<=MASTER_CHUNK_SIZE:
-                    return self.send(413,{'error':'Teil darf maximal 128 KB groß sein.'})
+                    return self.send(413,{'error':'Teil darf maximal 2 MB groß sein.'})
                 offset=int(self.headers.get('X-PP-Offset','-1'))
                 self.connection.settimeout(60)
                 body=self.rfile.read(length)
