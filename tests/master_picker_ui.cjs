@@ -12,7 +12,7 @@ const assert=require('node:assert/strict');
    {id:3,internal_code:'16',brand:'Bambu Lab',color:'Gelb',material:'PLA Basic',color_hex:'#f4ee2a',manufacturer_code:'10102'}
   ];
   let saved=null,uploaded=false,refreshFails=false,uploadName=null,uploadBytes=0,received=0,proxyRejected=false,shareMeta=null;
-  const shareFileId='123123123123123123123123';
+  const shareFileId='abababababababababababab';
   const uploadId='abcabcabcabcabcabcabcabc';
   await page.route('**/api/filaments',route=>route.fulfill({json:{filaments:spools}}));
   await page.route('**/api/print-tools*',route=>{
