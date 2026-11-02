@@ -366,10 +366,22 @@
 <details id="master-upload-details" class="master-detail-group">
  <summary><span>Neue Masterdatei speichern</span><small>3MF-Druckprojekt mit Profilen ablegen</small></summary>
  <div class="master-detail-content">
-  <label class="master-upload">Neue Masterdatei (.3mf)<input id="master-upload-input" type="file" accept=".3mf" /></label>
-  <div class="master-upload-actions"><button type="button" id="master-upload" class="secondary">Datei sicher ablegen</button><button type="button" id="master-copy-path" class="secondary">Ordnerpfad kopieren</button></div>
-  <progress id="master-upload-progress" class="master-upload-progress" value="0" max="100" aria-label="Upload-Fortschritt" hidden></progress>
-  <p class="hint">Auch große 3MF-Dateien werden in kleinen, geprüften Teilen übertragen. Bei einer Unterbrechung kannst du mit derselben Datei fortsetzen. Jeder vollständige Upload bleibt als eigene Version erhalten.</p>
+  <section class="master-share-box" aria-label="3MF direkt aus Netzwerkordner übernehmen">
+   <h4>Aus Home Assistant übernehmen <span class="master-share-recommended">Empfohlen am Mac</span></h4>
+   <p>3MF im Finder in den gemeinsamen Eingangsordner kopieren und hier auswählen. Kein Browser-Upload und keine Wartezeit über den Home-Assistant-Proxy.</p>
+   <div class="master-upload-actions"><button type="button" id="master-share-folder" class="secondary">Netzwerkordner kopieren</button><button type="button" id="master-share-refresh" class="secondary">Dateiliste aktualisieren</button></div>
+   <label class="master-share-label" for="master-share-file">3MF-Datei im Eingangsordner</label>
+   <select id="master-share-file" aria-label="3MF-Datei aus dem Eingangsordner auswählen"><option value="">Dateiliste laden …</option></select>
+   <button type="button" id="master-share-import" class="primary" disabled>Ausgewählte 3MF übernehmen</button>
+   <p id="master-share-status" class="master-inline-status" role="status" aria-live="polite"></p>
+  </section>
+  <section class="master-browser-fallback" aria-label="3MF alternativ im Browser hochladen">
+   <h4>Alternativ im Browser hochladen</h4>
+   <label class="master-upload">Neue Masterdatei (.3mf)<input id="master-upload-input" type="file" accept=".3mf" /></label>
+   <div class="master-upload-actions"><button type="button" id="master-upload" class="secondary">Datei sicher ablegen</button><button type="button" id="master-copy-path" class="secondary">Produktordner kopieren</button></div>
+   <progress id="master-upload-progress" class="master-upload-progress" value="0" max="100" aria-label="Upload-Fortschritt" hidden></progress>
+   <p class="hint">Browser-Upload als Alternative. Bereits gespeicherte Masterdateien bleiben in beiden Fällen erhalten.</p>
+  </section>
  </div>
 </details>
 <p id="master-upload-status" class="master-inline-status" role="status" aria-live="polite"></p>
