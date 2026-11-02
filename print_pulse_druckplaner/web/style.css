@@ -2658,3 +2658,16 @@ html[data-theme="dark"] .order-countdown.ready{background:#57452f;color:#f5d6a2}
 /* Reliable, large master-3MF uploads in Home Assistant ingress. */
 .master-upload-progress{display:block;width:100%;height:10px;margin:12px 0 6px;accent-color:var(--accent,#0c8a9a)}
 .master-upload-progress[hidden]{display:none}
+
+/* 3MF direct import via Home Assistant Samba: no ingress binary upload. */
+.master-share-box{border:1px solid var(--border-strong);border-radius:12px;background:var(--surface-soft);padding:15px;margin:4px 0 16px}
+.master-share-box h4,.master-browser-fallback h4{margin:0 0 8px;font-size:13px;color:var(--ink);font-weight:750}
+.master-share-recommended{display:inline-block;padding:3px 7px;margin-left:5px;border-radius:6px;border:1px solid var(--border-strong);font-size:10px;font-weight:650;color:var(--green);vertical-align:middle}
+.master-share-box p{margin:8px 0 12px}
+.master-share-path code{display:block;overflow-wrap:anywhere;user-select:all;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:11px;line-height:1.5}
+.master-share-label{display:block;font-size:12px;font-weight:650;color:var(--ink);margin:13px 0 6px}
+#master-share-file{width:100%;min-height:43px;border:1px solid var(--border-strong);border-radius:8px;padding:8px 11px;background:var(--surface);color:var(--ink);font-size:12px}
+#master-share-import{min-height:43px;margin-top:10px;font-size:12px}
+.master-share-box #master-share-status:not(:empty){margin-top:10px;font-size:12px;line-height:1.45}
+.master-browser-fallback{border-top:1px solid var(--line);padding-top:15px}
+@media(max-width:600px){.master-share-box{padding:12px}.master-share-box .master-upload-actions button{flex:1 1 100%}#master-share-import{width:100%}}
