@@ -157,7 +157,7 @@ const assert=require('node:assert/strict');
   await page.locator('#master-share-refresh').click();
   await page.locator('#master-share-file').selectOption('Samba Größe.3mf');
   await page.locator('#master-share-import').click();
-  await page.waitForFunction(()=>document.querySelector('#master-share-status').textContent.includes('übernommen'));
+  await page.waitForFunction(()=>document.querySelector('#master-share-status').dataset.state==='success'&&document.querySelector('#master-file-count').textContent==='1 Projektdatei');
   assert.equal(await page.locator('#master-file-count').innerText(),'1 Projektdatei');
   assert.match(await page.locator('.master-project-name strong').innerText(),/Samba Größe\.3mf/);
   assert.equal(shareMeta.filename,'Samba Größe.3mf');
