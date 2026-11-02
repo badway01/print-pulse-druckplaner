@@ -15,6 +15,10 @@ spec.loader.exec_module(app)
 
 
 class MasterTests(unittest.TestCase):
+    def test_ingress_streaming_required_for_large_uploads(self):
+        config=(Path(__file__).resolve().parents[1]/'print_pulse_druckplaner/config.yaml').read_text(encoding='utf-8')
+        self.assertIn('ingress_stream: true',config)
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.original_root=app.MASTER_ROOT
