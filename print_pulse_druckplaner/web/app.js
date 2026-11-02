@@ -1777,14 +1777,33 @@ async function saveMaster(){
  finally{masterBusy=false;$('master-save').disabled=false;}
 }
 
+// Prevent an unresponsive Home Assistant ingress request from locking the
+// upload dialog permanently at 0 %. Abort both the request and body read.
+async function withMasterUploadTimeout(run,ms=12000){
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),ms);
+ try{return await run(controller.signal);}
+ catch(error){
+  if(controller.signal.aborted){
+   const timeout=Object.assign(new Error('Keine Antwort vom Home-Assistant-Proxy innerhalb von '+Math.ceil(ms/1000)+' Sekunden.'),{code:'UPLOAD_TIMEOUT'});
+   throw timeout;
+  }
+  throw error;
+ }finally{clearTimeout(timer);}
+}
+const masterUploadApi=(path,body,ms=12000)=>
+ withMasterUploadTimeout(signal=>api(path,body,signal),ms);
+
 async function masterChunkRequest(uploadId,offset,body){
- const res=await fetch('api/master-upload-chunk',{
-  method:'POST',credentials:'same-origin',
-  headers:{'Content-Type':'application/octet-stream','X-PP-Upload':'1',
-   'X-PP-Upload-ID':uploadId,'X-PP-Offset':String(offset)},
-  body
- });
- const raw=await res.text();
+ const {res,raw}=await withMasterUploadTimeout(async signal=>{
+  const res=await fetch('api/master-upload-chunk',{
+   method:'POST',credentials:'same-origin',signal,
+   headers:{'Content-Type':'application/octet-stream','X-PP-Upload':'1',
+    'X-PP-Upload-ID':uploadId,'X-PP-Offset':String(offset)},
+   body
+  });
+  return {res,raw:await res.text()};
+ },12000);
  let data;
  try{data=JSON.parse(raw);}
  catch{
@@ -1820,12 +1839,12 @@ async function uploadMaster(){
   // creating a second master version. Filenames stay UTF-8 in JSON, not URLs.
   if(!masterUploadPending||masterUploadPending.signature!==signature){
    status.textContent='Bereite sichere Übertragung vor …';
-   const started=await api('master-upload-start',{...target,filename:file.name,size:file.size});
+   const started=await masterUploadApi('master-upload-start',{...target,filename:file.name,size:file.size});
    if(!started.ok||!started.upload_id)throw Error('Upload konnte nicht gestartet werden.');
-   masterUploadPending={signature,id:started.upload_id,chunkSize:started.chunk_size||512*1024};
+   masterUploadPending={signature,id:started.upload_id,chunkSize:started.chunk_size||128*1024};
   }
   const session=masterUploadPending;
-  let state=await api('master-upload-state?id='+encodeURIComponent(session.id));
+  let state=await masterUploadApi('master-upload-state?id='+encodeURIComponent(session.id));
   let offset=state.offset;
   let chunkSize=session.chunkSize;
   if(!Number.isInteger(offset)||offset<0||offset>file.size)throw Error('Ungültiger Übertragungsstand. Bitte Datei erneut auswählen.');
@@ -1843,30 +1862,32 @@ async function uploadMaster(){
      offset=result.offset;
      delivered=true;
     }catch(err){
-     // A very restrictive ingress can return 413 even for 512 KB. Reduce
-     // this session's chunk size rather than forcing a full restart.
-     if(err.status===413&&chunkSize>64*1024){
-      chunkSize=Math.max(64*1024,Math.floor(chunkSize/2));
-      session.chunkSize=chunkSize;
-      delivered=true;
-      break;
-     }
-     // A dropped response may follow a successful write. Ask the server
-     // for the exact persisted offset before retrying a chunk.
+     // A timed-out request may nevertheless have been written. Always
+     // re-read the acknowledged offset before retrying to avoid duplicates.
      try{
-      const recovered=await api('master-upload-state?id='+encodeURIComponent(session.id));
+      const recovered=await masterUploadApi('master-upload-state?id='+encodeURIComponent(session.id));
       if(Number.isInteger(recovered.offset)&&recovered.offset>offset&&recovered.offset<=file.size){
        offset=recovered.offset;delivered=true;break;
       }
      }catch(recoverError){console.warn('3MF-Uploadstand nicht lesbar:',recoverError);}
-     if(attempt===4)throw Error(err.message+' Upload kann über „Datei sicher ablegen“ fortgesetzt werden.');
+     // A timeout can happen even when the proxy never replies with 413.
+     // Reduce request size so upload continues without manual intervention.
+     if((err.status===413||err.code==='UPLOAD_TIMEOUT')&&chunkSize>16*1024){
+      chunkSize=Math.max(16*1024,Math.floor(chunkSize/2));
+      session.chunkSize=chunkSize;
+      status.textContent='Keine Antwort für diesen Dateiteil. Ich versuche automatisch '+Math.round(chunkSize/1024)+' KB …';
+      delivered=true;
+      break;
+     }
+     if(attempt===4)throw Error(err.message+' Der Upload wurde angehalten und kann mit derselben Datei fortgesetzt werden.');
+     status.textContent='Übertragungsfehler – neuer Versuch '+(attempt+1)+' von 4 …';
      await new Promise(resolve=>setTimeout(resolve,attempt*500));
     }
    }
    progress.value=offset;
   }
   status.textContent='100 % übertragen · 3MF-Archiv wird geprüft und gespeichert …';
-  const data=await api('master-upload-finish',{upload_id:session.id});
+  const data=await masterUploadApi('master-upload-finish',{upload_id:session.id},60000);
   if(!data.ok||!data.id)throw Error('Speicherbestätigung unvollständig. Bitte die Dateiliste prüfen.');
   stored=true;
   masterUploadPending=null;
@@ -1878,7 +1899,7 @@ async function uploadMaster(){
   try{renderMasterFiles();render();renderCatalog();}
   catch(error){console.warn('Master-3MF-Anzeige:',error);}
   try{
-   const tool=await api('print-tools?listing_id='+encodeURIComponent(target.listing_id));
+   const tool=await masterUploadApi('print-tools?listing_id='+encodeURIComponent(target.listing_id),undefined,12000);
    if(!Array.isArray(tool.files))throw Error('Dateiliste unvollständig.');
    printTools.files=[...printTools.files.filter(r=>r.listing_id!==target.listing_id),...tool.files];
    printTools.component_links=[...(printTools.component_links||[]).filter(r=>r.listing_id!==target.listing_id),...(tool.component_links||[])];
