@@ -1,3 +1,10 @@
+# 0.13.24 · Master-3MF deutlich schneller hochladen
+
+- Ingress-Streaming nutzt 2-MB-Dateiteile statt 128 KB: eine 6,7-MB-Datei benötigt nur noch vier statt rund 53 Teilübertragungen.
+- Bei 413-Proxy-Fehlern oder Zeitüberschreitungen wird die Teilgröße weiterhin automatisch reduziert; abgebrochene Übertragungen bleiben fortsetzbar.
+- Die Fortschrittsanzeige reagiert während des Transfers auf tatsächlich gesendete Bytes; die endgültige Speicherung wird weiterhin erst nach Serverbestätigung und Archivprüfung gemeldet.
+- Lagerbestände, Bestellungen, Filamentzuordnungen und bestehende Master-3MF-Dateien bleiben unverändert.
+
 # 0.13.23 · 3MF-Upload ohne Hänger bei 0 Prozent
 
 - Home Assistant Ingress-Streaming aktiviert, damit POST-Dateiteile ohne vollständiges Proxy-Buffering an das Add-on weitergeleitet werden.
