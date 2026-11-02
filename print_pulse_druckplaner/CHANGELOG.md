@@ -1,3 +1,10 @@
+# 0.13.23 · 3MF-Upload ohne Hänger bei 0 Prozent
+
+- Home Assistant Ingress-Streaming aktiviert, damit POST-Dateiteile ohne vollständiges Proxy-Buffering an das Add-on weitergeleitet werden.
+- Dateiteile auf 128 KB verkleinert. Jede Anfrage und die Upload-Vorbereitung erhalten verbindliche Zeitlimits; stockende Übertragungen werden kleiner erneut versucht.
+- Fortschrittsanzeige mit nachvollziehbaren Statusmeldungen. Bei dauerhaftem Proxy-Fehler wird der Speichern-Button wieder freigegeben und die bereits übertragenen Teile bleiben zum Fortsetzen erhalten.
+- Vorhandene Master-3MF-Dateien, Druckprofile, Produktionsaufträge und Lagerbestände bleiben unverändert.
+
 # 0.13.22 · Große Master-3MF-Dateien zuverlässig speichern
 
 - Upload von 3MF-Projekten bis 100 MB über kleine 512-KB-Teilstücke: kein 20-MB-Einzelupload mehr durch den Home-Assistant-Ingress-Proxy.
