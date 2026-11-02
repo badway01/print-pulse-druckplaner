@@ -1,3 +1,11 @@
+# 0.13.25 · 3MF direkt vom Mac über Home Assistant sichern
+
+- Einfacher neuer Hauptweg für Masterdateien: 3MF im macOS-Finder in `smb://HA-ADRESSE/share/print-pulse/3mf-eingang` kopieren, danach im Produktkatalog auswählen und übernehmen. Keine 3MF-Binärübertragung mehr durch den Home-Assistant-Ingress-Proxy.
+- Netzwerkordner anzeigen/kopieren, Dateiliste aktualisieren, Dateiname und Größe auswählen, direkt für das aktuell gewählte Produkt/Variante/Drucker sichern.
+- Datei bleibt unverändert im Eingangsordner, wird als eigenständige, geprüfte Masterversion abgelegt und erscheint sofort in der Druck- und Bestellansicht. Bereits gespeicherte 3MF-Dateien, Druckprofile, Bestellungen und Lagerbestände bleiben erhalten.
+- Server übernimmt nur reguläre 3MF-Dateien aus dem fest hinterlegten Eingangsordner (maximal 100 MB), prüft ZIP-CRC und lehnt Verknüpfungen, Pfadmanipulation und unvollständige Dateien ab.
+- Bisheriger Browser-Upload bleibt als Alternative bestehen.
+
 # 0.13.24 · Master-3MF deutlich schneller hochladen
 
 - Ingress-Streaming nutzt 2-MB-Dateiteile statt 128 KB: eine 6,7-MB-Datei benötigt nur noch vier statt rund 53 Teilübertragungen.

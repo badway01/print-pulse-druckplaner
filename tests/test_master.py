@@ -89,8 +89,10 @@ class MasterTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.original_root=app.MASTER_ROOT
+        self.original_import_root=app.MASTER_IMPORT_ROOT
         app.DB_PATH=Path(self.temp.name)/'production.sqlite3'
         app.MASTER_ROOT=Path(self.temp.name)/'share'
+        app.MASTER_IMPORT_ROOT=Path(self.temp.name)/'3mf-eingang'
         app.init_db()
         with app.connect() as db:
             db.execute("INSERT INTO stock_listings(id,title,image,state,updated) VALUES('123','Testprodukt','','active',0)")
@@ -99,6 +101,7 @@ class MasterTests(unittest.TestCase):
 
     def tearDown(self):
         app.MASTER_ROOT=self.original_root
+        app.MASTER_IMPORT_ROOT=self.original_import_root
         self.temp.cleanup()
 
     def spool(self):
@@ -109,6 +112,51 @@ class MasterTests(unittest.TestCase):
         self.assertEqual(f['internal_code'],'1')
         self.assertEqual(f['notes'],'Eigener interner Code')
         return f['id']
+
+    def test_samba_inbox_import_preserves_source_and_existing_masters(self):
+        inbox=app.master_share_import_directory()
+        self.assertTrue(inbox.is_dir())
+        filename='Base+Schnüre P1S.3mf'
+        with zipfile.ZipFile(inbox/filename,'w') as archive:
+            archive.writestr('[Content_Types].xml','<Types/>')
+            archive.writestr('3D/3dmodel.model','sample')
+        original=(inbox/filename).read_bytes()
+        files=app.master_share_imports()['files']
+        self.assertEqual([item['filename'] for item in files],[filename])
+        meta={'listing_id':'123','variant_id':'variant1','printer':'P1S Old',
+              'filename':filename}
+        imported=app.import_master_from_share(meta)
+        self.assertTrue(imported['ok'])
+        self.assertEqual(app.master_download_record(imported['id'])[1].read_bytes(),original)
+        self.assertEqual((inbox/filename).read_bytes(),original)
+        second=app.import_master_from_share(meta)
+        self.assertNotEqual(second['id'],imported['id'])
+        self.assertEqual(len(app.print_tools_overview('123')['files']),2)
+        self.assertEqual(len(app.master_share_imports()['files']),1)
+
+    def test_samba_inbox_rejects_bad_files_symlinks_paths_and_products(self):
+        inbox=app.master_share_import_directory()
+        (inbox/'Unfertig.3mf').write_bytes(b'not-a-zip')
+        (inbox/'notes.txt').write_text('test')
+        directory=inbox/'Unterordner.3mf'
+        directory.mkdir()
+        external=Path(self.temp.name)/'outside.3mf'
+        with zipfile.ZipFile(external,'w') as archive:
+            archive.writestr('[Content_Types].xml','<Types/>')
+        (inbox/'Verknuepfung.3mf').symlink_to(external)
+        filenames=[f['filename'] for f in app.master_share_imports()['files']]
+        self.assertEqual(filenames,['Unfertig.3mf'])
+        meta={'listing_id':'123','variant_id':'','printer':'H2D',
+              'filename':'Unfertig.3mf'}
+        with self.assertRaises(ValueError):
+            app.import_master_from_share(meta)
+        for name in ('../outside.3mf','Verknuepfung.3mf','Unterordner.3mf','notes.txt'):
+            with self.assertRaises(ValueError):
+                app.import_master_from_share({**meta,'filename':name})
+        with self.assertRaises(ValueError):
+            app.import_master_from_share({**meta,'listing_id':'999'})
+        self.assertEqual(app.print_tools_overview('123')['files'],[])
+        self.assertEqual(external.stat().st_size,(inbox/'Verknuepfung.3mf').stat().st_size)
 
     def test_chunked_upload_recovers_overlaps_and_publishes_once(self):
         import io

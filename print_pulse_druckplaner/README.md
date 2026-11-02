@@ -1,3 +1,7 @@
+## Version 0.13.25 · Master-3MF direkt über Samba übernehmen
+
+Für größere 3MF-Dateien vom Mac ist der direkte Netzwerkweg zuverlässiger als ein Upload über den Home-Assistant-Ingress-Proxy. In Home Assistant **Lager → Produktkatalog → 3MF & Belegung → Neue Masterdatei speichern** öffnen. Die angezeigte Samba-Adresse im Finder über **⌘ K** verbinden, dann die 3MF in **`/share/print-pulse/3mf-eingang`** kopieren. Im Druckplaner **Dateiliste aktualisieren**, Datei auswählen und **Ausgewählte 3MF übernehmen**. Das Projekt wird auf den gewählten Drucker und die Variante als neue unveränderliche Masterversion registriert, ohne die Quelle aus dem gemeinsamen Ordner zu löschen. Der bisherige Browser-Upload ist weiterhin vorhanden.
+
 ## Neu in 0.13.7: Filament-Wareneingang
 
 Im Filament-Bereich **+ Bestellung importieren** wählen: Bild/PDF/TXT hochladen, Bestelltext einfügen oder Positionen manuell eingeben. Jede Position vor dem Speichern kontrollieren. Als **Bestellt** speichern, nach Ankunft **Lieferung erfassen**, bei Teillieferungen Mengen anpassen. Die Lagerbuchung erfolgt nur nach Bestätigung.
