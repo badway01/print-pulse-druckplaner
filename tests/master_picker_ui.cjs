@@ -28,7 +28,7 @@ const assert=require('node:assert/strict');
    received=0;proxyRejected=false;
    assert.equal(meta.printer,'H2D');
    assert(meta.listing_id);
-   return route.fulfill({json:{ok:true,upload_id:uploadId,chunk_size:128*1024,offset:0}});
+   return route.fulfill({json:{ok:true,upload_id:uploadId,chunk_size:2*1024*1024,offset:0}});
   });
   await page.route('**/api/master-upload-state*',route=>route.fulfill({
    json:{ok:true,offset:received,size:uploadBytes,complete:false}

@@ -1794,28 +1794,44 @@ async function withMasterUploadTimeout(run,ms=12000){
 const masterUploadApi=(path,body,ms=12000)=>
  withMasterUploadTimeout(signal=>api(path,body,signal),ms);
 
-async function masterChunkRequest(uploadId,offset,body){
- const {res,raw}=await withMasterUploadTimeout(async signal=>{
-  const res=await fetch('api/master-upload-chunk',{
-   method:'POST',credentials:'same-origin',signal,
-   headers:{'Content-Type':'application/octet-stream','X-PP-Upload':'1',
-    'X-PP-Upload-ID':uploadId,'X-PP-Offset':String(offset)},
-   body
-  });
-  return {res,raw:await res.text()};
- },12000);
- let data;
- try{data=JSON.parse(raw);}
- catch{
-  const html=/<(?:!doctype|html|head|body)/i.test(raw);
-  const detail=html?'Der Home-Assistant-Proxy hat den Dateiteil abgewiesen.':
-   'Unerwartete Antwort vom Druckplaner.';
-  throw Object.assign(new Error(detail+' HTTP '+res.status+'.'),{status:res.status});
- }
- if(!res.ok||!data?.ok){
-  throw Object.assign(new Error((data?.error||'Dateiteil nicht angenommen.')+' HTTP '+res.status+'.'),{status:res.status});
- }
- return data;
+// Stream larger chunks and show the *bytes sent* while the server confirms
+// them. Only server-acknowledged offsets count as safely stored.
+function masterChunkRequest(uploadId,offset,body,onProgress){
+ return new Promise((resolve,reject)=>{
+  const xhr=new XMLHttpRequest();
+  xhr.open('POST','api/master-upload-chunk',true);
+  xhr.withCredentials=true;
+  xhr.timeout=25000;
+  xhr.setRequestHeader('Content-Type','application/octet-stream');
+  xhr.setRequestHeader('X-PP-Upload','1');
+  xhr.setRequestHeader('X-PP-Upload-ID',uploadId);
+  xhr.setRequestHeader('X-PP-Offset',String(offset));
+  xhr.upload.onprogress=event=>{
+   if(event.lengthComputable&&onProgress)onProgress(Math.min(event.loaded,body.size));
+  };
+  xhr.onerror=()=>reject(new Error('Netzwerkverbindung beim Dateiteil unterbrochen.'));
+  xhr.onabort=()=>reject(Object.assign(new Error('Die Dateiübertragung wurde abgebrochen.'),{code:'UPLOAD_TIMEOUT'}));
+  xhr.ontimeout=()=>reject(Object.assign(new Error('Home Assistant antwortet auf den Dateiteil nicht innerhalb von 25 Sekunden.'),{code:'UPLOAD_TIMEOUT'}));
+  xhr.onload=()=>{
+   const raw=xhr.responseText||'';
+   let data;
+   try{data=JSON.parse(raw);}
+   catch{
+    const html=/<(?:!doctype|html|head|body)/i.test(raw);
+    const detail=html?'Der Home-Assistant-Proxy hat den Dateiteil abgewiesen.':
+     'Unerwartete Antwort vom Druckplaner.';
+    reject(Object.assign(new Error(detail+' HTTP '+xhr.status+'.'),{status:xhr.status}));
+    return;
+   }
+   if(xhr.status<200||xhr.status>=300||!data?.ok){
+    reject(Object.assign(new Error((data?.error||'Dateiteil nicht angenommen.')+' HTTP '+xhr.status+'.'),{status:xhr.status}));
+    return;
+   }
+   resolve(data);
+  };
+  try{xhr.send(body);}
+  catch(error){reject(error);}
+ });
 }
 async function uploadMaster(){
  if(masterBusy||!masterContext)return;
@@ -1841,7 +1857,7 @@ async function uploadMaster(){
    status.textContent='Bereite sichere Übertragung vor …';
    const started=await masterUploadApi('master-upload-start',{...target,filename:file.name,size:file.size});
    if(!started.ok||!started.upload_id)throw Error('Upload konnte nicht gestartet werden.');
-   masterUploadPending={signature,id:started.upload_id,chunkSize:started.chunk_size||128*1024};
+   masterUploadPending={signature,id:started.upload_id,chunkSize:started.chunk_size||2*1024*1024};
   }
   const session=masterUploadPending;
   let state=await masterUploadApi('master-upload-state?id='+encodeURIComponent(session.id));
@@ -1856,12 +1872,19 @@ async function uploadMaster(){
    for(let attempt=1;attempt<=4&&!delivered;attempt++){
     status.textContent='3MF wird übertragen: '+Math.floor(offset/file.size*100)+' % · '+(offset/1048576).toFixed(1)+' von '+(file.size/1048576).toFixed(1)+' MB';
     try{
-     const result=await masterChunkRequest(session.id,offset,body);
+     const result=await masterChunkRequest(session.id,offset,body,sent=>{
+       const bytes=Math.min(file.size,offset+sent);
+       progress.value=bytes;
+       status.textContent='An Home Assistant gesendet: '+Math.floor(bytes/file.size*100)+
+        ' % · '+(bytes/1048576).toFixed(1)+' von '+(file.size/1048576).toFixed(1)+
+        ' MB · Speicherbestätigung folgt';
+      });
      if(!Number.isInteger(result.offset)||result.offset<=offset||result.offset>file.size)
       throw Error('Ungültige Bestätigung für den Dateiteil.');
      offset=result.offset;
      delivered=true;
     }catch(err){
+     progress.value=offset;
      // A timed-out request may nevertheless have been written. Always
      // re-read the acknowledged offset before retrying to avoid duplicates.
      try{
