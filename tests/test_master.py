@@ -50,7 +50,7 @@ class MasterTests(unittest.TestCase):
             'listing_id':'123','variant_id':'','printer':'H2D',
             'filename':'Geist groß.3mf','size':len(body)})
         upload_id=started['upload_id']
-        self.assertEqual(started['chunk_size'],512*1024)
+        self.assertEqual(started['chunk_size'],128*1024)
         self.assertEqual(app.master_upload_state(upload_id)['offset'],0)
         first=body[:app.MASTER_CHUNK_SIZE]
         self.assertEqual(app.write_master_chunk(upload_id,0,first)['offset'],len(first))
