@@ -11,7 +11,8 @@ const assert=require('node:assert/strict');
    {id:2,internal_code:'11',brand:'Bambu Lab',color:'Sakura Pink',material:'PLA Matte',color_hex:'#ff99ee',manufacturer_code:'11201'},
    {id:3,internal_code:'16',brand:'Bambu Lab',color:'Gelb',material:'PLA Basic',color_hex:'#f4ee2a',manufacturer_code:'10102'}
   ];
-  let saved=null,uploaded=false,refreshFails=false,uploadName=null,uploadHeaders=null;
+  let saved=null,uploaded=false,refreshFails=false,uploadName=null,uploadBytes=0,received=0,proxyRejected=false;
+  const uploadId='abcabcabcabcabcabcabcabc';
   await page.route('**/api/filaments',route=>route.fulfill({json:{filaments:spools}}));
   await page.route('**/api/print-tools*',route=>{
    if(refreshFails)return route.fulfill({status:500,json:{error:'Test: Nachladen vorübergehend nicht möglich'}});
@@ -21,16 +22,33 @@ const assert=require('node:assert/strict');
    saved=route.request().postDataJSON();
    return route.fulfill({json:{profiles:[{...saved,sources:saved.sources,colors:[]}],files:[]}});
   });
-  await page.route('**/api/master-upload*',async route=>{
-   uploaded=true;refreshFails=true;
-   const request=route.request();
-   assert.equal(new URL(request.url()).search,'','Upload URL has no filename query params');
-   uploadHeaders=request.headers();
-   const token=uploadHeaders['x-pp-filename-b64'];
-   assert(token,'ASCII-safe filename header is present');
-   uploadName=Buffer.from(token.replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('utf8');
-   assert.equal(uploadHeaders['x-pp-printer'],'H2D');
-   return route.fulfill({json:{ok:true,id:'abcdef012345abcdef012345',bytes:1234}});
+  await page.route('**/api/master-upload-start',route=>{
+   const meta=route.request().postDataJSON();
+   uploadName=meta.filename;uploadBytes=meta.size;
+   received=0;proxyRejected=false;
+   assert.equal(meta.printer,'H2D');
+   assert(meta.listing_id);
+   return route.fulfill({json:{ok:true,upload_id:uploadId,chunk_size:512*1024,offset:0}});
+  });
+  await page.route('**/api/master-upload-state*',route=>route.fulfill({
+   json:{ok:true,offset:received,size:uploadBytes,complete:false}
+  }));
+  await page.route('**/api/master-upload-chunk',route=>{
+   const request=route.request(),buffer=request.postDataBuffer();
+   assert.equal(request.headers()['x-pp-offset'],String(received));
+   assert.equal(request.headers()['x-pp-upload-id'],uploadId);
+   assert.equal(new URL(request.url()).search,'');
+   if(buffer.length>300000&&!proxyRejected){
+    proxyRejected=true;
+    return route.fulfill({status:413,contentType:'text/plain',body:'Request Entity Too Large'});
+   }
+   uploaded=true;received+=buffer.length;
+   return route.fulfill({json:{ok:true,offset:received}});
+  });
+  await page.route('**/api/master-upload-finish',route=>{
+   assert.equal(received,uploadBytes);
+   refreshFails=true;
+   return route.fulfill({json:{ok:true,id:'abcdef012345abcdef012345',bytes:received}});
   });
   await page.goto('http://127.0.0.1:8099/');
   await page.locator('[data-workspace="catalog"]').click();
@@ -51,11 +69,13 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>document.querySelector('#master-profile-status').textContent.includes('gespeichert'));
   assert.equal(saved.sources[0].slots[0],2);
   if(!await page.locator('#master-upload-details').evaluate(el=>el.open)) await page.locator('#master-upload-details summary').click();
-  await page.locator('#master-upload-input').setInputFiles({name:'My_Acorn_beide_größen.3mf',mimeType:'model/3mf',buffer:Buffer.from('testdatei')});
+  await page.locator('#master-upload-input').setInputFiles({name:'My_Acorn_beide_größen.3mf',mimeType:'model/3mf',buffer:Buffer.alloc(700000,65)});
   await page.locator('#master-upload').click();
   await page.waitForFunction(()=>document.querySelector('#master-upload-status').textContent.includes('Nur die Aktualisierung'));
   assert(uploaded);
   assert.equal(uploadName,'My_Acorn_beide_größen.3mf');
+  assert(proxyRejected,'Ingress 413 triggered the adaptive chunk size');
+  assert.equal(received,700000);
   assert.match(await page.locator('#master-upload-status').innerText(),/Nur die Aktualisierung/);
   assert.match(await page.locator('#master-files').innerText(),/My_Acorn_beide_größen\.3mf/);
   assert.equal(await page.locator('.master-project-card').count(),1);
@@ -69,8 +89,8 @@ const assert=require('node:assert/strict');
   assert.doesNotMatch(await page.locator('#master-upload-status').innerText(),/Upload fehlgeschlagen/);
   // Safari used to turn an HTML ingress response into an opaque
   // "The string did not match the expected pattern" JSON error.
-  await page.unroute('**/api/master-upload*');
-  await page.route('**/api/master-upload*',route=>route.fulfill({
+  await page.unroute('**/api/master-upload-chunk');
+  await page.route('**/api/master-upload-chunk',route=>route.fulfill({
    status:502,contentType:'text/html',body:'<!doctype html><html><body>Bad Gateway</body></html>'
   }));
   await page.locator('#master-upload-input').setInputFiles({
@@ -78,7 +98,7 @@ const assert=require('node:assert/strict');
   });
   await page.locator('#master-upload').click();
   await page.waitForFunction(()=>document.querySelector('#master-upload-status').textContent.includes('HTTP 502'));
-  assert.match(await page.locator('#master-upload-status').innerText(),/Ingress-.?\/?.?Proxy-Fehler|Ingress-\/Proxy-Fehler/);
+  assert.match(await page.locator('#master-upload-status').innerText(),/Home-Assistant-Proxy/);
   assert.doesNotMatch(await page.locator('#master-upload-status').innerText(),/The string did not match/);
   assert.deepEqual(errors,[],'No JavaScript browser errors');
   await page.setViewportSize({width:390,height:780});
@@ -109,6 +129,6 @@ const assert=require('node:assert/strict');
   assert.equal(deletes,2);
   assert.equal(await page.locator('.master-project-card').count(),0);
   assert.deepEqual(errors,[],'No JavaScript errors after deletion');
-  console.log('MASTER PICKER PASS: swatches, upload, mobile, delete cancellation, failure and success');
+  console.log('MASTER PICKER PASS: swatches, chunked upload, 413 fallback, mobile, delete and failure');
  }finally{await browser.close();}
 })().catch(err=>{console.error(err);process.exit(1)});

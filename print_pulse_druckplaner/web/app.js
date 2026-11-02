@@ -7,7 +7,7 @@ let orderSort='ship';
 let workspace='production',filamentView='colors',filamentData=null,filamentBusy=false,filamentLoading=false;
 let filamentSort='default';
 try{const saved=localStorage.getItem('pp-filament-sort');if(['default','stock-desc','stock-asc','internal-code','manufacturer-code','hex-code'].includes(saved))filamentSort=saved;}catch{}
-let printTools={profiles:[],files:[],component_links:[],order_master_defaults:[]}, masterContext=null,masterSources=[],masterBusy=false;
+let printTools={profiles:[],files:[],component_links:[],order_master_defaults:[]}, masterContext=null,masterSources=[],masterBusy=false,masterUploadPending=null;
 let printerLive=null,printerLoading=false,printerEntities=[],printerConfigId=null,printerConfigBusy=false;
 let etsyAlertExpanded=false,etsyAlertFocused=null;
 try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
@@ -1776,52 +1776,104 @@ async function saveMaster(){
  }catch(err){flash(err.message,true);}
  finally{masterBusy=false;$('master-save').disabled=false;}
 }
+
+async function masterChunkRequest(uploadId,offset,body){
+ const res=await fetch('api/master-upload-chunk',{
+  method:'POST',credentials:'same-origin',
+  headers:{'Content-Type':'application/octet-stream','X-PP-Upload':'1',
+   'X-PP-Upload-ID':uploadId,'X-PP-Offset':String(offset)},
+  body
+ });
+ const raw=await res.text();
+ let data;
+ try{data=JSON.parse(raw);}
+ catch{
+  const html=/<(?:!doctype|html|head|body)/i.test(raw);
+  const detail=html?'Der Home-Assistant-Proxy hat den Dateiteil abgewiesen.':
+   'Unerwartete Antwort vom Druckplaner.';
+  throw Object.assign(new Error(detail+' HTTP '+res.status+'.'),{status:res.status});
+ }
+ if(!res.ok||!data?.ok){
+  throw Object.assign(new Error((data?.error||'Dateiteil nicht angenommen.')+' HTTP '+res.status+'.'),{status:res.status});
+ }
+ return data;
+}
 async function uploadMaster(){
  if(masterBusy||!masterContext)return;
  const file=$('master-upload-input').files[0];
  const status=$('master-upload-status');
- if(!file||!file.name.toLowerCase().endsWith('.3mf')){
-  status.textContent='Bitte eine .3mf-Datei auswählen.';status.dataset.state='error';return;
+ const progress=$('master-upload-progress');
+ if(!file||!file.name.toLowerCase().endsWith('.3mf')||file.size<4){
+  status.textContent='Bitte eine gültige .3mf-Datei auswählen.';status.dataset.state='error';return;
  }
  if(file.size>100*1024*1024){
   status.textContent='Maximal 100 MB pro Datei.';status.dataset.state='error';return;
  }
  const target=selectedMasterTarget();
+ const signature=JSON.stringify([target.listing_id,target.variant_id,target.printer,file.name,file.size,file.lastModified]);
  masterBusy=true;$('master-upload').disabled=true;
- status.textContent='3MF-Datei wird abgelegt …';status.dataset.state='pending';
+ progress.hidden=false;progress.value=0;progress.max=file.size;
+ status.dataset.state='pending';
  let stored=false;
  try{
-  // Some Safari/Home Assistant ingress paths reject percent-encoded Unicode
-  // in query strings. Transfer the name as ASCII-only base64url and preserve
-  // the original filename in the stored master record.
-  const nameBytes=new TextEncoder().encode(file.name);
-  const nameToken=btoa(String.fromCharCode(...nameBytes))
-   .split('+').join('-').split('/').join('_').replace(/=+$/,'');
-  const res=await fetch('api/master-upload',{
-   method:'POST',credentials:'same-origin',
-   headers:{
-    'Content-Type':'application/octet-stream','X-PP-Upload':'1',
-    'X-PP-Listing':target.listing_id,'X-PP-Variant':target.variant_id,
-    'X-PP-Printer':target.printer,'X-PP-Filename-B64':nameToken
-   },body:file
-  });
-  const raw=await res.text();
-  let data;
-  try{data=JSON.parse(raw);}
-  catch{
-   const type=res.headers.get('content-type')||'unbekannt';
-   const hint=/<(?:!doctype|html|head|body)/i.test(raw)?
-    'Home Assistant hat statt JSON eine Webseite gesendet (Ingress-/Proxy-Fehler).':
-    raw.trim()?'Der Server hat unerwarteten Text gesendet.':'Der Server hat leer geantwortet.';
-   throw Error(hint+' HTTP '+res.status+', Inhaltstyp '+type+'. Prüfe die Add-on-Protokolle; die Datei könnte trotzdem gespeichert worden sein.');
+  // Keep a failed session in memory so the next click continues instead of
+  // creating a second master version. Filenames stay UTF-8 in JSON, not URLs.
+  if(!masterUploadPending||masterUploadPending.signature!==signature){
+   status.textContent='Bereite sichere Übertragung vor …';
+   const started=await api('master-upload-start',{...target,filename:file.name,size:file.size});
+   if(!started.ok||!started.upload_id)throw Error('Upload konnte nicht gestartet werden.');
+   masterUploadPending={signature,id:started.upload_id,chunkSize:started.chunk_size||512*1024};
   }
-  if(!res.ok)throw Error(data.error||'Upload fehlgeschlagen.');
+  const session=masterUploadPending;
+  let state=await api('master-upload-state?id='+encodeURIComponent(session.id));
+  let offset=state.offset;
+  let chunkSize=session.chunkSize;
+  if(!Number.isInteger(offset)||offset<0||offset>file.size)throw Error('Ungültiger Übertragungsstand. Bitte Datei erneut auswählen.');
+  progress.value=offset;
+  while(offset<file.size){
+   const end=Math.min(offset+chunkSize,file.size);
+   const body=file.slice(offset,end);
+   let delivered=false;
+   for(let attempt=1;attempt<=4&&!delivered;attempt++){
+    status.textContent='3MF wird übertragen: '+Math.floor(offset/file.size*100)+' % · '+(offset/1048576).toFixed(1)+' von '+(file.size/1048576).toFixed(1)+' MB';
+    try{
+     const result=await masterChunkRequest(session.id,offset,body);
+     if(!Number.isInteger(result.offset)||result.offset<=offset||result.offset>file.size)
+      throw Error('Ungültige Bestätigung für den Dateiteil.');
+     offset=result.offset;
+     delivered=true;
+    }catch(err){
+     // A very restrictive ingress can return 413 even for 512 KB. Reduce
+     // this session's chunk size rather than forcing a full restart.
+     if(err.status===413&&chunkSize>64*1024){
+      chunkSize=Math.max(64*1024,Math.floor(chunkSize/2));
+      session.chunkSize=chunkSize;
+      delivered=true;
+      break;
+     }
+     // A dropped response may follow a successful write. Ask the server
+     // for the exact persisted offset before retrying a chunk.
+     try{
+      const recovered=await api('master-upload-state?id='+encodeURIComponent(session.id));
+      if(Number.isInteger(recovered.offset)&&recovered.offset>offset&&recovered.offset<=file.size){
+       offset=recovered.offset;delivered=true;break;
+      }
+     }catch(recoverError){console.warn('3MF-Uploadstand nicht lesbar:',recoverError);}
+     if(attempt===4)throw Error(err.message+' Upload kann über „Datei sicher ablegen“ fortgesetzt werden.');
+     await new Promise(resolve=>setTimeout(resolve,attempt*500));
+    }
+   }
+   progress.value=offset;
+  }
+  status.textContent='100 % übertragen · 3MF-Archiv wird geprüft und gespeichert …';
+  const data=await api('master-upload-finish',{upload_id:session.id});
   if(!data.ok||!data.id)throw Error('Speicherbestätigung unvollständig. Bitte die Dateiliste prüfen.');
   stored=true;
+  masterUploadPending=null;
+  progress.value=file.size;
   $('master-upload-input').value='';
-  // The file has been written. A list-refresh failure must not be called an upload failure.
   printTools.files=[{id:data.id,...target,filename:file.name,bytes:data.bytes||file.size,created:Math.floor(Date.now()/1000)},...printTools.files.filter(f=>f.id!==data.id)];
-  status.textContent='✓ Datei sicher abgelegt. Die Filamentbelegung kannst du separat speichern.';
+  status.textContent='✓ 3MF vollständig geprüft und sicher gespeichert.';
   status.dataset.state='success';
   try{renderMasterFiles();render();renderCatalog();}
   catch(error){console.warn('Master-3MF-Anzeige:',error);}
@@ -1840,9 +1892,9 @@ async function uploadMaster(){
  }catch(err){
   console.error('3MF-Upload:',err);
   status.textContent=stored?'✓ Datei abgelegt. Die Anzeige konnte nicht aktualisiert werden.':
-   'Upload nicht bestätigt: '+err.message+' Bitte vor einem erneuten Versuch die Dateiliste prüfen.';
+   'Upload noch nicht abgeschlossen: '+err.message+' '+(masterUploadPending?'Zum Fortsetzen erneut auf „Datei sicher ablegen“ klicken.':'');
   status.dataset.state=stored?'warning':'error';
- }finally{masterBusy=false;$('master-upload').disabled=false;}
+ }finally{masterBusy=false;$('master-upload').disabled=false; if(stored||!masterUploadPending)progress.hidden=true;}
 }
 
 async function copyMasterPath(){
@@ -1910,7 +1962,7 @@ $('master-files').addEventListener('click',event=>{
  $('master-slicer-status').textContent='Die gespeicherte Projektdatei wird über das Home-Assistant-Netzlaufwerk geöffnet. Falls die Verbindung noch fehlt, richte einmalig die Samba-Freigabe ein.';
 });
 $('master-copy-path').addEventListener('click',copyMasterPath);
-$('master-upload-input').addEventListener('change',()=>{$('master-upload-status').textContent='';});
+$('master-upload-input').addEventListener('change',()=>{masterUploadPending=null;$('master-upload-status').textContent='';$('master-upload-progress').hidden=true;});
 
 
 

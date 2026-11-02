@@ -39,6 +39,61 @@ class MasterTests(unittest.TestCase):
         self.assertEqual(f['notes'],'Eigener interner Code')
         return f['id']
 
+    def test_chunked_upload_recovers_overlaps_and_publishes_once(self):
+        import io
+        body_io=io.BytesIO()
+        with zipfile.ZipFile(body_io,'w',compression=zipfile.ZIP_STORED) as archive:
+            archive.writestr('[Content_Types].xml','<Types/>')
+            archive.writestr('3D/3dmodel.model',os.urandom(app.MASTER_CHUNK_SIZE+137))
+        body=body_io.getvalue()
+        started=app.start_master_upload({
+            'listing_id':'123','variant_id':'','printer':'H2D',
+            'filename':'Geist groß.3mf','size':len(body)})
+        upload_id=started['upload_id']
+        self.assertEqual(started['chunk_size'],512*1024)
+        self.assertEqual(app.master_upload_state(upload_id)['offset'],0)
+        first=body[:app.MASTER_CHUNK_SIZE]
+        self.assertEqual(app.write_master_chunk(upload_id,0,first)['offset'],len(first))
+        # Re-delivered and overlapping chunks must never duplicate or corrupt data.
+        self.assertEqual(app.write_master_chunk(upload_id,0,first)['offset'],len(first))
+        with self.assertRaises(ValueError):
+            app.write_master_chunk(upload_id,0,b'changed')
+        with self.assertRaises(ValueError):
+            app.finish_master_upload(upload_id)
+        overlap_at=len(first)-60
+        second=body[overlap_at:overlap_at+100]
+        self.assertEqual(app.write_master_chunk(upload_id,overlap_at,second)['offset'],
+                         overlap_at+len(second))
+        offset=overlap_at+len(second)
+        while offset<len(body):
+            result=app.write_master_chunk(upload_id,offset,body[offset:offset+app.MASTER_CHUNK_SIZE])
+            offset=result['offset']
+        self.assertEqual(offset,len(body))
+        completed=app.finish_master_upload(upload_id)
+        self.assertEqual(app.finish_master_upload(upload_id),completed)
+        self.assertTrue(app.master_upload_state(upload_id)['complete'])
+        self.assertEqual(app.master_download_record(completed['id'])[1].read_bytes(),body)
+        self.assertEqual(len(app.print_tools_overview('123')['files']),1)
+        self.assertFalse(app.master_upload_paths(upload_id)[1].exists())
+
+    def test_chunked_upload_rejects_corruption_and_oversized_parts(self):
+        buf=io.BytesIO()
+        with zipfile.ZipFile(buf,'w',compression=zipfile.ZIP_STORED) as archive:
+            archive.writestr('3D/3dmodel.model',b'A'*5000)
+        body=bytearray(buf.getvalue())
+        body[50] ^= 0xFF
+        started=app.start_master_upload({
+            'listing_id':'123','variant_id':'','printer':'H2D',
+            'filename':'Defekt.3mf','size':len(body)})
+        with self.assertRaises(ValueError):
+            app.write_master_chunk(started['upload_id'],0,b'A'*(app.MASTER_CHUNK_SIZE+1))
+        with self.assertRaises(ValueError):
+            app.write_master_chunk(started['upload_id'],1,b'A')
+        app.write_master_chunk(started['upload_id'],0,bytes(body))
+        with self.assertRaises(ValueError):
+            app.finish_master_upload(started['upload_id'])
+        self.assertEqual(app.print_tools_overview('123')['files'],[])
+
     def test_delete_master_removes_only_selected_file_and_links(self):
         buf=io.BytesIO()
         with zipfile.ZipFile(buf,'w') as z:

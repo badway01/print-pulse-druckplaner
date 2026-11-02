@@ -2654,3 +2654,7 @@ html[data-theme="dark"] .order-countdown.ready{background:#57452f;color:#f5d6a2}
  #econ-cost-pane .econ-price-tiers{grid-template-columns:1fr 1fr}
  #econ-cost-settings .econ-fields{grid-template-columns:1fr}
 }
+
+/* Reliable, large master-3MF uploads in Home Assistant ingress. */
+.master-upload-progress{display:block;width:100%;height:10px;margin:12px 0 6px;accent-color:var(--accent,#0c8a9a)}
+.master-upload-progress[hidden]{display:none}

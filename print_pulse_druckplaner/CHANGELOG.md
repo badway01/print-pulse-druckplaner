@@ -1,3 +1,10 @@
+# 0.13.22 · Große Master-3MF-Dateien zuverlässig speichern
+
+- Upload von 3MF-Projekten bis 100 MB über kleine 512-KB-Teilstücke: kein 20-MB-Einzelupload mehr durch den Home-Assistant-Ingress-Proxy.
+- Fortschrittsanzeige, automatische Wiederholung fehlgeschlagener Dateiteile und kleinere Teilstücke bei HTTP 413. Unterbrochene Übertragungen können mit derselben Dateiauswahl fortgesetzt werden.
+- Upload-Teilstücke bleiben bis zur Bestätigung getrennt von Masterdateien; prüft Archiv-CRC und vollständige Übertragung, bevor eine neue, unveränderliche 3MF-Version gespeichert wird.
+- Bestehende Masterdateien, Farbprofile, Druckerfreigaben, Bestellungen, Bauteile und Lagerdaten bleiben unangetastet.
+
 # 0.13.21 · 3D-Druck-Kostenrechner nach Chargen- und Verkaufskosten
 
 - Aufgeräumte responsive Print-&-Pulse-Oberfläche mit Live-Ergebnis, Preisstufen und ausklappbaren Kostenangaben.
