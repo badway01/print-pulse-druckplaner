@@ -1646,6 +1646,12 @@ def import_master_from_share(data):
         raise ValueError('Datei nicht gefunden. Bitte Eingang aktualisieren.') from exc
     except OSError as exc:
         raise ValueError('3MF-Datei ist nicht lesbar. Bitte Finder-Freigabe prüfen.') from exc
+    # os.fdopen() rejects directory descriptors before we can check them.
+    # Inspect the opened file descriptor first (not the client supplied path).
+    opened_info=os.fstat(handle)
+    if not stat.S_ISREG(opened_info.st_mode):
+        os.close(handle)
+        raise ValueError('Nur echte 3MF-Dateien können übernommen werden.')
     with os.fdopen(handle,'rb') as stream:
         info=os.fstat(stream.fileno())
         if not stat.S_ISREG(info.st_mode):
