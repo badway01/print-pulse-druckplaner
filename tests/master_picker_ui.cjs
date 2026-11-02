@@ -28,7 +28,7 @@ const assert=require('node:assert/strict');
    received=0;proxyRejected=false;
    assert.equal(meta.printer,'H2D');
    assert(meta.listing_id);
-   return route.fulfill({json:{ok:true,upload_id:uploadId,chunk_size:512*1024,offset:0}});
+   return route.fulfill({json:{ok:true,upload_id:uploadId,chunk_size:128*1024,offset:0}});
   });
   await page.route('**/api/master-upload-state*',route=>route.fulfill({
    json:{ok:true,offset:received,size:uploadBytes,complete:false}
@@ -38,7 +38,7 @@ const assert=require('node:assert/strict');
    assert.equal(request.headers()['x-pp-offset'],String(received));
    assert.equal(request.headers()['x-pp-upload-id'],uploadId);
    assert.equal(new URL(request.url()).search,'');
-   if(buffer.length>300000&&!proxyRejected){
+   if(buffer.length>60000&&!proxyRejected){
     proxyRejected=true;
     return route.fulfill({status:413,contentType:'text/plain',body:'Request Entity Too Large'});
    }
@@ -51,6 +51,17 @@ const assert=require('node:assert/strict');
    return route.fulfill({json:{ok:true,id:'abcdef012345abcdef012345',bytes:received}});
   });
   await page.goto('http://127.0.0.1:8099/');
+  // A stalled request must abort; it must never leave 0% and the button disabled indefinitely.
+  const timeoutCode=await page.evaluate(async()=>{
+   try{
+    await withMasterUploadTimeout(signal=>new Promise((resolve,reject)=>{
+     signal.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')),{once:true});
+    }),20);
+    return 'no-timeout';
+   }catch(error){return error.code;}
+  });
+  assert.equal(timeoutCode,'UPLOAD_TIMEOUT','stalled network request has a deadline');
+
   await page.locator('[data-workspace="catalog"]').click();
   await page.locator('#catalog-rows [data-master-open]').first().click();
   await page.locator('#master-colors-details summary').click();

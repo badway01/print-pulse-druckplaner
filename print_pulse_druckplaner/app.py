@@ -53,13 +53,13 @@ except ImportError:
     _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.22'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.23'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
 MASTER_ROOT = Path(os.environ.get("PP_MASTER_DIR", "/share/print-pulse/masterdateien"))
 MAX_MASTER_SIZE = 100 * 1024 * 1024
-MASTER_CHUNK_SIZE = 512 * 1024  # Keep each request below typical HA ingress limits.
+MASTER_CHUNK_SIZE = 128 * 1024  # Keep each request below typical HA ingress limits.
 MASTER_UPLOAD_LOCK = threading.RLock()
 PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","A1 mini","Prusa MK4")
 MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1")
@@ -1652,7 +1652,7 @@ def write_master_chunk(upload_id,offset,body):
     if type(offset) is not int or offset<0:
         raise ValueError('Ungültige Position der Teilübertragung.')
     if not isinstance(body,bytes) or not 1<=len(body)<=MASTER_CHUNK_SIZE:
-        raise ValueError('Teilübertragung überschreitet 512 KB.')
+        raise ValueError('Teilübertragung überschreitet 128 KB.')
     with MASTER_UPLOAD_LOCK:
         record,info,part=master_upload_record(upload_id)
         if record.get('result'):
@@ -2181,6 +2181,57 @@ def version_history():
     return {'version':APP_VERSION,'releases':entries}
 
 
+
+def read_chunked_http_body(stream,output,limit):
+    """Decode a bounded HTTP/1.1 chunked body from Supervisor ingress_stream.
+
+    The Supervisor removes Content-Length and forwards an async request stream;
+    aiohttp can then use Transfer-Encoding: chunked. BaseHTTPRequestHandler
+    does not decode that framing automatically.
+    """
+    total=0
+    while True:
+        header=stream.readline(96)
+        if not header.endswith(b'\r\n'):
+            raise ValueError('Unvollständiger HTTP-Dateiteil.')
+        size_hex=header[:-2].split(b';',1)[0]
+        if not 1<=len(size_hex)<=16 or not re.fullmatch(rb'[0-9a-fA-F]+',size_hex):
+            raise ValueError('Ungültiger HTTP-Übertragungsblock.')
+        block_size=int(size_hex,16)
+        if not block_size:
+            for _ in range(16):
+                trailer=stream.readline(4096)
+                if trailer==b'\r\n':
+                    return total
+                if not trailer.endswith(b'\r\n'):
+                    raise ValueError('Unvollständiger HTTP-Abschluss.')
+            raise ValueError('Zu viele HTTP-Abschlusszeilen.')
+        if total+block_size>limit:
+            raise ValueError('Upload überschreitet die maximale Übertragungsgröße.')
+        remaining=block_size
+        while remaining:
+            part=stream.read(min(65536,remaining))
+            if not part:
+                raise ValueError('Datenübertragung wurde unterbrochen.')
+            output.write(part)
+            remaining-=len(part)
+            total+=len(part)
+        if stream.read(2)!=b'\r\n':
+            raise ValueError('Ungültiger Abschluss eines HTTP-Dateiteils.')
+
+
+def max_ingress_post_body(path):
+    if path=='/api/master-upload':
+        return MAX_MASTER_SIZE
+    if path=='/api/master-upload-chunk':
+        return MASTER_CHUNK_SIZE
+    if path=='/api/filament-import-file':
+        return 12*1024*1024
+    if path=='/api/filament-import-text':
+        return 128000
+    return 60000
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version='PrintPulseLager/0.1'
 
@@ -2343,6 +2394,36 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
+        transfer=self.headers.get('Transfer-Encoding','').strip().lower()
+        if transfer and transfer!='chunked':
+            return self.send(415,{'error':'Nicht unterstützter HTTP-Übertragungsmodus.'})
+        if not transfer:
+            return self._handle_POST()
+        # Supervisor ingress_stream forwards a chunked HTTP/1.1 request body.
+        # Decode with a strict per-endpoint cap and spool to disk when needed.
+        # Keep the existing POST handlers unchanged, including JSON mutations.
+        try:
+            self.connection.settimeout(60)
+            with tempfile.SpooledTemporaryFile(max_size=1024*1024,mode='w+b') as decoded:
+                length=read_chunked_http_body(
+                    self.rfile,decoded,max_ingress_post_body(
+                        urllib.parse.urlsplit(self.path).path))
+                decoded.seek(0)
+                source=self.rfile
+                self.rfile=decoded
+                self.headers['Content-Length']=str(length)
+                del self.headers['Transfer-Encoding']
+                try:
+                    return self._handle_POST()
+                finally:
+                    self.rfile=source
+        except (ValueError,TimeoutError,OSError) as error:
+            self.close_connection=True
+            return self.send(413 if 'überschreitet' in str(error) else 400,
+                             {'error':str(error)[:200]})
+
+    def _handle_POST(self):
+        if not self.allowed(): return self.send(403,{'error':'Zugriff nur über Home Assistant.'})
         if urllib.parse.urlsplit(self.path).path=='/api/master-upload-chunk':
             if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
                 return self.send(403,{'error':'Ungültiger Ursprung.'})
@@ -2351,7 +2432,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 length=int(self.headers.get('Content-Length','0'))
                 if not 1<=length<=MASTER_CHUNK_SIZE:
-                    return self.send(413,{'error':'Teil darf maximal 512 KB groß sein.'})
+                    return self.send(413,{'error':'Teil darf maximal 128 KB groß sein.'})
                 offset=int(self.headers.get('X-PP-Offset','-1'))
                 self.connection.settimeout(60)
                 body=self.rfile.read(length)

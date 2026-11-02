@@ -15,6 +15,77 @@ spec.loader.exec_module(app)
 
 
 class MasterTests(unittest.TestCase):
+    def test_supervisor_chunked_http_post_accepts_json_and_binary_parts(self):
+        import http.client
+        import json
+        import threading
+        from http.server import ThreadingHTTPServer
+
+        class IngressTestHandler(app.Handler):
+            def allowed(self):
+                return True
+
+        server=ThreadingHTTPServer(('127.0.0.1',0),IngressTestHandler)
+        thread=threading.Thread(target=server.serve_forever,daemon=True)
+        thread.start()
+        def post_chunked(endpoint,body,content_type,headers=None):
+            conn=http.client.HTTPConnection('127.0.0.1',server.server_port,timeout=8)
+            try:
+                conn.putrequest('POST',endpoint)
+                conn.putheader('Transfer-Encoding','chunked')
+                conn.putheader('Content-Type',content_type)
+                for k,v in (headers or {}).items():
+                    conn.putheader(k,v)
+                conn.endheaders()
+                half=max(1,len(body)//2)
+                for piece in (body[:half],body[half:]):
+                    if piece:
+                        conn.send(('%X\r\n'%len(piece)).encode()+piece+b'\r\n')
+                conn.send(b'0\r\n\r\n')
+                response=conn.getresponse()
+                payload=json.loads(response.read())
+                self.assertEqual(response.status,200,payload)
+                return payload
+            finally:
+                conn.close()
+        try:
+            buffer=io.BytesIO()
+            with zipfile.ZipFile(buffer,'w') as archive:
+                archive.writestr('[Content_Types].xml','<Types/>')
+                archive.writestr('3D/3dmodel.model','test')
+            contents=buffer.getvalue()
+            meta={'listing_id':'123','variant_id':'','printer':'H2D',
+                  'filename':'Geist Größe.3mf','size':len(contents)}
+            started=post_chunked('/api/master-upload-start',
+                                json.dumps(meta).encode(),'application/json')
+            session=started['upload_id']
+            posted=post_chunked('/api/master-upload-chunk',contents,
+                'application/octet-stream',{'X-PP-Upload':'1',
+                'X-PP-Upload-ID':session,'X-PP-Offset':'0'})
+            self.assertEqual(posted['offset'],len(contents))
+            finished=post_chunked('/api/master-upload-finish',
+                json.dumps({'upload_id':session}).encode(),'application/json')
+            self.assertEqual(app.master_download_record(finished['id'])[1].read_bytes(),contents)
+            self.assertEqual(len(app.print_tools_overview('123')['files']),1)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(3)
+
+    def test_chunked_http_body_rejects_truncation_and_size_overrun(self):
+        content=io.BytesIO(b'3\r\nabc\r\n0\r\n\r\n')
+        output=io.BytesIO()
+        self.assertEqual(app.read_chunked_http_body(content,output,3),3)
+        self.assertEqual(output.getvalue(),b'abc')
+        for broken,limit in ((b'4\r\nab',10),(b'5\r\nabcde\r\n0\r\n\r\n',4),
+                             (b'x\r\nhi\r\n',10)):
+            with self.assertRaises(ValueError):
+                app.read_chunked_http_body(io.BytesIO(broken),io.BytesIO(),limit)
+
+    def test_ingress_streaming_required_for_large_uploads(self):
+        config=(Path(__file__).resolve().parents[1]/'print_pulse_druckplaner/config.yaml').read_text(encoding='utf-8')
+        self.assertIn('ingress_stream: true',config)
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.original_root=app.MASTER_ROOT
@@ -50,7 +121,7 @@ class MasterTests(unittest.TestCase):
             'listing_id':'123','variant_id':'','printer':'H2D',
             'filename':'Geist groß.3mf','size':len(body)})
         upload_id=started['upload_id']
-        self.assertEqual(started['chunk_size'],512*1024)
+        self.assertEqual(started['chunk_size'],128*1024)
         self.assertEqual(app.master_upload_state(upload_id)['offset'],0)
         first=body[:app.MASTER_CHUNK_SIZE]
         self.assertEqual(app.write_master_chunk(upload_id,0,first)['offset'],len(first))
