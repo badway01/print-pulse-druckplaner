@@ -249,4 +249,74 @@ Zwischensumme 74,16€'''
             self.receipt(id,[{'id':item['id'],'quantity':3,'expected_received':0}],'receipt-request-over01')
         self.assertEqual(self.spools()[0]['stock_qty'],0)
 
+    def delete(self,order_id,expected=None):
+        with app.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            data={'order_id':order_id}
+            if expected is not None:data['expected_received_count']=expected
+            return mod.delete_order(db,data)
+
+    def test_delete_unreceived_order_without_changing_inventory(self):
+        oid=self.create(payload([line()]))
+        before=self.spools()[0]
+        self.assertEqual(before['stock_qty'],0)
+        result=self.delete(oid,0)
+        self.assertEqual(result['reversed_spools'],0)
+        self.assertEqual(self.state()['orders'],[])
+        self.assertEqual(self.spools()[0]['stock_qty'],0)
+
+    def test_delete_received_order_restores_manual_catalog_price(self):
+        app.filament_mutate({'action':'save','brand':'Bambu Lab','material':'PLA Basic',
+            'color':'Jade-Weiß','manufacturer_code':'10100','internal_code':'',
+            'stock_qty':2,'color_hex':'#dedede','price':'14,50','purchase_url':''})
+        oid=self.create(payload([line()]))
+        row=self.state()['orders'][0]['lines'][0]
+        self.receipt(oid,[{'id':row['id'],'quantity':3,'expected_received':0}],'receipt-delete-baseline01')
+        self.assertEqual((self.spools()[0]['stock_qty'],self.spools()[0]['price_cents']),(5,1059))
+        deleted=self.delete(oid,3)
+        self.assertEqual(deleted['reversed_spools'],3)
+        self.assertEqual((self.spools()[0]['stock_qty'],self.spools()[0]['price_cents']),(2,1450))
+        self.assertEqual(self.state()['orders'],[])
+
+    def test_delete_second_order_recalculates_from_remaining_purchase(self):
+        first=self.create(payload([line()]))
+        one=self.state()['orders'][0]['lines'][0]
+        self.receipt(first,[{'id':one['id'],'quantity':3,'expected_received':0}],'receipt-delete-order001')
+        second=self.create(payload([line(qty=2,price=2200)]))
+        two=next(o for o in self.state()['orders'] if o['id']==second)['lines'][0]
+        self.receipt(second,[{'id':two['id'],'quantity':2,'expected_received':0}],'receipt-delete-order002')
+        self.assertEqual((self.spools()[0]['stock_qty'],self.spools()[0]['price_cents']),(5,1100))
+        self.delete(second,2)
+        self.assertEqual((self.spools()[0]['stock_qty'],self.spools()[0]['price_cents']),(3,1059))
+        self.delete(first,3)
+        self.assertEqual(self.spools()[0]['stock_qty'],0)
+        self.assertIsNone(self.spools()[0]['price_cents'])
+
+    def test_delete_mixed_partial_receipt_and_stock_safety(self):
+        oid=self.create(payload([line()]))
+        l=self.state()['orders'][0]['lines'][0]
+        self.receipt(oid,[{'id':l['id'],'quantity':2,'expected_received':0}],'receipt-delete-partial1')
+        self.assertEqual(self.spools()[0]['stock_qty'],2)
+        with self.assertRaisesRegex(ValueError,'zwischenzeitlich'):
+            self.delete(oid,0)
+        with app.connect() as db:
+            db.execute('UPDATE filament_spools SET stock_qty=1')
+        with self.assertRaisesRegex(ValueError,'negativen Lagerbestand'):
+            self.delete(oid,2)
+        self.assertEqual(len(self.state()['orders']),1)
+        with app.connect() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM pp_filament_cost_history').fetchone()[0],1)
+            db.execute('UPDATE filament_spools SET stock_qty=2')
+        self.delete(oid,2)
+        self.assertEqual(self.spools()[0]['stock_qty'],0)
+
+    def test_delete_keeps_later_manual_unit_price_override(self):
+        oid=self.create(payload([line()]))
+        l=self.state()['orders'][0]['lines'][0]
+        self.receipt(oid,[{'id':l['id'],'quantity':3,'expected_received':0}],'receipt-delete-manualp')
+        with app.connect() as db:
+            db.execute('UPDATE filament_spools SET price_cents=1450')
+        self.delete(oid,3)
+        self.assertEqual(self.spools()[0]['price_cents'],1450)
+
 if __name__=='__main__':unittest.main()
