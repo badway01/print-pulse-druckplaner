@@ -143,7 +143,8 @@ const assert=require('node:assert/strict');
   await page.locator('[data-pp-correct-quantity="'+firstId+'"]').fill('3');
   page.once('dialog',dialog=>dialog.accept());
   await page.locator('[data-pp-action="correct-quantity"][data-pp-line="'+firstId+'"]').click();
-  await page.waitForFunction(id=>document.querySelector('[data-pp-correct-quantity="'+id+'"]')?.value==='3',firstId);
+  // Wait for the server response, not for the already edited input value.
+  await page.waitForFunction(()=>document.querySelector('.pp-receive-summary')?.textContent?.includes('4 bestellt'));
   assert((await page.locator('.pp-receive-summary').textContent()).includes('4 bestellt'));
   assert((await page.locator('.pp-receive-row').first().textContent()).includes('19,90'));
   assert((await page.locator('.pp-receive-row').first().textContent()).includes('6,63'));
