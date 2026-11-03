@@ -40,6 +40,8 @@ def schema(db):
       id INTEGER PRIMARY KEY AUTOINCREMENT, receipt_id TEXT NOT NULL,
       line_id INTEGER NOT NULL, filament_id INTEGER NOT NULL, quantity INTEGER NOT NULL,
       cost_cents INTEGER, created INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS pp_filament_price_baselines (
+      filament_id INTEGER PRIMARY KEY, price_cents INTEGER, created INTEGER NOT NULL);
     """)
 
 def num(value, low, high, label):
@@ -447,9 +449,16 @@ def receive(db,data):
             old=round(line['effective_cents']*line['received']/line['quantity'])
             new=round(line['effective_cents']*(line['received']+qty)/line['quantity'])
             cost=new-old
-        f=db.execute('SELECT stock_qty,cart_qty FROM filament_spools WHERE id=?',
+        f=db.execute('SELECT stock_qty,cart_qty,price_cents FROM filament_spools WHERE id=?',
                      (line['filament_id'],)).fetchone()
         if not f or f['stock_qty']+qty>100000:raise ValueError('Filamentbestand überschreitet das Limit.')
+        # Capture an original catalog price only before the first purchase receipt.
+        # Already-recorded receipts serve as historical price sources.
+        prior=db.execute('SELECT 1 FROM pp_filament_cost_history WHERE filament_id=? LIMIT 1',
+                         (line['filament_id'],)).fetchone()
+        if not prior:
+            db.execute('INSERT OR IGNORE INTO pp_filament_price_baselines (filament_id,price_cents,created) VALUES (?,?,?)',
+                       (line['filament_id'],f['price_cents'],now))
         # Free promotional spools have a zero actual cost, but never replace
         # the reference / last paid price with zero.
         paid=(round(line['effective_cents']/line['quantity'])
@@ -464,3 +473,62 @@ def receive(db,data):
       (receipt_id,order_id,request_key,json.dumps([{'line':l['id'],'quantity':q} for l,q in changes]),now))
     db.execute('UPDATE pp_filament_orders SET updated=? WHERE id=?',(now,order_id))
     return receipt_id
+
+def delete_order(db,data):
+    """Atomically delete a purchase, reverse received stock and restore valid unit prices."""
+    order_id=label(data.get('order_id',''),50,'Bestellung',True)
+    order=db.execute('SELECT id FROM pp_filament_orders WHERE id=?',(order_id,)).fetchone()
+    if not order:raise ValueError('Bestellung existiert nicht mehr. Bitte die Liste aktualisieren.')
+    lines=[dict(row) for row in db.execute(
+      'SELECT id,filament_id,quantity,received FROM pp_filament_order_lines WHERE order_id=?',(order_id,))]
+    actual_received=sum(row['received'] for row in lines)
+    expected=data.get('expected_received_count')
+    if expected is not None and num(expected,0,100000,'Erwarteter Wareneingang')!=actual_received:
+        raise ValueError('Der Wareneingang wurde zwischenzeitlich verändert. Bitte die Bestellung erneut öffnen.')
+    by_spool={}
+    for line in lines:
+        fid=line['filament_id']
+        by_spool[fid]=by_spool.get(fid,0)+line['received']
+        booked=db.execute('SELECT COALESCE(SUM(quantity),0) FROM pp_filament_cost_history WHERE line_id=?',
+                          (line['id'],)).fetchone()[0]
+        if booked!=line['received']:
+            raise ValueError('Buchungshistorie ist unvollständig. Bestellung aus Sicherheitsgründen nicht gelöscht.')
+    changes={}
+    for fid,received in by_spool.items():
+        spool=db.execute('SELECT stock_qty,price_cents,color,material FROM filament_spools WHERE id=?',(fid,)).fetchone()
+        if not spool:raise ValueError('Filament zur Bestellung existiert nicht mehr.')
+        if spool['stock_qty']<received:
+            raise ValueError(
+              f"{spool['material']} {spool['color']}: {received} Rolle(n) aus der Bestellung eingebucht, "
+              f"aber nur {spool['stock_qty']} im Lager. Löschen ohne negativen Lagerbestand nicht möglich.")
+        # Respect a later manually edited unit price.
+        latest=db.execute("""
+          SELECT l.effective_cents,l.quantity
+          FROM pp_filament_cost_history h
+          JOIN pp_filament_order_lines l ON l.id=h.line_id
+          WHERE h.filament_id=? AND l.effective_cents>0
+          ORDER BY h.created DESC,h.id DESC LIMIT 1""",(fid,)).fetchone()
+        manually_changed=bool(latest and spool['price_cents'] != round(latest['effective_cents']/latest['quantity']))
+        remaining=db.execute("""
+          SELECT l.effective_cents,l.quantity
+          FROM pp_filament_cost_history h
+          JOIN pp_filament_order_lines l ON l.id=h.line_id
+          WHERE h.filament_id=? AND l.order_id<>? AND l.effective_cents>0
+          ORDER BY h.created DESC,h.id DESC LIMIT 1""",(fid,order_id)).fetchone()
+        if remaining:
+            new_price=round(remaining['effective_cents']/remaining['quantity'])
+        else:
+            baseline=db.execute('SELECT price_cents FROM pp_filament_price_baselines WHERE filament_id=?',(fid,)).fetchone()
+            new_price=baseline['price_cents'] if baseline else None
+        changes[fid]=(received,spool['price_cents'] if manually_changed else new_price)
+    now=int(time.time())
+    for fid,(received,price) in changes.items():
+        db.execute('UPDATE filament_spools SET stock_qty=stock_qty-?,price_cents=?,updated=? WHERE id=?',
+                   (received,price,now,fid))
+    db.execute('DELETE FROM pp_filament_cost_history WHERE line_id IN (SELECT id FROM pp_filament_order_lines WHERE order_id=?)',(order_id,))
+    db.execute('DELETE FROM pp_filament_receipts WHERE order_id=?',(order_id,))
+    db.execute('DELETE FROM pp_filament_order_lines WHERE order_id=?',(order_id,))
+    db.execute('DELETE FROM pp_filament_orders WHERE id=?',(order_id,))
+    return {'reversed_spools':actual_received,
+            'price_recalculated':sum(1 for _,price in changes.values() if price is not None),
+            'price_unknown':sum(1 for _,price in changes.values() if price is None)}
