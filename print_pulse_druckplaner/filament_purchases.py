@@ -380,6 +380,11 @@ def create(db,data):
             raise ValueError('Ungültige Stammdatenänderung.')
         clean.append(item)
     known=[i['gross_cents'] for i in clean]
+    # A manually entered position price is an actual purchase cost even if the
+    # optional overall-total field is left blank. Derive its sum explicitly.
+    if total is None and all(x is not None for x in known):
+        total=sum(known)-discount-credit+shipping
+        if total<0:raise ValueError('Rabatte überschreiten die Positionssumme.')
     if total is not None and all(x is not None for x in known):
         expected=sum(known)-discount-credit+shipping
         if expected!=total and data.get('confirm_total_difference') is not True:
