@@ -121,7 +121,7 @@ function spoolPriceHint(total,quantity){
    choice='<div class="pp-m-new"><div class="pp-m-new-head"><strong>Neue Farbe für die Bibliothek</strong>'+
     '<button type="button" class="secondary small" data-pp-m-action="change" data-pp-m-index="'+i+'">Vorhandene suchen</button></div>'+
     '<div class="pp-m-new-fields">'+
-     '<label>Hersteller<input data-pp-m-index="'+i+'" data-pp-m-field="brand" value="'+escapeAttr(l.brand)+'"></label>'+
+     '<div class="pp-auto-field"><label>Hersteller<input data-pp-m-index="'+i+'" data-pp-m-field="brand" data-pp-suggest-kind="brand" autocomplete="off" role="combobox" aria-expanded="false" value="'+escapeAttr(l.brand)+'"></label><div class="pp-auto-list" role="listbox" hidden></div></div>'+
      '<label>Material<select data-pp-m-index="'+i+'" data-pp-m-field="material">'+
      mats.map(m=>'<option value="'+html(m)+'" '+(l.material===m?'selected':'')+'>'+html(m)+'</option>').join('')+
      (mats.includes(l.material)?'':'<option selected value="'+escapeAttr(l.material)+'">'+html(l.material)+'</option>')+
@@ -249,16 +249,104 @@ function spoolPriceHint(total,quantity){
   return catalog().find(f=>f.id===Number(line.filament_id))||line.existing||null;
  }
 
+
+ const standardBrands=['Bambu Lab','SUNLU','eSUN','Polymaker','Prusament','ELEGOO','Creality','ERYONE'];
+ const standardMaterials=['PLA Basic','PLA Matte','PLA Silk','PLA+','PETG Basic','PETG Matte','ABS','ASA','TPU'];
+ const nameKey=value=>String(value??'').normalize('NFKD').toLowerCase()
+  .replace(/ß/g,'ss').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+ function knownNames(kind){
+  const items=kind==='brand'?standardBrands:standardMaterials;
+  const column=kind==='brand'?'brand':'material';
+  const names=new Map();
+  for(const value of [...items,...catalog().map(x=>x[column]||'')]){
+   const key=nameKey(value);
+   if(key&&!names.has(key))names.set(key,value);
+  }
+  return [...names.values()];
+ }
+ function canonicalName(kind,value){
+  const raw=String(value??'').trim().replace(/\s+/g,' ');
+  const key=nameKey(raw);
+  if(!key)return '';
+  if(kind==='brand'&&['bambu','bambulab','bambulabs'].includes(key))return 'Bambu Lab';
+  const aliases=kind==='material'?{basicpla:'plabasic',mattepla:'plamatte',silkpla:'plasilk'}:{};
+  return knownNames(kind).find(x=>nameKey(x)===(aliases[key]||key))||raw;
+ }
+ function suggestHost(input){return input.closest('.pp-auto-field')?.querySelector('.pp-auto-list');}
+ function hideSuggestions(input){
+  const host=suggestHost(input);
+  if(host)host.hidden=true;
+  input.setAttribute('aria-expanded','false');
+ }
+ function updateSuggestions(input){
+  const host=suggestHost(input);
+  if(!host)return;
+  const key=nameKey(input.value);
+  const names=knownNames(input.dataset.ppSuggestKind);
+  const found=names.filter(v=>!key||nameKey(v).includes(key)).slice(0,8);
+  host.innerHTML=found.map(v=>'<button type="button" class="pp-auto-option" role="option" data-pp-auto-value="'+
+   escapeAttr(v)+'">'+html(v)+'</button>').join('');
+  host.hidden=found.length===0;
+  input.setAttribute('aria-expanded',String(found.length>0));
+ }
+ function liveReviewErrors(index){
+  if(mode!=='review'||!draft?.lines[index])return;
+  const editor=orderBody.querySelector('.pp-review-focus .pp-line-editor');
+  if(!editor)return;
+  const issues=requiredProblems(draft.lines[index]);
+  let panel=editor.querySelector('.pp-required-errors');
+  if(issues.length){
+   if(!panel){panel=document.createElement('div');panel.className='pp-required-errors';
+    panel.setAttribute('role','alert');editor.prepend(panel);}
+   panel.innerHTML='<strong>Diese Angaben fehlen oder sind ungültig:</strong><span>'+
+    html(issues.join(' · '))+'</span>';
+  }else panel?.remove();
+  const errors={brand:'Hersteller fehlt',material:'Material fehlt',color:'Farbe fehlt',
+   quantity:'Rollenanzahl ungültig',grams:'Grammangabe ungültig'};
+  for(const [key,message] of Object.entries(errors)){
+   const input=editor.querySelector('[data-pp-line="'+index+'"][data-pp-field="'+key+'"]');
+   const label=input?.closest('label');
+   if(!label)continue;
+   const invalid=issues.includes(message);
+   label.classList.toggle('pp-field-invalid',invalid);
+   if(invalid)input.setAttribute('aria-invalid','true');
+   else input.removeAttribute('aria-invalid');
+   let note=label.querySelector('.pp-required-message');
+   if(invalid){
+    if(!note){note=document.createElement('small');note.className='pp-required-message';
+     input.before(note);}
+    note.textContent=message;
+   }else note?.remove();
+  }
+  const row=orderBody.querySelector('.pp-review-row-btn[data-pp-index="'+index+'"] .pp-review-main');
+  if(row){
+   let marker=row.querySelector('.pp-summary-error');
+   if(issues.length){
+    if(!marker){marker=document.createElement('small');marker.className='pp-summary-error';row.append(marker);}
+    marker.textContent=issues.join(' · ');
+   }else marker?.remove();
+  }
+  if(!issues.length&&notice.textContent.startsWith('Position '+(index+1)+':'))error('');
+ }
+ function useSuggestion(input,value){
+  input.value=canonicalName(input.dataset.ppSuggestKind,value);
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+  hideSuggestions(input);
+ }
  function field(labelText,name,value,index,type='text',other=''){
   const fieldId='pp-l-'+index+'-'+name;
-const invalid=({brand:'Hersteller fehlt',material:'Material fehlt',color:'Farbe fehlt'})[name]&&
- !String(value??'').trim()?({brand:'Hersteller fehlt',material:'Material fehlt',color:'Farbe fehlt'})[name]:
- (name==='quantity'&&(!Number.isInteger(Number(value))||Number(value)<1)?'Rollenanzahl ungültig':
- name==='grams'&&(!Number.isInteger(Number(value))||Number(value)<50)?'Grammangabe ungültig':'');
-return '<label for="'+fieldId+'" class="'+(invalid?'pp-field-invalid':'')+'">'+html(labelText)+
- (invalid?'<small class="pp-required-message">'+html(invalid)+'</small>':'')+
- '<input id="'+fieldId+'" type="'+type+'" '+(invalid?'aria-invalid="true" ':'')+
- 'data-pp-line="'+index+'" data-pp-field="'+name+'" '+other+' value="'+escapeAttr(value??'')+'"></label>';
+  const invalid=({brand:'Hersteller fehlt',material:'Material fehlt',color:'Farbe fehlt'})[name]&&
+   !String(value??'').trim()?({brand:'Hersteller fehlt',material:'Material fehlt',color:'Farbe fehlt'})[name]:
+   (name==='quantity'&&(!Number.isInteger(Number(value))||Number(value)<1)?'Rollenanzahl ungültig':
+   name==='grams'&&(!Number.isInteger(Number(value))||Number(value)<50)?'Grammangabe ungültig':'');
+  const auto=name==='brand'||name==='material';
+  const pre=auto?'<div class="pp-auto-field">':'';
+  const post=auto?'<div class="pp-auto-list" role="listbox" hidden></div></div>':'';
+  const attrs=auto?' data-pp-suggest-kind="'+name+'" autocomplete="off" role="combobox" aria-expanded="false"':'';
+  return pre+'<label for="'+fieldId+'" class="'+(invalid?'pp-field-invalid':'')+'">'+html(labelText)+
+   (invalid?'<small class="pp-required-message">'+html(invalid)+'</small>':'')+
+   '<input id="'+fieldId+'" type="'+type+'" '+(invalid?'aria-invalid="true" ':'')+
+   'data-pp-line="'+index+'" data-pp-field="'+name+'" '+attrs+' '+other+' value="'+escapeAttr(value??'')+'"></label>'+post;
  }
  function metadataInput(labelText,name,value){
   return '<label>'+html(labelText)+'<input data-pp-header="'+name+'" value="'+escapeAttr(value??'')+'"></label>';
