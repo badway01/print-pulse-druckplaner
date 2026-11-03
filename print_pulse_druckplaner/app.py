@@ -54,7 +54,7 @@ except ImportError:
     _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.26'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.27'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2749,6 +2749,8 @@ class Handler(BaseHTTPRequestHandler):
                         result={'order_id':filament_purchases.create(db,data)}
                     elif data.get('action')=='receive':
                         result={'receipt_id':filament_purchases.receive(db,data)}
+                    elif data.get('action')=='delete':
+                        result=filament_purchases.delete_order(db,data)
                     else:raise ValueError('Unbekannte Einkaufsaktion.')
                 with connect() as db:result.update(filament_purchases.overview(db))
                 return self.send(200,result)

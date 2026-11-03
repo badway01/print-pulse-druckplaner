@@ -193,3 +193,24 @@
  .pp-m-footer span{width:auto}
  .pp-m-footer button{width:100%;flex:auto}
 }
+
+/* 0.13.27: visible required fields, exact spool unit prices, safe order deletion. */
+.pp-required-errors{display:grid;gap:4px;padding:10px 12px;border:1px solid #c33434;border-left:4px solid #c33434;border-radius:9px;background:#fff1f1;color:#912021;font-size:.88rem;line-height:1.45}
+.pp-required-message{color:#b32326;font-size:.76rem;font-weight:700}
+.pp-purchase-dialog .pp-field-invalid input{border:2px solid #c33434;background:#fff5f5;color:#242424}
+.pp-purchase-dialog .pp-field-invalid input:focus{outline:2px solid #c33434;outline-offset:1px}
+.pp-summary-error{color:#b32326!important;opacity:1!important;white-space:normal!important;font-weight:700}
+.pp-confirm-explain{color:var(--muted,#676c69);font-size:.78rem}
+.pp-unit-cost{grid-column:1/-1;background:var(--surface-alt,#ecf2ee);padding:9px 11px;border-radius:9px;border:1px solid var(--line,#cbd7cc);font-size:.83rem;line-height:1.5}
+.pp-unit-cost strong{font-size:.95rem}
+.pp-unit-cost small{display:block;opacity:.78;margin-top:2px}
+.pp-purchase-top-actions{display:flex;align-items:center;gap:7px;flex:0 0 auto}
+.pp-purchase-card .pp-purchase-trash{width:42px;height:42px;min-width:42px;min-height:42px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #d7adad;border-radius:9px;background:var(--card,#fff);color:#af3434;cursor:pointer;padding:8px}
+.pp-purchase-trash svg{width:21px;height:21px}
+.pp-purchase-trash:hover,.pp-purchase-trash:focus-visible{background:#fff0f0;border-color:#b53838;outline-offset:1px}
+.pp-purchase-delete-dialog{justify-self:start;color:#af3434;border-color:#d7adad}
+@media(max-width:680px){
+ .pp-purchase-top-actions{gap:5px}
+ .pp-purchase-status{font-size:.69rem}
+ .pp-unit-cost{font-size:.8rem}
+}

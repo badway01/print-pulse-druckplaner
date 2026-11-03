@@ -48,6 +48,9 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('#pp-purchase-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth+2),true,
    'mobile dialog should not require horizontal scrolling');
   assert((await page.locator('.pp-review-focus-heading').textContent()).includes('Position 4'));
+  assert((await page.locator('.pp-required-errors').textContent()).includes('Farbe fehlt'),
+   'Missing compulsory field must be explicitly named in red');
+  assert.equal(await page.locator('[data-pp-line="3"][data-pp-field="color"]').getAttribute('aria-invalid'),'true');
 
   await page.locator('[data-pp-line="3"][data-pp-field="color"]').fill('UI Korrigiert 4');
   await page.locator('[data-pp-action="reviewed"]').click();
@@ -68,6 +71,8 @@ const assert=require('node:assert/strict');
   await page.locator('[data-pp-action="bulk"]').click();
   await page.locator('[data-pp-action="focus"][data-pp-index="0"]').click();
   assert.equal(await page.locator('[data-pp-line="0"][data-pp-field="quantity"]').inputValue(),'3');
+  assert((await page.locator('[data-pp-price-hint="0"]').textContent()).includes('3,33'),
+   'Cost must be split by the entered three rolls');
 
   await page.locator('[data-pp-action="save"]').click();
   await page.locator('#pp-purchase-dialog').waitFor({state:'hidden'});
@@ -90,6 +95,11 @@ const assert=require('node:assert/strict');
   await page.locator('[data-pp-m-results="0"] [data-pp-m-action="pick"]').first().click();
   assert((await page.locator('[data-pp-m-row="0"]').textContent()).includes('UI Testfarbe 1'),
     'Library selection should reuse the stored color');
+  await page.locator('[data-pp-m-field="quantity"][data-pp-m-index="0"]').fill('3');
+  await page.locator('[data-pp-m-field="_priceInput"][data-pp-m-index="0"]').fill('31,78');
+  const unitHint=await page.locator('[data-pp-m-price-hint="0"]').textContent();
+  assert(unitHint.includes('10,59')&&unitHint.includes('10,60'),
+   '31.78 divided by three must show exact-cent split: two 10.59 and one 10.60');
   await page.locator('[data-pp-m-field="quantity"][data-pp-m-index="0"]').fill('2');
   await page.locator('[data-pp-m-field="packaging"][data-pp-m-index="0"]').selectOption('spool');
   await page.locator('[data-pp-m-field="_priceInput"][data-pp-m-index="0"]').fill('19,90');
@@ -114,6 +124,13 @@ const assert=require('node:assert/strict');
   const newLine=manualOrder.lines.find(l=>l.color==='Neue Testfarbe 2026');
   assert(newLine&&newLine.manufacturer_code==='129991',
    'Inline new color should be added to catalog with its manufacturer code');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('.pp-purchase-card').filter({hasText:'MANUAL-2-COLORS'}).locator('[data-pp-delete]').click();
+  await page.locator('.pp-purchase-card').filter({hasText:'MANUAL-2-COLORS'}).waitFor({state:'detached'});
+  const afterDelete=await page.request.get('http://127.0.0.1:8099/api/filament-orders').then(r=>r.json());
+  assert(!afterDelete.orders.some(o=>o.reference==='MANUAL-2-COLORS'),
+   'Trash button must delete the saved order after confirmation');
+
 
   assert.deepEqual(errors,[],'No browser JavaScript errors');
   console.log('FILAMENT BULK UI PASS: iPhone, top warning, auto paste, one editor, next issue, batch save');
