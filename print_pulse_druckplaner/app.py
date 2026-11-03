@@ -2753,6 +2753,8 @@ class Handler(BaseHTTPRequestHandler):
                         result={'order_id':filament_purchases.create(db,data)}
                     elif data.get('action')=='receive':
                         result={'receipt_id':filament_purchases.receive(db,data)}
+                    elif data.get('action')=='correct_quantity':
+                        result=filament_purchases.correct_quantity(db,data)
                     elif data.get('action')=='delete':
                         result=filament_purchases.delete_order(db,data)
                     else:raise ValueError('Unbekannte Einkaufsaktion.')
