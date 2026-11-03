@@ -128,6 +128,11 @@ def suggest_matches(db, line):
 def detect_vendor(text):
     head=text[:3000].lower()
     if 'bambu' in head:return 'Bambu Lab'
+    # Bambu's German order table can be pasted without the shop heading.
+    # The shop-specific "Filament-Großverkauf" promotion identifies this
+    # format; a manufacturer code alone is not a trustworthy vendor signal.
+    if re.search(r'filament[- ]großverkauf',head,re.I) and re.search(r'pla\s*basic|pla\s*matte|petg\s*matte',head,re.I):
+        return 'Bambu Lab'
     for name in ('amazon','sunlu','polymaker','prusament','elegoo','ebay','3djake','esun'):
         if name in head:return {'esun':'eSUN','ebay':'eBay'}.get(name,name.capitalize())
     return 'Unbekannter Händler'
@@ -375,6 +380,11 @@ def create(db,data):
             raise ValueError('Ungültige Stammdatenänderung.')
         clean.append(item)
     known=[i['gross_cents'] for i in clean]
+    # A manually entered position price is an actual purchase cost even if the
+    # optional overall-total field is left blank. Derive its sum explicitly.
+    if total is None and all(x is not None for x in known):
+        total=sum(known)-discount-credit+shipping
+        if total<0:raise ValueError('Rabatte überschreiten die Positionssumme.')
     if total is not None and all(x is not None for x in known):
         expected=sum(known)-discount-credit+shipping
         if expected!=total and data.get('confirm_total_difference') is not True:
@@ -402,6 +412,14 @@ def create(db,data):
         elif ambiguous:raise ValueError('Mehrdeutiges Filament: vorhandene Farbe manuell zuordnen.')
         elif matched:fid=matched['id']
         else:
+            # A user must never unintentionally assign a number already
+            # belonging to another color; use the existing code picker instead.
+            if item['internal_code']:
+                existing_code=db.execute('SELECT id,color FROM filament_spools WHERE internal_code=?',
+                                        (item['internal_code'],)).fetchone()
+                if existing_code:
+                    raise ValueError('Interner Code '+item['internal_code']+' gehört bereits zur Farbe '+
+                                     existing_code['color']+'. Bitte vorhandenes Filament auswählen.')
             # The source may not contain a HEX code. Use neutral default, not guessed colors.
             db.execute("""INSERT INTO filament_spools
              (brand,color,material,color_hex,price_cents,purchase_url,stock_qty,open_qty,cart_qty,
@@ -442,6 +460,73 @@ def create(db,data):
           VALUES (?,?,?,?,?,?,?,?,?)""",(order_id,fid,item['quantity'],item['grams'],
           item['packaging'],item['gross_cents'],effective,item['description'],now))
     return order_id
+
+def complete_missing_purchase_data(db,data):
+    """Complete missing supplier/price data after receipt; never add stock again.
+
+    Costs are reconstructed only for lines whose gross price was previously
+    unknown. Already recorded costs and nonempty catalog prices are immutable.
+    """
+    order_id=label(data.get('order_id',''),50,'Bestellung',True)
+    order=db.execute('SELECT * FROM pp_filament_orders WHERE id=?',(order_id,)).fetchone()
+    if not order:raise ValueError('Bestellung nicht gefunden. Bitte aktualisieren.')
+    vendor=label(data.get('vendor',''),100,'Händler',True)
+    if order['vendor'] not in ('Unbekannter Händler','') and vendor!=order['vendor']:
+        raise ValueError('Ein bereits erfasster Händler kann hier nicht überschrieben werden.')
+    raw=data.get('lines')
+    if not isinstance(raw,list) or not raw:raise ValueError('Bitte Einkaufspositionen übergeben.')
+    existing=[dict(r) for r in db.execute('SELECT * FROM pp_filament_order_lines WHERE order_id=? ORDER BY id',(order_id,))]
+    if len(raw)!=len(existing):raise ValueError('Die Bestellung wurde verändert. Bitte neu öffnen.')
+    incoming={}
+    for item in raw:
+        if not isinstance(item,dict):raise ValueError('Ungültige Einkaufsposition.')
+        lid=num(item.get('id'),1,999999999,'Position')
+        if lid in incoming:raise ValueError('Doppelte Einkaufsposition.')
+        incoming[lid]=item
+    changed=[]
+    prices=[]
+    for line in existing:
+        item=incoming.get(line['id'])
+        if not item:raise ValueError('Einkaufsposition fehlt. Bitte aktualisieren.')
+        before=item.get('expected_gross_cents')
+        if before is not None:before=num(before,0,10000000,'Bisheriger Preis')
+        if before!=line['gross_cents']:
+            raise ValueError('Einkaufspreis wurde zwischenzeitlich verändert. Bitte neu öffnen.')
+        amount=item.get('gross_cents')
+        if amount is not None:amount=num(amount,0,10000000,'Positionspreis')
+        if line['gross_cents'] is not None and amount!=line['gross_cents']:
+            raise ValueError('Vorhandene Einkaufspreise bleiben unverändert.')
+        if line['gross_cents'] is None and amount is not None:changed.append((line,amount))
+        prices.append(amount)
+    if changed and (order['discount_cents'] or order['credit_cents'] or order['shipping_cents']):
+        raise ValueError('Bei bereits gebuchten Bestellungen mit weiteren Rabatten oder Versandkosten bitte die Kostenaufteilung prüfen lassen.')
+    if order['total_cents'] is not None and all(x is not None for x in prices):
+        if sum(prices)!=order['total_cents']:
+            raise ValueError('Positionspreise ergeben nicht den gespeicherten Rechnungsbetrag. Bitte Werte prüfen.')
+    now=int(time.time())
+    for line,amount in changed:
+        receipts=[dict(r) for r in db.execute(
+            'SELECT id,quantity,cost_cents FROM pp_filament_cost_history WHERE line_id=? ORDER BY created,id',
+            (line['id'],))]
+        if any(r['cost_cents'] is not None for r in receipts):
+            raise ValueError('Diese Einkaufsposition hat bereits Kostenwerte. Keine rückwirkende Änderung möglich.')
+        count=0
+        for receipt in receipts:
+            following=count+receipt['quantity']
+            cost=round(amount*following/line['quantity'])-round(amount*count/line['quantity'])
+            db.execute('UPDATE pp_filament_cost_history SET cost_cents=? WHERE id=?',(cost,receipt['id']))
+            count=following
+        if count!=line['received']:raise ValueError('Wareneingangshistorie stimmt nicht überein. Keine Änderung vorgenommen.')
+        db.execute('UPDATE pp_filament_order_lines SET gross_cents=?,effective_cents=? WHERE id=?',
+                   (amount,amount,line['id']))
+        if line['received']:
+            # Existing manual or more recent prices always win.
+            db.execute('UPDATE filament_spools SET price_cents=?,updated=? WHERE id=? AND price_cents IS NULL',
+                       (round(amount/line['quantity']),now,line['filament_id']))
+    if order['total_cents'] is None and all(x is not None for x in prices):
+        db.execute('UPDATE pp_filament_orders SET total_cents=? WHERE id=?',(sum(prices),order_id))
+    db.execute('UPDATE pp_filament_orders SET vendor=?,updated=? WHERE id=?',(vendor,now,order_id))
+    return {'order_id':order_id,'updated_prices':len(changed)}
 
 def correct_quantity(db,data):
     """Correct an unreceived order line without changing stock or its total price.

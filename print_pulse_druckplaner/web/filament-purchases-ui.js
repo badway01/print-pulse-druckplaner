@@ -42,6 +42,12 @@ function spoolPriceHint(total,quantity){
  function orderStatus(o){
   return o.status+' · '+o.received_count+'/'+o.ordered_count+' Rollen';
  }
+ function displayOrderTotal(order){
+  if(order.total_cents!=null)return order.total_cents;
+  if(!order.lines?.length||order.lines.some(l=>l.gross_cents==null))return null;
+  return order.lines.reduce((sum,l)=>sum+l.gross_cents,0)-
+   Number(order.discount_cents||0)-Number(order.credit_cents||0)+Number(order.shipping_cents||0);
+ }
  function renderOrders(){
   const box=node('pp-purchase-list');
   if(!orders.length){box.innerHTML='<p class="hint">Noch keine Filamentbestellungen gespeichert. Importiere einen Screenshot oder lege eine Bestellung manuell an.</p>';return;}
@@ -53,9 +59,12 @@ function spoolPriceHint(total,quantity){
    '<small>'+html(o.ordered_on||'Datum offen')+(o.reference?' · '+html(o.reference):'')+'</small>'+
    '<span>'+o.received_count+' von '+o.ordered_count+' Rollen erhalten</span>'+
    '<small>'+o.lines.map(l=>html(l.quantity+' × '+l.color+' ('+(l.manufacturer_code||'ohne Code')+')')).join(' · ')+'</small>'+
-   '<strong>'+money(o.total_cents)+'</strong>'+
+   '<strong>'+money(displayOrderTotal(o))+'</strong>'+
+   (o.total_cents==null&&displayOrderTotal(o)!=null?'<small>Aus Positionspreisen berechnet</small>':'')+
    (o.status==='Erhalten'?'<small>Vollständig eingebucht · Einkaufsarchiv</small>':
     '<button type="button" class="secondary" data-pp-open="'+html(o.id)+'">Lieferung erfassen</button>')+
+   ((o.vendor==='Unbekannter Händler'||o.lines.some(l=>l.gross_cents==null))?
+     '<button type="button" class="secondary" data-pp-complete="'+html(o.id)+'">Fehlende Einkaufsdaten ergänzen</button>':'')+
    '</article>').join('');
  }
  async function refresh(){
@@ -88,6 +97,23 @@ function spoolPriceHint(total,quantity){
  function spoolLabel(f){
   return [f.material,f.color,(f.manufacturer_code?'('+f.manufacturer_code+')':null),
    (f.internal_code?'· Intern '+f.internal_code:null)].filter(Boolean).join(' ');
+ }
+ function knownInternalCodes(){
+  return catalog().filter(f=>String(f.internal_code||'').trim()).sort((a,b)=>
+   String(a.internal_code).localeCompare(String(b.internal_code),'de',{numeric:true})||
+   String(a.color||'').localeCompare(String(b.color||''),'de'));
+ }
+ function internalChoices(chosen){
+  return '<option value="">Code aus deiner Filamentbibliothek wählen …</option>'+
+   knownInternalCodes().map(f=>'<option value="'+f.id+'" '+(Number(chosen)===Number(f.id)?'selected':'')+'>'+
+    html('Intern '+f.internal_code+' · '+f.color+' · '+f.material+
+    (f.manufacturer_code?' ('+f.manufacturer_code+')':''))+'</option>').join('');
+ }
+ function assignExistingCode(line,filament){
+  Object.assign(line,{brand:filament.brand,material:filament.material,color:filament.color,
+   manufacturer_code:filament.manufacturer_code||'',internal_code:filament.internal_code||'',
+   color_hex:filament.color_hex||'',filament_id:filament.id,ambiguous:false,
+   existing:null,accept_changes:[],reviewed:false});
  }
  function manualOptions(index,query){
   const found=matchingFilaments(query);
@@ -132,7 +158,8 @@ function spoolPriceHint(total,quantity){
      '<label>Bambu-Code (optional)<input data-pp-m-index="'+i+
       '" data-pp-m-field="manufacturer_code" value="'+escapeAttr(l.manufacturer_code)+'" inputmode="numeric" placeholder="z. B. 10100"></label></div>'+
      '<details class="pp-m-extras"><summary>Interner Code, HEX und weitere Angaben</summary><div class="pp-m-new-fields">'+
-      '<label>Interner Farbcode<input data-pp-m-index="'+i+'" data-pp-m-field="internal_code" value="'+escapeAttr(l.internal_code)+'" inputmode="decimal"></label>'+
+      '<label>Bestehenden internen Farbcode auswählen<select data-pp-m-code-pick="'+i+'">'+internalChoices(l.filament_id)+'</select></label>'+
+      '<label>Neuen internen Farbcode eingeben (nur falls noch frei)<input data-pp-m-index="'+i+'" data-pp-m-field="internal_code" value="'+escapeAttr(l.internal_code)+'" inputmode="decimal"></label>'+
       '<label>HEX-Farbwert<input data-pp-m-index="'+i+'" data-pp-m-field="color_hex" value="'+escapeAttr(l.color_hex)+'" placeholder="#ffffff"></label>'+
       '<label>Gramm pro Rolle<input data-pp-m-index="'+i+'" data-pp-m-field="grams" type="number" min="50" max="5000" value="'+l.grams+'" inputmode="numeric"></label>'+
       '<label>Notiz<input data-pp-m-index="'+i+'" data-pp-m-field="description" value="'+escapeAttr(l.description)+'"></label></div></details>'+
@@ -464,7 +491,8 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
  '><summary>Weitere Angaben bearbeiten (Hersteller, Material, interner Code …)</summary>'+
     '<div class="pp-line-fields">'+
     field('Hersteller','brand',line.brand,i)+field('Material','material',line.material,i)+
-    field('Interner Farbcode (manuell)','internal_code',line.internal_code,i)+
+    '<label>Vorhandenen internen Farbcode auswählen<select data-pp-internal-pick="'+i+'">'+internalChoices(line.filament_id)+'</select></label>'+
+    field('Neuen internen Farbcode (nur falls noch nicht vergeben)','internal_code',line.internal_code,i)+
     field('HEX-Farbwert (nur aus sicherer Quelle)','color_hex',line.color_hex,i)+
     field('Gramm pro Rolle','grams',line.grams,i,'number','min="50" max="5000" step="1" inputmode="numeric"')+
     '</div><div class="pp-purchase-fields"><label>Vorhandenes Filament zuordnen<select data-pp-line="'+i+
@@ -638,8 +666,48 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
   }catch(ex){error(ex.message);}
   finally{busy=false;}
  }
+ function showCompletion(order){
+  current=order;mode='complete';
+  dialogOpen('Fehlende Einkaufsangaben ergänzen');
+  orderBody.innerHTML='<p class="pp-muted">Hier ergänzt du fehlende Einkaufsdaten. <b>Die bereits erhaltenen Rollen werden nicht erneut eingebucht.</b></p>'+
+   '<label>Händler<input id="pp-complete-vendor" value="'+escapeAttr(order.vendor)+'" '+(order.vendor==='Unbekannter Händler'?'':'readonly')+'></label>'+
+   order.lines.map(l=>'<div class="pp-receive-row"><div><strong>'+
+     html(l.color)+' · '+html(l.material)+'</strong><small>'+html(l.manufacturer_code||'ohne Herstellercode')+
+     ' · '+l.quantity+' Rollen · '+l.received+' bereits eingebucht</small></div>'+
+     '<label>Positionspreis gesamt (€)<input type="text" inputmode="decimal" data-pp-complete-price="'+l.id+
+     '" value="'+escapeAttr(inputMoney(l.gross_cents))+'" '+(l.gross_cents!=null?'readonly':'placeholder="z. B. 9,00"')+'></label></div>').join('')+
+   '<p class="pp-muted">Gib den tatsächlich gezahlten Positionspreis nach dem Produkt-Rabatt ein, nicht den Listenpreis. Fehlende Felder dürfen leer bleiben.</p>'+
+   '<div class="pp-purchase-actions"><button type="button" class="primary" data-pp-action="save-completion">Fehlende Angaben speichern</button></div>';
+ }
+ async function saveCompletion(){
+  if(busy||!current)return;
+  const o=current;
+  let lines;
+  try{
+   lines=o.lines.map(l=>({
+    id:l.id,expected_gross_cents:l.gross_cents,
+    gross_cents:l.gross_cents==null?
+     cents(orderBody.querySelector('[data-pp-complete-price="'+l.id+'"]')?.value):l.gross_cents
+   }));
+  }catch(ex){error(ex.message);return;}
+  const vendor=node('pp-complete-vendor')?.value.trim()||'';
+  if(!vendor){error('Bitte einen Händler angeben.');return;}
+  const changed=vendor!==o.vendor||lines.some((l,i)=>l.gross_cents!==o.lines[i].gross_cents);
+  if(!changed){error('Es wurden keine Einkaufsdaten ergänzt.');return;}
+  busy=true;error('');
+  try{
+   const result=await api('filament-orders',{action:'complete_data',order_id:o.id,vendor,lines});
+   orders=result.orders||[];
+   renderOrders();
+   await loadFilaments();
+   finish();
+   message('Fehlende Einkaufsdaten ergänzt. Kein weiterer Wareneingang gebucht.');
+  }catch(ex){error(ex.message);}
+  finally{busy=false;}
+ }
  async function save(nowReceive){
   if(busy)return;
+  let savedOrderId=null;
   try{
    const isManual=mode==='manual-order';
    if(isManual)takeManual();else takeReview();
@@ -659,12 +727,30 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
     if(!Number.isInteger(l.quantity)||l.quantity<1||!Number.isInteger(l.grams)||l.grams<50)throw Error('Rollenanzahl und Grammzahl prüfen.');
    }
    const d=draft,known=d.lines.every(l=>l.gross_cents!=null);
+   for(const [i,l] of d.lines.entries()){
+    const current=Number(l.filament_id)||null;
+    const assigned=catalog().find(f=>Number(f.id)===current);
+    const code=String(l.internal_code||'').trim().replace(',','.');
+    const codeOwner=code?catalog().find(f=>String(f.internal_code||'').trim()===code&&Number(f.id)!==current):null;
+    if(codeOwner)throw Error('Position '+(i+1)+': Interner Code '+code+' gehört bereits zu '+codeOwner.color+
+     '. Bitte die vorhandene Farbe über die Code-Auswahl zuordnen.');
+    if(assigned&&l.manufacturer_code&&assigned.manufacturer_code&&
+       String(l.manufacturer_code)!==String(assigned.manufacturer_code)){
+      const correct=catalog().find(f=>String(f.manufacturer_code||'')===String(l.manufacturer_code)&&
+       normalizeSearch(f.brand)===normalizeSearch(l.brand)&&normalizeSearch(f.material)===normalizeSearch(l.material));
+      if(correct&&correct.id!==assigned.id)throw Error('Position '+(i+1)+': Herstellercode '+l.manufacturer_code+
+       ' gehört zu '+correct.color+', nicht zu '+assigned.color+'. Bitte Filamentzuordnung korrigieren.');
+    }
+   }
+   if(d.vendor==='Unbekannter Händler'&&!confirm('Der Händler wurde nicht erkannt. Bitte möglichst Bambu Lab oder den richtigen Händler eintragen. Trotzdem mit „Unbekannter Händler“ speichern?'))return;
+   if(!known&&!confirm('Bei mindestens einer Position fehlt der Einkaufspreis. Diese Bestellung zeigt dann „Preis offen“. Trotzdem speichern?'))return;
    const calc=known?d.lines.reduce((n,l)=>n+l.gross_cents,0)-d.discount_cents-d.credit_cents+d.shipping_cents:null;
    const mismatch=d.total_cents!=null&&calc!==null&&calc!==d.total_cents;
    if(mismatch&&!confirm('Die Positionssumme stimmt nicht mit dem Rechnungsbetrag überein. Trotzdem ausdrücklich speichern?'))return;
    if(nowReceive&&!confirm('Alle eingetragenen Rollen als tatsächlich angekommen verbuchen?'))return;
    busy=true;error('');
    const result=await api('filament-orders',{action:'create',...d,confirm_total_difference:mismatch});
+   savedOrderId=result.order_id;
    orders=result.orders||[];
    renderOrders();
    await loadFilaments();
@@ -673,14 +759,27 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
     if(!order)throw Error('Bestellung gespeichert, bitte für den Wareneingang neu öffnen.');
     current=order;
     const request_key=window.crypto?.randomUUID?.()||'booking-'+Date.now()+'-'+Math.random().toString(36).slice(2);
-    const r=await api('filament-orders',{action:'receive',order_id:order.id,request_key,
-     lines:order.lines.map(l=>({id:l.id,quantity:l.remaining,expected_received:l.received}))});
+    let r;
+    try{
+     r=await api('filament-orders',{action:'receive',order_id:order.id,request_key,
+      lines:order.lines.map(l=>({id:l.id,quantity:l.remaining,expected_received:l.received}))});
+    }catch(ex){
+     finish();
+     message('Bestellung wurde gespeichert, aber der Wareneingang ist fehlgeschlagen: '+
+      ex.message+'. Bitte die vorhandene Bestellung erneut öffnen. Nicht ein zweites Mal speichern.');
+     return;
+    }
     orders=r.orders||[];renderOrders();
     await loadFilaments();
     message('Bestellung gespeichert und '+order.ordered_count+' Rollen eingebucht.');
    }else message('Filamentbestellung gespeichert. Bestand bleibt bis zur Lieferung unverändert.');
    finish();
-  }catch(ex){error(ex.message);}
+  }catch(ex){
+   if(savedOrderId){
+    finish();
+    message('Filamentbestellung bereits gespeichert. Wareneingang bitte über die vorhandene Bestellkarte prüfen: '+ex.message);
+   }else error(ex.message);
+  }
   finally{busy=false;}
  }
  async function bookReceipt(){
@@ -785,12 +884,45 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
     if(order)deleteOrder(order);
     return;
    }
-   const b=e.target.closest('[data-pp-open]');
+   const correction=e.target.closest('[data-pp-complete]');
+  if(correction){
+   const order=orders.find(x=>x.id===correction.dataset.ppComplete);
+   if(order)showCompletion(order);
+   return;
+  }
+  const b=e.target.closest('[data-pp-open]');
   if(!b)return;
   const o=orders.find(x=>x.id===b.dataset.ppOpen);
   if(o)showReceipt(o);
  });
 
+ orderBody.addEventListener('change',e=>{
+  const pick=e.target.closest('[data-pp-internal-pick],[data-pp-m-code-pick]');
+  if(!pick||busy)return;
+  const f=catalog().find(x=>Number(x.id)===Number(pick.value));
+  if(!f)return;
+  const idx=Number(pick.dataset.ppInternalPick??pick.dataset.ppMCodePick);
+  if(mode==='review'){
+   const line=draft?.lines[idx];
+   if(!line)return;
+   try{takeReview();}catch(ex){error(ex.message);return;}
+   const wrongCode=line.manufacturer_code&&f.manufacturer_code&&line.manufacturer_code!==f.manufacturer_code;
+   const wrongColor=line.color&&normalizeSearch(line.color)!==normalizeSearch(f.color);
+   if((wrongCode||wrongColor)&&!confirm('Interne Nummer '+f.internal_code+' ist '+f.color+
+    ' ('+(f.manufacturer_code||'ohne Herstellercode')+').\nAktuelle Farbdaten durch diese gespeicherte Farbe ersetzen?')){
+    showReview();return;
+   }
+   assignExistingCode(line,f);
+   activeLine=idx;
+   showReview();
+   message('Interner Code '+f.internal_code+' ausgewählt: '+f.color+'.');
+  }else if(mode==='manual-order'){
+   try{takeManual();}catch(ex){error(ex.message);return;}
+   manualSelect(idx,f);
+   renderManual();
+   message('Vorhandene Farbe mit internem Code '+f.internal_code+' zugeordnet.');
+  }
+ });
  orderBody.addEventListener('input',e=>{
   if(mode!=='manual-order')return;
   if(e.target.matches('[data-pp-m-search]')){
@@ -869,6 +1001,7 @@ orderBody.addEventListener('click',e=>{
   if(action==='save'||action==='save-receive')return save(action==='save-receive');
   if(action==='receive')return bookReceipt();
   if(action==='correct-quantity')return correctQuantity(Number(b.dataset.ppLine));
+  if(action==='save-completion')return saveCompletion();
    if(action==='delete-order'){if(current)deleteOrder(current);return;}
   if(action==='all-zero'){
    orderBody.querySelectorAll('[data-pp-receive]').forEach(input=>input.value=0);return;

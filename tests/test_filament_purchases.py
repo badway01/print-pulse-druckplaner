@@ -226,6 +226,82 @@ Zwischensumme 74,16€'''
                 'SELECT filament_id FROM pp_filament_order_lines WHERE order_id IN (?,?,?)',(a,b,c))}
         self.assertEqual(len(linked),1)
 
+    def test_known_position_prices_fill_missing_optional_order_total(self):
+        p=payload([line('Synthetic Chestnut','129080',qty=1,price=900)],total_cents=None)
+        oid=self.create(p)
+        order=next(o for o in self.state()['orders'] if o['id']==oid)
+        self.assertEqual(order['total_cents'],900)
+        self.assertEqual(order['lines'][0]['gross_cents'],900)
+
+    def test_castanienrot_discounted_refill_can_be_saved_and_received(self):
+        source='''| PLA Basic x 1 | Kastanienrot (10205) / Nachfüllung / 1 kg |
+                 Filament-Großverkauf -€7.99 EUR | €9.00 EUR | €16.99 EUR |'''
+        with app.connect() as db:
+            parsed=mod.parse_text(source,db)
+        self.assertEqual(parsed['vendor'],'Bambu Lab')
+        self.assertEqual(len(parsed['items']),1)
+        entry=parsed['items'][0]
+        self.assertEqual((entry['color'],entry['manufacturer_code'],entry['quantity']),
+                         ('Kastanienrot','10205',1))
+        self.assertEqual((entry['packaging'],entry['gross_cents']),('refill',900))
+        body=payload([entry],vendor='Bambu Lab',total_cents=900)
+        oid=self.create(body)
+        saved=self.state()['orders'][0]
+        self.assertEqual(saved['vendor'],'Bambu Lab')
+        self.assertEqual(saved['lines'][0]['effective_cents'],900)
+        self.receipt(oid,[{'id':saved['lines'][0]['id'],'quantity':1,'expected_received':0}],
+                     'synthetic-refill-10205')
+        result=self.state()['orders'][0]
+        self.assertEqual(result['status'],'Erhalten')
+        self.assertEqual((result['ordered_count'],result['received_count']),(1,1))
+        self.assertEqual(self.spools()[0]['price_cents'],900)
+
+    def test_missing_purchase_cost_can_be_completed_without_rebooking(self):
+        raw=line('Synthetic Berry','129099',qty=3,price=None)
+        oid=self.create(payload([raw],vendor='Unbekannter Händler',total_cents=None))
+        part=self.state()['orders'][0]['lines'][0]
+        self.receipt(oid,[{'id':part['id'],'quantity':2,'expected_received':0}],
+                     'unknown-cost-receipt-a01')
+        self.receipt(oid,[{'id':part['id'],'quantity':1,'expected_received':2}],
+                     'unknown-cost-receipt-b02')
+        initial=self.spools()[0]['stock_qty']
+        self.assertEqual(initial,3)
+        with app.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            mod.complete_missing_purchase_data(db,{
+                'order_id':oid,'vendor':'Bambu Lab',
+                'lines':[{'id':part['id'],'gross_cents':3178,'expected_gross_cents':None}]
+            })
+        result=self.state()['orders'][0]
+        self.assertEqual(result['vendor'],'Bambu Lab')
+        self.assertEqual(result['total_cents'],3178)
+        self.assertEqual(result['lines'][0]['effective_cents'],3178)
+        self.assertEqual(self.spools()[0]['stock_qty'],initial,
+                         'Missing prices cannot cause another inventory receipt')
+        with app.connect() as db:
+            costs=[row[0] for row in db.execute(
+                'SELECT cost_cents FROM pp_filament_cost_history ORDER BY id')]
+        self.assertEqual(sum(costs),3178)
+        self.assertEqual(costs,[2119,1059])
+        with self.assertRaisesRegex(ValueError,'Vorhandene Einkaufspreise'):
+            with app.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                mod.complete_missing_purchase_data(db,{
+                    'order_id':oid,'vendor':'Bambu Lab',
+                    'lines':[{'id':part['id'],'gross_cents':3200,'expected_gross_cents':3178}]
+                })
+        self.assertEqual(self.spools()[0]['stock_qty'],initial)
+
+    def test_internal_code_cannot_be_duplicated_on_new_color(self):
+        original=line('Synthetic Red','129088',qty=1,price=900)
+        original['internal_code']='26'
+        self.create(payload([original]))
+        duplicate=line('Synthetic Blue','129089',qty=1,price=900)
+        duplicate['internal_code']='26'
+        with self.assertRaisesRegex(ValueError,'gehört bereits zur Farbe'):
+            self.create(payload([duplicate]))
+        self.assertEqual(len(self.spools()),1)
+
     def test_free_roll_does_not_zero_existing_last_price(self):
         app.filament_mutate({'action':'save','brand':'Bambu Lab','material':'PETG Matte',
            'color':'White','manufacturer_code':'35100','internal_code':'',

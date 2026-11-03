@@ -184,6 +184,73 @@ const assert=require('node:assert/strict');
    'Trash button must delete the saved order after confirmation');
 
 
+  // Saved internal code dropdown must resolve to the catalog item, not duplicate its code.
+  const currentFilaments=await page.request.get('http://127.0.0.1:8099/api/filaments').then(r=>r.json());
+  const coded=currentFilaments.filaments.find(f=>f.color==='UI Testfarbe 1');
+  assert(coded);
+  const assigned=await page.request.post('http://127.0.0.1:8099/api/filament',{data:{
+   action:'save',id:coded.id,brand:coded.brand,material:coded.material,color:coded.color,
+   manufacturer_code:coded.manufacturer_code,internal_code:'26',color_hex:coded.color_hex,
+   stock_qty:coded.stock_qty,open_qty:coded.open_qty,price:'9,00',purchase_url:'',notes:''
+  }});
+  assert.equal(assigned.status(),200);
+  await page.reload();
+  await page.locator('[data-workspace="filament"]').click();
+  await page.locator('#pp-purchase-add').click();
+  await page.locator('[data-pp-m-action="new"][data-pp-m-index="0"]').click();
+  await page.locator('.pp-m-extras summary').click();
+  const codeSelect=page.locator('[data-pp-m-code-pick="0"]');
+  assert((await codeSelect.textContent()).includes('Intern 26'));
+  await codeSelect.selectOption(String(coded.id));
+  assert((await page.locator('[data-pp-m-row="0"]').textContent()).includes('UI Testfarbe 1'));
+  await page.locator('[data-pp-m-field="_priceInput"][data-pp-m-index="0"]').fill('9,00');
+  await page.locator('[data-pp-m-action="save"]').click();
+  await page.locator('#pp-purchase-dialog').waitFor({state:'hidden'});
+  const mappedOrders=await page.request.get('http://127.0.0.1:8099/api/filament-orders').then(r=>r.json());
+  assert(mappedOrders.orders.some(o=>o.lines.some(l=>l.filament_id===coded.id&&l.gross_cents===900)),
+   'Internal code picker must assign the existing catalog entry');
+
+  // Simulate a received purchase with unknown supplier and price, then backfill.
+  const input={
+   action:'create',vendor:'Unbekannter Händler',ordered_on:'2026-11-03',
+   reference:'MISSING-COST-QA',total_cents:null,discount_cents:0,credit_cents:0,
+   shipping_cents:0,source_type:'manual',fingerprint:'',
+   lines:[{brand:'Bambu Lab',material:'PLA Basic',color:'Berry Test Missing Cost',
+    manufacturer_code:'129055',internal_code:'',color_hex:'',filament_id:null,
+    quantity:1,grams:1000,packaging:'refill',gross_cents:null,description:'',accept_changes:[]}]
+  };
+  const created=await page.request.post('http://127.0.0.1:8099/api/filament-orders',{data:input});
+  assert.equal(created.status(),200);
+  const createdResult=await created.json();
+  const unknown=createdResult.orders.find(o=>o.reference==='MISSING-COST-QA');
+  assert(unknown);
+  const receipt=await page.request.post('http://127.0.0.1:8099/api/filament-orders',{data:{
+   action:'receive',order_id:unknown.id,
+   request_key:['test','missing','cost','receipt','001'].join('-'),
+   lines:[{id:unknown.lines[0].id,quantity:1,expected_received:0}]
+  }});
+  assert.equal(receipt.status(),200);
+  const beforeComplete=await page.request.get('http://127.0.0.1:8099/api/filaments').then(r=>r.json());
+  const receivedStock=beforeComplete.filaments.find(f=>f.manufacturer_code==='129055').stock_qty;
+  assert.equal(receivedStock,1);
+  await page.reload();
+  await page.locator('[data-workspace="filament"]').click();
+  const incomplete=page.locator('.pp-purchase-card').filter({hasText:'MISSING-COST-QA'});
+  assert((await incomplete.textContent()).includes('Preis offen'));
+  await incomplete.locator('[data-pp-complete]').click();
+  assert((await page.locator('#pp-purchase-dialog').textContent()).includes('nicht erneut eingebucht'));
+  await page.locator('#pp-complete-vendor').fill('Bambu Lab');
+  await page.locator('[data-pp-complete-price]').fill('9,00');
+  await page.locator('[data-pp-action="save-completion"]').click();
+  await page.locator('#pp-purchase-dialog').waitFor({state:'hidden'});
+  const filled=await page.request.get('http://127.0.0.1:8099/api/filament-orders').then(r=>r.json());
+  const filledOrder=filled.orders.find(o=>o.id===unknown.id);
+  assert.equal(filledOrder.vendor,'Bambu Lab');
+  assert.equal(filledOrder.total_cents,900);
+  assert.equal(filledOrder.received_count,1);
+  const afterComplete=await page.request.get('http://127.0.0.1:8099/api/filaments').then(r=>r.json());
+  assert.equal(afterComplete.filaments.find(f=>f.manufacturer_code==='129055').stock_qty,receivedStock);
+
   assert.deepEqual(errors,[],'No browser JavaScript errors');
   console.log('FILAMENT BULK UI PASS: iPhone, top warning, auto paste, one editor, next issue, batch save');
  }finally{await browser.close();}
