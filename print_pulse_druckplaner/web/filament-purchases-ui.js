@@ -579,16 +579,52 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
   dialogOpen('Lieferung erfassen · '+order.vendor);
   receiptKey=(window.crypto?.randomUUID?.()||'booking-'+Date.now()+'-'+Math.random().toString(36).slice(2));
   const pending=order.lines.filter(l=>l.remaining>0);
-  orderBody.innerHTML='<p>Wie viele Rollen sind angekommen? <b>Alle offenen Mengen sind vorausgewählt.</b> Nur fehlende Rollen reduzieren oder auf 0 setzen.</p>'+
+  orderBody.innerHTML='<p>Prüfe vor der Buchung die <b>bestellte Gesamtmenge</b>. Nur tatsächlich angekommene Rollen werden ins Lager gebucht.</p>'+
+   '<div class="pp-receive-summary"><strong>Gesamt: '+order.ordered_count+' bestellt · '+order.received_count+
+   ' bereits erhalten · '+(order.ordered_count-order.received_count)+' noch offen</strong></div>'+
    pending.map(l=>'<div class="pp-receive-row"><div><strong>'+html(l.color)+' · '+html(l.material)+'</strong>'+
-    '<br><small>'+html(l.brand)+' · Hersteller '+html(l.manufacturer_code||'ohne Code')+
-    ' · Noch offen: '+l.remaining+' · Preis: '+money(l.effective_cents)+'</small></div>'+
-    '<label>Erhalten<input type="number" data-pp-receive="'+l.id+'" data-pp-expected="'+l.received+
+    '<br><small>'+html(l.brand)+' · Hersteller '+html(l.manufacturer_code||'ohne Code')+'</small>'+
+    '<div class="pp-receive-counts"><strong>Bestellt: '+l.quantity+'</strong> · Bereits erhalten: '+l.received+
+    ' · <strong>Noch offen: '+l.remaining+'</strong></div>'+
+    '<small>Positionspreis gesamt: '+money(l.effective_cents)+' ('+l.quantity+' Rolle(n))</small>'+
+    '<div class="pp-unit-cost">'+spoolPriceHint(l.effective_cents,l.quantity)+'</div>'+
+    (l.received===0?'<details class="pp-receive-correction"><summary>Bestellmenge korrigieren</summary>'+
+     '<label>Bestellte Rollen<input type="number" min="1" max="500" step="1" inputmode="numeric" data-pp-correct-quantity="'+l.id+'" value="'+l.quantity+'"></label>'+
+     '<button type="button" class="secondary small" data-pp-action="correct-quantity" data-pp-line="'+l.id+'">Menge speichern</button>'+
+     '<small>Nur vor dem ersten Wareneingang möglich. Der Positionsgesamtpreis bleibt unverändert, der Stückpreis wird neu berechnet.</small></details>':
+     '<small class="pp-muted">Nach dem Wareneingang ist eine Mengenkorrektur aus Sicherheitsgründen gesperrt.</small>')+
+    '</div><label>Jetzt erhalten<input type="number" data-pp-receive="'+l.id+'" data-pp-expected="'+l.received+
     '" min="0" max="'+l.remaining+'" step="1" value="'+l.remaining+'"></label></div>').join('')+
    '<div class="pp-purchase-actions"><button type="button" class="secondary" data-pp-action="all-zero">Alle auf 0</button>'+
    '<button type="button" class="primary" data-pp-action="receive">Wareneingang buchen</button></div>'+
    '<p class="pp-muted">Nur die eingetragenen Mengen werden ins Lager gebucht. Der Rest bleibt bei dieser Bestellung offen. Jede Buchung wird protokolliert und vor Doppelbuchung geschützt.</p>'+
    '<button type="button" class="secondary pp-purchase-delete-dialog" data-pp-action="delete-order">Bestellung löschen</button>';
+ }
+ async function correctQuantity(lineId){
+  if(busy||!current)return;
+  const line=current.lines.find(l=>l.id===lineId);
+  const input=orderBody.querySelector('[data-pp-correct-quantity="'+lineId+'"]');
+  if(!line||!input)return;
+  const quantity=Number(input.value);
+  if(!Number.isInteger(quantity)||quantity<1||quantity>500){
+   error('Bitte eine gültige Bestellmenge von 1 bis 500 Rollen eingeben.');return;
+  }
+  if(quantity===line.quantity){message('Bestellmenge ist bereits korrekt.');return;}
+  if(!confirm('Bestellmenge für '+line.color+' von '+line.quantity+' auf '+quantity+
+   ' Rolle(n) korrigieren?\nDer Positionsgesamtpreis bleibt '+money(line.effective_cents)+
+   '. Es wird noch kein Lagerbestand gebucht.'))return;
+  busy=true;error('');
+  try{
+   const result=await api('filament-orders',{action:'correct_quantity',order_id:current.id,
+    line_id:line.id,quantity,expected_quantity:line.quantity});
+   orders=result.orders||[];
+   renderOrders();
+   const updated=orders.find(o=>o.id===current.id);
+   if(!updated)throw Error('Bestellung ist nicht mehr vorhanden. Bitte aktualisieren.');
+   showReceipt(updated);
+   message('Bestellmenge korrigiert: '+quantity+' Rollen. Noch kein Wareneingang gebucht.');
+  }catch(ex){error(ex.message);}
+  finally{busy=false;}
  }
  async function save(nowReceive){
   if(busy)return;
@@ -819,6 +855,7 @@ orderBody.addEventListener('click',e=>{
   if(action==='manual'){draft=emptyDraft();draft.lines=[emptyLine()];expandedLines=new Set([0]);selectedLines=new Set();activeLine=0;showReview();return;}
   if(action==='save'||action==='save-receive')return save(action==='save-receive');
   if(action==='receive')return bookReceipt();
+  if(action==='correct-quantity')return correctQuantity(Number(b.dataset.ppLine));
    if(action==='delete-order'){if(current)deleteOrder(current);return;}
   if(action==='all-zero'){
    orderBody.querySelectorAll('[data-pp-receive]').forEach(input=>input.value=0);return;
