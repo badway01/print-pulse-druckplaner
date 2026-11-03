@@ -237,8 +237,14 @@
 
  function field(labelText,name,value,index,type='text',other=''){
   const fieldId='pp-l-'+index+'-'+name;
-  return '<label for="'+fieldId+'">'+html(labelText)+'<input id="'+fieldId+'" type="'+type+
-   '" data-pp-line="'+index+'" data-pp-field="'+name+'" '+other+' value="'+escapeAttr(value??'')+'"></label>';
+const invalid=({brand:'Hersteller fehlt',material:'Material fehlt',color:'Farbe fehlt'})[name]&&
+ !String(value??'').trim()?({brand:'Hersteller fehlt',material:'Material fehlt',color:'Farbe fehlt'})[name]:
+ (name==='quantity'&&(!Number.isInteger(Number(value))||Number(value)<1)?'Rollenanzahl ungültig':
+ name==='grams'&&(!Number.isInteger(Number(value))||Number(value)<50)?'Grammangabe ungültig':'');
+return '<label for="'+fieldId+'" class="'+(invalid?'pp-field-invalid':'')+'">'+html(labelText)+
+ (invalid?'<small class="pp-required-message">'+html(invalid)+'</small>':'')+
+ '<input id="'+fieldId+'" type="'+type+'" '+(invalid?'aria-invalid="true" ':'')+
+ 'data-pp-line="'+index+'" data-pp-field="'+name+'" '+other+' value="'+escapeAttr(value??'')+'"></label>';
  }
  function metadataInput(labelText,name,value){
   return '<label>'+html(labelText)+'<input data-pp-header="'+name+'" value="'+escapeAttr(value??'')+'"></label>';
@@ -252,7 +258,9 @@
  }
  function requiredProblems(line){
   const problems=[];
-  if(!line.brand||!line.material||!line.color)problems.push('Hersteller, Material oder Farbe fehlen');
+if(!String(line.brand||'').trim())problems.push('Hersteller fehlt');
+if(!String(line.material||'').trim())problems.push('Material fehlt');
+if(!String(line.color||'').trim())problems.push('Farbe fehlt');
   if(!Number.isInteger(Number(line.quantity))||Number(line.quantity)<1)problems.push('Rollenanzahl ungültig');
   if(!Number.isInteger(Number(line.grams))||Number(line.grams)<50)problems.push('Grammangabe ungültig');
   if(line.ambiguous&&!line.filament_id)problems.push('Filament-Zuordnung mehrdeutig');
@@ -278,7 +286,8 @@
     (selectedLines.has(i)?'checked':'')+'></label>'+
     '<button type="button" class="pp-review-row-btn" data-pp-action="focus" data-pp-index="'+i+'">'+
     '<span class="pp-review-main"><strong>'+(i+1)+'. '+html(color)+'</strong>'+
-    '<small>'+html(line.manufacturer_code||'Code offen')+' · '+html(line.quantity)+' Rolle(n) · '+money(line.gross_cents)+'</small></span>'+
+'<small>'+html(line.manufacturer_code||'Code offen')+' · '+html(line.quantity)+' Rolle(n) · '+money(line.gross_cents)+'</small>'+
+(requiredProblems(line).length?'<small class="pp-summary-error">'+html(requiredProblems(line).join(' · '))+'</small>':'')+'</span>'+
     '<span class="pp-line-state '+(issue?'pp-line-attention':'pp-line-ok')+'">'+
     (issue?'Prüfen':found?'Zugeordnet':'Neu')+'</span><span aria-hidden="true">›</span></button></article>';
  }
@@ -302,7 +311,8 @@
      '<small> · Nur mit Häkchen übernehmen</small></label></div>').join('')+'</div>':
     '<small class="pp-muted">Vorhandenes Filament erkannt; Stammdaten bleiben unverändert.</small>'):
     '<small class="pp-muted">Neue Farbe: wird beim Speichern mit Lagerbestand 0 angelegt. Internen Farbcode bei Bedarf vergeben.</small>';
-  const hints=lineHints(line),unresolved=isUnresolved(line),found=!!f;
+const problems=requiredProblems(line);
+const hints=lineHints(line).filter(h=>!problems.includes(h)),unresolved=isUnresolved(line),found=!!f;
   const name=html([line.brand,line.material,line.color||'Farbe fehlt'].filter(Boolean).join(' · '));
   const detail=html((line.manufacturer_code?'Code '+line.manufacturer_code+' · ':'')+
     (line.quantity||0)+' Rolle(n) · '+(line.grams||1000)+' g · '+
@@ -318,7 +328,9 @@
     '<span class="pp-line-state '+(unresolved?'pp-line-attention':'pp-line-ok')+'">'+
       (unresolved?'Prüfen':found?'Zugeordnet':'Neu')+'</span><span class="pp-edit-hint">Bearbeiten ▾</span></summary>'+
    '<div class="pp-line-editor">'+
-   (hints.length?'<p class="pp-line-hints">'+html(hints.join(' · '))+'</p>':'')+
+(problems.length?'<div class="pp-required-errors" role="alert"><strong>Diese Angaben fehlen oder sind ungültig:</strong>'+
+ '<span>'+html(problems.join(' · '))+'</span></div>':'')+
+(hints.length?'<p class="pp-line-hints">Zur Kontrolle: '+html(hints.join(' · '))+'</p>':'')+
    '<div class="pp-line-buttons"><button type="button" class="secondary small" data-pp-action="split" data-pp-index="'+i+'">Preis aufteilen</button>'+
    '<button type="button" class="secondary small" data-pp-action="remove" data-pp-index="'+i+'">Entfernen</button></div>'+
    '<div class="pp-line-fields pp-line-key-fields">'+
@@ -331,7 +343,9 @@
      '<option value="'+v[0]+'" '+(line.packaging===v[0]?'selected':'')+'>'+v[1]+'</option>').join('')+
     '</select></label></div>'+
     changes+
-    '<details class="pp-line-extra"><summary>Weitere Angaben bearbeiten (Hersteller, Material, interner Code …)</summary>'+
+'<details class="pp-line-extra"'+(!String(line.brand||'').trim()||!String(line.material||'').trim()||
+ !Number.isInteger(Number(line.grams))||Number(line.grams)<50?' open':'')+
+ '><summary>Weitere Angaben bearbeiten (Hersteller, Material, interner Code …)</summary>'+
     '<div class="pp-line-fields">'+
     field('Hersteller','brand',line.brand,i)+field('Material','material',line.material,i)+
     field('Interner Farbcode (manuell)','internal_code',line.internal_code,i)+
@@ -342,7 +356,8 @@
     field('Zusatzinfo','description',line.description,i)+'</div></details>'+
     '<div class="pp-review-editor-actions"><button type="button" class="secondary" data-pp-action="overview">Zur Übersicht</button>'+
     '<button type="button" class="primary" data-pp-action="reviewed" data-pp-index="'+i+'">'+
-    (hints.length?'Geprüft · nächste Position':'Weiter')+'</button></div>'+
+'Position bestätigen &amp; weiter</button></div>'+
+'<small class="pp-confirm-explain">Hier prüfst du nur die Angaben. Gespeichert wird erst mit den Buttons unten.</small>'+
     '</div></details></article>';
  }
  function takeReview(){
@@ -664,10 +679,13 @@
    if(action==='focus'){activeLine=index;showReview();return;}
    if(action==='overview'){activeLine=-1;showReview();return;}
    if(action==='next-issue'){activeLine=draft.lines.findIndex(isUnresolved);showReview();return;}
-   if(action==='reviewed'){
-    if(requiredProblems(draft.lines[index]).length){
-     showReview();error('Bitte zuerst fehlende Pflichtangaben korrigieren.');return;
-    }
+if(action==='reviewed'){
+ const missing=requiredProblems(draft.lines[index]);
+ if(missing.length){
+  activeLine=index;showReview();
+  error('Position '+(index+1)+': '+missing.join(' · ')+'. Bitte die rot markierten Felder korrigieren.');
+  return;
+ }
     draft.lines[index].reviewed=true;
     activeLine=draft.lines.findIndex(isUnresolved);
     showReview();return;
