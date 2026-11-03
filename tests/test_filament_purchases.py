@@ -205,6 +205,27 @@ Zwischensumme 74,16€'''
         self.assertEqual(self.spools()[0]['stock_qty'],3)
         self.assertEqual(self.state()['orders'][0]['status'],'Erhalten')
 
+    def test_manufacturer_case_and_bambu_alias_reuse_one_catalog_color(self):
+        """BAMBU, Bambu and Bambu Lab refer to the same PLA Basic Jade-Weiß."""
+        first=line()
+        first['brand']='bambu'
+        first['material']='pla basic'
+        a=self.create(payload([first]))
+        second=line()
+        second['brand']='BAMBU LAB'
+        second['material']='PLA BASIC'
+        b=self.create(payload([second]))
+        third=line()
+        third['brand']='Bambu'
+        c=self.create(payload([third]))
+        self.assertEqual(len(self.spools()),1)
+        self.assertEqual(self.spools()[0]['brand'],'Bambu Lab')
+        self.assertEqual(self.spools()[0]['material'],'PLA Basic')
+        with app.connect() as db:
+            linked={row['filament_id'] for row in db.execute(
+                'SELECT filament_id FROM pp_filament_order_lines WHERE order_id IN (?,?,?)',(a,b,c))}
+        self.assertEqual(len(linked),1)
+
     def test_free_roll_does_not_zero_existing_last_price(self):
         app.filament_mutate({'action':'save','brand':'Bambu Lab','material':'PETG Matte',
            'color':'White','manufacturer_code':'35100','internal_code':'',
