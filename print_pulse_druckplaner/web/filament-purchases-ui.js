@@ -700,6 +700,7 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
  }
  async function save(nowReceive){
   if(busy)return;
+  let savedOrderId=null;
   try{
    const isManual=mode==='manual-order';
    if(isManual)takeManual();else takeReview();
@@ -719,12 +720,30 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
     if(!Number.isInteger(l.quantity)||l.quantity<1||!Number.isInteger(l.grams)||l.grams<50)throw Error('Rollenanzahl und Grammzahl prüfen.');
    }
    const d=draft,known=d.lines.every(l=>l.gross_cents!=null);
+   for(const [i,l] of d.lines.entries()){
+    const current=Number(l.filament_id)||null;
+    const assigned=catalog().find(f=>Number(f.id)===current);
+    const code=String(l.internal_code||'').trim().replace(',','.');
+    const codeOwner=code?catalog().find(f=>String(f.internal_code||'').trim()===code&&Number(f.id)!==current):null;
+    if(codeOwner)throw Error('Position '+(i+1)+': Interner Code '+code+' gehört bereits zu '+codeOwner.color+
+     '. Bitte die vorhandene Farbe über die Code-Auswahl zuordnen.');
+    if(assigned&&l.manufacturer_code&&assigned.manufacturer_code&&
+       String(l.manufacturer_code)!==String(assigned.manufacturer_code)){
+      const correct=catalog().find(f=>String(f.manufacturer_code||'')===String(l.manufacturer_code)&&
+       normalizeSearch(f.brand)===normalizeSearch(l.brand)&&normalizeSearch(f.material)===normalizeSearch(l.material));
+      if(correct&&correct.id!==assigned.id)throw Error('Position '+(i+1)+': Herstellercode '+l.manufacturer_code+
+       ' gehört zu '+correct.color+', nicht zu '+assigned.color+'. Bitte Filamentzuordnung korrigieren.');
+    }
+   }
+   if(d.vendor==='Unbekannter Händler'&&!confirm('Der Händler wurde nicht erkannt. Bitte möglichst Bambu Lab oder den richtigen Händler eintragen. Trotzdem mit „Unbekannter Händler“ speichern?'))return;
+   if(!known&&!confirm('Bei mindestens einer Position fehlt der Einkaufspreis. Diese Bestellung zeigt dann „Preis offen“. Trotzdem speichern?'))return;
    const calc=known?d.lines.reduce((n,l)=>n+l.gross_cents,0)-d.discount_cents-d.credit_cents+d.shipping_cents:null;
    const mismatch=d.total_cents!=null&&calc!==null&&calc!==d.total_cents;
    if(mismatch&&!confirm('Die Positionssumme stimmt nicht mit dem Rechnungsbetrag überein. Trotzdem ausdrücklich speichern?'))return;
    if(nowReceive&&!confirm('Alle eingetragenen Rollen als tatsächlich angekommen verbuchen?'))return;
    busy=true;error('');
    const result=await api('filament-orders',{action:'create',...d,confirm_total_difference:mismatch});
+   savedOrderId=result.order_id;
    orders=result.orders||[];
    renderOrders();
    await loadFilaments();
@@ -733,14 +752,27 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
     if(!order)throw Error('Bestellung gespeichert, bitte für den Wareneingang neu öffnen.');
     current=order;
     const request_key=window.crypto?.randomUUID?.()||'booking-'+Date.now()+'-'+Math.random().toString(36).slice(2);
-    const r=await api('filament-orders',{action:'receive',order_id:order.id,request_key,
-     lines:order.lines.map(l=>({id:l.id,quantity:l.remaining,expected_received:l.received}))});
+    let r;
+    try{
+     r=await api('filament-orders',{action:'receive',order_id:order.id,request_key,
+      lines:order.lines.map(l=>({id:l.id,quantity:l.remaining,expected_received:l.received}))});
+    }catch(ex){
+     finish();
+     message('Bestellung wurde gespeichert, aber der Wareneingang ist fehlgeschlagen: '+
+      ex.message+'. Bitte die vorhandene Bestellung erneut öffnen. Nicht ein zweites Mal speichern.');
+     return;
+    }
     orders=r.orders||[];renderOrders();
     await loadFilaments();
     message('Bestellung gespeichert und '+order.ordered_count+' Rollen eingebucht.');
    }else message('Filamentbestellung gespeichert. Bestand bleibt bis zur Lieferung unverändert.');
    finish();
-  }catch(ex){error(ex.message);}
+  }catch(ex){
+   if(savedOrderId){
+    finish();
+    message('Filamentbestellung bereits gespeichert. Wareneingang bitte über die vorhandene Bestellkarte prüfen: '+ex.message);
+   }else error(ex.message);
+  }
   finally{busy=false;}
  }
  async function bookReceipt(){
