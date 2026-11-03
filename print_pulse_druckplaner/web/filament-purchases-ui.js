@@ -42,6 +42,12 @@ function spoolPriceHint(total,quantity){
  function orderStatus(o){
   return o.status+' · '+o.received_count+'/'+o.ordered_count+' Rollen';
  }
+ function displayOrderTotal(order){
+  if(order.total_cents!=null)return order.total_cents;
+  if(!order.lines?.length||order.lines.some(l=>l.gross_cents==null))return null;
+  return order.lines.reduce((sum,l)=>sum+l.gross_cents,0)-
+   Number(order.discount_cents||0)-Number(order.credit_cents||0)+Number(order.shipping_cents||0);
+ }
  function renderOrders(){
   const box=node('pp-purchase-list');
   if(!orders.length){box.innerHTML='<p class="hint">Noch keine Filamentbestellungen gespeichert. Importiere einen Screenshot oder lege eine Bestellung manuell an.</p>';return;}
@@ -53,7 +59,8 @@ function spoolPriceHint(total,quantity){
    '<small>'+html(o.ordered_on||'Datum offen')+(o.reference?' · '+html(o.reference):'')+'</small>'+
    '<span>'+o.received_count+' von '+o.ordered_count+' Rollen erhalten</span>'+
    '<small>'+o.lines.map(l=>html(l.quantity+' × '+l.color+' ('+(l.manufacturer_code||'ohne Code')+')')).join(' · ')+'</small>'+
-   '<strong>'+money(o.total_cents)+'</strong>'+
+   '<strong>'+money(displayOrderTotal(o))+'</strong>'+
+   (o.total_cents==null&&displayOrderTotal(o)!=null?'<small>Aus Positionspreisen berechnet</small>':'')+
    (o.status==='Erhalten'?'<small>Vollständig eingebucht · Einkaufsarchiv</small>':
     '<button type="button" class="secondary" data-pp-open="'+html(o.id)+'">Lieferung erfassen</button>')+
    ((o.vendor==='Unbekannter Händler'||o.lines.some(l=>l.gross_cents==null))?
