@@ -1,3 +1,13 @@
+# 0.13.27 · Filamentbestellungen verständlich prüfen und sicher löschen
+
+- Importprüfung benennt jedes fehlende Pflichtfeld einzeln rot und öffnet Hersteller/Material automatisch, wenn dort etwas fehlt.
+- Schaltfläche „Position bestätigen & weiter“ erklärt die Prüfung; erst „Speichern“ legt eine Bestellung an.
+- Jede Position zeigt den Preis je Rolle an, auch während der Eingabe; bei nicht teilbaren Centbeträgen mit exakter Aufteilung (z. B. 31,78 € / 3 → 2 × 10,59 € und 1 × 10,60 €).
+- Papierkorb an jeder gespeicherten Einkaufskarte und „Bestellung löschen“ im Wareneingang, jeweils mit Sicherheitsabfrage.
+- Gelöschte, noch nicht erhaltene Bestellungen verändern weder Lagerbestand noch Filamentpreise.
+- Bereits eingebuchte Rollen werden nur bei ausreichendem Lagerbestand transaktional zurückgebucht. Der bisherige Preis wird aus verbleibenden Einkäufen oder einer erfassten Ursprungspreisbasis rekonstruiert. Manuelle spätere Preisänderungen bleiben erhalten.
+- Alle Bestellungen, Filamentstammdaten, vorhandenen Lagerdaten, Etsy-Aufträge und Druckaufträge bleiben von der Migration unberührt.
+
 # 0.13.26 · Lokale Aufträge auf dem iPhone zuverlässig anlegen
 
 - Produktvorschläge im mobilen Suchfeld lassen sich jetzt per Fingertipp übernehmen, auch wenn Safari beim Antippen die Tastatur ausblendet.
