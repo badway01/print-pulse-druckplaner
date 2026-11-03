@@ -5,6 +5,7 @@
 - Vor dem Speichern: Warnung bei unbekanntem Händler oder fehlenden Einkaufspreisen und verständliche Hinweise bei Farbcodekonflikten statt vermeidbaren HTTP-400-Fehlern.
 - Falls „Speichern + erhalten“ nach erfolgreichem Speichern beim Wareneingang scheitert, verhindert die Oberfläche einen unbemerkten zweiten Bestellversuch.
 - Bereits gebuchte Positionen mit unbekanntem Preis können fehlende Kosten und Händlerdaten ergänzen: vorhandene Lagerbestände bleiben unverändert, Wareneingänge werden nicht erneut gebucht, Kostenbuchungen centgenau nachgetragen.
+- „Preis offen“ nur bei tatsächlich fehlenden Kosten: wenn der optionale Rechnungs-Gesamtbetrag leer ist, berechnet das System ihn aus den bereits bekannten Positionspreisen; bestehende Einträge werden korrekt dargestellt.
 - Regressionstests für Refill-Import Kastanienrot (10205), Kostenkorrektur bei Teillieferungen und Schutz gegen doppelte interne Nummern.
 
 # 0.13.31 · Lokale Bestellungen mit Versanddienstleister und Sendungsnummer
