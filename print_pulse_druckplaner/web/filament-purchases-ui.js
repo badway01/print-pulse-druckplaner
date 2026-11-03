@@ -56,6 +56,8 @@ function spoolPriceHint(total,quantity){
    '<strong>'+money(o.total_cents)+'</strong>'+
    (o.status==='Erhalten'?'<small>Vollständig eingebucht · Einkaufsarchiv</small>':
     '<button type="button" class="secondary" data-pp-open="'+html(o.id)+'">Lieferung erfassen</button>')+
+   ((o.vendor==='Unbekannter Händler'||o.lines.some(l=>l.gross_cents==null))?
+     '<button type="button" class="secondary" data-pp-complete="'+html(o.id)+'">Fehlende Einkaufsdaten ergänzen</button>':'')+
    '</article>').join('');
  }
  async function refresh(){
@@ -88,6 +90,23 @@ function spoolPriceHint(total,quantity){
  function spoolLabel(f){
   return [f.material,f.color,(f.manufacturer_code?'('+f.manufacturer_code+')':null),
    (f.internal_code?'· Intern '+f.internal_code:null)].filter(Boolean).join(' ');
+ }
+ function knownInternalCodes(){
+  return catalog().filter(f=>String(f.internal_code||'').trim()).sort((a,b)=>
+   String(a.internal_code).localeCompare(String(b.internal_code),'de',{numeric:true})||
+   String(a.color||'').localeCompare(String(b.color||''),'de'));
+ }
+ function internalChoices(chosen){
+  return '<option value="">Code aus deiner Filamentbibliothek wählen …</option>'+
+   knownInternalCodes().map(f=>'<option value="'+f.id+'" '+(Number(chosen)===Number(f.id)?'selected':'')+'>'+
+    html('Intern '+f.internal_code+' · '+f.color+' · '+f.material+
+    (f.manufacturer_code?' ('+f.manufacturer_code+')':''))+'</option>').join('');
+ }
+ function assignExistingCode(line,filament){
+  Object.assign(line,{brand:filament.brand,material:filament.material,color:filament.color,
+   manufacturer_code:filament.manufacturer_code||'',internal_code:filament.internal_code||'',
+   color_hex:filament.color_hex||'',filament_id:filament.id,ambiguous:false,
+   existing:null,accept_changes:[],reviewed:false});
  }
  function manualOptions(index,query){
   const found=matchingFilaments(query);
@@ -132,7 +151,8 @@ function spoolPriceHint(total,quantity){
      '<label>Bambu-Code (optional)<input data-pp-m-index="'+i+
       '" data-pp-m-field="manufacturer_code" value="'+escapeAttr(l.manufacturer_code)+'" inputmode="numeric" placeholder="z. B. 10100"></label></div>'+
      '<details class="pp-m-extras"><summary>Interner Code, HEX und weitere Angaben</summary><div class="pp-m-new-fields">'+
-      '<label>Interner Farbcode<input data-pp-m-index="'+i+'" data-pp-m-field="internal_code" value="'+escapeAttr(l.internal_code)+'" inputmode="decimal"></label>'+
+      '<label>Bestehenden internen Farbcode auswählen<select data-pp-m-code-pick="'+i+'">'+internalChoices(l.filament_id)+'</select></label>'+
+      '<label>Neuen internen Farbcode eingeben (nur falls noch frei)<input data-pp-m-index="'+i+'" data-pp-m-field="internal_code" value="'+escapeAttr(l.internal_code)+'" inputmode="decimal"></label>'+
       '<label>HEX-Farbwert<input data-pp-m-index="'+i+'" data-pp-m-field="color_hex" value="'+escapeAttr(l.color_hex)+'" placeholder="#ffffff"></label>'+
       '<label>Gramm pro Rolle<input data-pp-m-index="'+i+'" data-pp-m-field="grams" type="number" min="50" max="5000" value="'+l.grams+'" inputmode="numeric"></label>'+
       '<label>Notiz<input data-pp-m-index="'+i+'" data-pp-m-field="description" value="'+escapeAttr(l.description)+'"></label></div></details>'+
@@ -464,7 +484,8 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
  '><summary>Weitere Angaben bearbeiten (Hersteller, Material, interner Code …)</summary>'+
     '<div class="pp-line-fields">'+
     field('Hersteller','brand',line.brand,i)+field('Material','material',line.material,i)+
-    field('Interner Farbcode (manuell)','internal_code',line.internal_code,i)+
+    '<label>Vorhandenen internen Farbcode auswählen<select data-pp-internal-pick="'+i+'">'+internalChoices(line.filament_id)+'</select></label>'+
+    field('Neuen internen Farbcode (nur falls noch nicht vergeben)','internal_code',line.internal_code,i)+
     field('HEX-Farbwert (nur aus sicherer Quelle)','color_hex',line.color_hex,i)+
     field('Gramm pro Rolle','grams',line.grams,i,'number','min="50" max="5000" step="1" inputmode="numeric"')+
     '</div><div class="pp-purchase-fields"><label>Vorhandenes Filament zuordnen<select data-pp-line="'+i+
