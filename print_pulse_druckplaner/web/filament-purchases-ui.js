@@ -5,7 +5,17 @@
  const node=id=>document.getElementById(id);
  const html=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
  const money=v=>v==null?'Preis offen':(v/100).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
- const inputMoney=v=>v==null?'':(v/100).toFixed(2).replace('.',',');
+const inputMoney=v=>v==null?'':(v/100).toFixed(2).replace('.',',');
+function spoolPriceHint(total,quantity){
+ const n=Number(quantity);
+ if(total==null)return 'Preis je Rolle: Bitte zuerst den Positionspreis eintragen.';
+ if(!Number.isInteger(total)||!Number.isInteger(n)||n<1)return 'Preis je Rolle: Bitte Rollenanzahl prüfen.';
+ const base=Math.floor(total/n),extra=total%n;
+ const split=extra?(n-extra)+' × '+money(base)+' + '+extra+' × '+money(base+1):
+  (n>1?n+' × '+money(base):money(base));
+ return 'Preis je Rolle: <strong>'+money(total)+' ÷ '+n+' = '+money(base)+
+  (extra?' bis '+money(base+1):'')+'</strong><small>Centgenaue Aufteilung: '+split+'</small>';
+}
  const cents=v=>{
   const raw=String(v??'').trim();
   if(!raw)return null;
@@ -136,7 +146,8 @@
     [['unknown','Bitte wählen'],['spool','Mit Spule'],['refill','Refill']].map(([v,txt])=>
      '<option value="'+v+'" '+(l.packaging===v?'selected':'')+'>'+txt+'</option>').join('')+'</select></label>'+
    '<label>Positionspreis gesamt (€)<input type="text" inputmode="decimal" placeholder="z. B. 31,78" data-pp-m-field="_priceInput" data-pp-m-index="'+i+
-    '" value="'+escapeAttr(l._priceInput??inputMoney(l.gross_cents))+'"></label></div></article>';
+'" value="'+escapeAttr(l._priceInput??inputMoney(l.gross_cents))+'"></label></div>'+
+'<div class="pp-unit-cost" data-pp-m-price-hint="'+i+'">'+spoolPriceHint(l.gross_cents,l.quantity)+'</div></article>';
  }
  function manualHeaderInput(title,k,value,type='text'){
   return '<label>'+html(title)+'<input data-pp-m-header="'+k+'" type="'+type+
@@ -337,7 +348,8 @@ const hints=lineHints(line).filter(h=>!problems.includes(h)),unresolved=isUnreso
     field('Farbe','color',line.color,i)+
     field('Hersteller-Farbcode','manufacturer_code',line.manufacturer_code,i)+
     field('Rollen','quantity',line.quantity,i,'number','min="1" max="500" step="1" inputmode="numeric"')+
-    field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i,'text','inputmode="decimal"')+'</div>'+
+field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i,'text','inputmode="decimal"')+'</div>'+
+'<div class="pp-unit-cost" data-pp-price-hint="'+i+'">'+spoolPriceHint(line.gross_cents,line.quantity)+'</div>'+
     '<div class="pp-line-basic"><label>Spule / Refill<select data-pp-line="'+i+'" data-pp-field="packaging">'+
     [['unknown','Unbekannt'],['spool','Mit Spule'],['refill','Refill']].map(v=>
      '<option value="'+v[0]+'" '+(line.packaging===v[0]?'selected':'')+'>'+v[1]+'</option>').join('')+
@@ -622,13 +634,28 @@ const hints=lineHints(line).filter(h=>!problems.includes(h)),unresolved=isUnreso
    const l=draft.lines[Number(e.target.dataset.ppMIndex)];
    if(!l)return;
    const field=e.target.dataset.ppMField;
-   l[field]=['quantity','grams'].includes(field)?Number(e.target.value):e.target.value;
-  }else if(e.target.matches('[data-pp-m-header]')){
+l[field]=['quantity','grams'].includes(field)?Number(e.target.value):e.target.value;
+if(field==='quantity'||field==='_priceInput'){
+ const hint=orderBody.querySelector('[data-pp-m-price-hint="'+e.target.dataset.ppMIndex+'"]');
+ if(hint){let price=null;try{price=cents(l._priceInput??'');}catch{}
+  hint.innerHTML=spoolPriceHint(price,l.quantity);}
+}
+}else if(e.target.matches('[data-pp-m-header]')){
    draft[e.target.dataset.ppMHeader]=e.target.value;
   }
  });
- orderBody.addEventListener('click',e=>{
-  if(mode!=='manual-order'||busy)return;
+orderBody.addEventListener('input',e=>{
+ if(mode!=='review'||!e.target.matches('[data-pp-field="gross_cents"],[data-pp-field="quantity"]'))return;
+ const i=e.target.dataset.ppLine;
+ const target=orderBody.querySelector('[data-pp-price-hint="'+i+'"]');
+ if(!target)return;
+ const quantity=orderBody.querySelector('[data-pp-line="'+i+'"][data-pp-field="quantity"]')?.value;
+ const amount=orderBody.querySelector('[data-pp-line="'+i+'"][data-pp-field="gross_cents"]')?.value;
+ let gross=null;try{gross=cents(amount);}catch{}
+ target.innerHTML=spoolPriceHint(gross,quantity);
+});
+orderBody.addEventListener('click',e=>{
+ if(mode!=='manual-order'||busy)return;
   const b=e.target.closest('[data-pp-m-action]');
   if(!b)return;
   const a=b.dataset.ppMAction,i=Number(b.dataset.ppMIndex);
