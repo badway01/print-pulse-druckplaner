@@ -46,7 +46,10 @@ function spoolPriceHint(total,quantity){
   const box=node('pp-purchase-list');
   if(!orders.length){box.innerHTML='<p class="hint">Noch keine Filamentbestellungen gespeichert. Importiere einen Screenshot oder lege eine Bestellung manuell an.</p>';return;}
   box.innerHTML=orders.map(o=>'<article class="pp-purchase-card"><div class="pp-purchase-card-top"><strong>'+
-   html(o.vendor)+'</strong><span class="pp-purchase-status">'+html(o.status)+'</span></div>'+
+   html(o.vendor)+'</strong><span class="pp-purchase-top-actions"><span class="pp-purchase-status">'+html(o.status)+'</span>'+
+   '<button type="button" class="pp-purchase-trash" data-pp-delete="'+html(o.id)+'" title="Bestellung löschen" aria-label="Bestellung von '+html(o.vendor)+' löschen">'+
+   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+
+   '<path d="M3 6h18m-2 0-.9 14H5.9L5 6m4 0V4h6v2M10 10v7m4-7v7"/></svg></button></span></div>'+
    '<small>'+html(o.ordered_on||'Datum offen')+(o.reference?' · '+html(o.reference):'')+'</small>'+
    '<span>'+o.received_count+' von '+o.ordered_count+' Rollen erhalten</span>'+
    '<strong>'+money(o.total_cents)+'</strong>'+
@@ -459,6 +462,27 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
    '<button type="button" class="primary" data-pp-action="save-receive">Speichern + erhalten</button></div>';
   dialog.scrollTop=0;
  }
+ async function deleteOrder(order){
+  if(busy||!order)return;
+  const booked=Number(order.received_count)||0;
+  const prompt='Filamentbestellung von '+order.vendor+(order.reference?' ('+order.reference+')':'')+
+   ' wirklich endgültig löschen?'+(booked?'\n\n'+booked+
+    ' eingebuchte Rolle(n) werden wieder aus dem Lagerbestand entfernt. Die Einkaufspreise werden anhand der übrigen Bestellungen neu ermittelt.':'\n\nEs wurde noch kein Lagerbestand gebucht.');
+  if(!confirm(prompt))return;
+  busy=true;
+  try{
+   const result=await api('filament-orders',{action:'delete',order_id:order.id,expected_received_count:booked});
+   orders=result.orders||[];
+   renderOrders();
+   if(dialog.open)finish();
+   await loadFilaments();
+   message('Bestellung gelöscht.'+(booked?' '+result.reversed_spools+' Lagerrolle(n) korrigiert.':'')+
+    (result.price_unknown?' Bei '+result.price_unknown+' Farbe(n) ist kein früherer Einkaufspreis bekannt.':''));
+  }catch(ex){
+   const msg='Bestellung konnte nicht gelöscht werden: '+ex.message;
+   if(dialog.open)error(msg);else alert(msg);
+  }finally{busy=false;}
+ }
  function showReceipt(order){
   current=order;
   mode='receipt';
@@ -473,7 +497,8 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
     '" min="0" max="'+l.remaining+'" step="1" value="'+l.remaining+'"></label></div>').join('')+
    '<div class="pp-purchase-actions"><button type="button" class="secondary" data-pp-action="all-zero">Alle auf 0</button>'+
    '<button type="button" class="primary" data-pp-action="receive">Wareneingang buchen</button></div>'+
-   '<p class="pp-muted">Nur die eingetragenen Mengen werden ins Lager gebucht. Der Rest bleibt bei dieser Bestellung offen. Jede Buchung wird protokolliert und vor Doppelbuchung geschützt.</p>';
+   '<p class="pp-muted">Nur die eingetragenen Mengen werden ins Lager gebucht. Der Rest bleibt bei dieser Bestellung offen. Jede Buchung wird protokolliert und vor Doppelbuchung geschützt.</p>'+
+   '<button type="button" class="secondary pp-purchase-delete-dialog" data-pp-action="delete-order">Bestellung löschen</button>';
  }
  async function save(nowReceive){
   if(busy)return;
@@ -616,7 +641,13 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
  node('pp-purchase-import')?.addEventListener('click',importView);
  node('pp-purchase-close').addEventListener('click',finish);
  node('pp-purchase-list').addEventListener('click',e=>{
-  const b=e.target.closest('[data-pp-open]');
+  const trash=e.target.closest('[data-pp-delete]');
+   if(trash){
+    const order=orders.find(x=>x.id===trash.dataset.ppDelete);
+    if(order)deleteOrder(order);
+    return;
+   }
+   const b=e.target.closest('[data-pp-open]');
   if(!b)return;
   const o=orders.find(x=>x.id===b.dataset.ppOpen);
   if(o)showReceipt(o);
@@ -697,6 +728,7 @@ orderBody.addEventListener('click',e=>{
   if(action==='manual'){draft=emptyDraft();draft.lines=[emptyLine()];expandedLines=new Set([0]);selectedLines=new Set();activeLine=0;showReview();return;}
   if(action==='save'||action==='save-receive')return save(action==='save-receive');
   if(action==='receive')return bookReceipt();
+   if(action==='delete-order'){if(current)deleteOrder(current);return;}
   if(action==='all-zero'){
    orderBody.querySelectorAll('[data-pp-receive]').forEach(input=>input.value=0);return;
   }
