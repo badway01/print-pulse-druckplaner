@@ -335,7 +335,7 @@ async function localHistory(refresh=false){
     '<strong>'+esc(o.customer)+'</strong><small>'+esc(o.items.map(i=>i.quantity+' × '+i.variant).join(' · '))+'</small>'+
     '<small>Endtermin '+esc(shortDate(o.due))+(o.notes?' · '+esc(o.notes):'')+'</small>'+
     (details?'<small>'+esc(details)+'</small>':'')+
-    (o.status==='completed'?'<div class="local-history-actions"><a class="secondary" download href="api/local-order-pdf?id='+encodeURIComponent(o.id)+'">A4 · PDF</a>'+
+    (o.status==='completed'?'<div class="local-history-actions"><button type="button" class="secondary" data-local-pdf-id="'+esc(o.id)+'">A4 · PDF</button>'+
       (o.handover_method?'<button type="button" class="secondary" data-local-undo-handover="'+esc(o.id)+'">Übergabe rückgängig</button>':'')+
       '</div>':'')+'</article>';
   }).join(''):'<p class="hint">Noch keine lokalen Bestellungen vorhanden.</p>';
@@ -345,12 +345,82 @@ $('local-history-open').addEventListener('click',()=>localHistory());
 // Hook into the existing Etsy card and order detail rendering *after*
 // components-ui.js and priority-ui.js have installed their overrides.
 function localPdfLink(order,label){
- // Only selected local order ids are accepted by the backend, which gathers
- // the other still-open local orders of the same customer.
- const url='api/local-order-pdf?id='+encodeURIComponent(order.id);
- return '<a class="local-order-pdf" href="'+esc(url)+'" download aria-label="'+esc(label+' für '+order.customer)+'">'+
-  '<span aria-hidden="true">▤</span> '+esc(label)+'</a>';
+ // Open the two-template picker. Fetch through Home Assistant ingress with the
+ // current session and reject errors before creating any downloadable PDF.
+ return '<button type="button" class="local-order-pdf" data-local-pdf-id="'+esc(order.id)+
+  '" aria-label="'+esc(label+' für '+order.customer)+'">'+
+  '<span aria-hidden="true">▤</span> '+esc(label)+'</button>';
 }
+const localPdfDialog=$('local-pdf-dialog');
+let localPdfDownloading=false;
+document.addEventListener('click',event=>{
+ const trigger=event.target.closest('[data-local-pdf-id]');
+ if(!trigger||!localPdfDialog||localPdfDownloading)return;
+ const id=trigger.dataset.localPdfId||'';
+ if(!/^LOK-[A-Z0-9-]{7,50}$/.test(id))return;
+ localPdfDialog.dataset.orderId=id;
+ $('local-pdf-error').hidden=true;
+ $('local-pdf-error').textContent='';
+ localPdfDialog.showModal();
+});
+async function localDownloadPdf(id,kind){
+ if(localPdfDownloading||!['internal','customer'].includes(kind))return;
+ const buttons=[...localPdfDialog.querySelectorAll('[data-local-pdf-kind]')];
+ const errorBox=$('local-pdf-error');
+ errorBox.hidden=true;
+ errorBox.textContent='';
+ buttons.forEach(button=>button.disabled=true);
+ localPdfDownloading=true;
+ try{
+  const url='api/local-order-pdf?id='+encodeURIComponent(id)+'&kind='+encodeURIComponent(kind);
+  const response=await fetch(url,{
+   method:'GET',credentials:'same-origin',cache:'no-store',
+   headers:{'Accept':'application/pdf'}
+  });
+  if(!response.ok){
+   if(response.status===401||response.status===403){
+    throw Error('Home Assistant hat den Download nicht autorisiert (HTTP '+response.status+
+     '). Bitte Home Assistant neu anmelden und die Lageransicht erneut öffnen.');
+   }
+   let detail='';
+   try{
+    const body=await response.json();
+    detail=typeof body.error==='string'?body.error:'';
+   }catch{}
+   throw Error(detail||'PDF konnte nicht geladen werden (HTTP '+response.status+').');
+  }
+  const contentType=(response.headers.get('content-type')||'').toLowerCase();
+  if(!contentType.includes('application/pdf')){
+   throw Error('Der Server hat kein PDF geliefert. Bitte Home Assistant neu anmelden und erneut versuchen.');
+  }
+  const file=await response.arrayBuffer();
+  const signature=new Uint8Array(file.slice(0,5));
+  if(String.fromCharCode(...signature)!=='%PDF-'){
+   throw Error('Der Download enthält kein gültiges PDF. Es wurde keine Datei gespeichert.');
+  }
+  const blob=new Blob([file],{type:'application/pdf'});
+  const href=URL.createObjectURL(blob);
+  const anchor=document.createElement('a');
+  anchor.href=href;
+  anchor.download='Print-Pulse-'+(kind==='internal'?'Werkstattauftrag':'Kundenbeileger')+'-'+id+'.pdf';
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(()=>URL.revokeObjectURL(href),60000);
+  localPdfDialog.close();
+  flash('A4-PDF erstellt: '+(kind==='internal'?'Werkstattauftrag':'Kundenbeileger')+'.');
+ }catch(ex){
+  errorBox.textContent=ex.message||'PDF-Download fehlgeschlagen.';
+  errorBox.hidden=false;
+ }finally{
+  localPdfDownloading=false;
+  buttons.forEach(button=>button.disabled=false);
+ }
+}
+localPdfDialog.addEventListener('click',event=>{
+ const selected=event.target.closest('[data-local-pdf-kind]');
+ if(selected)localDownloadPdf(localPdfDialog.dataset.orderId||'',selected.dataset.localPdfKind);
+});
 const standardOrderCard=orderCard;
 orderCard=function(o){
  const html=standardOrderCard(o);
