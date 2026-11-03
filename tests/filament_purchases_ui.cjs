@@ -15,6 +15,7 @@ const assert=require('node:assert/strict');
    gross_cents:1000,description:'',accept_changes:[]
   }));
   items[3].color='';
+  items[3].brand='';
   items[6].gross_cents=null;items[6].packaging='unknown';
   let pasted=0;
   await page.route('**/api/filament-import-text',async route=>{
@@ -50,9 +51,15 @@ const assert=require('node:assert/strict');
   assert((await page.locator('.pp-review-focus-heading').textContent()).includes('Position 4'));
   assert((await page.locator('.pp-required-errors').textContent()).includes('Farbe fehlt'),
    'Missing compulsory field must be explicitly named in red');
-  assert.equal(await page.locator('[data-pp-line="3"][data-pp-field="color"]').getAttribute('aria-invalid'),'true');
-
+  assert((await page.locator('.pp-required-errors').textContent()).includes('Hersteller fehlt'));
+  assert.equal(await page.locator('[data-pp-line="3"][data-pp-field="brand"]').getAttribute('aria-invalid'),'true');
+  await page.locator('[data-pp-line="3"][data-pp-field="brand"]').fill('bAmBu');
+  await page.locator('.pp-auto-list:visible [data-pp-auto-value="Bambu Lab"]').first().click();
+  assert.equal(await page.locator('[data-pp-line="3"][data-pp-field="brand"]').inputValue(),'Bambu Lab');
+  assert.equal(await page.locator('[data-pp-line="3"][data-pp-field="brand"]').getAttribute('aria-invalid'),null,
+   'Red error must clear immediately without re-opening the editor');
   await page.locator('[data-pp-line="3"][data-pp-field="color"]').fill('UI Korrigiert 4');
+  assert.equal(await page.locator('.pp-required-errors').count(),0,'All errors clear while typing');
   await page.locator('[data-pp-action="reviewed"]').click();
   assert((await page.locator('.pp-review-focus-heading').textContent()).includes('Position 7'),
    'after confirming first exception, focus next remaining error automatically');
@@ -106,6 +113,9 @@ const assert=require('node:assert/strict');
   await page.locator('[data-pp-m-action="add"]').click();
   assert.equal(await page.locator('.pp-m-row').count(),2,'Two compact rows');
   await page.locator('[data-pp-m-action="new"][data-pp-m-index="1"]').click();
+  await page.locator('[data-pp-m-field="brand"][data-pp-m-index="1"]').fill('BAMBU');
+  await page.locator('.pp-auto-list:visible [data-pp-auto-value="Bambu Lab"]').first().click();
+  assert.equal(await page.locator('[data-pp-m-field="brand"][data-pp-m-index="1"]').inputValue(),'Bambu Lab');
   await page.locator('[data-pp-m-field="color"][data-pp-m-index="1"]').fill('Neue Testfarbe 2026');
   await page.locator('[data-pp-m-field="material"][data-pp-m-index="1"]').selectOption('PLA Matte');
   await page.locator('[data-pp-m-field="manufacturer_code"][data-pp-m-index="1"]').fill('129991');
