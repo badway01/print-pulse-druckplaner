@@ -1,3 +1,12 @@
+# 0.13.32 · Filament-Einkaufsdaten & interne Codes
+
+- Import / manuelle Bestellung: bereits gespeicherte interne Farbcodes können direkt ausgewählt und der zugehörigen Stammdatenfarbe zugeordnet werden; keine doppelte Vergabe.
+- Kundenbeispiel Kastanienrot 10205, PLA Basic Refill: Bambu-Bestelltext ohne Händlerüberschrift wird erkannt, 9,00 € nach 7,99 € Produkt-Rabatt als tatsächlicher Gesamtpreis übernommen.
+- Vor dem Speichern: Warnung bei unbekanntem Händler oder fehlenden Einkaufspreisen und verständliche Hinweise bei Farbcodekonflikten statt vermeidbaren HTTP-400-Fehlern.
+- Falls „Speichern + erhalten“ nach erfolgreichem Speichern beim Wareneingang scheitert, verhindert die Oberfläche einen unbemerkten zweiten Bestellversuch.
+- Bereits gebuchte Positionen mit unbekanntem Preis können fehlende Kosten und Händlerdaten ergänzen: vorhandene Lagerbestände bleiben unverändert, Wareneingänge werden nicht erneut gebucht, Kostenbuchungen centgenau nachgetragen.
+- Regressionstests für Refill-Import Kastanienrot (10205), Kostenkorrektur bei Teillieferungen und Schutz gegen doppelte interne Nummern.
+
 # 0.13.31 · Lokale Bestellungen mit Versanddienstleister und Sendungsnummer
 
 - Bei fertiggestellten lokalen Versandaufträgen kann vor „Versand bestätigen“ ein Versanddienstleister (Hermes, DHL, Deutsche Post, DPD, GLS, UPS, FedEx oder eigener Dienstleister) ausgewählt und optional die Sendungsnummer eingetragen werden.
