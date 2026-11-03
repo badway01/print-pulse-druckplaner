@@ -659,6 +659,45 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
   }catch(ex){error(ex.message);}
   finally{busy=false;}
  }
+ function showCompletion(order){
+  current=order;mode='complete';
+  dialogOpen('Fehlende Einkaufsangaben ergänzen');
+  orderBody.innerHTML='<p class="pp-muted">Hier ergänzt du fehlende Einkaufsdaten. <b>Die bereits erhaltenen Rollen werden nicht erneut eingebucht.</b></p>'+
+   '<label>Händler<input id="pp-complete-vendor" value="'+escapeAttr(order.vendor)+'" '+(order.vendor==='Unbekannter Händler'?'':'readonly')+'></label>'+
+   order.lines.map(l=>'<div class="pp-receive-row"><div><strong>'+
+     html(l.color)+' · '+html(l.material)+'</strong><small>'+html(l.manufacturer_code||'ohne Herstellercode')+
+     ' · '+l.quantity+' Rollen · '+l.received+' bereits eingebucht</small></div>'+
+     '<label>Positionspreis gesamt (€)<input type="text" inputmode="decimal" data-pp-complete-price="'+l.id+
+     '" value="'+escapeAttr(inputMoney(l.gross_cents))+'" '+(l.gross_cents!=null?'readonly':'placeholder="z. B. 9,00"')+'></label></div>').join('')+
+   '<p class="pp-muted">Gib den tatsächlich gezahlten Positionspreis nach dem Produkt-Rabatt ein, nicht den Listenpreis. Fehlende Felder dürfen leer bleiben.</p>'+
+   '<div class="pp-purchase-actions"><button type="button" class="primary" data-pp-action="save-completion">Fehlende Angaben speichern</button></div>';
+ }
+ async function saveCompletion(){
+  if(busy||!current)return;
+  const o=current;
+  let lines;
+  try{
+   lines=o.lines.map(l=>({
+    id:l.id,expected_gross_cents:l.gross_cents,
+    gross_cents:l.gross_cents==null?
+     cents(orderBody.querySelector('[data-pp-complete-price="'+l.id+'"]')?.value):l.gross_cents
+   }));
+  }catch(ex){error(ex.message);return;}
+  const vendor=node('pp-complete-vendor')?.value.trim()||'';
+  if(!vendor){error('Bitte einen Händler angeben.');return;}
+  const changed=vendor!==o.vendor||lines.some((l,i)=>l.gross_cents!==o.lines[i].gross_cents);
+  if(!changed){error('Es wurden keine Einkaufsdaten ergänzt.');return;}
+  busy=true;error('');
+  try{
+   const result=await api('filament-orders',{action:'complete_data',order_id:o.id,vendor,lines});
+   orders=result.orders||[];
+   renderOrders();
+   await loadFilaments();
+   finish();
+   message('Fehlende Einkaufsdaten ergänzt. Kein weiterer Wareneingang gebucht.');
+  }catch(ex){error(ex.message);}
+  finally{busy=false;}
+ }
  async function save(nowReceive){
   if(busy)return;
   try{
@@ -806,12 +845,45 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
     if(order)deleteOrder(order);
     return;
    }
-   const b=e.target.closest('[data-pp-open]');
+   const correction=e.target.closest('[data-pp-complete]');
+  if(correction){
+   const order=orders.find(x=>x.id===correction.dataset.ppComplete);
+   if(order)showCompletion(order);
+   return;
+  }
+  const b=e.target.closest('[data-pp-open]');
   if(!b)return;
   const o=orders.find(x=>x.id===b.dataset.ppOpen);
   if(o)showReceipt(o);
  });
 
+ orderBody.addEventListener('change',e=>{
+  const pick=e.target.closest('[data-pp-internal-pick],[data-pp-m-code-pick]');
+  if(!pick||busy)return;
+  const f=catalog().find(x=>Number(x.id)===Number(pick.value));
+  if(!f)return;
+  const idx=Number(pick.dataset.ppInternalPick??pick.dataset.ppMCodePick);
+  if(mode==='review'){
+   const line=draft?.lines[idx];
+   if(!line)return;
+   try{takeReview();}catch(ex){error(ex.message);return;}
+   const wrongCode=line.manufacturer_code&&f.manufacturer_code&&line.manufacturer_code!==f.manufacturer_code;
+   const wrongColor=line.color&&normalizeSearch(line.color)!==normalizeSearch(f.color);
+   if((wrongCode||wrongColor)&&!confirm('Interne Nummer '+f.internal_code+' ist '+f.color+
+    ' ('+(f.manufacturer_code||'ohne Herstellercode')+').\nAktuelle Farbdaten durch diese gespeicherte Farbe ersetzen?')){
+    showReview();return;
+   }
+   assignExistingCode(line,f);
+   activeLine=idx;
+   showReview();
+   message('Interner Code '+f.internal_code+' ausgewählt: '+f.color+'.');
+  }else if(mode==='manual-order'){
+   try{takeManual();}catch(ex){error(ex.message);return;}
+   manualSelect(idx,f);
+   renderManual();
+   message('Vorhandene Farbe mit internem Code '+f.internal_code+' zugeordnet.');
+  }
+ });
  orderBody.addEventListener('input',e=>{
   if(mode!=='manual-order')return;
   if(e.target.matches('[data-pp-m-search]')){
@@ -890,6 +962,7 @@ orderBody.addEventListener('click',e=>{
   if(action==='save'||action==='save-receive')return save(action==='save-receive');
   if(action==='receive')return bookReceipt();
   if(action==='correct-quantity')return correctQuantity(Number(b.dataset.ppLine));
+  if(action==='save-completion')return saveCompletion();
    if(action==='delete-order'){if(current)deleteOrder(current);return;}
   if(action==='all-zero'){
    orderBody.querySelectorAll('[data-pp-receive]').forEach(input=>input.value=0);return;
