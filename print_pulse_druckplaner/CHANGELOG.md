@@ -1,3 +1,11 @@
+# 0.13.30 · Filament-Wareneingang mit Mengenprüfung
+
+- Wareneingang zeigt je Position und Bestellung die bestellte, bereits erhaltene und noch offene Rollenanzahl getrennt an.
+- Falsch erfasste Bestellmengen vor dem ersten Wareneingang direkt korrigierbar, zum Beispiel Jade-Weiß 10100 von 1 auf 3 Rollen bei 31,78 € Gesamtpreis. Keine automatische Einlagerung.
+- Nach bereits erfolgter Buchung wird die nachträgliche Mengenänderung gesperrt, damit Lager- und Einkaufswerte erhalten bleiben.
+- Rollenanzahl und Positionssumme aktualisieren sich in der manuellen Bestellmaske sofort; gespeicherte Bestellkarten zeigen die Mengen je Farbe.
+- Regressionstests für Teillieferungen 2 + 1, Doppelbuchungsschutz, exakte Preisaufteilung und Löschen mit Bestandsrücknahme.
+
 # 0.13.29 · Filamentimport: Echtzeitprüfung und Auswahlhilfen
 
 - Gültige Pflichtfelder werden beim Tippen direkt freigegeben.
