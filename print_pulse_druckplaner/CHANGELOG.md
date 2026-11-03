@@ -1,3 +1,11 @@
+# 0.13.31 · Lokale Bestellungen mit Versanddienstleister und Sendungsnummer
+
+- Bei fertiggestellten lokalen Versandaufträgen kann vor „Versand bestätigen“ ein Versanddienstleister (Hermes, DHL, Deutsche Post, DPD, GLS, UPS, FedEx oder eigener Dienstleister) ausgewählt und optional die Sendungsnummer eingetragen werden.
+- Versanddienstleister, Sendungsnummer und Zeitpunkt bleiben direkt in der lokalen Auftragshistorie sichtbar. Die Sendungsnummer lässt sich kopieren.
+- Historie auch im Reiter „Bestellungen“ aufrufen, lokal nach Kundenname, Auftragsnummer, Versanddienstleister oder Sendungsnummer suchen, nach Status filtern und ältere Aufträge nachladen.
+- Gemeinsamer Versand mehrerer Aufträge desselben Kunden wird nicht mehr automatisch vorausgewählt. Nur aktiv hinzugefügte Aufträge erhalten dieselben Sendungsdaten.
+- Rückgängig gemachter Versand stellt die Buchung wieder her und löscht die gespeicherten Versanddaten. Abholung, Direktverkauf, alte Aufträge, Etsy und Lagerbuchungen bleiben kompatibel.
+
 # 0.13.30 · Filament-Wareneingang mit Mengenprüfung
 
 - Wareneingang zeigt je Position und Bestellung die bestellte, bereits erhaltene und noch offene Rollenanzahl getrennt an.

@@ -54,7 +54,7 @@ except ImportError:
     _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.30'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.31'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2357,8 +2357,19 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as exc:return self.send(400,{'error':str(exc)})
         if path=='/api/import-candidates': return self.send(200,import_overview())
         if path=='/api/local-orders':
-            with connect() as db:
-                return self.send(200,{'orders':local_orders.history(db)})
+            try:
+                query=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+                param=lambda key,default:(query.get(key) or [default])[0]
+                limit=int(param('limit','50'))
+                offset=int(param('offset','0'))
+                if not 1<=limit<=100 or not 0<=offset<=100000:
+                    raise ValueError('Ungültige Seitengröße oder Position.')
+                with connect() as db:
+                    result=local_orders.history_page(db,limit=limit,offset=offset,
+                      search=param('search',''),stage=param('stage','all'))
+                return self.send(200,result)
+            except (ValueError,TypeError) as exc:
+                return self.send(400,{'error':str(exc)[:200]})
         if path=='/api/local-order-pdf':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             order_id=(params.get('id') or [''])[0]

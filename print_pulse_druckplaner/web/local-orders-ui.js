@@ -276,18 +276,31 @@ function localHandoverOpen(id){
    x.id!==o.id&&localCustomerKey(x.customer)===localCustomerKey(o.customer));
  $('local-handover-related').innerHTML=others.length?
    '<fieldset class="local-handover-other"><legend>Weitere abholbereite Aufträge dieses Kunden</legend>'+
-   others.map(x=>'<label><input type="checkbox" data-local-include="'+esc(x.id)+'" checked> Auftrag '+esc(x.id)+' · '+Number(x.quantity||0)+' Stück</label>').join('')+
-   '<small>Nur die hier ausgewählten Aufträge werden gemeinsam übergeben. Unfertige Aufträge bleiben offen.</small></fieldset>':'';
+   others.map(x=>'<label><input type="checkbox" data-local-include="'+esc(x.id)+'" '+(o.fulfillment==='shipping'?'':'checked')+'> Auftrag '+esc(x.id)+' · '+Number(x.quantity||0)+' Stück</label>').join('')+
+   '<small>'+ (o.fulfillment==='shipping'?'Nur auswählen, wenn diese Aufträge im selben Paket mit derselben Sendungsnummer verschickt werden.':'Nur die ausgewählten Aufträge werden gemeinsam übergeben.')+'</small></fieldset>':'';
  const shipping=o.fulfillment==='shipping';
  $('local-handover-form').querySelector('input[value="'+(shipping?'shipped':'customer')+'"]').checked=true;
  $('local-handover-recipient-row').hidden=true;
  $('local-handover-recipient').value='';
+ localHandoverMethodChanged();
  $('order-details').close();
  $('local-handover-dialog').showModal();
 }
 function localHandoverMethodChanged(){
  const method=$('local-handover-form').querySelector('input[name="local-handover-method"]:checked')?.value;
  $('local-handover-recipient-row').hidden=method!=='third_party';
+ const shipped=method==='shipped';
+ $('local-handover-shipping').hidden=!shipped;
+ const carrier=$('local-handover-carrier');
+ const other=$('local-handover-carrier-other');
+ const otherActive=shipped&&carrier.value==='Sonstiger';
+ $('local-handover-carrier-other-row').hidden=!otherActive;
+ carrier.disabled=!shipped;
+ other.disabled=!otherActive;
+ $('local-handover-tracking').disabled=!shipped;
+ carrier.required=shipped;
+ other.required=otherActive;
+ $('local-handover-submit').textContent=shipped?'Versand bestätigen':'Übergabe abschließen';
 }
 $('local-handover-form').addEventListener('change',localHandoverMethodChanged);
 $('orders').addEventListener('click',event=>{
@@ -301,13 +314,22 @@ $('local-handover-form').addEventListener('submit',async event=>{
   .map(x=>x.dataset.localInclude)];
  const method=$('local-handover-form').querySelector('input[name="local-handover-method"]:checked')?.value;
  const recipient=$('local-handover-recipient').value.trim();
+ const carrier=method==='shipped'?(
+  $('local-handover-carrier').value==='Sonstiger'?
+  $('local-handover-carrier-other').value.trim():$('local-handover-carrier').value):'';
+ const tracking=method==='shipped'?$('local-handover-tracking').value.trim():'';
  const btn=$('local-handover-submit'),error=$('local-handover-error');
+ if(method==='shipped'&&!carrier){
+  error.textContent='Bitte einen Versanddienstleister auswählen oder eingeben.';
+  error.hidden=false;return;
+ }
  error.hidden=true;btn.disabled=true;
  try{
-  const result=await api('local-order',{action:'handover',ids,method,recipient});
+  const result=await api('local-order',{action:'handover',ids,method,recipient,carrier,tracking});
   setModel(result.overview);
   $('local-handover-dialog').close();
-  flash(ids.length+' '+(ids.length===1?'Auftrag':'Aufträge')+' übergeben und archiviert.');
+  flash(ids.length+' '+(ids.length===1?'Auftrag':'Aufträge')+
+   (method==='shipped'?' als versendet archiviert.':' übergeben und archiviert.'));
  }catch(err){error.textContent=err.message;error.hidden=false;}
  finally{btn.disabled=false;}
 });
@@ -318,30 +340,89 @@ $('local-history-list').addEventListener('click',async event=>{
  await localAction({action:'undo-handover',id:b.dataset.localUndoHandover});
  await localHistory(true);
 });
-async function localHistory(refresh=false){
- $('local-history-list').innerHTML='<p class="hint">Verlauf wird geladen …</p>';
- if(!refresh)$('local-history-dialog').showModal();
+let localHistoryItems=[],localHistoryHasMore=false,localHistoryRequest=0,localHistoryLoading=false,localHistoryTimer=null;
+const localHistoryPageSize=50;
+function localHistoryCard(o){
+ const statusName={open:'Offen',ready:'Fertig / bereit',completed:'Abgeschlossen',cancelled:'Storniert'};
+ const deliveryName={customer:'Vom Kunden abgeholt',third_party:'An andere Person mitgegeben',
+  delivered:'Persönlich ausgeliefert',shipped:'Versendet'};
+ const mode=o.handover_method||'';
+ const status=(o.status==='completed'&&mode==='shipped')?'Versendet':
+  (o.status==='completed'?'Übergeben':statusName[o.status]||o.status);
+ const details=o.status==='completed'?(mode?
+    deliveryName[mode]+(o.handover_to?' · '+o.handover_to:'')+
+    (o.handover_at?' · '+new Date(o.handover_at*1000).toLocaleString('de-DE',{timeZone:'Europe/Berlin'}):''):
+    'Älterer Abschluss · Übergabeart nicht erfasst'):'';
+ const shipping=mode==='shipped'?
+  '<div class="local-history-shipping"><b>Versand: '+esc(o.shipping_carrier||'Dienstleister nicht erfasst')+'</b>'+
+  (o.tracking_number?'<span>Sendungsnummer: <strong>'+esc(o.tracking_number)+'</strong></span>'+
+   '<button type="button" class="secondary small" data-local-copy-tracking="'+esc(o.tracking_number)+'">Nummer kopieren</button>':
+   '<span>Ohne hinterlegte Sendungsnummer</span>')+'</div>':'';
+ return '<article class="local-history-item"><div><b>'+esc(o.id)+'</b><span>'+esc(status)+'</span></div>'+
+  '<strong>'+esc(o.customer)+'</strong><small>'+esc((o.items||[]).map(i=>i.quantity+' × '+i.variant).join(' · '))+'</small>'+
+  '<small>Endtermin '+esc(shortDate(o.due))+(o.notes?' · '+esc(o.notes):'')+'</small>'+
+  (details?'<small>'+esc(details)+'</small>':'')+shipping+
+  (o.status==='completed'?'<div class="local-history-actions"><button type="button" class="secondary" data-local-pdf-id="'+esc(o.id)+'">A4 · PDF</button>'+
+   (o.handover_method?'<button type="button" class="secondary" data-local-undo-handover="'+esc(o.id)+'">Abschluss rückgängig</button>':'')+
+   '</div>':'')+'</article>';
+}
+function renderLocalHistory(){
+ $('local-history-list').innerHTML=localHistoryItems.length?
+   localHistoryItems.map(localHistoryCard).join(''):
+   '<p class="hint">Keine passenden lokalen Aufträge gefunden.</p>';
+ $('local-history-info').textContent=localHistoryItems.length+' lokale Aufträge geladen'+
+   (localHistoryHasMore?' · weitere Einträge vorhanden':'');
+ $('local-history-more').hidden=!localHistoryHasMore;
+ $('local-history-more').disabled=localHistoryLoading;
+}
+async function localHistory(refresh=false,append=false){
+ if(!refresh&&!append){
+  $('local-history-search').value='';
+  $('local-history-stage').value='all';
+  $('local-history-dialog').showModal();
+ }
+ const request=++localHistoryRequest;
+ const limit=localHistoryPageSize;
+ const offset=append?localHistoryItems.length:0;
+ if(!append){
+  localHistoryItems=[];
+  $('local-history-list').innerHTML='<p class="hint">Verlauf wird geladen …</p>';
+ }
+ localHistoryLoading=true;
+ $('local-history-more').disabled=true;
  try{
-  const data=await api('local-orders');
-  const label={open:'Offen',ready:'Abholbereit',completed:'Übergeben',cancelled:'Storniert'};
-  const mode={customer:'Vom Kunden abgeholt',third_party:'An andere Person mitgegeben',
-   delivered:'Persönlich ausgeliefert',shipped:'Versendet'};
-  $('local-history-list').innerHTML=data.orders.length?data.orders.map(o=>{
-   const details=o.status==='completed'?(o.handover_method?
-     mode[o.handover_method]+(o.handover_to?' · '+o.handover_to:'')+
-     (o.handover_at?' · '+new Date(o.handover_at*1000).toLocaleString('de-DE',{timeZone:'Europe/Berlin'}):''):
-     'Älterer Abschluss · Übergabeart nicht erfasst'):'';
-   return '<article class="local-history-item"><div><b>'+esc(o.id)+'</b><span>'+esc(label[o.status]||o.status)+'</span></div>'+
-    '<strong>'+esc(o.customer)+'</strong><small>'+esc(o.items.map(i=>i.quantity+' × '+i.variant).join(' · '))+'</small>'+
-    '<small>Endtermin '+esc(shortDate(o.due))+(o.notes?' · '+esc(o.notes):'')+'</small>'+
-    (details?'<small>'+esc(details)+'</small>':'')+
-    (o.status==='completed'?'<div class="local-history-actions"><button type="button" class="secondary" data-local-pdf-id="'+esc(o.id)+'">A4 · PDF</button>'+
-      (o.handover_method?'<button type="button" class="secondary" data-local-undo-handover="'+esc(o.id)+'">Übergabe rückgängig</button>':'')+
-      '</div>':'')+'</article>';
-  }).join(''):'<p class="hint">Noch keine lokalen Bestellungen vorhanden.</p>';
- }catch(err){$('local-history-list').textContent=err.message;}
+  const params=new URLSearchParams({
+   limit:String(limit),offset:String(offset),
+   search:$('local-history-search').value.trim(),stage:$('local-history-stage').value
+  });
+  const data=await api('local-orders?'+params.toString());
+  if(request!==localHistoryRequest)return;
+  localHistoryItems=append?localHistoryItems.concat(data.orders||[]):data.orders||[];
+  localHistoryHasMore=!!data.has_more;
+  renderLocalHistory();
+ }catch(err){
+  if(request!==localHistoryRequest)return;
+  $('local-history-list').textContent=err.message;
+ }finally{
+  if(request===localHistoryRequest){localHistoryLoading=false;$('local-history-more').disabled=false;}
+ }
 }
 $('local-history-open').addEventListener('click',()=>localHistory());
+$('full-orders-history').addEventListener('click',()=>localHistory());
+$('local-history-more').addEventListener('click',()=>localHistory(true,true));
+$('local-history-search').addEventListener('input',()=>{
+ if(localHistoryTimer)clearTimeout(localHistoryTimer);
+ localHistoryTimer=setTimeout(()=>localHistory(true),250);
+});
+$('local-history-stage').addEventListener('change',()=>localHistory(true));
+$('local-history-list').addEventListener('click',async event=>{
+ const b=event.target.closest('[data-local-copy-tracking]');
+ if(!b)return;
+ try{
+  await navigator.clipboard.writeText(b.dataset.localCopyTracking);
+  flash('Sendungsnummer kopiert.');
+ }catch(err){flash('Sendungsnummer konnte nicht kopiert werden.',true);}
+});
 // Hook into the existing Etsy card and order detail rendering *after*
 // components-ui.js and priority-ui.js have installed their overrides.
 function localPdfLink(order,label){
@@ -489,5 +570,5 @@ showOrder=function(id){
   '<div class="local-detail-actions">'+localPdfLink(o,'A4-Auftrag herunterladen')+
   '<button class="secondary" type="button" data-local-edit="'+esc(o.id)+'">Kunde / Endtermin bearbeiten</button>'+
   '<button class="secondary" type="button" data-local-close="cancel" data-local-id="'+esc(o.id)+'">Stornieren</button>'+
-  '<button class="primary" type="button" data-local-close="complete" data-local-id="'+esc(o.id)+'" '+(orderPrintProgress(o).complete?'':'disabled title="Zuerst alle Positionen fertigstellen"')+'>Bestellung übergeben</button></div>');
+  '<button class="primary" type="button" data-local-close="complete" data-local-id="'+esc(o.id)+'" '+(orderPrintProgress(o).complete?'':'disabled title="Zuerst alle Positionen fertigstellen"')+'>'+(o.fulfillment==='shipping'?'Versand bestätigen':'Übergabe bestätigen')+'</button></div>');
 };

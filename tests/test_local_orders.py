@@ -336,6 +336,67 @@ class LocalOrderTests(unittest.TestCase):
         self.assertEqual({o['id'] for o in app.overview()['orders']},{one,two})
         self.assertEqual(self.stock(),4)
 
+    def test_shipping_carrier_tracking_history_search_and_undo(self):
+        payload=self.payload(request_key='ship-flow-123')
+        payload['fulfillment']='shipping'
+        oid=self.call(app.local_orders.create,payload)['id']
+        line=app.overview()['orders'][0]['items'][0]
+        with app.connect() as db:
+            revision=db.execute("SELECT revision FROM stock_items WHERE id='small'").fetchone()[0]
+        app.mutate_order_print({'transaction_id':line['transaction_id'],
+            'receipt_id':oid,'action':'finish-direct','quantity':1,'revision':revision})
+        self.assertEqual(app.overview()['orders'][0]['status'],'ready')
+        with self.assertRaisesRegex(ValueError,'Versanddienstleister'):
+            self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
+                {'ids':[oid],'method':'shipped','tracking':'TEST-HERMES-4711'})
+        self.assertEqual(app.overview()['orders'][0]['status'],'ready')
+        with self.assertRaisesRegex(ValueError,'ungültige Zeichen'):
+            self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
+                {'ids':[oid],'method':'shipped','carrier':'Hermes','tracking':'abc'+chr(10)+'123'})
+        self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
+            {'ids':[oid],'method':'shipped','carrier':'Hermes','tracking':'TEST-HERMES-4711'})
+        self.assertEqual(app.overview()['orders'],[])
+        with app.connect() as db:
+            result=app.local_orders.history(db,search='TEST-HERMES-4711',stage='shipped')
+            self.assertEqual(len(result),1)
+            self.assertEqual((result[0]['shipping_carrier'],result[0]['tracking_number']),
+                             ('Hermes','TEST-HERMES-4711'))
+            self.assertEqual(result[0]['handover_method'],'shipped')
+            self.assertTrue(result[0]['handover_at']>0)
+            self.assertEqual(app.local_orders.history(db,stage='pickup'),[])
+            self.assertEqual(app.local_orders.history(db,search='not-found'),[])
+            self.assertEqual(app.local_orders.history_page(db,limit=50)['has_more'],False)
+        self.call(app.local_orders.undo_handover,{'id':oid})
+        self.assertEqual(app.overview()['orders'][0]['status'],'ready')
+        with app.connect() as db:
+            restored=app.local_orders.history(db)[0]
+            self.assertEqual((restored['shipping_carrier'],restored['tracking_number']),('',''))
+            self.assertEqual(restored['handover_at'],0)
+
+    def test_local_history_pagination_and_pickup_remain_compatible(self):
+        ids=[self.call(app.local_orders.create,self.payload(
+            request_key='page-'+str(i)+'-test-123'))['id'] for i in range(4)]
+        with app.connect() as db:
+            page_one=app.local_orders.history_page(db,limit=2,offset=0)
+            page_two=app.local_orders.history_page(db,limit=2,offset=2)
+            self.assertTrue(page_one['has_more'])
+            self.assertFalse(page_two['has_more'])
+            self.assertEqual({x['id'] for x in page_one['orders']+page_two['orders']},set(ids))
+            self.assertEqual(len(app.local_orders.history(db,stage='open')),4)
+        for oid in ids[:1]:
+            line=next(o for o in app.overview()['orders'] if o['id']==oid)['items'][0]
+            with app.connect() as db:
+                rev=db.execute("SELECT revision FROM stock_items WHERE id='small'").fetchone()[0]
+            app.mutate_order_print({'transaction_id':line['transaction_id'],
+                'receipt_id':oid,'action':'allocate','quantity':1,'revision':rev})
+            self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
+                {'ids':[oid],'method':'customer'})
+        with app.connect() as db:
+            found=app.local_orders.history(db,stage='pickup')
+            self.assertEqual(len(found),1)
+            self.assertEqual(found[0]['handover_method'],'customer')
+            self.assertEqual((found[0]['shipping_carrier'],found[0]['tracking_number']),('',''))
+
     def test_old_completed_orders_are_not_reopened_without_handover_ledger(self):
         oid=self.call(app.local_orders.create,self.payload(request_key='historical-123',direct=True))['id']
         with self.assertRaisesRegex(ValueError,'ältere'):

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.28"><script src="app.js?v=0.13.20" defer></script><script src="components-ui.js?v=0.13.3" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.21" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.13.28" defer></script><script src="dialog-behavior.js?v=0.13.16" defer></script><script src="order-zoom-ui.js?v=0.13.18" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script><script src="filament-planner-ui.js?v=0.13.5" defer></script><script src="filament-purchases-ui.js?v=0.13.29" defer></script><link rel="stylesheet" href="filament-purchases.css?v=0.13.29"><link rel="stylesheet" href="filament-planner.css?v=0.13.5"></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.31"><script src="app.js?v=0.13.20" defer></script><script src="components-ui.js?v=0.13.3" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.21" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.13.31" defer></script><script src="dialog-behavior.js?v=0.13.16" defer></script><script src="order-zoom-ui.js?v=0.13.18" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script><script src="filament-planner-ui.js?v=0.13.5" defer></script><script src="filament-purchases-ui.js?v=0.13.29" defer></script><link rel="stylesheet" href="filament-purchases.css?v=0.13.29"><link rel="stylesheet" href="filament-planner.css?v=0.13.5"></head>
 <body>
 <header><a class="brand" href="./" aria-label="Print &amp; Pulse Startseite"><img class="brand-logo" src="brand.svg" width="190" height="98" alt="Print &amp; Pulse – Designs mit Herz"></a><div class="theme-switch" role="group" aria-label="Darstellung wählen">
  <button type="button" class="theme-option" data-theme-mode="light" aria-label="Heller Modus" title="Hell" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
@@ -36,7 +36,7 @@
 <button type="button" data-workspace="calculator" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 7h8M8 12h2m4 0h2M8 17h2m4 0h2"/></svg><span>Rechner</span></button>
 </nav>
 <section id="full-orders-shell" class="board-page" hidden aria-label="Alle aktuellen Bestellungen">
- <div class="board-heading"><div><span class="eyebrow">ETSY &amp; LOKAL · DEINE AUFTRÄGE</span><h2>Aktuelle Bestellungen</h2><p>Alle offenen Aufträge auf einer Seite. Ein Klick auf einen Auftrag öffnet seine große Ansicht.</p></div><button type="button" id="full-orders-new" class="primary">+ Lokale Bestellung</button></div>
+ <div class="board-heading"><div><span class="eyebrow">ETSY &amp; LOKAL · DEINE AUFTRÄGE</span><h2>Aktuelle Bestellungen</h2><p>Alle offenen Aufträge auf einer Seite. Ein Klick auf einen Auftrag öffnet seine große Ansicht.</p></div><div class="local-board-actions"><button type="button" id="full-orders-history" class="secondary">Lokale Historie</button><button type="button" id="full-orders-new" class="primary">+ Lokale Bestellung</button></div></div>
  <div id="full-orders-tools" class="board-toolbar">
   <label class="board-search"><span aria-hidden="true">⌕</span><input id="full-orders-search" type="search" placeholder="Kunde, Artikel, Farbe oder Nummer" aria-label="Bestellungen durchsuchen"></label>
   <div class="board-choice" role="group" aria-label="Bestellfilter"><button type="button" data-full-orders-filter="all" class="selected" aria-pressed="true">Alle</button><button type="button" data-full-orders-filter="pending" aria-pressed="false">Noch offen</button><button type="button" data-full-orders-filter="ready" aria-pressed="false">Fertig</button></div>
@@ -261,6 +261,28 @@
  </fieldset>
  <label id="local-handover-recipient-row" hidden>Mitgenommen von (optional)
   <input id="local-handover-recipient" maxlength="120" autocomplete="off" placeholder="Name der Person"></label>
+ <div id="local-handover-shipping" class="local-handover-shipping" hidden>
+  <label>Versanddienstleister
+   <select id="local-handover-carrier" required disabled>
+    <option value="">Bitte auswählen</option>
+    <option value="Hermes">Hermes</option>
+    <option value="DHL">DHL</option>
+    <option value="Deutsche Post">Deutsche Post</option>
+    <option value="DPD">DPD</option>
+    <option value="GLS">GLS</option>
+    <option value="UPS">UPS</option>
+    <option value="FedEx">FedEx</option>
+    <option value="Sonstiger">Anderer Dienstleister</option>
+   </select>
+  </label>
+  <label id="local-handover-carrier-other-row" hidden>Anderer Versanddienstleister
+   <input id="local-handover-carrier-other" maxlength="70" placeholder="Name eingeben" autocomplete="off" disabled>
+  </label>
+  <label>Sendungsnummer (falls vorhanden)
+   <input id="local-handover-tracking" maxlength="120" placeholder="Sendungsnummer eintragen" autocomplete="off" spellcheck="false" disabled>
+  </label>
+  <small>Die Versanddaten werden beim Abschluss gespeichert und sind später in der lokalen Historie sichtbar. Bei Versand ohne Tracking die Nummer frei lassen.</small>
+ </div>
  <div id="local-handover-related"></div>
  <p id="local-handover-error" class="warning" role="alert" hidden></p>
  <div class="local-form-actions"><button type="button" data-close="local-handover-dialog" class="secondary">Abbrechen</button><button type="submit" class="primary" id="local-handover-submit">Übergabe abschließen</button></div>
@@ -275,7 +297,14 @@
  </div>
  <p id="local-pdf-error" class="warning" role="alert" aria-live="assertive" hidden></p>
 </dialog>
-<dialog id="local-history-dialog" class="local-history-dialog"><div class="dialog-heading"><h2>Lokale Bestellungen · Verlauf</h2><button type="button" data-close="local-history-dialog" class="icon-button" aria-label="Schließen">×</button></div><div id="local-history-list"><p class="hint">Verlauf wird geladen …</p></div></dialog>
+<dialog id="local-history-dialog" class="local-history-dialog"><div class="dialog-heading"><h2>Lokale Bestellungen · Verlauf</h2><button type="button" data-close="local-history-dialog" class="icon-button" aria-label="Schließen">×</button></div>
+ <div class="local-history-tools">
+  <label>Auftrag, Kunde oder Sendungsnummer suchen<input id="local-history-search" type="search" placeholder="Name, LOK-Nummer, Hermes …" autocomplete="off"></label>
+  <label>Status<select id="local-history-stage"><option value="all">Alle lokalen Aufträge</option><option value="open">Offen</option><option value="ready">Fertig / bereit</option><option value="shipped">Versendet</option><option value="pickup">Abgeholt / übergeben</option><option value="cancelled">Storniert</option></select></label>
+ </div>
+ <p id="local-history-info" class="hint" role="status"></p>
+ <div id="local-history-list"><p class="hint">Verlauf wird geladen …</p></div>
+ <button id="local-history-more" type="button" class="secondary" hidden>Weitere Aufträge laden</button></dialog>
 <dialog id="order-details"><div class="dialog-heading"><h2 id="order-details-title">Etsy-Bestellung</h2><button type="button" data-close="order-details" class="icon-button" aria-label="Schließen">×</button></div><div id="order-details-content"></div></dialog>
 <dialog id="quantity"><form id="quantity-form"><div class="dialog-heading"><h2 id="quantity-title">Bestand erfassen</h2><button type="button" data-close="quantity" class="icon-button" aria-label="Schließen">×</button></div><p id="quantity-label"></p><div id="quantity-variants" hidden></div><label id="quantity-caption">Stückzahl<input id="quantity-value" type="number" min="0" max="100000" required></label><label id="quantity-initial-stock-label" hidden>Bisheriger fertiger Lagerbestand<input id="quantity-initial-stock" type="number" min="0" max="100000" inputmode="numeric" placeholder="0, wenn nichts auf Lager ist"></label><p id="quantity-help" class="hint"></p><button id="quantity-confirm" type="submit" class="primary">Speichern</button></form></dialog>
 <dialog id="pp-purchase-dialog" class="pp-purchase-dialog"><div class="dialog-heading"><h2 id="pp-purchase-title">Filamentbestellung</h2><button type="button" id="pp-purchase-close" class="icon-button" aria-label="Schließen">×</button></div><p id="pp-purchase-error" class="warning" role="alert" aria-live="assertive" hidden></p><div id="pp-purchase-body"></div></dialog>

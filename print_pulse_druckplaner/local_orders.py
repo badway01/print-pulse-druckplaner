@@ -36,6 +36,8 @@ def schema(db):
         ('handover_to',"TEXT NOT NULL DEFAULT ''"),
         ('handover_at','INTEGER NOT NULL DEFAULT 0'),
         ('handover_debits',"TEXT NOT NULL DEFAULT ''"),
+        ('shipping_carrier',"TEXT NOT NULL DEFAULT ''"),
+        ('tracking_number',"TEXT NOT NULL DEFAULT ''"),
     ):
         if name not in columns:
             db.execute('ALTER TABLE pp_local_orders ADD COLUMN '+name+' '+sql)
@@ -205,6 +207,15 @@ def close(db,data,components):
         raise ValueError('Ungültige Übergabeart.')
     recipient=clean(data.get('recipient',''),'Mitgenommen von',120) if action=='complete' else ''
     if method!='third_party': recipient=''
+    carrier=''
+    tracking=''
+    if method=='shipped':
+        if row['fulfillment']!='shipping':
+            raise ValueError('Dieser Auftrag ist als Abholung angelegt. Bitte zuerst die Versandart in den Auftragsdetails ändern.')
+        carrier=clean(data.get('carrier',''),'Versanddienstleister',70,True)
+        tracking=clean(data.get('tracking',''),'Sendungsnummer',120)
+        if any(ord(ch)<32 or ord(ch)==127 for ch in carrier+tracking):
+            raise ValueError('Versanddienstleister oder Sendungsnummer enthält ungültige Zeichen.')
     debits={}
     txs=db.execute("SELECT * FROM stock_transactions WHERE receipt_id=? AND status='open'",(oid,)).fetchall()
     if not txs: raise ValueError('Keine offenen Positionen gefunden.')
@@ -250,9 +261,10 @@ def close(db,data,components):
     new_status='completed' if action=='complete' else 'cancelled'
     completed_at=int(time.time())
     db.execute("""UPDATE pp_local_orders SET status=?,completed=?,
-        handover_method=?,handover_to=?,handover_at=?,handover_debits=? WHERE id=?""",
+        handover_method=?,handover_to=?,handover_at=?,handover_debits=?,
+        shipping_carrier=?,tracking_number=? WHERE id=?""",
         (new_status,completed_at,method,recipient,completed_at if action=='complete' else 0,
-         json.dumps(debits) if action=='complete' else '',oid))
+         json.dumps(debits) if action=='complete' else '',carrier,tracking,oid))
     return {'id':oid,'status':new_status}
 
 def handover(db,data,components):
@@ -268,7 +280,8 @@ def handover(db,data,components):
     if len(set(names))!=1: raise ValueError('Gemeinsame Übergabe nur für denselben Kunden.')
     for oid in ids:
         close(db,{'id':oid,'action':'complete','method':data.get('method','customer'),
-                  'recipient':data.get('recipient','')},components)
+                  'recipient':data.get('recipient',''),
+                  'carrier':data.get('carrier',''),'tracking':data.get('tracking','')},components)
     # Callers hold one BEGIN IMMEDIATE transaction, so either all orders
     # complete and debit stock or no order is changed.
     return {'ids':ids,'status':'completed'}
@@ -292,7 +305,8 @@ def undo_handover(db,data):
         if cur.rowcount!=1: raise ValueError('Lagerbestand für Rücknahme nicht verfügbar.')
     db.execute("UPDATE stock_transactions SET status='open' WHERE receipt_id=?",(oid,))
     db.execute("""UPDATE pp_local_orders SET status='open',completed=0,
-       handover_method='',handover_to='',handover_at=0,handover_debits='' WHERE id=?""",(oid,))
+       handover_method='',handover_to='',handover_at=0,handover_debits='',
+       shipping_carrier='',tracking_number='' WHERE id=?""",(oid,))
     return {'id':oid,'status':'open'}
 
 def ready(db,oid):
@@ -342,11 +356,35 @@ def enrich(db,orders):
             order['status']='ready'
     return orders
 
-def history(db,limit=80):
-    rows=[dict(r) for r in db.execute(
-        'SELECT * FROM pp_local_orders ORDER BY created DESC,id DESC LIMIT ?',(limit,))]
-    for r in rows:
+def history(db,limit=80,offset=0,search='',stage='all'):
+    """Only local orders; completed shipping details stay linked to their order."""
+    limit=min(max(int(limit),1),101)
+    offset=max(int(offset),0)
+    search=clean(search,'Suche',120).casefold()
+    if stage not in ('all','open','ready','shipped','pickup','cancelled'):
+        raise ValueError('Ungültiger Historienfilter.')
+    rows=[]
+    for row in db.execute('SELECT * FROM pp_local_orders ORDER BY created DESC,id DESC'):
+        r=dict(row)
+        if search and search not in ' '.join(str(r.get(k,'')).casefold() for k in
+                ('id','customer','notes','shipping_carrier','tracking_number')):
+            continue
+        if r['status']=='open' and ready(db,r['id']):r['status']='ready'
+        if stage=='open' and r['status']!='open':continue
+        if stage=='ready' and r['status']!='ready':continue
+        if stage=='shipped' and not (r['status']=='completed' and r['handover_method']=='shipped'):continue
+        if stage=='pickup' and not (r['status']=='completed' and r['handover_method']!='shipped'):continue
+        if stage=='cancelled' and r['status']!='cancelled':continue
+        rows.append(r)
+    selected=rows[offset:offset+limit]
+    for r in selected:
         receipt=db.execute('SELECT lines_json FROM stock_receipts WHERE id=?',(r['id'],)).fetchone()
         r['items']=json.loads(receipt['lines_json']) if receipt else []
-        if r['status']=='open' and ready(db,r['id']): r['status']='ready'
-    return rows
+    return selected
+
+def history_page(db,limit=50,offset=0,search='',stage='all'):
+    limit=min(max(int(limit),1),100)
+    # One extra element indicates whether a further page exists.
+    rows=history(db,limit=limit+1,offset=offset,search=search,stage=stage)
+    return {'orders':rows[:limit], 'has_more':len(rows)>limit}
+

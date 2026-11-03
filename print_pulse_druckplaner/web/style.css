@@ -2693,3 +2693,29 @@ html[data-theme="dark"] .order-countdown.ready{background:#57452f;color:#f5d6a2}
 html[data-theme="dark"] .local-pdf-choice{background:#293c32;border-color:#608673}
 html[data-theme="dark"] .local-pdf-choice small{color:#c4d4c8}
 @media(max-width:600px){.local-pdf-dialog{padding:16px}.local-pdf-choice{min-height:91px}}
+
+/* Lokale Aufträge: Versandbestätigung und durchsuchbare Historie (0.13.31). */
+.local-board-actions{display:flex;gap:8px;flex-wrap:wrap}
+.local-board-actions button{min-height:42px}
+.local-handover-shipping{display:grid;grid-template-columns:1fr;gap:12px;margin:12px 0;padding:14px;
+ border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.local-handover-shipping[hidden],#local-handover-carrier-other-row[hidden]{display:none}
+.local-handover-shipping label{display:grid;gap:6px;font-size:13px;font-weight:650}
+.local-handover-shipping select,.local-handover-shipping input,
+.local-history-tools input,.local-history-tools select{width:100%;min-height:43px;
+ border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit;padding:9px 11px}
+.local-handover-shipping>small{font-size:12px;color:var(--muted)}
+.local-history-tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,.48fr);gap:12px;margin:14px 0}
+.local-history-tools label{display:grid;gap:6px;min-width:0;font-size:12px;font-weight:650}
+.local-history-shipping{border:1px solid var(--line);border-radius:9px;background:var(--surface-soft,#edf4ee);
+ padding:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px}
+.local-history-shipping b,.local-history-shipping span{overflow-wrap:anywhere}
+.local-history-shipping button{min-height:36px}
+#local-history-more{display:block;width:100%;margin:12px 0}
+#local-history-more[hidden]{display:none}
+@media(max-width:600px){
+ .local-history-tools{grid-template-columns:1fr}
+ .local-board-actions{width:100%}
+ .local-board-actions button{flex:1 1 160px}
+}
+html[data-theme="dark"] .local-history-item{background:var(--surface);color:var(--ink)}
