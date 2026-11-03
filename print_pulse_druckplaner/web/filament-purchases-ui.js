@@ -895,9 +895,12 @@ if(action==='reviewed'){
   if(input)useSuggestion(input,button.dataset.ppAutoValue);
  }
  orderBody.addEventListener('pointerdown',e=>{
+  // Prevent the iPhone keyboard from closing before a suggestion is chosen.
+  if(e.target.closest('[data-pp-auto-value]'))e.preventDefault();
+ });
+ orderBody.addEventListener('pointerup',e=>{
   const button=e.target.closest('[data-pp-auto-value]');
-  if(!button)return;
-  e.preventDefault();pickAuto(button);
+  if(button){e.preventDefault();pickAuto(button);}
  });
  orderBody.addEventListener('click',e=>{
   const button=e.target.closest('[data-pp-auto-value]');
