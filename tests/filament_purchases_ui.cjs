@@ -139,6 +139,7 @@ const assert=require('node:assert/strict');
   const firstLine=manualOrder.lines[0],firstId=firstLine.id;
   assert.equal(await page.locator('[data-pp-correct-quantity="'+firstId+'"]').inputValue(),'2');
   assert((await page.locator('.pp-receive-counts').first().textContent()).includes('Bestellt: 2'));
+  await page.locator('.pp-receive-correction').first().locator('summary').click();
   await page.locator('[data-pp-correct-quantity="'+firstId+'"]').fill('3');
   page.once('dialog',dialog=>dialog.accept());
   await page.locator('[data-pp-action="correct-quantity"][data-pp-line="'+firstId+'"]').click();
