@@ -1592,10 +1592,12 @@ html[data-theme="dark"] .component-card-stock-inline button[type=submit]{
 .local-position-heading b{font-size:13px;color:var(--green)}
 .local-position label{font-size:12px}
 .local-search-wrap{position:relative}
+.local-search-wrap>label{margin:14px 0 5px}
+.local-search-wrap>input{display:block}
 .local-suggestions{position:absolute;z-index:15;top:100%;left:0;right:0;max-height:270px;overflow-y:auto;
  border:1px solid var(--line);background:#fff;border-radius:9px;box-shadow:0 10px 28px #172b2129;padding:5px}
-.local-suggestion{display:block;width:100%;text-align:left;background:#fff;border:0;padding:10px;
- font-size:13px;font-weight:550;white-space:normal;overflow-wrap:anywhere}
+.local-suggestion{display:block;width:100%;min-height:46px;text-align:left;background:#fff;border:0;padding:11px 12px;
+ font-size:14px;line-height:1.45;font-weight:550;white-space:normal;overflow-wrap:anywhere;touch-action:pan-y}
 .local-suggestion:hover,.local-suggestion:focus-visible{background:#eef2ed}
 .local-fields{display:grid;grid-template-columns:minmax(110px,1fr) minmax(0,2fr);gap:16px}
 .local-form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;flex-wrap:wrap}
@@ -1618,10 +1620,13 @@ html[data-theme="dark"] .component-card-stock-inline button[type=submit]{
 .local-history-item>small{color:var(--muted)}
 #local-order-type[hidden],#local-lines-section[hidden]{display:none}
 @media(max-width:600px){
- .local-order-dialog{padding:17px}
+ .local-order-dialog{padding:17px;max-height:min(90vh,90dvh);overscroll-behavior:contain}
  .local-order-main,.local-fields{grid-template-columns:1fr;gap:0}
  .local-position{padding:12px}
- .local-form-actions button{flex:1}
+ /* Inline matches remain scrollable and are not hidden under the iOS keyboard. */
+ .local-suggestions{position:relative;top:auto;margin-top:6px;max-height:min(240px,38dvh);box-shadow:0 5px 16px #172b211e}
+ .local-form-actions{position:sticky;bottom:0;z-index:12;gap:8px;padding:12px 0 max(12px,env(safe-area-inset-bottom));margin-top:12px;background:var(--surface);border-top:1px solid var(--line)}
+ .local-form-actions button{flex:1;min-height:46px}
  #local-order-new{flex:1}
  .orders-tools{flex-wrap:wrap}
  .local-detail-actions button{flex:1 1 140px}

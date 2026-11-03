@@ -1,3 +1,10 @@
+# 0.13.26 · Lokale Aufträge auf dem iPhone zuverlässig anlegen
+
+- Produktvorschläge im mobilen Suchfeld lassen sich jetzt per Fingertipp übernehmen, auch wenn Safari beim Antippen die Tastatur ausblendet.
+- Vorschläge stehen mobil direkt unter der Suche, haben größere Tippflächen und schließen nicht vorzeitig.
+- Der Speichern-Bereich bleibt beim Scrollen besser erreichbar; unvollständige Positionen werden gezielt benannt.
+- Zwei Positionen inklusive Varianten- und Farbauswahl werden mit einem zusätzlichen iPhone-WebKit-Test geprüft. Bestehende Aufträge und Lagerdaten bleiben unverändert.
+
 # 0.13.25 · 3MF direkt vom Mac über Home Assistant sichern
 
 - Einfacher neuer Hauptweg für Masterdateien: 3MF im macOS-Finder in `smb://HA-ADRESSE/share/print-pulse/3mf-eingang` kopieren, danach im Produktkatalog auswählen und übernehmen. Keine 3MF-Binärübertragung mehr durch den Home-Assistant-Ingress-Proxy.
