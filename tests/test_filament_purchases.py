@@ -226,6 +226,13 @@ Zwischensumme 74,16€'''
                 'SELECT filament_id FROM pp_filament_order_lines WHERE order_id IN (?,?,?)',(a,b,c))}
         self.assertEqual(len(linked),1)
 
+    def test_known_position_prices_fill_missing_optional_order_total(self):
+        p=payload([line('Synthetic Chestnut','129080',qty=1,price=900)],total_cents=None)
+        oid=self.create(p)
+        order=next(o for o in self.state()['orders'] if o['id']==oid)
+        self.assertEqual(order['total_cents'],900)
+        self.assertEqual(order['lines'][0]['gross_cents'],900)
+
     def test_castanienrot_discounted_refill_can_be_saved_and_received(self):
         source='''| PLA Basic x 1 | Kastanienrot (10205) / Nachfüllung / 1 kg |
                  Filament-Großverkauf -€7.99 EUR | €9.00 EUR | €16.99 EUR |'''
