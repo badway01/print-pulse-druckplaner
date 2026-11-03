@@ -128,6 +128,11 @@ def suggest_matches(db, line):
 def detect_vendor(text):
     head=text[:3000].lower()
     if 'bambu' in head:return 'Bambu Lab'
+    # Bambu's German order table can be pasted without the shop heading.
+    # The shop-specific "Filament-Großverkauf" promotion identifies this
+    # format; a manufacturer code alone is not a trustworthy vendor signal.
+    if re.search(r'filament[- ]großverkauf',head,re.I) and re.search(r'pla\s*basic|pla\s*matte|petg\s*matte',head,re.I):
+        return 'Bambu Lab'
     for name in ('amazon','sunlu','polymaker','prusament','elegoo','ebay','3djake','esun'):
         if name in head:return {'esun':'eSUN','ebay':'eBay'}.get(name,name.capitalize())
     return 'Unbekannter Händler'
