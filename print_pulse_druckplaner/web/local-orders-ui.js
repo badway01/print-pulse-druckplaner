@@ -22,9 +22,9 @@ function localLineHTML(line,index){
  return '<section class="local-position" data-local-row="'+index+'">'+
   '<div class="local-position-heading"><b>Position '+(index+1)+'</b>'+
    (localDraft.length>1?'<button type="button" class="text-button" data-local-remove="'+index+'">Entfernen</button>':'')+'</div>'+
-  '<label class="local-search-wrap">Produkt suchen'+
-   '<input type="search" autocomplete="off" data-local-search="'+index+'" placeholder="z. B. Vase …" value="'+esc(product?.title||line.search)+'" role="combobox" aria-autocomplete="list" aria-expanded="false">'+
-   '<div class="local-suggestions" data-local-suggestions="'+index+'" role="listbox" hidden></div></label>'+
+  '<div class="local-search-wrap"><label for="local-search-'+index+'">Produkt suchen</label>'+
+   '<input id="local-search-'+index+'" type="search" autocomplete="off" autocapitalize="off" spellcheck="false" data-local-search="'+index+'" placeholder="z. B. Vase …" value="'+esc(product?.title||line.search)+'" role="combobox" aria-autocomplete="list" aria-controls="local-suggestions-'+index+'" aria-expanded="false">'+
+   '<div id="local-suggestions-'+index+'" class="local-suggestions" data-local-suggestions="'+index+'" role="listbox" hidden></div></div>'+
   (product?'<label>Variante / Größe<select data-local-variant="'+index+'" required>'+
     options.map(i=>'<option value="'+esc(i.id)+'" '+(String(i.id)===String(line.item_id)?'selected':'')+'>'+esc(i.label||'Standard')+'</option>').join('')+
     '</select></label>':'<p class="hint">Produkt aus den Vorschlägen auswählen, dann erscheinen die Varianten.</p>')+
@@ -37,11 +37,18 @@ function localLineHTML(line,index){
 function localRenderLines(){
  $('local-order-lines').innerHTML=localDraft.map(localLineHTML).join('');
 }
+function localHideSuggestions(index){
+ const root=$('local-order-lines');
+ const host=root.querySelector('[data-local-suggestions="'+index+'"]');
+ const field=root.querySelector('[data-local-search="'+index+'"]');
+ if(host)host.hidden=true;
+ if(field)field.setAttribute('aria-expanded','false');
+}
 function localSuggestions(index){
  const line=localDraft[index],host=$('local-order-lines').querySelector('[data-local-suggestions="'+index+'"]');
  if(!host||!line)return;
  const query=line.search.trim().toLocaleLowerCase('de');
- if(!query){host.hidden=true;host.innerHTML='';return;}
+ if(!query){localHideSuggestions(index);host.innerHTML='';return;}
  const list=localCatalog().filter(p=>p.title.toLocaleLowerCase('de').includes(query)).slice(0,8);
  host.innerHTML=list.map(p=>'<button type="button" role="option" class="local-suggestion" data-local-choose="'+index+'" data-local-choice="'+esc(p.id)+'">'+esc(p.title)+'</button>').join('')||
   '<span class="hint">Kein passendes Produkt gefunden.</span>';
@@ -117,27 +124,57 @@ $('local-order-lines').addEventListener('change',event=>{
  const i=Number(event.target.dataset.localVariant);
  if(localDraft[i])localDraft[i].item_id=event.target.value;
 });
-$('local-order-lines').addEventListener('click',event=>{
- const remove=event.target.closest('[data-local-remove]');
- if(remove){localDraft.splice(Number(remove.dataset.localRemove),1);localRenderLines();return;}
- const choose=event.target.closest('[data-local-choose]');
+function localPickSuggestion(choose){
  if(!choose)return;
  const i=Number(choose.dataset.localChoose),p=localProduct(choose.dataset.localChoice);
  if(!localDraft[i]||!p)return;
  localDraft[i].listing_id=String(p.id);
  localDraft[i].item_id=String(p.items.find(item=>item.enabled)?.id||'');
  localDraft[i].search=p.title;
+ $('local-form-error').hidden=true;
  localRenderLines();
- const next=$('local-order-lines').querySelector('[data-local-variant="'+i+'"]');
- next?.focus();
+ $('local-order-lines').querySelector('[data-local-variant="'+i+'"]')?.focus();
+}
+// iPhone/Safari blurs the search before the click. Resolve taps on pointerup.
+let localSuggestionPress=null;
+$('local-order-lines').addEventListener('pointerdown',event=>{
+ const choice=event.target.closest('[data-local-choose]');
+ localSuggestionPress=choice?{
+  pointerId:event.pointerId,index:choice.dataset.localChoose,
+  choice:choice.dataset.localChoice,x:event.clientX,y:event.clientY
+ }:null;
+});
+$('local-order-lines').addEventListener('pointerup',event=>{
+ const press=localSuggestionPress;
+ localSuggestionPress=null;
+ if(!press||press.pointerId!==event.pointerId)return;
+ if(Math.abs(event.clientX-press.x)>12||Math.abs(event.clientY-press.y)>12)return;
+ const choice=event.target.closest('[data-local-choose]');
+ if(choice&&choice.dataset.localChoose===press.index&&choice.dataset.localChoice===press.choice)
+  localPickSuggestion(choice);
+});
+$('local-order-lines').addEventListener('pointercancel',()=>{localSuggestionPress=null;});
+$('local-order-lines').addEventListener('click',event=>{
+ const remove=event.target.closest('[data-local-remove]');
+ if(remove){localDraft.splice(Number(remove.dataset.localRemove),1);localRenderLines();return;}
+ localPickSuggestion(event.target.closest('[data-local-choose]'));
+});
+$('local-order-lines').addEventListener('keydown',event=>{
+ if(event.key!=='Enter'||event.target.dataset.localSearch===undefined)return;
+ event.preventDefault();
+ const i=event.target.dataset.localSearch;
+ localPickSuggestion($('local-order-lines').querySelector('[data-local-suggestions="'+i+'"] [data-local-choose]'));
 });
 $('local-order-lines').addEventListener('focusout',event=>{
  if(event.target.dataset.localSearch===undefined)return;
  const i=event.target.dataset.localSearch;
- // Click on a suggestion should still work before the list closes.
  if(event.relatedTarget?.closest('[data-local-suggestions="'+i+'"]'))return;
- const host=$('local-order-lines').querySelector('[data-local-suggestions="'+i+'"]');
- if(host)host.hidden=true;
+ setTimeout(()=>{
+  if(localSuggestionPress?.index===i)return;
+  const root=$('local-order-lines');
+  const host=root.querySelector('[data-local-suggestions="'+i+'"]');
+  if(host&&!host.contains(document.activeElement))localHideSuggestions(i);
+ },120);
 });
 $('local-order-form').addEventListener('submit',async event=>{
  event.preventDefault();
@@ -148,12 +185,15 @@ $('local-order-form').addEventListener('submit',async event=>{
   due_date:$('local-due').value,notes:$('local-notes').value};
  let body;
  if(localMode==='create'){
-  if(localDraft.some(line=>!localProduct(line.listing_id)||
-    !localProduct(line.listing_id)?.items.some(i=>String(i.id)===String(line.item_id)&&i.enabled))){
-   error.textContent='Bitte zu jeder Position ein Produkt aus den Vorschlägen und die passende Variante auswählen.';
-   error.hidden=false;return;
-  }
-  const direct=$('local-order-type').querySelector('input[name="local-kind"]:checked')?.value==='direct';
+  const invalidIndex=localDraft.findIndex(line=>!localProduct(line.listing_id)||
+     !localProduct(line.listing_id)?.items.some(i=>String(i.id)===String(line.item_id)&&i.enabled));
+   if(invalidIndex!==-1){
+    error.textContent='Bitte für Position '+(invalidIndex+1)+' ein Produkt aus den Vorschlägen und die passende Variante auswählen.';
+    error.hidden=false;
+    $('local-order-lines').querySelector('[data-local-search="'+invalidIndex+'"]')?.focus();
+    return;
+   }
+   const direct=$('local-order-type').querySelector('input[name="local-kind"]:checked')?.value==='direct';
   body={...meta,action:'create',request_key:localRequestKey,direct_sale:direct,
    lines:localDraft.map(line=>({listing_id:line.listing_id,item_id:line.item_id,
     quantity:line.quantity,color:line.color,personalization:line.personalization,note:line.note}))};
