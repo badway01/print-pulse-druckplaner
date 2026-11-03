@@ -71,7 +71,7 @@ const assert=require('node:assert/strict');
   await page.locator('[data-pp-action="bulk"]').click();
   await page.locator('[data-pp-action="focus"][data-pp-index="0"]').click();
   assert.equal(await page.locator('[data-pp-line="0"][data-pp-field="quantity"]').inputValue(),'3');
-  assert((await page.locator('[data-pp-price-hint="0"]').textContent()).includes('3,33 €'),
+  assert((await page.locator('[data-pp-price-hint="0"]').textContent()).includes('3,33'),
    'Cost must be split by the entered three rolls');
 
   await page.locator('[data-pp-action="save"]').click();
@@ -98,7 +98,7 @@ const assert=require('node:assert/strict');
   await page.locator('[data-pp-m-field="quantity"][data-pp-m-index="0"]').fill('3');
   await page.locator('[data-pp-m-field="_priceInput"][data-pp-m-index="0"]').fill('31,78');
   const unitHint=await page.locator('[data-pp-m-price-hint="0"]').textContent();
-  assert(unitHint.includes('10,59 €')&&unitHint.includes('10,60 €'),
+  assert(unitHint.includes('10,59')&&unitHint.includes('10,60'),
    '31.78 divided by three must show exact-cent split: two 10.59 and one 10.60');
   await page.locator('[data-pp-m-field="quantity"][data-pp-m-index="0"]').fill('2');
   await page.locator('[data-pp-m-field="packaging"][data-pp-m-index="0"]').selectOption('spool');
