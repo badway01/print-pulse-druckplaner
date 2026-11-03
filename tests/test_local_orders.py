@@ -352,7 +352,7 @@ class LocalOrderTests(unittest.TestCase):
         self.assertEqual(app.overview()['orders'][0]['status'],'ready')
         with self.assertRaisesRegex(ValueError,'ungültige Zeichen'):
             self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
-                {'ids':[oid],'method':'shipped','carrier':'Hermes','tracking':'abc\\n123'})
+                {'ids':[oid],'method':'shipped','carrier':'Hermes','tracking':'abc'+chr(10)+'123'})
         self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
             {'ids':[oid],'method':'shipped','carrier':'Hermes','tracking':'02307106009073'})
         self.assertEqual(app.overview()['orders'],[])
