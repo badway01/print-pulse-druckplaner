@@ -231,10 +231,22 @@ class LocalOrderTests(unittest.TestCase):
         self.assertEqual(next(o for o in snapshot['orders'] if o['id']==second)['items'][0]['personalization'],'Für Lotte')
         self.assertNotIn('PRIVATE-ORDER-NOTE',str(snapshot))
         self.assertNotIn('INTERNAL-LINE-NOTE',str(snapshot))
+        with app.connect() as db:
+            internal=app.local_order_pdf.customer_snapshot(db,first,include_internal=True)
+        self.assertIn('PRIVATE-ORDER-NOTE-NOT-FOR-CUSTOMER',str(internal))
+        self.assertIn('INTERNAL-LINE-NOTE-NOT-FOR-CUSTOMER',str(internal))
         pdf=app.local_order_pdf.render_pdf(snapshot)
         self.assertTrue(pdf.startswith(b'%PDF-'))
         self.assertGreater(len(pdf),2500)
-        self.assertIn('.pdf',app.local_order_pdf.safe_filename('Frau Müller'))
+        self.assertIn(b'/Subtype /Image',pdf,'The actual bundled Print & Pulse logo must be embedded')
+        work_pdf=app.local_order_pdf.render_pdf(internal,kind='internal')
+        self.assertTrue(work_pdf.startswith(b'%PDF-'))
+        self.assertGreater(len(work_pdf),2500)
+        self.assertNotEqual(work_pdf,pdf,'Workshop and customer templates must differ')
+        self.assertIn('Kundenbeileger',app.local_order_pdf.safe_filename('Frau Müller'))
+        self.assertIn('Werkstattauftrag',app.local_order_pdf.safe_filename('Frau Müller','internal'))
+        with self.assertRaisesRegex(ValueError,'PDF-Vorlage'):
+            app.local_order_pdf.render_pdf(internal,kind='invalid')
         with app.connect() as db:
             db.execute("UPDATE pp_local_orders SET status='completed' WHERE id=?",(second,))
         with app.connect() as db:
