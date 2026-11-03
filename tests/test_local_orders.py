@@ -337,7 +337,7 @@ class LocalOrderTests(unittest.TestCase):
         self.assertEqual(self.stock(),4)
 
     def test_shipping_carrier_tracking_history_search_and_undo(self):
-        payload=self.payload(request_key='shipping-tracking-123')
+        payload=self.payload(request_key='ship-flow-123')
         payload['fulfillment']='shipping'
         oid=self.call(app.local_orders.create,payload)['id']
         line=app.overview()['orders'][0]['items'][0]
@@ -348,19 +348,19 @@ class LocalOrderTests(unittest.TestCase):
         self.assertEqual(app.overview()['orders'][0]['status'],'ready')
         with self.assertRaisesRegex(ValueError,'Versanddienstleister'):
             self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
-                {'ids':[oid],'method':'shipped','tracking':'02307106009073'})
+                {'ids':[oid],'method':'shipped','tracking':'TEST-HERMES-4711'})
         self.assertEqual(app.overview()['orders'][0]['status'],'ready')
         with self.assertRaisesRegex(ValueError,'ungültige Zeichen'):
             self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
                 {'ids':[oid],'method':'shipped','carrier':'Hermes','tracking':'abc'+chr(10)+'123'})
         self.call(lambda db,data:app.local_orders.handover(db,data,app.components),
-            {'ids':[oid],'method':'shipped','carrier':'Hermes','tracking':'02307106009073'})
+            {'ids':[oid],'method':'shipped','carrier':'Hermes','tracking':'TEST-HERMES-4711'})
         self.assertEqual(app.overview()['orders'],[])
         with app.connect() as db:
-            result=app.local_orders.history(db,search='02307106009073',stage='shipped')
+            result=app.local_orders.history(db,search='TEST-HERMES-4711',stage='shipped')
             self.assertEqual(len(result),1)
             self.assertEqual((result[0]['shipping_carrier'],result[0]['tracking_number']),
-                             ('Hermes','02307106009073'))
+                             ('Hermes','TEST-HERMES-4711'))
             self.assertEqual(result[0]['handover_method'],'shipped')
             self.assertTrue(result[0]['handover_at']>0)
             self.assertEqual(app.local_orders.history(db,stage='pickup'),[])
