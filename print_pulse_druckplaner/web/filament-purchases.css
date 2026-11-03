@@ -237,3 +237,16 @@
 html[data-theme="dark"] .pp-auto-list{background:#27362e;border-color:#60796c}
 html[data-theme="dark"] .pp-purchase-dialog .pp-auto-option{background:#27362e;color:#ecf3ed}
 html[data-theme="dark"] .pp-purchase-dialog .pp-auto-option:hover{background:#385745}
+
+/* Transparenter Wareneingang: bestellte, erhaltene und noch offene Rollen. */
+.pp-receive-summary{background:var(--surface-alt,#ecf2ee);padding:12px;border-radius:10px;border:1px solid var(--line,#cbd7cc)}
+.pp-receive-row>div{min-width:0}
+.pp-receive-counts{margin:8px 0 4px;line-height:1.5}
+.pp-receive-row .pp-unit-cost{margin-top:7px}
+.pp-receive-correction{margin-top:12px;border-top:1px solid var(--line,#cbd7cc);padding-top:10px}
+.pp-receive-correction summary{cursor:pointer;color:var(--primary,#376a59);font-weight:600}
+.pp-receive-correction label{margin-top:9px;display:flex;flex-wrap:wrap;align-items:center;gap:9px}
+.pp-receive-correction input{max-width:100px}
+.pp-receive-correction button{margin:8px 0}
+.pp-receive-correction small{display:block;opacity:.8}
+@media(max-width:480px){.pp-receive-row{grid-template-columns:minmax(0,1fr) 94px;gap:8px}.pp-receive-row>label{min-width:0;font-size:.85rem}}

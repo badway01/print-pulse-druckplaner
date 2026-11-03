@@ -270,6 +270,63 @@ Zwischensumme 74,16€'''
             self.receipt(id,[{'id':item['id'],'quantity':3,'expected_received':0}],'receipt-request-over01')
         self.assertEqual(self.spools()[0]['stock_qty'],0)
 
+    def test_wrong_one_roll_corrected_to_three_before_receipt(self):
+        """Regression: Jade-Weiß 10100, 3 rolls for 31.78 EUR, not 1 roll at 31.78."""
+        original=self.create(payload([line(qty=1,price=3178)]))
+        before=self.state()['orders'][0]['lines'][0]
+        self.assertEqual((before['quantity'],before['remaining'],before['gross_cents']),(1,1,3178))
+        self.assertEqual(self.spools()[0]['stock_qty'],0)
+
+        with app.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            mod.correct_quantity(db,{'order_id':original,'line_id':before['id'],
+                                     'quantity':3,'expected_quantity':1})
+        corrected=self.state()['orders'][0]
+        self.assertEqual((corrected['ordered_count'],corrected['received_count']),(3,0))
+        self.assertEqual((corrected['lines'][0]['quantity'],corrected['lines'][0]['remaining']),(3,3))
+        self.assertEqual(corrected['lines'][0]['effective_cents'],3178)
+        self.assertEqual(self.spools()[0]['stock_qty'],0,
+                         'correcting the order must never change actual stock')
+        with self.assertRaisesRegex(ValueError,'zwischenzeitlich'):
+            with app.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                mod.correct_quantity(db,{'order_id':original,'line_id':before['id'],
+                                         'quantity':2,'expected_quantity':1})
+        with self.assertRaisesRegex(ValueError,'ungültiger Wert'):
+            with app.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                mod.correct_quantity(db,{'order_id':original,'line_id':before['id'],
+                                         'quantity':0,'expected_quantity':3})
+
+        self.receipt(original,[{'id':before['id'],'quantity':2,'expected_received':0}],
+                     'three-roll-partial-receipt-0001')
+        state=self.state()['orders'][0]
+        self.assertEqual((state['received_count'],state['lines'][0]['remaining']),(2,1))
+        self.assertEqual(self.spools()[0]['stock_qty'],2)
+        with app.connect() as db:
+            first=db.execute('SELECT cost_cents FROM pp_filament_cost_history').fetchone()[0]
+        self.assertEqual(first,2119, 'two of three rolls must receive 21.19 EUR of 31.78 EUR')
+        self.receipt(original,[{'id':before['id'],'quantity':2,'expected_received':0}],
+                     'three-roll-partial-receipt-0001')
+        self.assertEqual(self.spools()[0]['stock_qty'],2,'retry must not double-book')
+        with self.assertRaisesRegex(ValueError,'gesperrt'):
+            with app.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                mod.correct_quantity(db,{'order_id':original,'line_id':before['id'],
+                                         'quantity':4,'expected_quantity':3})
+        self.receipt(original,[{'id':before['id'],'quantity':1,'expected_received':2}],
+                     'three-roll-final-receipt-0002')
+        self.assertEqual(self.state()['orders'][0]['status'],'Erhalten')
+        self.assertEqual(self.spools()[0]['stock_qty'],3)
+        with app.connect() as db:
+            costs=[r[0] for r in db.execute(
+                'SELECT cost_cents FROM pp_filament_cost_history ORDER BY id')]
+        self.assertEqual(costs,[2119,1059])
+        self.assertEqual(sum(costs),3178)
+        self.assertEqual(self.delete(original,3)['reversed_spools'],3)
+        self.assertEqual(self.spools()[0]['stock_qty'],0)
+        self.assertEqual(self.state()['orders'],[])
+
     def delete(self,order_id,expected=None):
         with app.connect() as db:
             db.execute('BEGIN IMMEDIATE')

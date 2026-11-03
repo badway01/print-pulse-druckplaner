@@ -443,6 +443,30 @@ def create(db,data):
           item['packaging'],item['gross_cents'],effective,item['description'],now))
     return order_id
 
+def correct_quantity(db,data):
+    """Correct an unreceived order line without changing stock or its total price.
+
+    A historic receipt has a quantity-based cost split, so correcting a booked
+    line would silently rewrite the meaning of its inventory valuation.
+    """
+    order_id=label(data.get('order_id',''),50,'Bestellung',True)
+    line_id=num(data.get('line_id'),1,999999999,'Position')
+    quantity=num(data.get('quantity'),1,500,'Bestellte Rollen')
+    expected=num(data.get('expected_quantity'),1,500,'Bisherige Bestellmenge')
+    line=db.execute('SELECT id,quantity,received FROM pp_filament_order_lines WHERE id=? AND order_id=?',
+                    (line_id,order_id)).fetchone()
+    if not line:raise ValueError('Bestellposition nicht gefunden. Bitte aktualisieren.')
+    if line['quantity']!=expected:
+        raise ValueError('Die Bestellmenge wurde zwischenzeitlich verändert. Bitte neu öffnen.')
+    if line['received'] or db.execute(
+        'SELECT 1 FROM pp_filament_cost_history WHERE line_id=? LIMIT 1',(line_id,)).fetchone():
+        raise ValueError('Bei bereits eingebuchten Rollen ist eine nachträgliche Mengenkorrektur gesperrt.')
+    if quantity!=expected:
+        db.execute('UPDATE pp_filament_order_lines SET quantity=? WHERE id=?',(quantity,line_id))
+        db.execute('UPDATE pp_filament_orders SET updated=? WHERE id=?',(int(time.time()),order_id))
+    return {'line_id':line_id,'quantity':quantity,'remaining':quantity}
+
+
 def receive(db,data):
     order_id=label(data.get('order_id',''),50,'Bestellung',True)
     request_key=label(data.get('request_key',''),100,'Buchungskennung',True)

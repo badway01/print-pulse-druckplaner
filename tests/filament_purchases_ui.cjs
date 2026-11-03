@@ -134,6 +134,48 @@ const assert=require('node:assert/strict');
   const newLine=manualOrder.lines.find(l=>l.color==='Neue Testfarbe 2026');
   assert(newLine&&newLine.manufacturer_code==='129991',
    'Inline new color should be added to catalog with its manufacturer code');
+  // Existing erroneous one-/two-roll entry must be correctable before any stock booking.
+  await page.locator('.pp-purchase-card').filter({hasText:'MANUAL-2-COLORS'}).locator('[data-pp-open]').click();
+  const firstLine=manualOrder.lines[0],firstId=firstLine.id;
+  assert.equal(await page.locator('[data-pp-correct-quantity="'+firstId+'"]').inputValue(),'2');
+  assert((await page.locator('.pp-receive-counts').first().textContent()).includes('Bestellt: 2'));
+  await page.locator('.pp-receive-correction').first().locator('summary').click();
+  await page.locator('[data-pp-correct-quantity="'+firstId+'"]').fill('3');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('[data-pp-action="correct-quantity"][data-pp-line="'+firstId+'"]').click();
+  // Wait for the server response, not for the already edited input value.
+  await page.waitForFunction(()=>document.querySelector('.pp-receive-summary')?.textContent?.includes('4 bestellt'));
+  assert((await page.locator('.pp-receive-summary').textContent()).includes('4 bestellt'));
+  assert((await page.locator('.pp-receive-row').first().textContent()).includes('19,90'));
+  assert((await page.locator('.pp-receive-row').first().textContent()).includes('6,63'));
+  const corrected=await page.request.get('http://127.0.0.1:8099/api/filament-orders').then(r=>r.json());
+  const correctedOrder=corrected.orders.find(o=>o.reference==='MANUAL-2-COLORS');
+  assert.equal(correctedOrder.lines[0].quantity,3);
+  assert.equal(correctedOrder.lines[0].remaining,3);
+  assert.equal(correctedOrder.received_count,0);
+  // A partial arrival books only two rolls; the third remains open.
+  await page.locator('[data-pp-receive="'+firstId+'"]').fill('2');
+  await page.locator('[data-pp-receive="'+newLine.id+'"]').fill('0');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('[data-pp-action="receive"]').click();
+  await page.locator('#pp-purchase-dialog').waitFor({state:'hidden'});
+  const partiallyBooked=await page.request.get('http://127.0.0.1:8099/api/filament-orders').then(r=>r.json());
+  const partial=partiallyBooked.orders.find(o=>o.reference==='MANUAL-2-COLORS');
+  assert.equal(partial.received_count,2);
+  assert.equal(partial.lines[0].remaining,1);
+  await page.locator('.pp-purchase-card').filter({hasText:'MANUAL-2-COLORS'}).locator('[data-pp-open]').click();
+  assert.equal(await page.locator('[data-pp-correct-quantity="'+firstId+'"]').count(),0,
+   'Quantity must be immutable after first receipt');
+  assert.equal(await page.locator('[data-pp-receive="'+firstId+'"]').inputValue(),'1');
+  await page.locator('[data-pp-receive="'+newLine.id+'"]').fill('0');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('[data-pp-action="receive"]').click();
+  await page.locator('#pp-purchase-dialog').waitFor({state:'hidden'});
+  const finalResult=await page.request.get('http://127.0.0.1:8099/api/filament-orders').then(r=>r.json());
+  const finalOrder=finalResult.orders.find(o=>o.reference==='MANUAL-2-COLORS');
+  assert.equal(finalOrder.received_count,3);
+  assert.equal(finalOrder.lines[0].remaining,0);
+  assert.equal(finalOrder.lines.find(l=>l.id===newLine.id).remaining,1);
   page.once('dialog',dialog=>dialog.accept());
   await page.locator('.pp-purchase-card').filter({hasText:'MANUAL-2-COLORS'}).locator('[data-pp-delete]').click();
   await page.locator('.pp-purchase-card').filter({hasText:'MANUAL-2-COLORS'}).waitFor({state:'detached'});
