@@ -205,6 +205,7 @@ function spoolPriceHint(total,quantity){
    if(!line)continue;
    const key=el.dataset.ppMField;
    line[key]=(key==='quantity'||key==='grams')?Number(el.value):el.value.trim();
+   if(key==='brand')line[key]=canonicalName('brand',line[key]);
   }
   draft.total_cents=cents(draft._totalInput??'');
   draft.discount_cents=cents(draft._discountInput??'')??0;
@@ -478,6 +479,7 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
    else if(k==='quantity'||k==='grams')value=Number(el.value);
    else if(k==='filament_id')value=el.value?Number(el.value):null;
    else value=el.value.trim();
+   if(k==='brand'||k==='material')value=canonicalName(k,value);
    if(line[k]!==value){
     line[k]=value;line.reviewed=false;
     if(k==='filament_id'){line.ambiguous=false;line.existing=null;}
@@ -754,6 +756,7 @@ field('Positionspreis gesamt (€)','gross_cents',inputMoney(line.gross_cents),i
    if(!l)return;
    const field=e.target.dataset.ppMField;
 l[field]=['quantity','grams'].includes(field)?Number(e.target.value):e.target.value;
+   if(e.target.dataset.ppSuggestKind)updateSuggestions(e.target);
 if(field==='quantity'||field==='_priceInput'){
  const hint=orderBody.querySelector('[data-pp-m-price-hint="'+e.target.dataset.ppMIndex+'"]');
  if(hint){let price=null;try{price=cents(l._priceInput??'');}catch{}
@@ -868,6 +871,53 @@ if(action==='reviewed'){
    }
    showReview();
   }
+ });
+
+ // Live validation: avoid rerender, so Safari/phone keyboard keeps focus.
+ orderBody.addEventListener('input',e=>{
+  if(mode!=='review'||!e.target.matches('[data-pp-line][data-pp-field]'))return;
+  const input=e.target,index=Number(input.dataset.ppLine),name=input.dataset.ppField;
+  const line=draft?.lines[index];
+  if(!line)return;
+  let value=input.value;
+  if(name==='quantity'||name==='grams')value=Number(value);
+  if(name==='gross_cents'){try{value=cents(value);}catch{return;}}
+  if(name==='filament_id')value=value?Number(value):null;
+  if(line[name]!==value){line[name]=value;line.reviewed=false;}
+  liveReviewErrors(index);
+  if(input.dataset.ppSuggestKind)updateSuggestions(input);
+ });
+ orderBody.addEventListener('focusin',e=>{
+  if(e.target.matches('[data-pp-suggest-kind]'))updateSuggestions(e.target);
+ });
+ function pickAuto(button){
+  const input=button?.closest('.pp-auto-field')?.querySelector('[data-pp-suggest-kind]');
+  if(input)useSuggestion(input,button.dataset.ppAutoValue);
+ }
+ orderBody.addEventListener('pointerdown',e=>{
+  const button=e.target.closest('[data-pp-auto-value]');
+  if(!button)return;
+  e.preventDefault();pickAuto(button);
+ });
+ orderBody.addEventListener('click',e=>{
+  const button=e.target.closest('[data-pp-auto-value]');
+  if(button)pickAuto(button);
+ });
+ orderBody.addEventListener('keydown',e=>{
+  const input=e.target;
+  if(!input.matches('[data-pp-suggest-kind]'))return;
+  if(e.key==='Escape')hideSuggestions(input);
+  if(e.key==='Enter'||e.key==='ArrowDown'){
+   const first=suggestHost(input)?.querySelector('[data-pp-auto-value]');
+   if(first){e.preventDefault();if(e.key==='Enter')pickAuto(first);else first.focus();}
+  }
+ });
+ orderBody.addEventListener('focusout',e=>{
+  const input=e.target;
+  if(!input.matches('[data-pp-suggest-kind]'))return;
+  const value=canonicalName(input.dataset.ppSuggestKind,input.value);
+  if(value!==input.value){input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));}
+  setTimeout(()=>{if(input.isConnected)hideSuggestions(input);},120);
  });
  // Only explicit taps remember expansion. Auto-opened warnings close again when fixed.
  orderBody.addEventListener('click',e=>{
