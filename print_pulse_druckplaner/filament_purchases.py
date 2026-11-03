@@ -495,6 +495,7 @@ def delete_order(db,data):
             raise ValueError('Buchungshistorie ist unvollständig. Bestellung aus Sicherheitsgründen nicht gelöscht.')
     changes={}
     for fid,received in by_spool.items():
+        if not received:continue  # A saved-but-unreceived order never changed stock or unit prices.
         spool=db.execute('SELECT stock_qty,price_cents,color,material FROM filament_spools WHERE id=?',(fid,)).fetchone()
         if not spool:raise ValueError('Filament zur Bestellung existiert nicht mehr.')
         if spool['stock_qty']<received:
