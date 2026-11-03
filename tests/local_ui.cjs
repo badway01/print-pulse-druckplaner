@@ -49,11 +49,32 @@ const assert=require('node:assert/strict');
 
   await page.reload();
   const card=page.locator('.order-card').filter({hasText:local.id});
-  assert.equal(await card.locator('a.local-order-pdf[download]').count(),1,
-   'local card needs a directly accessible A4 print/PDF link');
-  assert((await card.locator('a.local-order-pdf').getAttribute('href')).includes(encodeURIComponent(local.id)));
+  assert.equal(await card.locator('button.local-order-pdf[data-local-pdf-id]').count(),1,
+   'local card must offer the A4 template selection');
+  assert.equal(await card.locator('button.local-order-pdf').getAttribute('data-local-pdf-id'),local.id);
+  await card.locator('button.local-order-pdf').click();
+  await page.locator('#local-pdf-dialog').waitFor({state:'visible'});
+  assert.equal(await page.locator('#local-pdf-dialog [data-local-pdf-kind]').count(),2);
+  const pdfRoute='**/api/local-order-pdf?*';
+  await page.route(pdfRoute,route=>route.fulfill({
+   status:401,contentType:'text/plain',body:'401: Unauthorized'
+  }));
+  await page.locator('#local-pdf-dialog [data-local-pdf-kind="customer"]').click();
+  await page.locator('#local-pdf-error').waitFor({state:'visible'});
+  assert((await page.locator('#local-pdf-error').textContent()).includes('HTTP 401'),
+   'Expired Home Assistant session must show a clear error, never download text');
+  await page.unroute(pdfRoute);
+  const directWorkPdf=await page.request.get('http://127.0.0.1:8099/api/local-order-pdf?id='+
+   encodeURIComponent(local.id)+'&kind=internal');
+  assert.equal(directWorkPdf.status(),200);
+  assert((await directWorkPdf.body()).subarray(0,5).toString()==='%PDF-');
+  const downloadPromise=page.waitForEvent('download');
+  await page.locator('#local-pdf-dialog [data-local-pdf-kind="internal"]').click();
+  const workDownload=await downloadPromise;
+  assert(workDownload.suggestedFilename().includes('Werkstattauftrag'));
+  await page.locator('#local-pdf-dialog').waitFor({state:'hidden'});
   await card.locator('[data-order-expand]').click();
-  assert.equal(await page.locator('#order-details-content a.local-order-pdf[download]').count(),1);
+  assert.equal(await page.locator('#order-details-content button.local-order-pdf[data-local-pdf-id]').count(),1);
   assert((await page.locator('#order-details-content').textContent()).includes('Jadeweiß'));
   assert((await page.locator('#order-details-content').textContent()).includes('Gravur von Hand'));
   await page.locator('#order-details-content .simple-order-advanced summary').click();

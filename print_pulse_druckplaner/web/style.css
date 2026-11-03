@@ -2676,3 +2676,20 @@ html[data-theme="dark"] .order-countdown.ready{background:#57452f;color:#f5d6a2}
 .master-share-box #master-share-status:not(:empty){margin-top:10px;font-size:12px;line-height:1.45}
 .master-browser-fallback{border-top:1px solid var(--line);padding-top:15px}
 @media(max-width:600px){.master-share-box{padding:12px}.master-share-box .master-upload-actions button{flex:1 1 100%}#master-share-import{width:100%}}
+
+/* 0.13.28: explicit print template choice, downloadable PDFs validated in-session. */
+.local-pdf-dialog{width:min(520px,calc(100% - 24px));padding:22px;max-height:90dvh;overflow:auto}
+.local-pdf-dialog .dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.local-pdf-dialog .hint{margin:8px 0 17px}
+.local-pdf-options{display:grid;gap:12px}
+.local-pdf-choice{display:grid;gap:6px;width:100%;text-align:left;padding:16px 18px;min-height:88px;
+ border-radius:12px;border:1px solid #a9c7b6;background:var(--surface,#f8fbf8);color:var(--ink)}
+.local-pdf-choice strong{font-weight:800;font-size:15px;color:var(--green)}
+.local-pdf-choice small{font-size:12px;font-weight:450;line-height:1.45;color:var(--muted)}
+.local-pdf-choice:hover,.local-pdf-choice:focus-visible{border-color:var(--green);background:var(--surface-alt,#eef5ee)}
+.local-pdf-choice[disabled]{opacity:.5}
+#local-pdf-error:not([hidden]){display:block;padding:11px 13px;margin:15px 0 0;
+ border:1px solid #ba4840;border-radius:10px;color:#a52d28;background:#fff3f0;line-height:1.5}
+html[data-theme="dark"] .local-pdf-choice{background:#293c32;border-color:#608673}
+html[data-theme="dark"] .local-pdf-choice small{color:#c4d4c8}
+@media(max-width:600px){.local-pdf-dialog{padding:16px}.local-pdf-choice{min-height:91px}}
