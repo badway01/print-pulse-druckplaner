@@ -52,6 +52,7 @@ function spoolPriceHint(total,quantity){
    '<path d="M3 6h18m-2 0-.9 14H5.9L5 6m4 0V4h6v2M10 10v7m4-7v7"/></svg></button></span></div>'+
    '<small>'+html(o.ordered_on||'Datum offen')+(o.reference?' · '+html(o.reference):'')+'</small>'+
    '<span>'+o.received_count+' von '+o.ordered_count+' Rollen erhalten</span>'+
+   '<small>'+o.lines.map(l=>html(l.quantity+' × '+l.color+' ('+(l.manufacturer_code||'ohne Code')+')')).join(' · ')+'</small>'+
    '<strong>'+money(o.total_cents)+'</strong>'+
    (o.status==='Erhalten'?'<small>Vollständig eingebucht · Einkaufsarchiv</small>':
     '<button type="button" class="secondary" data-pp-open="'+html(o.id)+'">Lieferung erfassen</button>')+
@@ -156,6 +157,17 @@ function spoolPriceHint(total,quantity){
   return '<label>'+html(title)+'<input data-pp-m-header="'+k+'" type="'+type+
    '" value="'+escapeAttr(value??'')+'"></label>';
  }
+ function updateManualTotals(){
+  if(mode!=='manual-order'||!draft)return;
+  const count=draft.lines.reduce((sum,l)=>sum+(Number(l.quantity)||0),0);
+  const total=orderBody.querySelector('[data-pp-manual-count]');
+  if(total)total.textContent=draft.lines.length+' Positionen · '+count+' Rollen';
+  const footer=orderBody.querySelector('[data-pp-manual-footer-count]');
+  if(footer)footer.textContent=count+' Rollen';
+  const entered=draft.lines.reduce((sum,l)=>{try{return sum+(cents(l._priceInput??'')||0);}catch{return sum;}},0);
+  const cost=orderBody.querySelector('.pp-m-total strong');
+  if(cost)cost.textContent=money(entered);
+ }
  function renderManual(){
   mode='manual-order';
   dialogOpen('Filamentbestellung erfassen');
@@ -169,7 +181,7 @@ function spoolPriceHint(total,quantity){
     manualHeaderInput('Bestellnummer (optional)','reference',d.reference)+
     manualHeaderInput('Gezahlt gesamt (€), optional','_totalInput',d._totalInput??inputMoney(d.total_cents))+
     '</div>'+
-   '<div class="pp-m-head"><strong>Filamente</strong><span>'+d.lines.length+' Positionen · '+count+' Rollen</span></div>'+
+   '<div class="pp-m-head"><strong>Filamente</strong><span data-pp-manual-count>'+d.lines.length+' Positionen · '+count+' Rollen</span></div>'+
    '<div class="pp-m-lines">'+d.lines.map(manualLine).join('')+'</div>'+
    '<button type="button" class="secondary pp-m-add" data-pp-m-action="add">+ Weiteres Filament hinzufügen</button>'+
    '<details class="pp-m-adjustments"><summary>Rabatt, Guthaben und Versand (optional)</summary>'+
@@ -180,7 +192,7 @@ function spoolPriceHint(total,quantity){
      '</div></details>'+
    '<div class="pp-m-total"><span>Erfasste Positionspreise</span><strong>'+money(entered)+'</strong>'+
      '<small>Preise sind optional. Bei mehreren Rollen gibst du den Preis der gesamten Position ein. Die Zahlungs- und Positionssumme kannst du später abgleichen.</small></div>'+
-   '<div class="pp-review-footer pp-m-footer"><span>'+count+' Rollen</span>'+
+   '<div class="pp-review-footer pp-m-footer"><span data-pp-manual-footer-count>'+count+' Rollen</span>'+
     '<button type="button" class="primary" data-pp-m-action="save">Bestellung speichern</button>'+
     '<button type="button" class="secondary" data-pp-m-action="save-receive">Speichern + erhalten</button></div>';
  }
@@ -797,6 +809,7 @@ if(field==='quantity'||field==='_priceInput'){
  const hint=orderBody.querySelector('[data-pp-m-price-hint="'+e.target.dataset.ppMIndex+'"]');
  if(hint){let price=null;try{price=cents(l._priceInput??'');}catch{}
   hint.innerHTML=spoolPriceHint(price,l.quantity);}
+ updateManualTotals();
 }
 }else if(e.target.matches('[data-pp-m-header]')){
    draft[e.target.dataset.ppMHeader]=e.target.value;
