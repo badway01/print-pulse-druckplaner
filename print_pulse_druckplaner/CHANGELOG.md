@@ -1,3 +1,12 @@
+# 0.13.28 · Zwei hochwertige A4-Ausdrucke für lokale Bestellungen
+
+- Der bisherige direkte PDF-Link wird durch eine verständliche Auswahl ersetzt: interner Werkstattauftrag oder Kundenbeileger. Bestehende und abgeschlossene lokale Bestellungen sind weiterhin nutzbar.
+- Beide A4-Dokumente verwenden das bereits integrierte originale Print & Pulse Logo und ein sauberes, druckfreundliches Layout.
+- Werkstattauftrag mit Kunde, Auftragsdaten, Ausführung, Fälligkeitsdatum, internen Notizen, Druck-/Qualitäts-/Verpackungscheckliste und Schreibplatz.
+- Kundenbeileger mit Bestellübersicht, Wunschfarben, Varianten, Personalisierung und Dankestext – bewusst ohne Preise, interne Notizen oder Werkstattdaten.
+- Authentifizierter PDF-Abruf innerhalb der aktiven Home-Assistant-Sitzung; nur echte PDF-Dateien werden gespeichert. Bei HTTP 401/403 erscheint eine verständliche Fehlermeldung statt eines fehlerhaften Downloads.
+- PDF-Vorlagen bleiben vollständig lokal, erzeugen keine Lagerbewegungen und verändern keine Bestellungen.
+
 # 0.13.27 · Filamentbestellungen verständlich prüfen und sicher löschen
 
 - Importprüfung benennt jedes fehlende Pflichtfeld einzeln rot und öffnet Hersteller/Material automatisch, wenn dort etwas fehlt.
