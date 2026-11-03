@@ -375,7 +375,7 @@ class LocalOrderTests(unittest.TestCase):
 
     def test_local_history_pagination_and_pickup_remain_compatible(self):
         ids=[self.call(app.local_orders.create,self.payload(
-            request_key='pagination-shipping-'+str(i)+'-123'))['id'] for i in range(4)]
+            request_key='page-'+str(i)+'-test-123'))['id'] for i in range(4)]
         with app.connect() as db:
             page_one=app.local_orders.history_page(db,limit=2,offset=0)
             page_two=app.local_orders.history_page(db,limit=2,offset=2)
