@@ -54,7 +54,7 @@ except ImportError:
     _purchase_spec.loader.exec_module(filament_purchases)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.27'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.28'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2362,16 +2362,20 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/local-order-pdf':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             order_id=(params.get('id') or [''])[0]
+            kind=(params.get('kind') or ['customer'])[0]
             if not re.fullmatch(r'LOK-[A-Z0-9-]{7,50}',order_id):
                 return self.send(400,{'error':'Ungültige lokale Bestellnummer.'})
+            if kind not in ('internal','customer'):
+                return self.send(400,{'error':'Unbekannte PDF-Vorlage.'})
             try:
                 with connect() as db:
                     db.execute('BEGIN')
-                    snapshot=local_order_pdf.customer_snapshot(db,order_id)
-                document=local_order_pdf.render_pdf(snapshot)
+                    snapshot=local_order_pdf.customer_snapshot(
+                        db,order_id,include_internal=(kind=='internal'))
+                document=local_order_pdf.render_pdf(snapshot,kind=kind)
                 if len(document)>10*1024*1024:
                     return self.send(413,{'error':'PDF zu groß. Bitte weniger Positionen auswählen.'})
-                filename=local_order_pdf.safe_filename(snapshot['customer'])
+                filename=local_order_pdf.safe_filename(snapshot['customer'],kind=kind)
                 self.send_response(200)
                 self.send_header('Content-Type','application/pdf')
                 self.send_header('Content-Length',str(len(document)))
