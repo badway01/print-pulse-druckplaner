@@ -1,3 +1,10 @@
+# 0.13.29 · Filamentimport: Echtzeitprüfung und Auswahlhilfen
+
+- Gültige Pflichtfelder werden beim Tippen direkt freigegeben.
+- Hersteller- und Materialvorschläge aus dem Katalog.
+- Einheitliche Schreibweise bei Bambu Lab und anderen bekannten Herstellern.
+- Keine Änderungen an bestehenden Lagerbeständen oder Bestellungen.
+
 # 0.13.28 · Zwei hochwertige A4-Ausdrucke für lokale Bestellungen
 
 - Der bisherige direkte PDF-Link wird durch eine verständliche Auswahl ersetzt: interner Werkstattauftrag oder Kundenbeileger. Bestehende und abgeschlossene lokale Bestellungen sind weiterhin nutzbar.

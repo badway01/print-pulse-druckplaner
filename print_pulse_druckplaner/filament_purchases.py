@@ -59,6 +59,33 @@ def key(value):
         .replace('ä','ae').replace('ö','oe').replace('ü','ue'))
     return ''.join(c for c in s.replace('+','plus') if c.isalnum() and not unicodedata.combining(c))
 
+def brand_key(value):
+    """Recognize Bambu short names and letter case without distinct catalog entries."""
+    name=key(value)
+    return 'bambulab' if name in ('bambu','bambulab','bambulabs') else name
+
+def canonical_brand(db,value):
+    name=brand_key(value)
+    if name=='bambulab':return 'Bambu Lab'
+    preferred={'sunlu':'SUNLU','esun':'eSUN','elegoo':'ELEGOO',
+               'polymaker':'Polymaker','prusament':'Prusament',
+               'creality':'Creality','eryone':'ERYONE'}
+    if name in preferred:return preferred[name]
+    for row in db.execute('SELECT DISTINCT brand FROM filament_spools'):
+        if brand_key(row['brand'])==name:return row['brand']
+    return value
+
+def canonical_material(db,brand,value):
+    material=material_key(value)
+    common={'plabasic':'PLA Basic','plamatte':'PLA Matte','plasilk':'PLA Silk',
+            'plaplus':'PLA+','petgbasic':'PETG Basic','petgmatte':'PETG Matte',
+            'abs':'ABS','asa':'ASA','tpu':'TPU'}
+    if material in common:return common[material]
+    for row in db.execute('SELECT DISTINCT brand,material FROM filament_spools'):
+        if brand_key(row['brand'])==brand_key(brand) and material_key(row['material'])==material:
+            return row['material']
+    return value
+
 def material_key(value):
     return {'basicpla':'plabasic','mattepla':'plamatte','plaplus':'plaplus'}.get(key(value),key(value))
 
@@ -76,7 +103,7 @@ def money_to_cents(s):
 
 def suggest_matches(db, line):
     rows=[dict(r) for r in db.execute("SELECT id,brand,material,color,manufacturer_code,color_hex,internal_code FROM filament_spools")]
-    brand=key(line.get('brand'))
+    brand=brand_key(line.get('brand'))
     material=material_key(line.get('material'))
     code=key(line.get('manufacturer_code'))
     name=key(line.get('color'))
@@ -85,7 +112,7 @@ def suggest_matches(db, line):
     if brand=='bambulab' and name=='ivorywhite':name='elfenbeinweiss'
     exact=[]
     for row in rows:
-        if key(row['brand'])!=brand or material_key(row['material'])!=material:continue
+        if brand_key(row['brand'])!=brand or material_key(row['material'])!=material:continue
         if code and key(row['manufacturer_code'])==code:
             exact.append(row)
         elif name and key(row['color'])==name:
@@ -326,6 +353,8 @@ def create(db,data):
         if not isinstance(entry,dict):raise ValueError('Ungültige Bestellposition.')
         item={k:label(entry.get(k,''),maxlen,k,k in ('brand','material','color'))
               for k,maxlen in [('brand',70),('material',45),('color',70),('manufacturer_code',24),('internal_code',24),('color_hex',7),('packaging',12),('description',200)]}
+        item['brand']=canonical_brand(db,item['brand'])
+        item['material']=canonical_material(db,item['brand'],item['material'])
         item['quantity']=num(entry.get('quantity'),1,500,'Rollenanzahl')
         item['grams']=num(entry.get('grams'),50,5000,'Gramm pro Rolle')
         item['gross_cents']=entry.get('gross_cents')
@@ -365,7 +394,7 @@ def create(db,data):
         if fid is not None:
             f=db.execute('SELECT * FROM filament_spools WHERE id=?',(fid,)).fetchone()
             if not f:raise ValueError('Filament nicht gefunden.')
-            if key(f['brand'])!=key(item['brand']) and 'brand' not in item['accept_changes']:
+            if brand_key(f['brand'])!=brand_key(item['brand']) and 'brand' not in item['accept_changes']:
                 raise ValueError('Herstellerabweichung muss ausdrücklich übernommen werden.')
             if material_key(f['material'])!=material_key(item['material']) and 'material' not in item['accept_changes']:
                 raise ValueError('Materialabweichung muss ausdrücklich übernommen werden.')
