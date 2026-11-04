@@ -1,3 +1,11 @@
+## 0.13.38 (2026-11-04)
+
+- Master-3MF-Farbpunkte zeigen interne Nummer und exakten Farbname (z. B. „9 · Light Green“) statt bloß „PLA Matte“.
+- AMS-Belegung und unbearbeitete 3MF-Originalfarben werden klar getrennt. Die Originalfarben bleiben bei vorhandener Belegung aufklappbar, erscheinen aber nicht fälschlich als fehlende AMS-Zuweisung.
+- Änderungen an AMS-Slots, Quelle und Düsenseite aktualisieren die kompakte Vorschau sofort; gespeicherte Zuordnung bleibt erhalten.
+- Fehlfarben im Filament-Farbmuster können direkt im Picker durch eine minimale, sichere HEX-Korrektur berichtigt werden (ohne Bestand, Einkauf oder Preise anzufassen).
+- Produkt-/Bestellkarten bevorzugen die bewusst hinterlegten Profilfarben; 3MF-Druckmengen und Originaldateien bleiben unverändert.
+
 ## 0.13.37 (2026-11-04)
 
 - Master-3MF: Filamentfarben direkt oben in der kompakten Farbleiste bearbeiten, hinzufügen und entfernen. Separate zweite Belegungskarte entfällt.
