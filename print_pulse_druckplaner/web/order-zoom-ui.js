@@ -63,6 +63,18 @@
    '<button type="button" class="secondary" data-local-close="cancel" data-local-id="'+esc(o.id)+'">Stornieren</button>'+
    '<button type="button" class="primary" data-local-handover="'+esc(o.id)+'" '+
     (o.status==='ready'?'':'disabled title="Zuerst alle Positionen fertigstellen"')+'>Übergabe bestätigen</button></div>':'';
+  const orderInsights=(o.items||[]).map(line=>{
+    const selected=composed(line)&&(line.components||[]).length ?
+      (line.components||[]).map(part=>({title:part.name,file:partMasterResolution(line,part).file}))
+        .filter(entry=>!!entry.file) :
+      [{title:orderShortProductTitle(line.title),file:productOrderMaster(line).file}]
+        .filter(entry=>!!entry.file);
+    return selected.map(entry=>
+      '<div class="order-overview-master"><div class="order-overview-master-head">'+
+      '<strong>'+esc(entry.title)+'</strong>'+slicerActions(entry.file)+'</div>'+
+      (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(entry.file,true):'')+'</div>'
+    ).join('');
+   }).join('');
   const html='<div class="order-work-meta"><div><strong>'+esc(o.customer)+'</strong><small>Bestellt am '+esc(shortDate(o.created))+'</small></div>'+
    '<div class="order-deadline '+ship.level+'">'+shippingMarkup(ship)+'</div></div>'+
    (local&&o.notes?'<p class="simple-order-local-notes">'+esc(o.notes)+'</p>':'')+
@@ -70,6 +82,7 @@
    '<p class="simple-order-summary">'+progress.finished+' von '+progress.total+' Stück fertig</p>'+
    (local&&o.status==='ready'?'<button type="button" class="primary local-detail-handover" data-local-handover="'+esc(o.id)+'">Übergabe bestätigen</button>':'')+
    '<div class="simple-order-zoom-tiles">'+(o.items||[]).map(line=>tile(line,true)).join('')+'</div>'+
+   (orderInsights?'<section class="order-overview-insights"><h3>3MF · Kosten &amp; Filamentbelegung</h3>'+orderInsights+'</section>':'')+
    '<details class="simple-order-advanced"><summary>Weitere Auftragsfunktionen (Lager und Bauteile)</summary>'+
    extra+localAdmin+'</details>';
   markupCache.delete(content);updateHTML(content,html);
@@ -119,15 +132,21 @@
   const kinds=new Set(files.map(f=>f.printer+'|'+masterBase(f.filename)));
   return {file:kinds.size===1?files[0]||null:null,files,pinned:false};
  }
+ function slicerActions(file){
+  if(!file)return '';
+  if(!(typeof masterSlicerMac==='function'&&masterSlicerMac()))
+   return '<a class="simple-part-master-open" href="api/master-download?id='+encodeURIComponent(file.id)+'" download>3MF herunterladen</a>';
+  const actions=[['bambu','Bambu Studio'],['orca','OrcaSlicer']];
+  if(file.printer==='Snapmaker U1')actions.unshift(['snapmaker','Snapmaker Orca']);
+  return '<span class="simple-master-slicer-links">'+actions.map(([target,label])=>
+   '<a class="simple-part-master-open" href="'+esc(masterSlicerUrl(file,target))+'">In '+label+' öffnen</a>'
+  ).join('')+'</span>';
+ }
  function productMasterHtml(line){
   if(!listingOf(line))return '';
   const {file,files,pinned}=productOrderMaster(line);
-  const mac=typeof masterSlicerMac==='function'&&masterSlicerMac();
   if(!files.length)return '<div class="simple-pos-master-empty"><b>Druckprojekt</b><span>Noch keine Master-3MF hinterlegt.</span></div>';
-  const open=file?(mac?'<a class="simple-part-master-open" href="'+
-   esc(masterSlicerUrl(file,file.printer==='Snapmaker U1'?'snapmaker':'bambu'))+'">In '+
-   (file.printer==='Snapmaker U1'?'Snapmaker Orca':'Bambu Studio')+' öffnen ↗</a>':
-   '<a class="simple-part-master-open" href="api/master-download?id='+encodeURIComponent(file.id)+'" download>3MF herunterladen</a>'):'';
+  const open=slicerActions(file);
   const choices='<div class="simple-part-master-assign"><select data-order-master-select aria-label="3MF-Projekt auswählen">'+
    '<option value="">3MF-Projekt wählen…</option>'+files.map(f=>'<option value="'+esc(f.id)+'"'+
    (f.id===file?.id?' selected':'')+'>'+esc(f.filename+' · '+f.printer+(f.variant_id?' · Variante':''))+'</option>').join('')+
@@ -136,6 +155,7 @@
    (file?'<div class="simple-part-master-current"><span class="simple-part-master-filename">'+
     esc(file.filename)+' · '+esc(file.printer)+(pinned?' · Standard':'')+'</span>'+open+'</div>':
     '<p class="simple-part-master-hint">Mehrere Druckprojekte vorhanden. Wähle einmal das passende Projekt.</p>')+
+   (file && typeof masterInsightsMarkup==='function'?masterInsightsMarkup(file,true):'')+
    (files.length>1?(file?'<details class="simple-part-master-change"><summary>Projekt wechseln</summary>'+choices+'</details>':choices):'')+
    '</section>';
  }
@@ -184,11 +204,7 @@
  function partMasterHtml(line,part){
   const result=partMasterResolution(line,part),file=result.file;
   if(!result.files.length)return '<div class="simple-part-master hint">Noch keine 3MF für dieses Produkt gespeichert.</div>';
-  const mac=typeof masterSlicerMac==='function'&&masterSlicerMac();
-  const target=file?file.printer==='Snapmaker U1'?'snapmaker':'bambu':null;
-  const action=file?(mac?'<a class="simple-part-master-open" href="'+esc(masterSlicerUrl(file,target))+
-    '" title="'+esc(file.filename)+'">In '+(target==='snapmaker'?'Snapmaker Orca':'Bambu Studio')+' öffnen ↗</a>':
-    '<a class="simple-part-master-open" href="api/master-download?id='+encodeURIComponent(file.id)+'" download>3MF herunterladen</a>'):'';
+  const action=slicerActions(file);
   const select='<select data-part-master-select aria-label="Master-3MF für '+esc(part.name)+' wählen">'+
    '<option value="">3MF-Datei auswählen…</option>'+result.files.map(f=>
     '<option value="'+esc(f.id)+'" '+(file?.id===f.id?'selected':'')+'>'+esc(f.filename+' · '+f.printer+
@@ -199,6 +215,7 @@
    (file?'<div class="simple-part-master-current"><span class="simple-part-master-filename">3MF: '+esc(file.filename)+
       ' · '+esc(file.printer)+'</span>'+action+'</div>':
     '<span class="simple-part-master-hint">Noch keine eindeutige 3MF-Zuordnung</span>')+
+   (file && typeof masterInsightsMarkup==='function'?masterInsightsMarkup(file,true):'')+
    (file?'<details class="simple-part-master-change"><summary>Andere 3MF zuordnen</summary>'+change+'</details>':change)+
    '</div>';
  }

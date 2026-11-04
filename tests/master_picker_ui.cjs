@@ -103,11 +103,21 @@ const assert=require('node:assert/strict');
   assert.match(await page.locator('#master-upload-status').innerText(),/Nur die Aktualisierung/);
   assert.match(await page.locator('#master-files').innerText(),/My_Acorn_beide_größen\.3mf/);
   assert.equal(await page.locator('.master-project-card').count(),1);
+  console.log('3MF CARD DIAG', await page.evaluate(()=>({
+    fn:typeof window.masterInsightsMarkup,
+    js:[...document.scripts].find(s=>s.src.includes('master-insights-ui.js'))?.src,
+    html:document.querySelector('.master-project-card')?.outerHTML?.slice(0,1400),
+    error:window.__ppInsightError||null
+   })));
+  assert.equal(await page.locator('.master-project-card .master-insight-card').count(),1);
+  assert.match(await page.locator('.master-project-card .master-insight-card').innerText(),/Druckdaten/);
+  assert.equal(await page.locator('.master-project-card .master-insight-card').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
   assert.match(await page.locator('.master-project-name strong').innerText(),/My_Acorn_beide_größen\.3mf/);
   assert.equal(await page.locator('#master-file-count').innerText(),'1 Projektdatei');
-  assert.equal(await page.locator('[data-master-slicer-file]').count(),2);
+  assert.equal(await page.locator('[data-master-slicer-file]').count(),3);
   assert.match(await page.locator('[data-master-slicer-file]').first().getAttribute('href'),/^printpulse3mf:\/\/bambu\/[a-f0-9]{24}$/);
-  assert.match(await page.locator('[data-master-slicer-file]').last().getAttribute('href'),/^printpulse3mf:\/\/snapmaker\/[a-f0-9]{24}$/);
+  assert.match(await page.locator('[data-master-slicer-file]').nth(1).getAttribute('href'),/^printpulse3mf:\/\/snapmaker\/[a-f0-9]{24}$/);
+  assert.match(await page.locator('[data-master-slicer-file]').last().getAttribute('href'),/^printpulse3mf:\/\/orca\/[a-f0-9]{24}$/);
   assert.equal(await page.locator('.master-slicer-help a[download]').count(),1);
   assert.equal(await page.locator('.master-slicer-help').getAttribute('open'),null);
   assert.doesNotMatch(await page.locator('#master-upload-status').innerText(),/Upload fehlgeschlagen/);

@@ -26,7 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases
+    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -52,9 +52,12 @@ except ImportError:
     _purchase_spec=importlib.util.spec_from_file_location('pp_filament_purchases',Path(__file__).with_name('filament_purchases.py'))
     filament_purchases=importlib.util.module_from_spec(_purchase_spec)
     _purchase_spec.loader.exec_module(filament_purchases)
+    _master_insights_spec=importlib.util.spec_from_file_location('pp_master_insights',Path(__file__).with_name('master_insights.py'))
+    master_insights=importlib.util.module_from_spec(_master_insights_spec)
+    _master_insights_spec.loader.exec_module(master_insights)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.32'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.33'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -298,6 +301,7 @@ def init_db():
         economics.schema(db)
         filament_planner.schema(db)
         filament_purchases.schema(db)
+        master_insights.schema(db)
         filament_planner.backfill_existing(db)
         # Previously stored order-print records must survive all add-on updates.
         print_columns={col['name'] for col in db.execute("PRAGMA table_info(stock_order_prints)")}
@@ -1368,7 +1372,7 @@ def print_tools_overview(listing_id=None):
         profiles=[dict(r) for r in db.execute(
             'SELECT * FROM pp_master_filament_profiles'+where+' ORDER BY listing_id,printer,variant_id',args)]
         files=[dict(r) for r in db.execute(
-            'SELECT id,listing_id,variant_id,printer,filename,bytes,created FROM master_files'
+            'SELECT id,listing_id,variant_id,printer,filename,bytes,created,relative_path FROM master_files'
             +where+' ORDER BY created DESC,id DESC',args)]
         links=[dict(r) for r in db.execute("""SELECT m.component_id,m.variant_id,m.printer,m.file_id,
             c.listing_id FROM pp_component_master_links m
@@ -1390,6 +1394,30 @@ def print_tools_overview(listing_id=None):
         spools={r['id']:{**dict(r),'internal_code':dict(r).get('internal_code',''),
                          'notes':dict(r).get('notes','')}
                 for r in db.execute('SELECT '+','.join(available)+' FROM filament_spools')}
+        # Per-file statistics are independent from printer color profiles. The
+        # original 3MF archive remains immutable; historical files are scanned
+        # only once for small, bounded slicer metadata.
+        # A few legacy/isolated databases still have no internal_code or
+        # spool_g column. Keep the old 3MF overview working unchanged.
+        insight_fields=[c for c in ('id','brand','color','material','color_hex',
+                                     'internal_code','price_cents','spool_g') if c in cols]
+        insight_spools={}
+        for r in db.execute('SELECT '+','.join(insight_fields)+' FROM filament_spools'):
+            item=dict(r)
+            item.setdefault('internal_code','')
+            item.setdefault('price_cents',None)
+            item.setdefault('spool_g',1000)
+            insight_spools[item['id']]=item
+        spool_options=[{'id':r['id'],'name':r['brand']+' · '+r['material']+' '+r['color'],
+                        'code':r['internal_code'],'hex':r['color_hex']} for r in insight_spools.values()]
+        for file in files:
+            try:
+                file['insights']=master_insights.summarize(db,file,MASTER_ROOT,insight_spools)
+            except (OSError,ValueError,TypeError,sqlite3.Error):
+                log.exception('3MF-Druckdaten unvollständig für %s',file['id'])
+                file['insights']={'filaments':[],'time_seconds':None,'production_eur':None,
+                                  'material_eur':None,'print_count':0,'last_print':None}
+            file.pop('relative_path',None)
     for row in profiles:
         raw=row.pop('sources_json',None)
         try:
@@ -1419,7 +1447,8 @@ def print_tools_overview(listing_id=None):
                         'brand':f['brand'],'material':f['material'],'hex':f['color_hex'],
                         'slot':label+' · '+str(number)})
         row['sources']=clean
-    return {'profiles':profiles,'files':files,'component_links':links,'order_master_defaults':defaults}
+    return {'profiles':profiles,'files':files,'component_links':links,'order_master_defaults':defaults,
+            'filaments_library':spool_options}
 
 
 
@@ -1809,6 +1838,7 @@ def delete_master_file(data):
                 moved=True
             db.execute('DELETE FROM pp_component_master_links WHERE file_id=?',(file_id,))
             db.execute('DELETE FROM pp_order_master_defaults WHERE file_id=?',(file_id,))
+            db.execute('DELETE FROM pp_master_file_insights WHERE file_id=?',(file_id,))
             db.execute('DELETE FROM master_files WHERE id=?',(file_id,))
     except BaseException:
         if moved:
@@ -2491,7 +2521,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except (ValueError,FileNotFoundError):
                 return self.send(404,{'error':'Datei nicht verfügbar.'})
-        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
+        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/master-insights-ui.js':('master-insights-ui.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
@@ -2735,6 +2765,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,finish_master_upload(data.get('upload_id')))
             if path=='/api/master-delete':
                 return self.send(200,delete_master_file(data))
+            if path=='/api/master-insights':
+                with connect() as db:
+                    return self.send(200,master_insights.change(db,MASTER_ROOT,data.get('id'),data))
             if path=='/api/print-profile':
                 return self.send(200,save_print_profile(data))
             if path=='/api/master-component-link':

@@ -1,3 +1,9 @@
+## 0.13.33 (2026-11-04)
+
+- 3MF-Druckdatenkarten: Kosten, Druckzeit, Filamentfarben, pro Datei gespeicherte Grammwerte und manuell protokollierte Druckanzahl.
+- Live-Anzeige in vorhandenen Bestellungen und Bauteilen, auch mobil. Öffnen in Bambu Studio und OrcaSlicer auf dem Mac.
+- Bestehende 3MF- und Auftragsdaten unverändert. Keine Preisberechnung bei fehlenden Verbrauchsangaben.
+
 ## 0.13.21 (2026-11-01)
 
 - 3D-Kostenrechner in übersichtlichem Print-&-Pulse-Zweispaltenlayout: nur wesentliche Felder sichtbar, mobile Anordnung und große vierstufige Preisempfehlung.

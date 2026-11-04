@@ -400,7 +400,7 @@ class MasterTests(unittest.TestCase):
               purchase_url TEXT NOT NULL DEFAULT '',stock_qty INTEGER NOT NULL DEFAULT 0,
               cart_qty INTEGER NOT NULL DEFAULT 0,created INTEGER NOT NULL,updated INTEGER NOT NULL)""")
             db.execute("DROP TABLE filament_spools_new")
-        self.assertEqual(app.print_tools_overview(),{'profiles':[],'files':[],'component_links':[],'order_master_defaults':[]})
+        self.assertEqual(app.print_tools_overview(),{'profiles':[],'files':[],'component_links':[],'order_master_defaults':[],'filaments_library':[]})
 
     def test_existing_filament_schema_is_migrated(self):
         with app.connect() as db:
@@ -430,7 +430,7 @@ class MasterTests(unittest.TestCase):
             db.execute("""INSERT INTO print_profiles(profile_id,printer_name,preset)
                           VALUES(7,'Altgerät','Unverändert')""")
         app.init_db()
-        self.assertEqual(app.print_tools_overview(),{'profiles':[],'files':[],'component_links':[],'order_master_defaults':[]})
+        self.assertEqual(app.print_tools_overview(),{'profiles':[],'files':[],'component_links':[],'order_master_defaults':[],'filaments_library':[]})
         fid=self.spool()
         saved=app.save_print_profile({'listing_id':'123','variant_id':'variant1','printer':'H2D',
                  'sources':[{'type':'external','slots':[fid]}]})
