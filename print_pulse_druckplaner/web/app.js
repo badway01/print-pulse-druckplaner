@@ -1734,7 +1734,7 @@ function renderMasterFiles(){
   const bambu='<a class="master-action master-action-'+(printerLabel==='Snapmaker U1'?'secondary':'primary')+'" data-master-slicer-file="'+esc(f.id)+'" href="'+esc(masterSlicerUrl(f,'bambu'))+'">In Bambu Studio öffnen</a>';
   const orca='<a class="master-action master-action-secondary" data-master-slicer-file="'+esc(f.id)+'" href="'+esc(masterSlicerUrl(f,'orca'))+'">In Orca öffnen</a>';
   const snap='<a class="master-action master-action-primary" data-master-slicer-file="'+esc(f.id)+'" href="'+esc(masterSlicerUrl(f,'snapmaker'))+'">In Snapmaker Orca öffnen</a>';
-  const actions=mac?(printerLabel==='Snapmaker U1'?snap+bambu+orca:bambu+orca):'';
+  const actions=mac?(printerLabel==='Snapmaker U1'?snap+bambu+orca:bambu+snap+orca):'';
   const download='<a class="master-file-download" href="api/master-download?id='+id+'" download>3MF herunterladen</a>';
   return '<article class="master-file master-project-card"><div class="master-project-top"><span class="master-project-icon" aria-hidden="true">3MF</span><div class="master-project-info"><div class="master-project-name">'+
    '<strong title="'+esc(f.filename)+'">'+esc(f.filename)+'</strong>'+(index===0?'<span class="master-project-latest">Neueste</span>':'')+'</div>'+
