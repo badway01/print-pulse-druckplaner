@@ -2,12 +2,12 @@
 
 - Jede gespeicherte Master-3MF zeigt direkt Druckzeit, erfasste Druckanzahl, letzten protokollierten Druck, Grammverbrauch und aktuelle kalkulierte Druckkosten.
 - Helle, mobiloptimierte Filamentübersicht mit Farbpunkten und tatsächlichen Prozentanteilen, sofern Verbrauchsdaten vorhanden sind.
+- Der vorhandene Kostenrechner behält seine Etsy-Gebühren, Preisstufen und die gespeicherten Druckerkosten unverändert bei.
 - Bambu- und Orca-3MF-Projekte werden beim ersten Abruf auf sichere Slicer-Metadaten geprüft; bestehende Originaldateien werden nicht verändert.
 - Verbrauch und Druckzeit können je Datei ergänzt werden. Kalkulation nutzt hinterlegte Rollenpreise und die Strom-/Maschineneinstellungen des Kostenrechners; bei fehlenden Daten werden keine Preise erfunden.
 - Gleiche Infokarten bei bereits bestehenden Etsy- und lokalen Bestellpositionen sowie Bauteilen dank Live-Verknüpfung.
 - Auf dem Mac stehen „In Bambu Studio öffnen“ und „In Orca öffnen“ zur Verfügung. Der bestehende lokale Öffnen-Helfer unterstützt auch OrcaSlicer.
 - Druckzähler wird bewusst nur über „Druck protokollieren“ erhöht. Daten von Lager, Bestellungen, 3MF und Druckprofilen bleiben erhalten.
-- Der vorhandene Kostenrechner behält seine Etsy-Gebühren, Preisstufen und die gespeicherten Druckerkosten unverändert bei.
 
 # 0.13.32 · Filament-Einkaufsdaten & interne Codes
 
