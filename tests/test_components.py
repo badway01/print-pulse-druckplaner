@@ -316,6 +316,59 @@ class ComponentTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=5)
 
+    def test_color_cards_follow_only_the_ordered_variant(self):
+        # Existing Karte components are still unassigned in old databases.
+        # Four distinct color siblings may be safely mapped from Etsy labels.
+        with app.connect() as db:
+            db.executemany("""INSERT INTO stock_items
+                (id,listing_id,product_id,label,signature) VALUES(?,?,?,?,?)""",[
+                ('card-white','101','p-white','Kartenfarbe: Weiße Karte',''),
+                ('card-beige','101','p-beige','Kartenfarbe: Beige Karte',''),
+                ('card-black','101','p-black','Kartenfarbe: Schwarze Karte',''),
+                ('card-gold','101','p-gold','Kartenfarbe: Gold Edition','')])
+        for color in ('weiß','beige','schwarz','gold'):
+            self.change(action='save',listing_id='101',name='Karte',color=color,
+                        kind='demand',units=1)
+        with app.connect() as db:
+            parts=[dict(x) for x in db.execute('SELECT * FROM pp_components WHERE listing_id=?',('101',))]
+            items=[dict(x) for x in db.execute('SELECT id,label FROM stock_items WHERE listing_id=?',('101',))]
+            for variant,color in (('card-white','weiß'),('card-beige','beige'),
+                                  ('card-black','schwarz'),('card-gold','gold')):
+                line={'listing_id':'101','item_id':variant,'transaction_id':'order-'+variant,
+                      'quantity':1,'variant':'Kartenfarbe: '+variant}
+                products=[{'id':'101','items':items,'components_enabled':True}]
+                orders=[{'items':[line]}]
+                app.components.snapshot(db,products,orders)
+                selected=orders[0]['items'][0]['components']
+                self.assertEqual(len(selected),1,(variant,selected))
+                self.assertEqual(selected[0]['color'],color)
+                self.assertEqual(products[0]['components'][0]['variant_source'],'automatic')
+        # Old shared components with no color family stay shared.
+        self.change(action='save',listing_id='101',name='Gemeinsamer Halter',kind='stock',units=1)
+        with app.connect() as db:
+            all_parts=[dict(x) for x in db.execute('SELECT * FROM pp_components WHERE listing_id=?',('101',))]
+        holder=next(p for p in all_parts if p['name']=='Gemeinsamer Halter')
+        self.assertEqual(app.components.component_variant_id(holder,all_parts,items),'')
+
+    def test_manual_component_variant_persists_and_rejects_foreign_orders(self):
+        ids=self.configure()
+        with app.connect() as db:
+            db.execute("""INSERT INTO stock_items
+                (id,listing_id,product_id,label,signature)
+                VALUES('other-color','101','other','Buchfarbe: Rot','')""")
+        self.change(action='save',listing_id='101',id=ids['Buch'],name='Buch',
+                    kind='demand',units=1,property_name='Buchfarbe',
+                    quantity_property='Setgröße',variant_id='other-color')
+        part=next(p for p in self.state()['products'][0]['components'] if p['id']==ids['Buch'])
+        self.assertEqual(part['variant_id'],'other-color')
+        order=self.state()['orders'][0]['items'][0]
+        self.assertNotIn(ids['Buch'],[p['id'] for p in order['components']])
+        with self.assertRaisesRegex(ValueError,'Bauteil nicht gefunden'):
+            self.change(action='start',transaction_id='tx1',component_id=ids['Buch'],quantity=1)
+        with self.assertRaisesRegex(ValueError,'Bauteilvariante'):
+            self.change(action='save',listing_id='101',name='Falsch',kind='demand',
+                        units=1,variant_id='another-listing')
+
 
 if __name__=='__main__':
     unittest.main()

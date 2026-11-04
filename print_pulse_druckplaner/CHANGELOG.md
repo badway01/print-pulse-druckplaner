@@ -1,3 +1,12 @@
+# 0.13.39 · Bauteile eindeutig nach Etsy-Variante zuordnen
+
+- Bestellungen zeigen nur die Bauteile der gekauften Etsy-Variante, nicht alle Farbkarten desselben Produkts.
+- Bestehende gleichnamige Farbkarten (weiß, beige, schwarz, gold) werden ausschließlich bei eindeutiger Zuordnung automatisch der passenden Etsy-Variante zugeteilt.
+- Im Bauteileditor kann die Variante manuell gewählt werden; gemeinsame Bauteile bleiben weiterhin möglich.
+- „Alle Varianten“ im 3MF-Bearbeitungsdialog ist nicht mehr als bearbeitbares Ziel verfügbar. Historische Standarddateien bleiben vorhanden und in der Übersicht lesbar.
+- Falsche Varianten können nicht über die Bauteil-API als Druck oder Fertigmeldung gebucht werden. Vorhandene Auftragsbuchungen werden geschont.
+- Keine Löschung bestehender Etsy-Bestellungen, Druckdateien, Lagerbestände oder Filamentdaten.
+
 # 0.13.38 · Zuverlässige Farbchips und Farbmuster
 
 - Bei allen Master-Farbpunkten stehen interne Nummer und echter Farbname; auch für H2D links/rechts und beim Editieren.

@@ -1642,9 +1642,13 @@ async function openMasterEditor(id){
  if(!p)return;
  masterContext=p;
  $('master-title').textContent=p.title;
- $('master-variant').innerHTML='<option value="">Alle Varianten (Standard)</option>'+p.items.map(i=>'<option value="'+esc(i.id)+'">'+esc(i.label)+'</option>').join('');
+ // The overview may include all variants, but editing/uploads always target
+ // a concrete Etsy SKU. Existing legacy generic 3MF files remain untouched.
+ $('master-variant').innerHTML=p.items.length?
+    p.items.map(i=>'<option value="'+esc(i.id)+'">'+esc(i.label)+'</option>').join(''):
+    '<option value="">Standard (Produkt ohne Varianten)</option>';
  $('master-printer').innerHTML=masterPrinters.map(name=>'<option value="'+esc(name)+'">'+esc(name)+'</option>').join('');
- $('master-variant').value='';
+ $('master-variant').value=p.items[0]?.id||'';
  $('master-printer').value='H2D';
  $('master-editor').showModal();
  $('master-share-path').textContent=masterShareFolderUrl();

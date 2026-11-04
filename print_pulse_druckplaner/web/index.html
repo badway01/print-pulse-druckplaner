@@ -355,6 +355,7 @@
   <input id="components-id" type="hidden">
   <label>Bauteilname<input id="components-name" maxlength="100" placeholder="z. B. Geist Weiß" required></label>
   <label>Farbe (optional)<input id="components-color" maxlength="60" placeholder="z. B. Beige, Weiß oder Jadegrün" autocomplete="off"></label>
+  <label>Für Etsy-Variante<select id="components-variant"></select></label>
   <label>Produktionsart<select id="components-kind">
    <option value="stock">Vorratsbauteil – gemeinsam für alle Varianten</option>
    <option value="demand">Erst nach Bestellung drucken</option></select></label>
@@ -371,7 +372,7 @@
 <dialog id="master-editor" class="master-editor">
 <div class="dialog-heading"><h2 id="master-title">Masterdateien &amp; Farben</h2><button type="button" data-close="master-editor" class="icon-button" aria-label="Schließen">×</button></div>
 <p class="master-dialog-subtitle">Das passende 3MF-Druckprojekt wählen und direkt im Slicer öffnen.</p>
-<div class="master-context"><label>Variante<select id="master-variant"></select></label><label>Drucker<select id="master-printer"></select></label></div>
+<div class="master-context"><label>Variante<select id="master-variant" aria-label="Konkrete Etsy-Variante auswählen"></select></label><label>Drucker<select id="master-printer"></select></label></div>
 <section class="master-projects-section">
  <div class="master-section-heading"><div><h3>Master-3MF-Dateien</h3><p>Gespeicherte Projekte für diesen Drucker und diese Variante.</p></div><span id="master-file-count" class="master-files-count">0 Projektdateien</span></div>
  <div id="master-files" class="master-project-list"></div>

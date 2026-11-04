@@ -234,6 +234,11 @@
   const chosen=maps.sort((a,b)=>Number(String(b.variant_id)===vid)-Number(String(a.variant_id)===vid))
     .map(m=>files.find(f=>f.id===m.file_id&&f.printer===m.printer)).find(Boolean);
   if(chosen)return {file:chosen,files,linked:true};
+  // Once the purchased Etsy variant has exactly one required component and
+  // one eligible 3MF, its selection is unambiguous even when the component is
+  // called "Karte" and the project is "schwarze Karte.3mf".
+  if(files.length===1&&(line.components||[]).filter(p=>Number(p.required)>0).length===1)
+   return {file:files[0],files,linked:false};
   const partWords=words(part.name);
   const matches=files.map(f=>{
    const base=masterBase(f.filename), fw=words(f.filename);
