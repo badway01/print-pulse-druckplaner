@@ -29,6 +29,21 @@ class FilamentTests(unittest.TestCase):
         app.filament_mutate(data)
         return app.filament_overview()['filaments'][0]['id']
 
+    def test_swatch_color_hex_update_does_not_change_inventory_or_prices(self):
+        id=self.add(color='Light Green',color_hex='#ffffff',stock_qty=3,price='14,50',
+                    internal_code='9',manufacturer_code='PLAMATT09')
+        before=app.filament_overview()['filaments'][0]
+        app.filament_mutate({'action':'color_hex','id':id,'color_hex':'#74c476'})
+        after=app.filament_overview()['filaments'][0]
+        self.assertEqual(after['color_hex'],'#74C476')
+        for field in ('id','brand','color','material','price_cents','stock_qty',
+                      'open_qty','internal_code','manufacturer_code','cart_qty'):
+            self.assertEqual(before[field],after[field],field)
+        for invalid in ('green','#fff','#GG0000','ffffff'):
+            with self.assertRaisesRegex(ValueError,'Farbwert'):
+                app.filament_mutate({'action':'color_hex','id':id,'color_hex':invalid})
+        self.assertEqual(app.filament_overview()['filaments'][0]['color_hex'],'#74C476')
+
     def test_add_edit_cart_and_received(self):
         id=self.add()
         for _ in range(2):app.filament_mutate({'action':'cart','id':id,'delta':1})
