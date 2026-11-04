@@ -104,6 +104,22 @@ class MasterTests(unittest.TestCase):
         app.MASTER_IMPORT_ROOT=self.original_import_root
         self.temp.cleanup()
 
+    def test_all_variants_is_read_only_when_multiple_etsy_variants_exist(self):
+        with app.connect() as db:
+            db.execute("""INSERT INTO stock_items(id,listing_id,product_id,label,signature)
+                VALUES('variant2','123','v2','Schwarz','')""")
+        with self.assertRaisesRegex(ValueError,'konkrete Variante'):
+            app.save_print_profile({'listing_id':'123','variant_id':'',
+                                    'printer':'H2D','sources':[]})
+        with self.assertRaisesRegex(ValueError,'konkrete Variante'):
+            app.store_master_file({'listing_id':'123','variant_id':'',
+                                   'printer':'H2D','filename':'Alle.3mf'},
+                                  io.BytesIO(b'test'),4)
+        # An individual Etsy variant remains editable.
+        result=app.save_print_profile({'listing_id':'123','variant_id':'variant1',
+                                       'printer':'H2D','sources':[]})
+        self.assertEqual(result['profiles'][0]['variant_id'],'variant1')
+
     def spool(self):
         app.filament_mutate({'action':'save','id':None,'brand':'Bambu','color':'Weiß','material':'PLA Matte',
                              'stock_qty':2,'price':'14,50','purchase_url':'',
