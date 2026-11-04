@@ -1397,8 +1397,17 @@ def print_tools_overview(listing_id=None):
         # Per-file statistics are independent from printer color profiles. The
         # original 3MF archive remains immutable; historical files are scanned
         # only once for small, bounded slicer metadata.
-        insight_spools={r['id']:dict(r) for r in db.execute(
-            'SELECT id,brand,color,material,color_hex,internal_code,price_cents,spool_g FROM filament_spools')}
+        # A few legacy/isolated databases still have no internal_code or
+        # spool_g column. Keep the old 3MF overview working unchanged.
+        insight_fields=[c for c in ('id','brand','color','material','color_hex',
+                                     'internal_code','price_cents','spool_g') if c in cols]
+        insight_spools={}
+        for r in db.execute('SELECT '+','.join(insight_fields)+' FROM filament_spools'):
+            item=dict(r)
+            item.setdefault('internal_code','')
+            item.setdefault('price_cents',None)
+            item.setdefault('spool_g',1000)
+            insight_spools[item['id']]=item
         spool_options=[{'id':r['id'],'name':r['brand']+' · '+r['material']+' '+r['color'],
                         'code':r['internal_code'],'hex':r['color_hex']} for r in insight_spools.values()]
         for file in files:
