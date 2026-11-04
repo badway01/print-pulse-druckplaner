@@ -56,6 +56,20 @@ const assert=require('node:assert/strict');
   assert.equal(saved.component_id,'part-schale');
   assert.equal(saved.printer,'H2D');
   assert.match(await rows.nth(0).locator('.simple-part-master-open').first().getAttribute('href'),new RegExp(secondId));
+  // A single card component and a single variant-specific master must pair
+  // automatically, even if filename and component name are not identical.
+  const actualVariant=await page.evaluate(()=>model.orders[0].items[0].item_id);
+  files.splice(0,files.length,{id:firstId,listing_id:'101',variant_id:actualVariant,
+    printer:'H2D',filename:'schwarze Karte.3mf',created:55,bytes:150000});
+  links=[];
+  await page.evaluate(()=>{
+    const line=model.orders[0].items[0];
+    line.components=[{...line.components[0],name:'Karte'}];
+  });
+  await page.locator('#order-position [data-focus-close]').click();
+  await page.locator('[data-order-position="test-part-line"]').first().click();
+  await page.waitForFunction(()=>document.querySelector('#order-position .simple-part-master-filename')?.textContent.includes('schwarze Karte.3mf'));
+  assert.equal(await page.locator('#order-position .simple-pos-part').count(),1);
   assert.deepEqual(errors,[]);
   console.log('ORDER PART MASTER PASS: correct 3MF per part, direct links, persistent mapping, print buttons');
  }finally{await browser.close();}
