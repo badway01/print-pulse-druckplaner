@@ -1,3 +1,9 @@
+# 0.13.37 · Kompakte Filamente mit H2D-Düsenanzeige
+
+- Farben direkt bei den Master-3MF-Farbpunkten ändern, hinzufügen und löschen, ohne zweite große Belegungskarte.
+- AMS, AMS HT und externe Spulen in H2D auf linke/rechte Düse legen; dauerhaft im bestehenden Profil speichern.
+- Kein Eingriff in Original-3MF oder gespeicherte Grammwerte und Druckkosten.
+
 # 0.13.36 · Deutliche Kundenvarianten in der Bestellung
 
 - Bestellpositionen zeigen Farbeigenschaften und weitere Kundenwünsche einzeln mit deutlichen Beschriftungen und Werten.
