@@ -1692,7 +1692,15 @@ function masterPalettePreviewMarkup(file){
  g.sources.map(s=>'<div class="pp-palette-view-source"><small>'+esc(s.label)+'</small><div class="master-insight-colors">'+s.slots.filter(Boolean).map(fid=>{const item=masterFilament(fid);return '<span class="master-insight-color" title="'+esc((item?.color||'Filament fehlt')+' · '+s.label)+'">'+dot(item?.color_hex)+'<span>'+esc(item?.material||'PLA')+'</span></span>';}).join('')+'</div></div>').join('')+'</div>').join('');
  const detected=(file.insights?.filaments||[]).map(row=>'<span class="master-insight-color" title="'+esc(row.name||'3MF-Filament')+'">'+dot(row.color_hex)+'<span>'+esc(row.name||'PLA')+'</span></span>').join('');
  const assigned=sources.some(s=>s.slots.some(Boolean));
- const preview=assigned?previewGroups:detected?'<div class="master-insight-colors">'+detected+'</div><small class="pp-palette-origin">Aus 3MF erkannt · Düsenbelegung noch nicht hinterlegt</small>':previewGroups||'<p class="master-insight-missing">Noch keine Filamente zugeordnet.</p>';
+ const matched=(sources.flatMap(s=>s.slots).filter(Boolean)).map(id=>{const f=masterFilament(id);return {id:String(id),hex:String(f?.color_hex||'').toLowerCase()};});
+ const pending=(file.insights?.filaments||[]).filter(row=>{
+   const index=matched.findIndex(f=>(row.filament_id&&f.id===String(row.filament_id))||(f.hex&&f.hex===String(row.color_hex||'').toLowerCase()));
+   if(index<0)return true;
+   matched.splice(index,1);return false;
+ });
+ const pendingMarkup=pending.map(row=>'<span class="master-insight-color" title="'+esc(row.name||'3MF-Filament')+'">'+dot(row.color_hex)+'<span>'+esc(row.name||'PLA')+'</span></span>').join('');
+ const leftover=(pendingMarkup&&assigned?'<div class="pp-palette-view-group"><div class="pp-palette-view-label">Noch ohne Düsen-Zuordnung · aus 3MF</div><div class="master-insight-colors">'+pendingMarkup+'</div></div>':'');
+ const preview=assigned?previewGroups+leftover:profile?previewGroups||'<p class="master-insight-missing">Keine Farben im Druckprofil.</p>':detected?'<div class="master-insight-colors">'+detected+'</div><small class="pp-palette-origin">Aus 3MF erkannt · Düsenbelegung noch nicht hinterlegt</small>':previewGroups||'<p class="master-insight-missing">Noch keine Filamente zugeordnet.</p>';
  return '<div class="master-insight-palette pp-palette-inline"><div class="pp-palette-header"><strong>Benötigte Filamente</strong>'+
  (active?'<button type="button" class="pp-palette-edit-button" data-master-color-edit="'+esc(file.id)+'" aria-expanded="'+(masterColorEditFileId===file.id)+'">'+(masterColorEditFileId===file.id?'Schließen':'Farben & Düsen bearbeiten')+'</button>':'')+
  '</div>'+preview+(active?'<div data-master-palette-mount="'+esc(file.id)+'"></div>':'')+'</div>';
