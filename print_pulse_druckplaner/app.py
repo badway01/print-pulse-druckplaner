@@ -57,7 +57,7 @@ except ImportError:
     _master_insights_spec.loader.exec_module(master_insights)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.33'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.34'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"

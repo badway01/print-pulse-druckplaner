@@ -1,3 +1,7 @@
+## 0.13.34 (2026-11-04)
+
+- Filament-Prozentanteile aus allen 3MF-Infokarten im Master-Editor und in aktuellen Bestellungen entfernt. Farbpunkte, Filamentnamen und Kosten bleiben erhalten.
+
 ## 0.13.33 (2026-11-04)
 
 - 3MF-Druckdatenkarten: Kosten, Druckzeit, Filamentfarben, pro Datei gespeicherte Grammwerte und manuell protokollierte Druckanzahl.
