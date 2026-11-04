@@ -7,7 +7,7 @@ let orderSort='ship';
 let workspace='production',filamentView='colors',filamentData=null,filamentBusy=false,filamentLoading=false;
 let filamentSort='default';
 try{const saved=localStorage.getItem('pp-filament-sort');if(['default','stock-desc','stock-asc','internal-code','manufacturer-code','hex-code'].includes(saved))filamentSort=saved;}catch{}
-let printTools={profiles:[],files:[],component_links:[],order_master_defaults:[]}, masterContext=null,masterSources=[],masterBusy=false,masterUploadPending=null;
+let printTools={profiles:[],files:[],component_links:[],order_master_defaults:[],filaments_library:[]}, masterContext=null,masterSources=[],masterBusy=false,masterUploadPending=null;
 let printerLive=null,printerLoading=false,printerEntities=[],printerConfigId=null,printerConfigBusy=false;
 let etsyAlertExpanded=false,etsyAlertFocused=null;
 try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
@@ -1718,7 +1718,7 @@ function masterSlicerMac(){
  return /Macintosh/.test(navigator.userAgent) && !('ontouchend' in document);
 }
 function masterSlicerUrl(file,slicer='bambu'){
- if(!file||!/^[a-f0-9]{24}$/.test(file.id)||!['bambu','snapmaker'].includes(slicer))return '';
+ if(!file||!/^[a-f0-9]{24}$/.test(file.id)||!['bambu','orca','snapmaker'].includes(slicer))return '';
  const candidate=window.location.hostname.toLowerCase();
  const host=/^(10\.(\d{1,3}\.){2}\d{1,3}|192\.168\.(\d{1,3}\.)\d{1,3}|172\.(1[6-9]|2\d|3[01])\.(\d{1,3}\.)\d{1,3}|[a-z0-9-]+\.local)$/.test(candidate)?candidate:'';
  return 'printpulse3mf://'+slicer+'/'+file.id+(host?'?server='+encodeURIComponent(host):'');
@@ -1732,13 +1732,15 @@ function renderMasterFiles(){
   const id=encodeURIComponent(f.id), stamp=new Date(f.created*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'});
   const printerLabel=x.printer||'Drucker';
   const bambu='<a class="master-action master-action-'+(printerLabel==='Snapmaker U1'?'secondary':'primary')+'" data-master-slicer-file="'+esc(f.id)+'" href="'+esc(masterSlicerUrl(f,'bambu'))+'">In Bambu Studio öffnen</a>';
-  const snap='<a class="master-action master-action-'+(printerLabel==='Snapmaker U1'?'primary':'secondary')+'" data-master-slicer-file="'+esc(f.id)+'" href="'+esc(masterSlicerUrl(f,'snapmaker'))+'">In Snapmaker Orca öffnen</a>';
-  const actions=mac?(printerLabel==='Snapmaker U1'?snap+bambu:bambu+snap):'';
+  const orca='<a class="master-action master-action-secondary" data-master-slicer-file="'+esc(f.id)+'" href="'+esc(masterSlicerUrl(f,'orca'))+'">In Orca öffnen</a>';
+  const snap='<a class="master-action master-action-primary" data-master-slicer-file="'+esc(f.id)+'" href="'+esc(masterSlicerUrl(f,'snapmaker'))+'">In Snapmaker Orca öffnen</a>';
+  const actions=mac?(printerLabel==='Snapmaker U1'?snap+bambu+orca:bambu+orca):'';
   const download='<a class="master-file-download" href="api/master-download?id='+id+'" download>3MF herunterladen</a>';
   return '<article class="master-file master-project-card"><div class="master-project-top"><span class="master-project-icon" aria-hidden="true">3MF</span><div class="master-project-info"><div class="master-project-name">'+
    '<strong title="'+esc(f.filename)+'">'+esc(f.filename)+'</strong>'+(index===0?'<span class="master-project-latest">Neueste</span>':'')+'</div>'+
    '<div class="master-project-meta"><span>'+esc(printerLabel)+'</span><span>'+esc(stamp)+'</span><span>'+(f.bytes/1048576).toFixed(1)+' MB</span></div></div>'+
    '<button type="button" class="master-delete" data-master-delete="'+esc(f.id)+'" title="3MF löschen" aria-label="'+esc(f.filename)+' löschen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div>'+
+   (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f):'')+
    '<div class="master-project-actions">'+actions+download+'</div></article>';
  }).join(''):'<div class="master-files-empty"><strong>Noch keine 3MF-Datei hinterlegt</strong><p>Lege dein fertig eingerichtetes Druckprojekt unter „Neue Masterdatei speichern“ ab. Alle im Projekt gespeicherten Einstellungen bleiben enthalten.</p></div>');
 }
