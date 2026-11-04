@@ -2789,3 +2789,17 @@ html[data-theme="dark"] .local-history-item{background:var(--surface);color:var(
  .simple-master-slicer-links{width:100%}
  .simple-master-slicer-links .simple-part-master-open{flex:1 1 auto;min-width:0;text-align:center}
 }
+
+/* v0.13.33 – 3MF information visible immediately in the expanded order. */
+.order-overview-insights{margin:16px 0 3px;padding-top:12px;border-top:1px solid var(--line)}
+.order-overview-insights>h3{margin:2px 0 12px;font-size:15px;line-height:1.4;color:var(--ink)}
+.order-overview-master{border:1px solid var(--line);border-radius:12px;background:var(--surface-soft);padding:12px;margin:10px 0}
+.order-overview-master-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.order-overview-master-head>strong{font-size:13px;color:var(--ink);overflow-wrap:anywhere;min-width:0}
+.order-overview-master-head .simple-master-slicer-links{gap:6px}
+.order-overview-master>.master-insight-card{margin:10px 0 0}
+@media(max-width:560px){
+ .order-overview-master{padding:9px}
+ .order-overview-master-head{align-items:stretch;flex-direction:column}
+ .order-overview-master-head .simple-master-slicer-links{width:100%}
+}
