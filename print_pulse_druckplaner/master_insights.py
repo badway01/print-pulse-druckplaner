@@ -308,7 +308,10 @@ def change(db, root, file_id, payload):
             if type(grams) not in (int, float) or not math.isfinite(grams) or not 0 < grams <= 100000:
                 raise ValueError("Bitte Gramm je Filament größer 0 eingeben.")
             clean.append({"filament_id": fid, "grams": round(float(grams), 3)})
-        details["filaments"] = clean
+        # A time-only edit must not discard colors detected from an existing 3MF.
+        # An intentional removal of every filament row is explicit.
+        if clean or payload.get("clear_filaments") is True:
+            details["filaments"] = clean
     else:
         raise ValueError("Unbekannte 3MF-Aktion.")
     db.execute("""INSERT INTO pp_master_file_insights(file_id,details_json,updated) VALUES(?,?,?)
