@@ -1,3 +1,9 @@
+## 0.13.37 (2026-11-04)
+
+- Master-3MF: Filamentfarben direkt oben in der kompakten Farbleiste bearbeiten, hinzufügen und entfernen. Separate zweite Belegungskarte entfällt.
+- H2D: AMS, AMS HT und externe Spulen eindeutig einer linken oder rechten Düse zuordnen; historische Profile ohne Düsenangabe bleiben unzugeordnet.
+- Bestehende 3MF-Dateien, Grammwerte, Kalkulationen, Varianten und Bestellungen bleiben erhalten.
+
 ## 0.13.36 (2026-11-04)
 
 - Bestell-Detailansicht: Kundenwunsch als einzelne, gut lesbare Variantenfelder (z. B. Katzenfarbe und Laternenfarbe), mit voller Kartenbreite bei nur einer Position.
