@@ -1445,7 +1445,7 @@ def print_tools_overview(listing_id=None):
                 if f:
                     row['colors'].append({'id':sid,'code':f['internal_code'],'color':f['color'],
                         'brand':f['brand'],'material':f['material'],'hex':f['color_hex'],
-                        'slot':label+' · '+str(number)})
+                        'slot':('Düse links · ' if source.get('side')=='left' else 'Düse rechts · ' if source.get('side')=='right' else '')+label+' · '+str(number)})
         row['sources']=clean
     return {'profiles':profiles,'files':files,'component_links':links,'order_master_defaults':defaults,
             'filaments_library':spool_options}
@@ -1547,7 +1547,10 @@ def save_print_profile(data):
         label=('AMS '+str(sum(s['type']=='ams' for s in clean)+1) if typ=='ams'
                else 'AMS HT '+str(sum(s['type']=='ams_ht' for s in clean)+1) if typ=='ams_ht'
                else 'Externe Spule '+str(sum(s['type']=='external' for s in clean)+1))
-        clean.append({'type':typ,'label':label,'slots':clean_slots})
+        side=source.get('side','')
+        if side not in ('','left','right',None):
+            raise ValueError('Ungültige Düsen-Zuordnung.')
+        clean.append({'type':typ,'label':label,'slots':clean_slots,'side':side or ''})
     with connect() as db:
         lid,variant,printer=validate_profile_target(db,data)
         ids={fid for source in clean for fid in source['slots'] if fid is not None}
