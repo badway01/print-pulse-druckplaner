@@ -1,3 +1,9 @@
+# 0.13.34 · 3MF-Filamentfarben ohne Prozentwerte
+
+- Prozentangaben neben Filamentnamen in Master-3MF und Bestellübersichten entfernt, da der Anteil nicht laufend protokolliert wird.
+- Filamentname, Farbpunkt, optional hinterlegte Grammwerte und bisherige Kostenberechnung bleiben erhalten.
+- Bestehende Bestellungen, Druckprofile und 3MF-Dateien werden nicht verändert.
+
 # 0.13.33 · Helle 3MF-Infokarten in Druckprojekten und Bestellungen
 
 - Jede gespeicherte Master-3MF zeigt direkt Druckzeit, erfasste Druckanzahl, letzten protokollierten Druck, Grammverbrauch und aktuelle kalkulierte Druckkosten.
