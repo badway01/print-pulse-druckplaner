@@ -370,7 +370,8 @@ renderCatalog=function(){
     '<input type="checkbox" role="switch" aria-label="Vorproduktion für '+esc(p.title)+'" data-components-toggle="'+esc(p.id)+'" '+(enabled?'checked':'')+'>'+
     '<span>Vorproduktion verwenden</span></label>'+
     (enabled?'<button type="button" class="secondary small" data-components-open="'+esc(p.id)+'">Bauteile verwalten</button>':'')+
-    '<button type="button" class="secondary small" data-econ-open="'+esc(p.id)+'">€ Kalkulieren</button></div>'+
+    '<button type="button" class="secondary small" data-econ-open="'+esc(p.id)+'">€ Kalkulieren</button>'+ 
+    '<button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">3MF verwalten</button></div>'+
    (open?catalogMasterRows(p):'')+'</article>';
  }).join(''):'<p class="hint">Kein aktives Produkt passt zur Suche.</p>');
 };
