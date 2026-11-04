@@ -39,6 +39,7 @@ const assert=require('node:assert/strict');
   assert.match(await link.getAttribute('href'),new RegExp('bambu/'+first));
   assert.match(await dialog.locator('.simple-pos-master-product .simple-part-master-open').nth(1).getAttribute('href'),new RegExp('orca/'+first));
   assert.match(await dialog.innerText(),/MagSafe_P1S_Master\.3mf/);
+  assert.equal(await dialog.locator('.simple-pos-master-product .master-insight-card').count(),1);
   assert.equal(await dialog.locator('[data-focus-action="start"]').count(),1);
   await dialog.locator('[data-focus-close]').click();
   // Dashboard and separate Bestellungen tab must share this same position workflow.
