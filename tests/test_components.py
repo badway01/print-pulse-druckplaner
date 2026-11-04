@@ -343,11 +343,12 @@ class ComponentTests(unittest.TestCase):
                 self.assertEqual(len(selected),1,(variant,selected))
                 self.assertEqual(selected[0]['color'],color)
                 self.assertEqual(products[0]['components'][0]['variant_source'],'automatic')
-            # Old shared components with no color family stay shared.
-            self.change(action='save',listing_id='101',name='Gemeinsamer Halter',kind='stock',units=1)
+        # Old shared components with no color family stay shared.
+        self.change(action='save',listing_id='101',name='Gemeinsamer Halter',kind='stock',units=1)
+        with app.connect() as db:
             all_parts=[dict(x) for x in db.execute('SELECT * FROM pp_components WHERE listing_id=?',('101',))]
-            holder=next(p for p in all_parts if p['name']=='Gemeinsamer Halter')
-            self.assertEqual(app.components.component_variant_id(holder,all_parts,items),'')
+        holder=next(p for p in all_parts if p['name']=='Gemeinsamer Halter')
+        self.assertEqual(app.components.component_variant_id(holder,all_parts,items),'')
 
     def test_manual_component_variant_persists_and_rejects_foreign_orders(self):
         ids=self.configure()
