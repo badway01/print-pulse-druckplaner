@@ -173,6 +173,15 @@ def summarize(db, file, root, spool_rows):
             spool = spool_rows.get(int(fid)) if fid is not None else None
         except (TypeError, ValueError):
             spool = None
+        # 3MF slicing metadata may include an RGB value but no local spool ID.
+        # Auto-match only a *unique* exact color; duplicate black/white spools
+        # must be deliberately selected so their price cannot be confused.
+        if spool is None and fid in (None, ""):
+            rgb = _color(item.get("color_hex"))
+            matches = [f for f in spool_rows.values()
+                       if rgb and _color(f.get("color_hex")) == rgb]
+            if len(matches) == 1:
+                spool = matches[0]
         g = _number(item.get("grams"))
         if not g:
             complete = False
