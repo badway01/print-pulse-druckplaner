@@ -7,6 +7,7 @@
 - Gleiche Infokarten bei bereits bestehenden Etsy- und lokalen Bestellpositionen sowie Bauteilen dank Live-Verknüpfung.
 - Auf dem Mac stehen „In Bambu Studio öffnen“ und „In Orca öffnen“ zur Verfügung. Der bestehende lokale Öffnen-Helfer unterstützt auch OrcaSlicer.
 - Druckzähler wird bewusst nur über „Druck protokollieren“ erhöht. Daten von Lager, Bestellungen, 3MF und Druckprofilen bleiben erhalten.
+- Der vorhandene Kostenrechner behält seine Etsy-Gebühren, Preisstufen und die gespeicherten Druckerkosten unverändert bei.
 
 # 0.13.32 · Filament-Einkaufsdaten & interne Codes
 
