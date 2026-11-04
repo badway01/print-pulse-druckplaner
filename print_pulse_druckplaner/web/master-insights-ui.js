@@ -18,7 +18,7 @@
    if (detected.length) return {rows:detected,fromProfile:false};
    return {rows:profileColors(file).map(f => ({
      filament_id:f.id, name:f.material + ' ' + f.color, color_hex:f.hex, code:f.code,
-     grams:null, percent:null, slot:f.slot
+     grams:null, slot:f.slot
    })),fromProfile:true};
  }
  function paletteHtml(file) {
@@ -30,11 +30,10 @@
          '<span class="master-insight-color" title="' + esc(f.slot || f.name || 'Filament') + '">' +
          '<span class="master-insight-dot" style="background:' + safeColor(f.color_hex) + '"></span>' +
          '<span>' + esc(f.code ? f.code + ' · ' + f.name : f.name || 'Filament') + '</span>' +
-         (f.percent !== null && f.percent !== undefined ? '<b>' + f.percent + ' %</b>' : '') +
          (f.grams !== null && f.grams !== undefined ? '<small>' + Number(f.grams).toLocaleString('de-DE') + ' g</small>' : '') +
          '</span>').join('') + '</div>' :
        '<p class="master-insight-missing">Keine Filamentbelegung hinterlegt.</p>') +
-     (fromProfile && rows.length ? '<small>Die Farben stammen aus dem Druckprofil. Für Prozentwerte bitte Gramm je Farbe erfassen.</small>' : '') +
+     (fromProfile && rows.length ? '<small>Die Farben stammen aus dem gespeicherten Druckprofil.</small>' : '') +
      '</div>';
  }
  function spoolOptionHtml(selected) {
