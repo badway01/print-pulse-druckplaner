@@ -3,6 +3,14 @@
 (() => {
  const details=$('order-details'),content=$('order-details-content');
  const num=x=>Math.max(0,Number(x)||0);
+ const desiredColor=line=>{
+   if(String(line.color||'').trim())return String(line.color).trim();
+   const properties=String(line.variant||'').split(/\s*[·|]\s*/);
+   const match=properties.map(p=>p.match(/^(?:farbe|wunschfarbe|buchfarbe|color|colour)\s*:\s*(.+)$/i))
+     .find(Boolean);
+   return match?match[1].trim():'';
+ };
+
  const composed=line=>!!(line.components_enabled&&!(typeof componentLegacyJob==='function'&&componentLegacyJob(line)));
  const done=line=>Math.min(num(line.quantity),num(line.finished)+num(line.allocated)+num(line.assembled));
  const complete=line=>num(line.quantity)>0&&done(line)===num(line.quantity)&&!num(line.printing)&&!num(line.remaining);
@@ -83,7 +91,7 @@
       '<div class="order-overview-master"><div class="order-overview-master-head">'+
       '<strong>'+esc(entry.title)+'</strong></div>'+
       (entry.file?'<div class="pp-order-file-title">'+esc(entry.file.filename)+' · '+esc(entry.file.printer)+'</div>'+
-       (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(entry.file,true,line.color||line.variant||''):'')+
+       (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(entry.file,true,desiredColor(line)):'')+
        slicerActions(entry.file):
        '<p class="simple-part-master-hint">Noch keine passende Masterdatei zugeordnet. Position öffnen und 3MF auswählen.</p>')+
       '</div>'
@@ -164,7 +172,7 @@
    (file?'<div class="simple-part-master-current"><span class="simple-part-master-filename">'+
     esc(file.filename)+' · '+esc(file.printer)+(pinned?' · Standard':'')+'</span>'+open+'</div>':
     '<p class="simple-part-master-hint">Mehrere Druckprojekte vorhanden. Wähle einmal das passende Projekt.</p>')+
-   (file && typeof masterInsightsMarkup==='function'?masterInsightsMarkup(file,true,line.color||line.variant||''):'')+
+   (file && typeof masterInsightsMarkup==='function'?masterInsightsMarkup(file,true,desiredColor(line)):'')+
    (files.length>1?(file?'<details class="simple-part-master-change"><summary>Projekt wechseln</summary>'+choices+'</details>':choices):'')+
    '</section>';
  }
@@ -224,7 +232,7 @@
    (file?'<div class="simple-part-master-current"><span class="simple-part-master-filename">3MF: '+esc(file.filename)+
       ' · '+esc(file.printer)+'</span>'+action+'</div>':
     '<span class="simple-part-master-hint">Noch keine eindeutige 3MF-Zuordnung</span>')+
-   (file && typeof masterInsightsMarkup==='function'?masterInsightsMarkup(file,true,line.color||line.variant||''):'')+
+   (file && typeof masterInsightsMarkup==='function'?masterInsightsMarkup(file,true,desiredColor(line)):'')+
    (file?'<details class="simple-part-master-change"><summary>Andere 3MF zuordnen</summary>'+change+'</details>':change)+
    '</div>';
  }
