@@ -14,12 +14,12 @@
    return picked?.colors || [];
  }
  function filamentRows(file) {
-   const detected = file.insights?.filaments || [];
-   if (detected.length) return {rows:detected,fromProfile:false};
-   return {rows:profileColors(file).map(f => ({
-     filament_id:f.id, name:f.material + ' ' + f.color, color_hex:f.hex, code:f.code,
+   const profile=profileColors(file);
+   if(profile.length)return {rows:profile.map(f=>({
+     filament_id:f.id, name:f.color, color_hex:f.hex, code:f.code,
      grams:null, slot:f.slot
    })),fromProfile:true};
+   return {rows:file.insights?.filaments || [],fromProfile:false};
  }
  function paletteHtml(file,orderColor='',compact=false) {
    if (!compact && typeof window.masterPalettePreviewMarkup==='function' && masterContext?.id===file.listing_id) return window.masterPalettePreviewMarkup(file);
