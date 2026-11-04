@@ -1,3 +1,12 @@
+# 0.13.35 · Kompakte Produkt- und Bestellkarten
+
+- Produktkatalog mit Modellfoto, aufklappbaren Varianten und Masterdateien je Drucker beziehungsweise Bauteil.
+- Jede Datei zeigt nur Druckzeit, Materialverbrauch, kalkulierte Druckkosten und die hinterlegten Farben; Druckstatistiken und Prozente entfallen aus der Karte.
+- Festfarben oder Wunschfarben werden dauerhaft je Master hinterlegt. Grammwerte und Druckzeit werden direkt im vorhandenen Mastereditor gepflegt, Filamentpreise aus der Bibliothek berechnet.
+- Drei Slicer-Aktionen pro Datei für Bambu Studio, Orca und Snapmaker Orca; auf Geräten ohne Mac-Helfer wird die 3MF zur Verwendung im Slicer heruntergeladen.
+- Bestellkarten enthalten Produktfoto, Modellname und Variante; große Ansicht zeigt Masterdatei, passende Farben, Kosten und Slicer-Zugriff auch je Bauteil.
+- Bestehende Versandtermine, Ampeln, Countdown, Kundeninformationen, Status, Produktions- und Lagerbuchungen sowie lokale Auftragshistorie bleiben unverändert.
+
 # 0.13.34 · 3MF-Filamentfarben ohne Prozentwerte
 
 - Prozentangaben neben Filamentnamen in Master-3MF und Bestellübersichten entfernt, da der Anteil nicht laufend protokolliert wird.

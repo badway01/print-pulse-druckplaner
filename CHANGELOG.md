@@ -1,3 +1,9 @@
+## 0.13.35 (2026-11-04)
+
+- Finale helle Produktkatalogkarten mit Foto, Varianten, Masterdateien und ihren Druckdaten je Bauteil und Drucker.
+- Aufklappbare Bestellkarten mit Foto, Variante, vorhandener Lieferfrist, Farbpunkt, Druckkosten und Bambu-/Orca-/Snapmaker-Zugriff.
+- Per 3MF Festfarben oder Wunschfarben speichern; Preise weiterhin automatisch aus Filamentbibliothek und Druckerkosten. Keine Datenmigration.
+
 ## 0.13.34 (2026-11-04)
 
 - Filament-Prozentanteile aus allen 3MF-Infokarten im Master-Editor und in aktuellen Bestellungen entfernt. Farbpunkte, Filamentnamen und Kosten bleiben erhalten.

@@ -235,6 +235,7 @@ def summarize(db, file, root, spool_rows):
     avg_time_seconds = round(time_sum / timed_count) if print_count and timed_count == print_count else None
     return {
         "time_seconds": seconds,
+        "color_mode": details.get("color_mode") if details.get("color_mode") in ("fixed", "custom") else "fixed",
         "print_count": print_count,
         "last_print": details.get("last_print"),
         "total_spend_eur": total_spend_eur,
@@ -280,6 +281,10 @@ def change(db, root, file_id, payload):
             details["history_time_count"]=int(details.get("history_time_count") or 0) + 1
         details["last_print"] = int(time.time())
     elif payload.get("action") == "save":
+        mode = payload.get("color_mode", details.get("color_mode", "fixed"))
+        if mode not in ("fixed", "custom"):
+            raise ValueError("Ungültige Farbzuordnung.")
+        details["color_mode"] = mode
         hours = payload.get("hours")
         minutes = payload.get("minutes")
         if type(hours) is not int or not 0 <= hours <= 2400 or type(minutes) is not int or not 0 <= minutes <= 59:
@@ -303,7 +308,10 @@ def change(db, root, file_id, payload):
             if type(grams) not in (int, float) or not math.isfinite(grams) or not 0 < grams <= 100000:
                 raise ValueError("Bitte Gramm je Filament größer 0 eingeben.")
             clean.append({"filament_id": fid, "grams": round(float(grams), 3)})
-        details["filaments"] = clean
+        # A time-only edit must not discard colors detected from an existing 3MF.
+        # An intentional removal of every filament row is explicit.
+        if clean or payload.get("clear_filaments") is True:
+            details["filaments"] = clean
     else:
         raise ValueError("Unbekannte 3MF-Aktion.")
     db.execute("""INSERT INTO pp_master_file_insights(file_id,details_json,updated) VALUES(?,?,?)
