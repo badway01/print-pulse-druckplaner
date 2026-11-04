@@ -21,19 +21,22 @@
      grams:null, slot:f.slot
    })),fromProfile:true};
  }
- function paletteHtml(file) {
+ function paletteHtml(file,orderColor='') {
    const {rows,fromProfile} = filamentRows(file);
-   return '<div class="master-insight-palette"><strong>' +
-     (fromProfile ? 'Filamentbelegung aus Druckprofil' : 'Filamentbelegung dieser Datei') +
-     '</strong>' + (rows.length ?
-       '<div class="master-insight-colors">' + rows.map(f =>
-         '<span class="master-insight-color" title="' + esc(f.slot || f.name || 'Filament') + '">' +
-         '<span class="master-insight-dot" style="background:' + safeColor(f.color_hex) + '"></span>' +
-         '<span>' + esc(f.code ? f.code + ' · ' + f.name : f.name || 'Filament') + '</span>' +
-         (f.grams !== null && f.grams !== undefined ? '<small>' + Number(f.grams).toLocaleString('de-DE') + ' g</small>' : '') +
-         '</span>').join('') + '</div>' :
-       '<p class="master-insight-missing">Keine Filamentbelegung hinterlegt.</p>') +
-     (fromProfile && rows.length ? '<small>Die Farben stammen aus dem gespeicherten Druckprofil.</small>' : '') +
+   const wish = file.insights?.color_mode === 'custom';
+   const chosen = wish && String(orderColor||'').trim();
+   return '<div class="master-insight-palette">' +
+     '<strong>' + (wish ? 'Farbzuordnung · Wunschfarbe' : 'Benötigte Filamente') + '</strong>' +
+     (chosen ? '<p class="pp-insight-wish"><b>Kundenfarbe: ' + esc(chosen) + '</b></p>' : '') +
+     (wish && rows.length ? '<small>Hinterlegte Referenzfilamente (die Bestellfarbe kann abweichen)</small>' : '') +
+     (rows.length ? '<div class="master-insight-colors">' + rows.map(f =>
+       '<span class="master-insight-color" title="' + esc(f.slot || f.name || 'Filament') + '">' +
+       '<span class="master-insight-dot" style="background:' + safeColor(f.color_hex) + '"></span>' +
+       '<span>' + esc(f.code ? f.code + ' · ' + f.name : f.name || 'Filament') + '</span>' +
+       (f.grams !== null && f.grams !== undefined ? '<small>' + Number(f.grams).toLocaleString('de-DE') + ' g</small>' : '') +
+       '</span>').join('') + '</div>' :
+       '<p class="master-insight-missing">Noch keine Filamente hinterlegt.</p>') +
+     (fromProfile && rows.length ? '<small>Farben aus dem Druckprofil.</small>' : '') +
      '</div>';
  }
  function spoolOptionHtml(selected) {
@@ -54,53 +57,57 @@
  }
  function editHtml(file) {
    const rows = file.insights?.filaments || [];
-   // Profiles provide convenient defaults but don't claim material consumption.
    const defaults = rows.length ? rows : profileColors(file).map(f => ({filament_id:f.id,grams:null}));
    const seconds = file.insights?.time_seconds;
    const hours = Number.isFinite(seconds) ? Math.floor(seconds / 3600) : '';
    const minutes = Number.isFinite(seconds) ? Math.floor(seconds / 60) % 60 : '';
-   return '<details class="master-insight-edit"><summary>Verbrauch und Druckzeit bearbeiten</summary>' +
+   const mode = file.insights?.color_mode === 'custom' ? 'custom' : 'fixed';
+   return '<details class="master-insight-edit"><summary>Master & Druckdaten bearbeiten</summary>' +
      '<form data-master-insight-form="' + esc(file.id) + '" class="master-insight-form">' +
-     '<div class="master-insight-time"><label>Druckzeit Stunden<input type="number" data-insight-hours min="0" max="2400" inputmode="numeric" value="' +
+     '<label>Farbzuordnung<select data-insight-mode>' +
+     '<option value="fixed"' + (mode==='fixed'?' selected':'') + '>Festfarben – immer gleiche Farben</option>' +
+     '<option value="custom"' + (mode==='custom'?' selected':'') + '>Wunschfarben – aus der Bestellung</option>' +
+     '</select></label>' +
+     '<div class="master-insight-time"><label>Stunden laut Slicer<input type="number" data-insight-hours min="0" max="2400" inputmode="numeric" value="' +
      hours + '" placeholder="0"></label>' +
      '<label>Minuten<input type="number" data-insight-minutes min="0" max="59" inputmode="numeric" value="' +
      minutes + '" placeholder="0"></label></div>' +
-     '<strong>Filamentverbrauch für diese gesamte Druckcharge</strong>' +
+     '<strong>Filament aus deiner Bibliothek · Verbrauch je Druckplatte</strong>' +
      '<div data-insight-rows>' + (defaults.length ? defaults.map(inputRow).join('') : inputRow()) + '</div>' +
      '<div class="master-insight-edit-actions"><button type="button" class="secondary small" data-insight-add>+ Filament</button>' +
      '<button type="submit" class="primary small">Druckdaten speichern</button></div>' +
-     '<small>Verbrauch und Zeit gelten für die komplette 3MF-Druckcharge. Die Kosten werden anhand deiner gespeicherten Filamentpreise und der Rechner-Einstellungen berechnet. Ohne Angaben erscheint kein erfundener Preis.</small>' +
+     '<small>Die Kosten werden automatisch mit deinen gespeicherten Filamentpreisen und Druckereinstellungen berechnet. Bei Wunschfarben ist der Preis ein Richtwert auf Grundlage der hinterlegten Referenzfilamente.</small>' +
      '</form></details>';
  }
- window.masterInsightsMarkup = function(file, compact=false) {
+ window.masterInsightsMarkup = function(file, compact=false, orderColor='') {
    if (!file) return '';
    const info = file.insights || {};
-   const hasHistory = info.total_spend_eur !== null && info.total_spend_eur !== undefined;
-   const result = hasHistory ? info.total_spend_eur : (info.production_eur ?? info.material_eur);
-   const label = hasHistory ? 'Gesamtausgaben · protokolliert' :
-     (info.production_eur !== null && info.production_eur !== undefined ?
-      'Druckkosten / Charge' : 'Materialkosten / Charge');
-   const averageCost = info.avg_cost_eur ?? info.production_eur ?? info.material_eur;
-   const averageTime = info.avg_time_seconds ?? info.time_seconds;
-   return '<section class="master-insight-card' + (compact ? ' is-compact' : '') +
+   const price = info.production_eur ?? info.material_eur;
+   const moneyLabel = info.production_eur != null ? 'Druckkosten / Platte' :
+     info.material_eur != null ? 'Materialkosten / Platte' : 'Druckkosten fehlen';
+   return '<section class="master-insight-card pp-master-summary' + (compact ? ' is-compact' : '') +
      '" aria-label="Druckdaten zu ' + esc(file.filename) + '">' +
-     '<div class="master-insight-top"><div><strong>Druckdaten</strong><small>Letzter Druck: ' +
-     esc(date(info.last_print)) + '</small></div>' +
-     '<div class="master-insight-cost"><strong>' + money(result) + '</strong><span>' + label + '</span></div></div>' +
-     '<div class="master-insight-kpis">' +
-     '<div><strong>' + (Number(info.print_count) || 0) + '</strong><small>Drucke erfasst</small></div>' +
-     '<div><strong>' + money(averageCost) + '</strong><small>' +
-       (info.avg_cost_eur != null ? 'Ø Kosten je Druck' : 'Kosten / Charge') + '</small></div>' +
-     '<div><strong>' + duration(averageTime) + '</strong><small>' +
-       (info.avg_time_seconds != null ? 'Ø Zeit je Druck' : 'Druckzeit / Charge') + '</small></div>' +
+     '<div class="pp-insight-stats">' +
+     '<div><small>Druckzeit laut Slicer</small><strong>' + duration(info.time_seconds) + '</strong></div>' +
+     (info.total_grams != null ? '<div><small>Filament / Platte</small><strong>' +
+       Number(info.total_grams).toLocaleString('de-DE') + ' g</strong></div>' : '') +
+     '<div><small>' + moneyLabel + '</small><strong class="pp-insight-price">' + money(price) + '</strong></div>' +
      '</div>' +
-     (info.total_grams != null ? '<p class="master-insight-consumption">Filament pro Charge: <b>' +
-       Number(info.total_grams).toLocaleString('de-DE') + ' g</b></p>' : '') +
-     paletteHtml(file) +
-     (!compact ? '<div class="master-insight-foot"><small>Interne Kalkulation ohne Etsy-Gebühren, Verpackung und Versand.</small>' +
-       '<button type="button" class="secondary small" data-master-insight-count="' + esc(file.id) +
-       '" title="Einen tatsächlich abgeschlossenen Druck erfassen">+ Druck protokollieren</button></div>' +
-       editHtml(file) : '') + '</section>';
+     paletteHtml(file,orderColor) +
+     (!compact ? editHtml(file) : '') +
+     '</section>';
+ };
+ window.masterSlicerButtonsMarkup = function(file) {
+   if (!file) return '';
+   const mac = typeof masterSlicerMac==='function' && masterSlicerMac();
+   const labels=[['bambu','Bambu'],['orca','Orca'],['snapmaker','Snapmaker']];
+   return '<div class="pp-slicer-actions" aria-label="3MF in Slicer öffnen">' + labels.map(([key,label]) => {
+     const url = mac ? masterSlicerUrl(file,key) : 'api/master-download?id='+encodeURIComponent(file.id);
+     return '<a class="pp-slicer-action pp-slicer-'+key+'" href="'+esc(url)+'"'+
+       (mac?'':' download title="Auf diesem Gerät die 3MF herunterladen, dann im Slicer öffnen"')+
+       '>'+esc(label)+(mac?' öffnen':' · 3MF')+'</a>';
+   }).join('')+'</div>' + (!mac ?
+     '<small class="pp-slicer-device-hint">Direkt öffnen mit installiertem Mac-Helfer. Hier wird die 3MF heruntergeladen.</small>' : '');
  };
  async function refreshFile(fileId) {
    const file=(printTools.files || []).find(f => f.id === fileId);
@@ -147,6 +154,7 @@
      const value=row.querySelector('[data-insight-filament]').value;
      const grams=row.querySelector('[data-insight-grams]').value;
      if (!value && !grams) continue;
+     if (value && !grams) continue;
      if (!value || !grams || Number(grams) <= 0) {
        flash('Bitte zu jedem Filament auch eine Grammzahl eintragen.',true);
        return;
@@ -158,7 +166,7 @@
    const button=form.querySelector('[type="submit"]');
    button.disabled=true;
    try {
-     await api('master-insights',{id,action:'save',hours,minutes,filaments});
+     await api('master-insights',{id,action:'save',hours,minutes,filaments,color_mode:form.querySelector('[data-insight-mode]').value});
      await refreshFile(id);
      flash('Druckzeit und Filamentverbrauch gespeichert. Kosten neu berechnet.');
    } catch(error) { flash('Druckdaten nicht gespeichert: ' + error.message,true);button.disabled=false; }
