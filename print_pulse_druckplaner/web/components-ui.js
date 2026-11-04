@@ -313,27 +313,93 @@ orderLineActions=function(line){
  if(line.components_enabled&&line.item_id&&!componentLegacyJob(line))return componentLineHTML(line);
  return originalOrderLineActions(line);
 };
+/* Clean product cards, with one expandable view over the existing master records.
+   No duplicate data model: saved files, components and printer profiles stay live. */
+const catalogExpanded = new Set();
+const catalogSelectedVariant = new Map();
+function catalogMasterRows(p) {
+ const all=(printTools.files||[]).filter(f=>String(f.listing_id)===String(p.id));
+ const selected=String(catalogSelectedVariant.get(String(p.id))||'');
+ const shown=selected?all.filter(f=>!f.variant_id||String(f.variant_id)===selected):all;
+ const variants=p.items||[];
+ const options='<option value="">Alle Varianten · Dateienübersicht</option>'+
+   variants.map(v=>'<option value="'+esc(v.id)+'"'+(String(v.id)===selected?' selected':'')+'>'+
+     esc(v.label)+'</option>').join('');
+ const lines=shown.map(f=>{
+   const variant=f.variant_id?(variants.find(v=>String(v.id)===String(f.variant_id))?.label||'Spezielle Variante'):'Standard / alle Varianten';
+   const links=(printTools.component_links||[]).filter(link=>String(link.file_id)===String(f.id));
+   const parts=(p.components||[]).filter(part=>links.some(link=>String(link.component_id)===String(part.id)));
+   const names=parts.length?parts.map(part=>part.name).join(', '):'';
+   return '<section class="pp-catalog-master" data-catalog-file="'+esc(f.id)+'">'+
+     '<div class="pp-catalog-master-head"><span class="pp-catalog-file-icon" aria-hidden="true">3MF</span>'+
+     '<div class="pp-catalog-file-name"><strong>'+esc(f.filename)+'</strong>'+
+     '<small>'+esc(f.printer)+' · '+esc(variant)+(names?' · Bauteil: '+esc(names):'')+'</small></div></div>'+
+     (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f,true):'')+
+     (typeof masterSlicerButtonsMarkup==='function'?masterSlicerButtonsMarkup(f):'')+
+     '<button type="button" class="pp-catalog-edit" data-catalog-file-edit="'+esc(f.id)+'">✎ Master & Druckdaten bearbeiten</button>'+
+     '</section>';
+ }).join('');
+ return '<section class="pp-catalog-panel" aria-label="Druckdaten für '+esc(p.title)+'">'+
+   '<div class="pp-catalog-panel-head"><strong>Masterdateien & Druckdaten</strong>'+
+   '<span>'+all.length+' Datei'+(all.length===1?'':'en')+'</span></div>'+
+   (variants.length>1?'<label class="pp-catalog-variant">Variante wählen<select data-catalog-variant="'+esc(p.id)+'">'+options+'</select></label>':'')+
+   (shown.length?'<div class="pp-catalog-master-list">'+lines+'</div>':
+    '<p class="pp-catalog-empty">Noch keine passende Masterdatei vorhanden. Hinterlege deine 3MF-Datei und erfasse Filamente sowie Druckzeit.</p>')+
+   '<div class="pp-catalog-panel-actions"><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">+ Masterdatei hinterlegen</button>'+
+   (p.components_enabled?'<button type="button" class="secondary small" data-components-open="'+esc(p.id)+'">Bauteile zuordnen</button>':'')+
+   '</div></section>';
+}
 renderCatalog=function(){
  if(!model)return;
  const shell=$('catalog-rows');if(!shell)return;
  const search=$('catalog-search').value.trim().toLocaleLowerCase('de');
  const rows=model.products.filter(p=>p.state==='active'&&p.title.toLocaleLowerCase('de').includes(search));
  updateHTML(shell,rows.length?rows.map(p=>{
-  const files=printTools.files.filter(f=>f.listing_id===p.id).length;
-  const profiles=printTools.profiles.filter(f=>f.listing_id===p.id).length;
-  const enabled=Boolean(p.components_enabled);
+  const files=(printTools.files||[]).filter(f=>String(f.listing_id)===String(p.id)).length;
+  const enabled=Boolean(p.components_enabled), open=catalogExpanded.has(String(p.id));
   const img=thumbnail(p.image);
-  return '<article class="catalog-item" data-catalog-item="'+esc(p.id)+'">'+
-   (img?'<img src="'+esc(img)+'" alt="" loading="lazy">':'<div class="catalog-placeholder">P+</div>')+
-   '<div class="catalog-identity"><b>'+esc(p.title)+'</b><small>'+files+' Masterdatei(en) · '+profiles+
-   ' Druckprofil(e)'+(enabled?' · '+(p.components||[]).length+' Bauteil(e)':'')+'</small></div>'+
-   '<div class="catalog-component-controls"><label class="catalog-part-switch">'+
-   '<input type="checkbox" role="switch" aria-label="Vorproduktion für '+esc(p.title)+'" data-components-toggle="'+esc(p.id)+'" '+(enabled?'checked':'')+'>'+
-   '<span>Vorproduktion verwenden</span></label>'+
-   (enabled?'<button type="button" class="secondary small" data-components-open="'+esc(p.id)+'">Bauteile verwalten</button>':'')+
-   '</div><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">3MF &amp; Belegung</button></article>';
+  return '<article class="catalog-item pp-catalog-product" data-catalog-item="'+esc(p.id)+'">'+
+   '<button type="button" class="pp-catalog-identity" data-catalog-expand="'+esc(p.id)+'" aria-expanded="'+open+'">'+
+   (img?'<img src="'+esc(img)+'" alt="'+esc(p.title)+'" loading="lazy" referrerpolicy="no-referrer">':
+       '<span class="catalog-placeholder">Produktfoto</span>')+
+   '<span class="pp-catalog-product-name"><strong>'+esc(p.title)+'</strong>'+
+   '<small>'+files+' Masterdatei'+(files===1?'':'en')+(enabled?' · '+(p.components||[]).length+' Bauteile':'')+'</small>'+
+   '<small>'+esc(p.items.length>1?p.items.length+' Varianten':'Standardvariante')+'</small></span>'+
+   '<span class="pp-catalog-chevron" aria-hidden="true">'+(open?'−':'+')+'</span></button>'+
+   '<div class="pp-catalog-settings"><label class="catalog-part-switch">'+
+    '<input type="checkbox" role="switch" aria-label="Vorproduktion für '+esc(p.title)+'" data-components-toggle="'+esc(p.id)+'" '+(enabled?'checked':'')+'>'+
+    '<span>Vorproduktion verwenden</span></label>'+
+    (enabled?'<button type="button" class="secondary small" data-components-open="'+esc(p.id)+'">Bauteile verwalten</button>':'')+
+    '<button type="button" class="secondary small" data-econ-open="'+esc(p.id)+'">€ Kalkulieren</button></div>'+
+   (open?catalogMasterRows(p):'')+'</article>';
  }).join(''):'<p class="hint">Kein aktives Produkt passt zur Suche.</p>');
 };
+$('catalog-rows').addEventListener('click',event=>{
+ const edit=event.target.closest('[data-catalog-file-edit]');
+ if(edit){
+  const f=(printTools.files||[]).find(file=>file.id===edit.dataset.catalogFileEdit);
+  if(!f)return;
+  void openMasterEditor(f.listing_id).then(()=>{
+   $('master-variant').value=f.variant_id||'';
+   $('master-printer').value=f.printer;
+   masterSelectionChanged();
+   const form=[...$('master-files').querySelectorAll('[data-master-insight-form]')]
+     .find(el=>el.dataset.masterInsightForm===f.id);
+   if(form){form.closest('details').open=true;form.scrollIntoView({block:'nearest',behavior:'smooth'});}
+  });return;
+ }
+ const button=event.target.closest('[data-catalog-expand]');
+ if(!button)return;
+ const id=String(button.dataset.catalogExpand);
+ if(catalogExpanded.has(id))catalogExpanded.delete(id);else catalogExpanded.add(id);
+ renderCatalog();
+});
+$('catalog-rows').addEventListener('change',event=>{
+ const select=event.target.closest('[data-catalog-variant]');
+ if(!select)return;
+ catalogSelectedVariant.set(String(select.dataset.catalogVariant),select.value);
+ renderCatalog();
+});
 function componentKindChange(){
  const stock=$('components-kind').value==='stock';
  $('components-property-wrap').hidden=stock;
