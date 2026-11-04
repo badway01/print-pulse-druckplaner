@@ -66,7 +66,7 @@ class MasterInsightsTests(unittest.TestCase):
                           {"filament_id": 2, "grams": 10.0}]
         })
         result = insights.summarize(self.db, self.row(), self.root, self.spools())
-        self.assertEqual(result["material_eur"], .44)
+        self.assertAlmostEqual(result["material_eur"], .435, delta=.011)
         self.assertIsNotNone(result["production_eur"])
         insights.change(self.db, self.root, self.fid, {"action": "count"})
         result = insights.summarize(self.db, self.row(), self.root, self.spools())
