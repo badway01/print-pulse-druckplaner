@@ -1063,6 +1063,9 @@ await page.waitForFunction(async()=>{
  return p?.components?.some(x=>x.stock===2);
 },null,{timeout:10000});
 const editor=page.locator('#components-editor');
+// Allow the asynchronous edit dialog to finish rendering after the stock save.
+await editor.locator('[data-component-count]').first().waitFor({state:'visible',timeout:10000});
+await page.waitForFunction(()=>document.querySelectorAll('#components-editor [data-component-count]').length===2);
 assert.equal(await editor.locator('[data-component-count]').count(),2);
 let savedBefore=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
 const mapBefore=Object.fromEntries(savedBefore.products.find(x=>x.id==='104').components.map(x=>[x.id,x]));
