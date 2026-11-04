@@ -21,7 +21,8 @@
      grams:null, slot:f.slot
    })),fromProfile:true};
  }
- function paletteHtml(file,orderColor='') {
+ function paletteHtml(file,orderColor='',compact=false) {
+   if (!compact && typeof window.masterPalettePreviewMarkup==='function' && masterContext?.id===file.listing_id) return window.masterPalettePreviewMarkup(file);
    const {rows,fromProfile} = filamentRows(file);
    const wish = file.insights?.color_mode === 'custom';
    const chosen = wish && String(orderColor||'').trim();
@@ -94,7 +95,7 @@
        Number(info.total_grams).toLocaleString('de-DE') + ' g</strong></div>' : '') +
      '<div><small>' + moneyLabel + '</small><strong class="pp-insight-price">' + money(price) + '</strong></div>' +
      '</div>' +
-     paletteHtml(file,orderColor) +
+     paletteHtml(file,orderColor,compact) +
      (!compact ? editHtml(file) : '') +
      '</section>';
  };

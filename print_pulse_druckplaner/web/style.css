@@ -3040,3 +3040,33 @@ html[data-theme="dark"] #order-details .pp-order-tile-open{color:#aad8f6}
  #order-details .pp-order-files-section .pp-order-product-heading .pp-order-option-grid{grid-template-columns:minmax(0,1fr)}
  #order-details .pp-order-tile-open{font-size:10px}
 }
+
+/* v0.13.37: inline editable palette and H2D nozzle groups. */
+.pp-palette-inline{position:relative}
+.pp-palette-header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+.pp-palette-header>strong{font-size:12px;color:var(--ink)}
+.pp-palette-edit-button{background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--green);font-size:11px;font-weight:700;padding:7px 10px;min-height:34px;cursor:pointer}
+.pp-palette-view-group{padding:8px 0;border-top:1px solid var(--line)}
+.pp-palette-view-label{font-size:11px;font-weight:750;color:var(--ink);margin-bottom:6px}
+.pp-palette-view-source{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:5px 0}
+.pp-palette-view-source>small{font-size:10px;color:var(--muted);min-width:60px}
+.pp-palette-origin{display:block;color:var(--muted);font-size:10px;margin-top:7px}
+.pp-palette-editor{margin-top:13px;padding:12px;border:1px solid var(--border-strong);border-radius:11px;background:var(--surface-soft)}
+.pp-palette-editor[hidden]{display:none}
+.pp-palette-source{border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:10px;margin:9px 0}
+.pp-palette-source-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.pp-palette-source-top strong{font-size:12px;flex:1 1 70px}
+.pp-palette-source-top select{min-height:34px;max-width:160px;padding:5px 7px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--ink);font-size:11px}
+.pp-palette-source-top .text-button{font-size:10px;color:var(--red)}
+.pp-palette-slots{display:flex;flex-wrap:wrap;gap:6px}
+.pp-palette-slot{display:inline-flex;align-items:center;max-width:100%;border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+.pp-palette-chip{display:inline-flex;align-items:center;gap:6px;background:transparent;border:0;color:var(--ink);font-size:11px;font-weight:650;padding:6px 8px;min-height:35px;cursor:pointer}
+.pp-palette-chip .master-insight-dot{flex:0 0 14px;width:14px;height:14px}
+.pp-palette-chip-remove{background:transparent;border:0;border-left:1px solid var(--line);font-size:17px;color:var(--red);padding:5px 9px;min-height:35px;cursor:pointer}
+.pp-palette-add{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+.pp-palette-add select{flex:1 1 112px;min-width:0;background:var(--surface)}
+.pp-palette-add #master-source-side[hidden]{display:none}
+.pp-palette-add button{flex:0 0 auto;min-height:38px}
+.pp-palette-save{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pp-palette-save p{flex:1;margin:0}
+@media(max-width:560px){.pp-palette-editor{padding:9px}.pp-palette-add button{width:100%}.pp-palette-view-source>small{min-width:44px}.pp-palette-source-top select{max-width:100%}}

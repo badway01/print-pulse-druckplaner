@@ -388,19 +388,20 @@
   </div>
  </details>
 </section>
-<details id="master-colors-details" class="master-detail-group">
- <summary><span>Filamentbelegung</span><small id="master-colors-summary">Noch keine Farben zugeordnet</small></summary>
- <div class="master-detail-content">
-  <p class="hint">AMS-Platz antippen, Farbe ansehen und aus deiner Filamentbibliothek auswählen.</p><div id="master-sources"></div>
-  <div id="master-filament-picker-overlay" class="master-picker-overlay" hidden><section class="master-filament-picker" role="region" aria-labelledby="master-filament-picker-title">
+<div id="master-color-editor-home" hidden></div>
+<section id="master-color-editor-panel" class="pp-palette-editor" hidden aria-label="Filamente und Düsen bearbeiten">
+<p class="hint">Farbpunkt antippen, austauschen oder mit × entfernen. Die Belegung gilt für diese Variante und diesen Drucker, auch für bestehende Bestellungen.</p>
+<div id="master-sources"></div>
+<div id="master-filament-picker-overlay" class="master-picker-overlay" hidden><section class="master-filament-picker" role="region" aria-labelledby="master-filament-picker-title">
    <div class="master-picker-heading"><div><strong id="master-filament-picker-title">Filament auswählen</strong><small>Deine gespeicherten Farben</small></div><button type="button" class="master-picker-close" data-master-picker-close aria-label="Farbauswahl schließen">×</button></div>
    <label class="master-picker-search-label">Farbe, interne Nummer oder Bambu-Code suchen<input id="master-filament-search" type="search" autocomplete="off" placeholder="z. B. Sakura, 11 oder 11201"></label>
    <div id="master-filament-count" class="master-picker-count"></div><div id="master-filament-results" class="master-picker-grid"></div>
   </section></div>
-  <div class="master-add-source"><select id="master-source-type" aria-label="Filamentquelle hinzufügen"><option value="ams">AMS (4 Plätze)</option><option value="ams_ht">AMS HT (1 Platz)</option><option value="external">Externe Spule (1 Platz)</option></select><button type="button" id="master-add" class="secondary">+ Hinzufügen</button></div>
-  <button type="button" id="master-save" class="primary">Belegung speichern</button><p id="master-profile-status" class="master-inline-status" role="status" aria-live="polite"></p>
- </div>
-</details>
+  
+<div class="master-add-source pp-palette-add"><select id="master-source-type" aria-label="Quelle hinzufügen"><option value="ams">AMS (4 Plätze)</option><option value="ams_ht">AMS HT (1 Platz)</option><option value="external">Externe Spule (1 Platz)</option></select>
+<select id="master-source-side" aria-label="Düse für neue Quelle"><option value="left">Düse links</option><option value="right">Düse rechts</option></select><button type="button" id="master-add" class="secondary">+ Quelle</button></div>
+<div class="pp-palette-save"><button type="button" id="master-save" class="primary">Belegung speichern</button><p id="master-profile-status" class="master-inline-status" role="status" aria-live="polite"></p></div>
+<p class="hint">Druckplanung: Die Original-3MF wird nicht verändert. Grammwerte und Druckzeit bleiben separat unter „Master &amp; Druckdaten bearbeiten“ erhalten.</p></section><span id="master-colors-summary" hidden></span>
 <details id="master-upload-details" class="master-detail-group">
  <summary><span>Neue Masterdatei speichern</span><small>3MF-Druckprojekt mit Profilen ablegen</small></summary>
  <div class="master-detail-content">
