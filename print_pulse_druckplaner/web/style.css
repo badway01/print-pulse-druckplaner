@@ -3070,3 +3070,28 @@ html[data-theme="dark"] #order-details .pp-order-tile-open{color:#aad8f6}
 .pp-palette-save{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pp-palette-save p{flex:1;margin:0}
 @media(max-width:560px){.pp-palette-editor{padding:9px}.pp-palette-add button{width:100%}.pp-palette-view-source>small{min-width:44px}.pp-palette-source-top select{max-width:100%}}
+
+/* v0.13.38 – clear identity + reliable library colors in 3MF palette. */
+.pp-palette-label-chip{font-weight:700;white-space:normal;max-width:100%}
+.pp-palette-label-chip>span:last-child{overflow-wrap:anywhere}
+.pp-palette-label-chip .master-insight-dot{width:16px;height:16px;flex:0 0 16px}
+.pp-palette-live-preview .master-insight-colors{gap:7px}
+.pp-palette-live-preview .master-insight-color{background:var(--surface);color:var(--ink);font-size:11px}
+.pp-palette-original{margin:10px 0 0;padding:8px 0 0;border-top:1px solid var(--line)}
+.pp-palette-original summary{font-size:11px;color:var(--muted);cursor:pointer}
+.pp-palette-original .master-insight-colors{margin:10px 0 6px}
+.pp-palette-original small{font-size:10px;color:var(--muted);line-height:1.45}
+.pp-palette-chip{white-space:normal;text-align:left}
+.pp-palette-chip>span:last-child{overflow-wrap:anywhere}
+.pp-picker-item{min-width:0;position:relative}
+.pp-picker-item .master-picker-choice{width:100%;height:100%;padding-bottom:28px}
+.pp-picker-item .pp-picker-fix{position:absolute;bottom:5px;right:8px;font-size:10px;background:transparent;color:var(--green);border:1px solid var(--border-strong);border-radius:6px;padding:3px 6px;cursor:pointer;min-height:22px}
+.pp-picker-item .pp-picker-fix:hover{background:var(--surface-soft)}
+.pp-picker-correction{display:flex;align-items:center;gap:9px;flex-wrap:wrap;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface-soft);padding:10px}
+.pp-picker-correction[hidden]{display:none}
+.pp-picker-correction strong{flex:1 1 100%;font-size:12px}
+.pp-picker-correction label{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink)}
+.pp-picker-correction input[type=color]{width:49px;height:34px;padding:2px;border:1px solid var(--border-strong);border-radius:7px}
+.pp-picker-correction span{font-size:11px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.pp-picker-correction button{font-size:11px;min-height:34px}
+@media(max-width:560px){.pp-palette-view-source{align-items:flex-start}.pp-picker-item .master-picker-choice{min-height:68px}}

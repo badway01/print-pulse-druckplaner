@@ -9,16 +9,26 @@ const assert=require('node:assert/strict');
   const spools=[
    {id:1,internal_code:'5',brand:'Bambu Lab',color:'Schwarz',material:'PLA Basic',color_hex:'#000000',manufacturer_code:'10101'},
    {id:2,internal_code:'11',brand:'Bambu Lab',color:'Sakura Pink',material:'PLA Matte',color_hex:'#ff99ee',manufacturer_code:'11201'},
-   {id:3,internal_code:'16',brand:'Bambu Lab',color:'Gelb',material:'PLA Basic',color_hex:'#f4ee2a',manufacturer_code:'10102'}
+   {id:3,internal_code:'16',brand:'Bambu Lab',color:'Gelb',material:'PLA Basic',color_hex:'#f4ee2a',manufacturer_code:'10102'},
+   {id:4,internal_code:'9',brand:'OVERTURE',color:'Light Green',material:'PLA Matte',color_hex:'#ffffff',manufacturer_code:''}
   ];
   let saved=null,uploaded=false,refreshFails=false,uploadName=null,uploadBytes=0,received=0,proxyRejected=false,shareMeta=null;
   const shareFileId='abababababababababababab';
   const uploadId='abcabcabcabcabcabcabcabc';
   await page.route('**/api/filaments',route=>route.fulfill({json:{filaments:spools}}));
+  let colorSaved=null;
+  await page.route('**/api/filament',route=>{
+   const post=route.request().postDataJSON();
+   assert.equal(post.action,'color_hex');
+   assert.equal(post.id,4);
+   colorSaved=post.color_hex;
+   spools.find(f=>f.id===4).color_hex=post.color_hex.toUpperCase();
+   route.fulfill({json:{filaments:spools}});
+  });
   await page.route('**/api/print-tools*',route=>{
    if(refreshFails)return route.fulfill({status:500,json:{error:'Test: Nachladen vorübergehend nicht möglich'}});
    const shareFiles=shareMeta?[{...shareMeta,id:shareFileId,bytes:200000,created:Math.floor(Date.now()/1000)}]:[];
-   return route.fulfill({json:{profiles:[],files:shareFiles}});
+   return route.fulfill({json:{profiles:saved?[{...saved,sources:saved.sources,colors:[]}]:[],files:shareFiles}});
   });
   await page.route('**/api/print-profile',async route=>{
    saved=route.request().postDataJSON();
@@ -89,10 +99,24 @@ const assert=require('node:assert/strict');
   assert.match(await page.locator('[data-master-slot-open="0"]').getAttribute('title'),/Sakura Pink/);
   assert.match(await page.locator('[data-master-slot-open="0"]').innerText(),/11/);
   assert.match(await page.locator('[data-master-slot-open="0"] .master-insight-dot').getAttribute('style'),/#ff99ee/);
+  // Selected swatch and code update immediately in the upper palette, before Save.
+  assert.match(await page.locator('[data-master-palette-preview="profile"]').innerText(),/11 · Sakura Pink/);
+  await page.locator('[data-master-slot-open="1"]').click();
+  await page.locator('#master-filament-search').fill('Light Green');
+  await page.locator('[data-master-color-fix="4"]').click();
+  await page.locator('#master-color-correction-hex').fill('#74c476');
+  await page.locator('#master-color-correction-save').click();
+  await page.waitForFunction(()=>document.querySelector('#master-color-correction').hidden);
+  assert.equal(colorSaved,'#74c476');
+  assert.match(await page.locator('[data-master-pick="4"] .master-picker-color').getAttribute('style'),/#74C476/i);
+  await page.locator('[data-master-pick="4"]').click();
+  assert.match(await page.locator('[data-master-slot-open="1"]').innerText(),/9 · Light Green/);
+  assert.match(await page.locator('[data-master-palette-preview="profile"]').innerText(),/9 · Light Green/);
+  assert.match(await page.locator('[data-master-palette-preview="profile"] [data-master-preview-filament="4"] .master-insight-dot').getAttribute('style'),/#74C476/i);
   await page.locator('[data-master-source-side="0"]').selectOption('right');
   await page.locator('#master-save').click();
   await page.waitForFunction(()=>document.querySelector('#master-profile-status').textContent.includes('gespeichert'));
-  assert.equal(saved.sources[0].slots[0],2);
+  assert.deepEqual(saved.sources[0].slots.slice(0,2),[2,4]);
   assert.equal(saved.sources[0].side,'right','H2D nozzle side persisted');
   if(!await page.locator('#master-upload-details').evaluate(el=>el.open)) await page.locator('#master-upload-details summary').click();
   await page.locator('#master-upload-input').setInputFiles({name:'My_Acorn_beide_größen.3mf',mimeType:'model/3mf',buffer:Buffer.alloc(700000,65)});
@@ -113,6 +137,8 @@ const assert=require('node:assert/strict');
    })));
   assert.equal(await page.locator('.master-project-card .master-insight-card').count(),1);
   assert.match(await page.locator('.master-project-card .master-insight-card').innerText(),/Druckdaten/);
+  assert.match(await page.locator('.master-project-card [data-master-palette-preview]').innerText(),/9 · Light Green/);
+  assert.match(await page.locator('.master-project-card [data-master-palette-preview]').innerText(),/11 · Sakura Pink/);
   assert.equal(await page.locator('.master-project-card .master-insight-card').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
   assert.match(await page.locator('.master-project-name strong').innerText(),/My_Acorn_beide_größen\.3mf/);
   assert.equal(await page.locator('#master-file-count').innerText(),'1 Projektdatei');
@@ -141,7 +167,7 @@ const assert=require('node:assert/strict');
   await page.locator('.master-project-card [data-master-color-edit]').click();
   await page.locator('[data-master-slot-open="1"]').click();
   assert.equal(await page.locator('#master-filament-picker-overlay').isVisible(),true);
-  assert.equal(await page.locator('.master-picker-choice').count(),4);
+  assert.equal(await page.locator('.master-picker-choice').count(),5);
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#master-filament-picker-overlay').isVisible(),false);
   let deletes=0,deleteFails=true;

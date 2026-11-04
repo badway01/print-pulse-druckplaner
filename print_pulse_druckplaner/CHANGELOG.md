@@ -1,3 +1,11 @@
+# 0.13.38 · Zuverlässige Farbchips und Farbmuster
+
+- Bei allen Master-Farbpunkten stehen interne Nummer und echter Farbname; auch für H2D links/rechts und beim Editieren.
+- Manuell gespeicherte AMS-Belegung hat Vorrang vor Originalfarben der 3MF. Die Originalfarben bleiben separat aufklappbar, ohne scheinbare neue Zuordnungen.
+- Bei falschem Farb-HEX kann das Farbmuster direkt in der Auswahl korrigiert werden; Bestand und andere Spulendaten bleiben geschützt.
+- AMS-Vorschau aktualisiert sich sofort bei Änderungen, ohne den offenen Editor oder andere Formulare zu schließen.
+- Bestell-/Bauteilkarten lesen bevorzugt die bewusst gespeicherten Profilfarben. Keine Migration; Originaldateien unangetastet.
+
 # 0.13.37 · Kompakte Filamente mit H2D-Düsenanzeige
 
 - Farben direkt bei den Master-3MF-Farbpunkten ändern, hinzufügen und löschen, ohne zweite große Belegungskarte.

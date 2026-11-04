@@ -395,7 +395,15 @@
 <div id="master-filament-picker-overlay" class="master-picker-overlay" hidden><section class="master-filament-picker" role="region" aria-labelledby="master-filament-picker-title">
    <div class="master-picker-heading"><div><strong id="master-filament-picker-title">Filament auswählen</strong><small>Deine gespeicherten Farben</small></div><button type="button" class="master-picker-close" data-master-picker-close aria-label="Farbauswahl schließen">×</button></div>
    <label class="master-picker-search-label">Farbe, interne Nummer oder Bambu-Code suchen<input id="master-filament-search" type="search" autocomplete="off" placeholder="z. B. Sakura, 11 oder 11201"></label>
-   <div id="master-filament-count" class="master-picker-count"></div><div id="master-filament-results" class="master-picker-grid"></div>
+   <div id="master-filament-count" class="master-picker-count"></div>
+   <div id="master-color-correction" class="pp-picker-correction" hidden>
+    <strong id="master-color-correction-title">Farbmuster korrigieren</strong>
+    <label>Farbton (HEX)<input id="master-color-correction-hex" type="color" value="#ffffff" aria-label="Farbmuster bearbeiten"></label>
+    <span id="master-color-correction-value">#FFFFFF</span>
+    <button type="button" id="master-color-correction-save" class="primary small">Farbton speichern</button>
+    <button type="button" id="master-color-correction-cancel" class="secondary small">Abbrechen</button>
+   </div>
+   <div id="master-filament-results" class="master-picker-grid"></div>
   </section></div>
   
 <div class="master-add-source pp-palette-add"><select id="master-source-type" aria-label="Quelle hinzufügen"><option value="ams">AMS (4 Plätze)</option><option value="ams_ht">AMS HT (1 Platz)</option><option value="external">Externe Spule (1 Platz)</option></select>

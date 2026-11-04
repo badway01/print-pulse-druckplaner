@@ -57,7 +57,7 @@ except ImportError:
     _master_insights_spec.loader.exec_module(master_insights)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.37'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.38'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -1332,6 +1332,18 @@ def filament_mutate(data):
                 if not changed.rowcount: raise ValueError('Filament nicht gefunden.')
         return
     rowid=integer(data.get('id'),1,999999999)
+    if action=='color_hex':
+        # Dedicated color-swatch correction: never send/rewrite stock, cart, price,
+        # roll counts or identity fields from the master dialog.
+        hex_value=data.get('color_hex')
+        if not isinstance(hex_value,str) or not re.fullmatch(r'#[0-9A-Fa-f]{6}',hex_value):
+            raise ValueError('Ungültiger Farbwert.')
+        with connect() as db:
+            changed=db.execute('UPDATE filament_spools SET color_hex=?,updated=? WHERE id=?',
+                               (hex_value.upper(),now,rowid))
+            if not changed.rowcount:
+                raise ValueError('Filament nicht gefunden.')
+        return
     with connect() as db:
         if action=='cart':
             delta=integer(data.get('delta'),-1,1)
