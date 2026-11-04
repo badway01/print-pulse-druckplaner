@@ -322,6 +322,7 @@ function catalogMasterRows(p) {
  const selected=String(catalogSelectedVariant.get(String(p.id))||'');
  const shown=selected?all.filter(f=>!f.variant_id||String(f.variant_id)===selected):all;
  const variants=p.items||[];
+ const overviewOnly=variants.length>1&&!selected;
  const options='<option value="">Alle Varianten · Dateienübersicht</option>'+
    variants.map(v=>'<option value="'+esc(v.id)+'"'+(String(v.id)===selected?' selected':'')+'>'+
      esc(v.label)+'</option>').join('');
@@ -336,8 +337,9 @@ function catalogMasterRows(p) {
      '<small>'+esc(f.printer)+' · '+esc(variant)+(names?' · Bauteil: '+esc(names):'')+'</small></div></div>'+
      (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f,true):'')+
      (typeof masterSlicerButtonsMarkup==='function'?masterSlicerButtonsMarkup(f):'')+
-     (variants.length>1&&!f.variant_id?
-       '<small class="hint">Historische Standarddatei: Nur Ansicht. Bitte eine konkrete Variante auswählen.</small>':
+     (overviewOnly||variants.length>1&&!f.variant_id?
+       '<small class="hint">'+(overviewOnly?'Dateienübersicht: Erst eine Variante wählen, um zu bearbeiten.':
+        'Historische Standarddatei: Nur Ansicht.')+'</small>':
        '<button type="button" class="pp-catalog-edit" data-catalog-file-edit="'+esc(f.id)+'">✎ Master & Druckdaten bearbeiten</button>')+
      '</section>';
  }).join('');
