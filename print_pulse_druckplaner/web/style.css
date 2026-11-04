@@ -2751,6 +2751,7 @@ html[data-theme="dark"] .local-history-item{background:var(--surface);color:var(
 .master-insight-color b{color:#1164c9;font-size:12px;white-space:nowrap}
 .master-insight-color small{white-space:nowrap;font-size:10px}
 .master-insight-dot{display:block;width:13px;height:13px;min-width:13px;border-radius:50%;border:1px solid #8392a055}
+.master-insight-consumption{margin:9px 0 0;color:#63717e;font-size:11px}.master-insight-consumption b{color:#1b2634}
 .master-insight-missing{font-size:11px;color:#63717e;margin:0}
 .master-insight-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:13px;padding-top:11px;border-top:1px solid #e9eef2}
 .master-insight-foot>small{flex:1 1 140px;font-size:10px}
