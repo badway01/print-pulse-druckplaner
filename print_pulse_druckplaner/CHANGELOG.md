@@ -1,3 +1,10 @@
+# 0.13.36 · Deutliche Kundenvarianten in der Bestellung
+
+- Bestellpositionen zeigen Farbeigenschaften und weitere Kundenwünsche einzeln mit deutlichen Beschriftungen und Werten.
+- Einzelbestellungen nutzen die volle Breite; Kundenauftrag und 3MF-Karten sind durch eigene Bereiche optisch getrennt.
+- 3MF-Bauteilnamen bleiben als Druckvorlagen erkennbar, damit Katalogbezeichnungen nicht mit der bestellten Farbe verwechselt werden.
+- Keine Änderungen an Bestelldaten, Versanddatum, Lager, Druckstatus oder Slicer-Verknüpfungen.
+
 # 0.13.35 · Kompakte Produkt- und Bestellkarten
 
 - Produktkatalog mit Modellfoto, aufklappbaren Varianten und Masterdateien je Drucker beziehungsweise Bauteil.

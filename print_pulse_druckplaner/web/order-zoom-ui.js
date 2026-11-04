@@ -23,14 +23,44 @@
   return ['Offen','pending'];
  };
  const zoomIcon='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/></svg>';
+ function orderCustomerOptions(line){
+  const options=[];
+  String(line.variant||'').split(/\s*[·|]\s*/).map(x=>x.trim()).filter(Boolean).forEach(entry=>{
+   const sep=entry.indexOf(':');
+   const label=sep>=0?entry.slice(0,sep).trim():'Ausführung';
+   const value=sep>=0?entry.slice(sep+1).trim():entry;
+   if(value&&!options.some(o=>o.label===label&&o.value===value))options.push({label,value});
+  });
+  const add=(label,value)=>{
+   const s=String(value||'').trim();
+   if(s&&!options.some(o=>o.value.toLocaleLowerCase('de')===s.toLocaleLowerCase('de')))options.push({label,value:s});
+  };
+  add('Wunschfarbe',line.color);
+  add('Personalisierung',line.personalization);
+  add('Hinweis',line.note);
+  return options;
+ }
+ function orderCustomerOptionsMarkup(line){
+  const options=orderCustomerOptions(line);
+  if(!options.length)return '<span class="pp-order-no-options">Standardausführung · keine zusätzliche Variante</span>';
+  return '<span class="pp-order-option-grid" aria-label="Bestellte Varianten">'+options.map(option=>
+   '<span class="pp-order-option"><small>'+esc(option.label)+'</small><strong>'+esc(option.value)+'</strong></span>'
+  ).join('')+'</span>';
+ }
  function tile(line,large=false){
   const st=status(line),image=thumbnail(line.image||'');
   const attrs=[line.variant,line.color?'Farbe: '+line.color:''].filter(Boolean).join(' · ');
-  return '<button type="button" class="simple-order-tile'+(large?' is-large':'')+'" data-order-position="'+esc(line.transaction_id)+'" aria-label="'+esc(line.title)+' öffnen">'+
-   (image?'<img class="simple-tile-image" src="'+esc(image)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':'')+
-   '<span class="simple-tile-info"><strong>'+num(line.quantity)+' × '+esc(orderShortProductTitle(line.title))+'</strong>'+
-   (attrs?'<small>'+esc(attrs)+'</small>':'')+
-   '<span class="simple-tile-foot"><span class="simple-tile-state '+st[1]+'">'+esc(st[0])+'</span><b aria-hidden="true">›</b></span></span></button>';
+  return '<button type="button" class="simple-order-tile'+(large?' is-large':'')+'" data-order-position="'+esc(line.transaction_id)+'">'+
+   (image?'<img class="simple-tile-image" src="'+esc(image)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':
+    '<span class="simple-tile-image pp-photo-missing" aria-hidden="true">Produktfoto</span>')+
+   '<span class="simple-tile-info">'+
+   (large?'<span class="pp-order-tile-eyebrow">BESTELLTE POSITION · '+num(line.quantity)+' STÜCK</span>':'')+
+   '<strong>'+num(line.quantity)+' × '+esc(orderShortProductTitle(line.title))+'</strong>'+
+   (large?'<span class="pp-order-option-title">Bestellte Varianten / Kundenwunsch</span>'+orderCustomerOptionsMarkup(line):
+    attrs?'<small>'+esc(attrs)+'</small>':'')+
+   '<span class="simple-tile-foot"><span class="simple-tile-state '+st[1]+'">'+esc(st[0])+'</span>'+
+   (large?'<span class="pp-order-tile-open">Position öffnen</span>':'')+
+   '<b aria-hidden="true">›</b></span></span></button>';
  }
  orderCard=function(o){
   const ship=shipInfo(o),progress=orderPrintProgress(o),lines=o.items||[],photo=thumbnail(lines[0]?.image||'');
@@ -84,12 +114,11 @@
        (image?'<img src="'+esc(image)+'" alt="'+esc(line.title)+'" loading="lazy" referrerpolicy="no-referrer">':
          '<span class="pp-photo-missing">Produktfoto</span>')+
        '<div><strong>'+esc(orderShortProductTitle(line.title))+'</strong>'+
-       (line.variant?'<small>Variante: '+esc(line.variant)+'</small>':'')+
-       (line.color?'<small>Wunschfarbe: '+esc(line.color)+'</small>':'')+
-       '<small>'+num(line.quantity)+' Stück</small></div></div>';
+       '<small>'+num(line.quantity)+' Stück · Kundenwunsch</small>'+
+       orderCustomerOptionsMarkup(line)+'</div></div>';
     return '<section class="pp-order-product-section">'+heading+selected.map(entry=>
       '<div class="order-overview-master"><div class="order-overview-master-head">'+
-      '<strong>'+esc(entry.title)+'</strong></div>'+
+      '<span class="pp-order-piece-label">BAUTEIL / DRUCKVORLAGE</span><strong>'+esc(entry.title)+'</strong></div>'+
       (entry.file?'<div class="pp-order-file-title">'+esc(entry.file.filename)+' · '+esc(entry.file.printer)+'</div>'+
        (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(entry.file,true,desiredColor(line)):'')+
        slicerActions(entry.file):
@@ -103,8 +132,14 @@
    (local&&o.status==='ready'?'<p class="local-ready-info">✓ Produktion abgeschlossen · wartet auf Übergabe</p>':'')+
    '<p class="simple-order-summary">'+progress.finished+' von '+progress.total+' Stück fertig</p>'+
    (local&&o.status==='ready'?'<button type="button" class="primary local-detail-handover" data-local-handover="'+esc(o.id)+'">Übergabe bestätigen</button>':'')+
-   '<div class="simple-order-zoom-tiles">'+(o.items||[]).map(line=>tile(line,true)).join('')+'</div>'+
-   (orderInsights?'<section class="order-overview-insights"><h3>3MF · Druckdaten &amp; Filamente</h3>'+orderInsights+'</section>':'')+
+   '<section class="pp-order-request-section" aria-label="Bestellte Artikel und Varianten">'+
+   '<div class="pp-order-section-heading"><span>KUNDENBESTELLUNG</span><h3>Bestellte Artikel &amp; Varianten</h3></div>'+
+   '<div class="simple-order-zoom-tiles'+((o.items||[]).length===1?' is-single':'')+'">'+
+   (o.items||[]).map(line=>tile(line,true)).join('')+'</div></section>'+
+   (orderInsights?'<section class="order-overview-insights pp-order-files-section" aria-label="3MF Druckdateien und Filamente">'+
+    '<div class="pp-order-section-heading"><span>DRUCKVORBEREITUNG</span><h3>3MF · Druckdaten &amp; Filamente</h3>'+
+    '<p>Interne Druckvorlagen – die bestellten Kundenfarben stehen oben.</p></div>'+
+    orderInsights+'</section>':'')+
    '<details class="simple-order-advanced"><summary>Weitere Auftragsfunktionen (Lager und Bauteile)</summary>'+
    extra+localAdmin+'</details>';
   markupCache.delete(content);updateHTML(content,html);

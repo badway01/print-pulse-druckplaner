@@ -1,3 +1,9 @@
+## 0.13.36 (2026-11-04)
+
+- Bestell-Detailansicht: Kundenwunsch als einzelne, gut lesbare Variantenfelder (z. B. Katzenfarbe und Laternenfarbe), mit voller Kartenbreite bei nur einer Position.
+- Kundenauftrag und 3MF-Druckvorbereitung optisch und inhaltlich getrennt, auch auf dem Tablet und Smartphone.
+- Bestehende Produktbilder, Liefertage, Produktionsstatus, Bauteilzuordnung und Slicer-Buttons bleiben erhalten. Keine Datenmigration.
+
 ## 0.13.35 (2026-11-04)
 
 - Finale helle Produktkatalogkarten mit Foto, Varianten, Masterdateien und ihren Druckdaten je Bauteil und Drucker.

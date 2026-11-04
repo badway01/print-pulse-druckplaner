@@ -17,7 +17,7 @@ const assert=require('node:assert/strict');
    const created=Math.floor(Date.now()/1000)-86400*14; // existing order predates project upload
    data.orders=[{id:'test-old-order',customer:'Bestandskunde',created,ship_by:created+86400*20,
     quantity:1,items:[{listing_id:'101',item_id:item.id,transaction_id:'old-order-line',
-     title:'MagSafe Halterung',variant:'Farbe: Weiß',quantity:1,remaining:1,
+     title:'MagSafe Halterung',variant:'Farbe der Katze: 5. Schwarz · Farbe der Laterne: 23. Dunkelgrün',quantity:1,remaining:1,
      printing:0,finished:0,allocated:0,assembled:0,components_enabled:false,
      image:'',color:'',components:[]}]}];
    await route.fulfill({response,json:data});
@@ -45,6 +45,14 @@ const assert=require('node:assert/strict');
   await page.locator('#orders [data-order-expand="test-old-order"]').first().click();
   await page.locator('#order-details .order-overview-insights .master-insight-card').first().waitFor();
   assert.match(await page.locator('#order-details .order-overview-insights').innerText(),/Druckdaten/);
+  const choices=page.locator('#order-details .pp-order-request-section .pp-order-option');
+  assert.equal(await choices.count(),2,'Kundenvarianten einzeln darstellen');
+  assert.match(await choices.nth(0).innerText(),/Farbe der Katze[\\s\\S]*5\\. Schwarz/);
+  assert.match(await choices.nth(1).innerText(),/Farbe der Laterne[\\s\\S]*23\\. Dunkelgrün/);
+  assert.equal(await page.locator('#order-details .simple-order-zoom-tiles.is-single').count(),1);
+  const full=await page.locator('#order-details .simple-order-zoom-tiles.is-single .simple-order-tile').boundingBox();
+  assert(full.width>800,'Einzelposition muss die volle Dialogbreite nutzen');
+
   await page.locator('#order-details [data-close="order-details"]').click();
   // Dashboard and separate Bestellungen tab must share this same position workflow.
   await page.locator('[data-workspace="orders"]').click();
