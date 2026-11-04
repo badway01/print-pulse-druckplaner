@@ -87,6 +87,7 @@
      info.material_eur != null ? 'Materialkosten / Platte' : 'Druckkosten fehlen';
    return '<section class="master-insight-card pp-master-summary' + (compact ? ' is-compact' : '') +
      '" aria-label="Druckdaten zu ' + esc(file.filename) + '">' +
+     (!compact ? '<strong class="pp-insight-heading">Druckdaten</strong>' : '') +
      '<div class="pp-insight-stats">' +
      '<div><small>Druckzeit laut Slicer</small><strong>' + duration(info.time_seconds) + '</strong></div>' +
      (info.total_grams != null ? '<div><small>Filament / Platte</small><strong>' +
