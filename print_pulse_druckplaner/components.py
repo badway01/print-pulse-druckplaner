@@ -7,6 +7,7 @@ import json
 import re
 import secrets
 import time
+import unicodedata
 
 
 def schema(db):
@@ -42,6 +43,9 @@ def schema(db):
         db.execute('ALTER TABLE pp_components ADD COLUMN printing_stock INTEGER NOT NULL DEFAULT 0 CHECK(printing_stock>=0)')
     if 'color' not in part_columns:
         db.execute("ALTER TABLE pp_components ADD COLUMN color TEXT NOT NULL DEFAULT ''")
+    if 'variant_id' not in part_columns:
+        # Legacy parts remain shared until explicitly assigned or safely inferred.
+        db.execute("ALTER TABLE pp_components ADD COLUMN variant_id TEXT NOT NULL DEFAULT ''")
 
     # Optional, per-component 3MF mapping. A product may have several master
     # projects and each component can use a different printer/variant.
@@ -62,6 +66,42 @@ def option(line, name):
         if sep and prop.strip().casefold()==name.casefold():
             return value.strip()
     return ''
+
+
+def _variant_tokens(value):
+    raw=unicodedata.normalize('NFKD',str(value or '').casefold().replace('ß','ss'))
+    raw=''.join(c for c in raw if not unicodedata.combining(c))
+    return set(re.findall(r'[a-z0-9]+',raw))
+
+
+# Conservative backfill for old color-separated parts such as four "Karte"
+# components (weiß/beige/schwarz/gold). A single color or ambiguous labels
+# must never silently change a common shared component into a variant part.
+_COLOR_ALIASES={
+    'weiss': {'weiss','weisse','weisser','weissen','weisses'},
+    'schwarz': {'schwarz','schwarze','schwarzer','schwarzen','schwarzes'},
+    'beige': {'beige','beiger','beigen','beiges'},
+    'gold': {'gold','golden','goldene','goldener','goldenen','goldenes'},
+}
+def component_variant_id(part, siblings, items):
+    explicit=str(part.get('variant_id') or '')
+    if explicit: return explicit
+    colored=[s for s in siblings if str(s.get('name','')).casefold()==
+             str(part.get('name','')).casefold() and str(s.get('color') or '').strip()]
+    if len(colored)<2 or len(items)<2: return ''
+    mapping={}
+    for other in colored:
+        tokens=_variant_tokens(other.get('color'))
+        if len(tokens)!=1: return ''
+        color=next(iter(tokens))
+        terms=_COLOR_ALIASES.get(color,{color})
+        matches=[str(item['id']) for item in items
+                 if _variant_tokens(item.get('label')) & terms]
+        if len(matches)!=1: return ''
+        if other.get('variant_id') and str(other['variant_id'])!=matches[0]: return ''
+        mapping[str(other['id'])]=matches[0]
+    if len(set(mapping.values()))!=len(mapping): return ''
+    return mapping.get(str(part['id']),'')
 
 
 def requirement(part,line):
@@ -96,7 +136,12 @@ def snapshot(db,products,orders):
         group.setdefault(part['listing_id'],[]).append(part)
     enabled={}
     for product in products:
-        product['components']=group.get(product['id'],[])
+        original=group.get(product['id'],[])
+        for part in original:
+            resolved=component_variant_id(part,original,product.get('items') or [])
+            part['effective_variant_id']=resolved
+            part['variant_source']='automatic' if resolved and not part.get('variant_id') else 'manual'
+        product['components']=original
         enabled[product['id']]=bool(product.get('components_enabled'))
     for order in orders:
         for line in order['items']:
@@ -105,8 +150,14 @@ def snapshot(db,products,orders):
             if not line['components_enabled'] or not line.get('item_id'):
                 continue
             for part in group.get(str(line.get('listing_id') or ''),[]):
-                total,label,error=requirement(part,line)
                 job=jobs.get((str(line['transaction_id']),part['id']),{})
+                assigned=str(part.get('effective_variant_id') or '')
+                # Preserve already-booked legacy jobs; otherwise show only the
+                # component of the ordered Etsy variant.
+                if assigned and assigned!=str(line.get('item_id') or '') and not any(
+                    int(job.get(k,0)) for k in ('booked','printing','finished','consumed')):
+                    continue
+                total,label,error=requirement(part,line)
                 state={k:int(job.get(k,0)) for k in ('booked','printing','finished','consumed')}
                 # A stock part printed specifically for an order is NOT free inventory.
                 # Only 'booked' was withdrawn from shared stock; both sources
@@ -187,7 +238,11 @@ def mutate(db,data,whole):
             prop=str(data.get('property_name') or '').strip()[:100]
             qty_prop=str(data.get('quantity_property') or '').strip()[:100]
             color=str(data.get('color',old['color'] if old else '') or '').strip()
+            variant=str(data.get('variant_id',old['variant_id'] if old else '') or '')
             if len(color)>60: raise ValueError('Farbe darf höchstens 60 Zeichen enthalten.')
+            if variant and not db.execute('SELECT 1 FROM stock_items WHERE id=? AND listing_id=?',
+                                          (variant,listing_id)).fetchone():
+                raise ValueError('Bauteilvariante gehört nicht zum Produkt.')
             units=whole(data.get('units'),1,100)
             target_stock=whole(data.get('target_stock',old['target_stock'] if old else 0),0,100000)
             if kind=='demand': target_stock=0
@@ -198,16 +253,23 @@ def mutate(db,data,whole):
                     raise ValueError('Vor Umstellung zuerst den vorhandenen Bauteilbestand auf 0 korrigieren.')
                 used=db.execute('SELECT 1 FROM pp_component_orders WHERE component_id=? LIMIT 1',(cid,)).fetchone()
                 if used and any((old[k]!=v for k,v in [
-                    ('kind',kind),('property_name',prop),('quantity_property',qty_prop),('units',units)])):
+                    ('kind',kind),('property_name',prop),('quantity_property',qty_prop),
+                    ('units',units)])):
                     raise ValueError('Dieses Bauteil wird bereits in Aufträgen genutzt. Die Stückliste bleibt unverändert.')
+                if used and old['variant_id']!=variant:
+                    active=db.execute("""SELECT 1 FROM pp_component_orders
+                        WHERE component_id=? AND (printing>0 OR booked>consumed
+                        OR finished>consumed) LIMIT 1""",(cid,)).fetchone()
+                    if active:
+                        raise ValueError('Bauteil hat offene Auftragsbuchungen. Variante erst danach ändern.')
                 db.execute("""UPDATE pp_components SET name=?,kind=?,property_name=?,
-                    quantity_property=?,units=?,target_stock=?,color=?,updated=? WHERE id=?""",
-                    (name,kind,prop,qty_prop,units,target_stock,color,int(time.time()),cid))
+                    quantity_property=?,units=?,target_stock=?,color=?,variant_id=?,updated=? WHERE id=?""",
+                    (name,kind,prop,qty_prop,units,target_stock,color,variant,int(time.time()),cid))
             else:
                 db.execute("""INSERT INTO pp_components
-                    (id,listing_id,name,kind,property_name,quantity_property,units,stock,target_stock,color,updated)
-                    VALUES(?,?,?,?,?,?,?,0,?,?,?)""",
-                    (secrets.token_hex(12),listing_id,name,kind,prop,qty_prop,units,target_stock,color,int(time.time())))
+                    (id,listing_id,name,kind,property_name,quantity_property,units,stock,target_stock,color,variant_id,updated)
+                    VALUES(?,?,?,?,?,?,?,0,?,?,?,?)""",
+                    (secrets.token_hex(12),listing_id,name,kind,prop,qty_prop,units,target_stock,color,variant,int(time.time())))
         elif action=='delete':
             if not old: raise ValueError('Bauteil nicht gefunden.')
             if old['printing_stock']>0:
@@ -285,8 +347,16 @@ def mutate(db,data,whole):
     line=next((x for x in lines if str(x.get('transaction_id'))==tid),None)
     if not line or not tx['item_id']:
         raise ValueError('Etsy-Bestellvariante nicht eindeutig zugeordnet.')
-    parts=[dict(x) for x in db.execute(
+    all_parts=[dict(x) for x in db.execute(
         'SELECT * FROM pp_components WHERE listing_id=?',(tx['listing_id'],))]
+    variants=[dict(x) for x in db.execute(
+        'SELECT id,label FROM stock_items WHERE listing_id=?',(tx['listing_id'],))]
+    parts=[p for p in all_parts if
+        component_variant_id(p,all_parts,variants) in ('',str(tx['item_id'])) or
+        db.execute("""SELECT 1 FROM pp_component_orders
+            WHERE transaction_id=? AND component_id=? AND
+            (booked>0 OR printing>0 OR finished>0 OR consumed>0)""",
+            (tid,p['id'])).fetchone()]
     if not parts and action not in ('quick-complete','quick-reopen'):
         raise ValueError('Bitte zuerst Bauteile im Produktkatalog anlegen.')
     existing=db.execute('SELECT * FROM stock_order_prints WHERE transaction_id=?',(tid,)).fetchone()
