@@ -58,7 +58,7 @@ class MasterInsightsTests(unittest.TestCase):
         self.assertEqual(data["time_seconds"], 7200)
         self.assertEqual(data["total_grams"], 30)
         self.assertEqual([f["percent"] for f in data["filaments"]], [67, 33])
-        self.assertIsNone(data["production_eur"], "Unassigned filament must not invent a cost")
+        self.assertIsNotNone(data["production_eur"], "Uniquely matched HEX may use stored spool prices")
         self.assertEqual(data["print_count"], 0)
         insights.change(self.db, self.root, self.fid, {
             "action": "save", "hours": 2, "minutes": 0,
