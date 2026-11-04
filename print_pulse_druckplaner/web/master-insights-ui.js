@@ -167,7 +167,7 @@
    const button=form.querySelector('[type="submit"]');
    button.disabled=true;
    try {
-     await api('master-insights',{id,action:'save',hours,minutes,filaments,color_mode:form.querySelector('[data-insight-mode]').value});
+     await api('master-insights',{id,action:'save',hours,minutes,filaments,clear_filaments:rows.length===0,color_mode:form.querySelector('[data-insight-mode]').value});
      await refreshFile(id);
      flash('Druckzeit und Filamentverbrauch gespeichert. Kosten neu berechnet.');
    } catch(error) { flash('Druckdaten nicht gespeichert: ' + error.message,true);button.disabled=false; }
