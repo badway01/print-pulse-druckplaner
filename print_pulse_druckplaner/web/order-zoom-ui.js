@@ -104,7 +104,7 @@
    '<p class="simple-order-summary">'+progress.finished+' von '+progress.total+' Stück fertig</p>'+
    (local&&o.status==='ready'?'<button type="button" class="primary local-detail-handover" data-local-handover="'+esc(o.id)+'">Übergabe bestätigen</button>':'')+
    '<div class="simple-order-zoom-tiles">'+(o.items||[]).map(line=>tile(line,true)).join('')+'</div>'+
-   (orderInsights?'<section class="order-overview-insights"><h3>3MF · Kosten &amp; Filamentbelegung</h3>'+orderInsights+'</section>':'')+
+   (orderInsights?'<section class="order-overview-insights"><h3>3MF · Druckdaten &amp; Filamente</h3>'+orderInsights+'</section>':'')+
    '<details class="simple-order-advanced"><summary>Weitere Auftragsfunktionen (Lager und Bauteile)</summary>'+
    extra+localAdmin+'</details>';
   markupCache.delete(content);updateHTML(content,html);
