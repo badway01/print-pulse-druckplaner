@@ -125,6 +125,26 @@ class MasterInsightsTests(unittest.TestCase):
             "SELECT details_json FROM pp_master_file_insights WHERE file_id=?",
             (self.fid,)).fetchone()[0])
 
+    def test_time_only_edit_keeps_slicer_colors_until_explicit_clear(self):
+        with zipfile.ZipFile(self.path, "w") as archive:
+            archive.writestr("Metadata/slice_info.config", """
+              <config><plate><filament id="1" type="PLA" color="#111111" used_g="20"/>
+              </plate></config>""")
+        before = insights.summarize(self.db, self.row(), self.root, self.spools())
+        self.assertEqual(len(before["filaments"]), 1)
+        insights.change(self.db, self.root, self.fid, {
+            "action": "save", "hours": 1, "minutes": 30, "filaments": []
+        })
+        after = insights.summarize(self.db, self.row(), self.root, self.spools())
+        self.assertEqual(len(after["filaments"]), 1)
+        self.assertEqual(after["time_seconds"], 5400)
+        insights.change(self.db, self.root, self.fid, {
+            "action": "save", "hours": 1, "minutes": 30,
+            "filaments": [], "clear_filaments": True
+        })
+        cleared = insights.summarize(self.db, self.row(), self.root, self.spools())
+        self.assertEqual(cleared["filaments"], [])
+
     def test_broken_zip_never_fails_listing(self):
         self.path.write_bytes(b"PK-corrupt")
         result = insights.summarize(self.db, self.row(), self.root, self.spools())
