@@ -2290,7 +2290,7 @@ def version_history():
     for line in lines:
         heading=re.fullmatch(r'#\s+(\d+\.\d+\.\d+)\s*[·–-]\s*(.+)',line.strip())
         if heading:
-            if len(entries)>=12:
+            if len(entries)>=20:
                 break
             entries.append({'version':heading.group(1),'title':heading.group(2)[:160],'changes':[]})
         elif line.startswith('- ') and entries and len(entries[-1]['changes'])<5:
