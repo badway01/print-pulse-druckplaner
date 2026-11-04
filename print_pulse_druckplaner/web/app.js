@@ -1765,7 +1765,7 @@ function renderMasterFiles(){
    '<button type="button" class="master-delete" data-master-delete="'+esc(f.id)+'" title="3MF löschen" aria-label="'+esc(f.filename)+' löschen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div>'+
    (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f):'')+
    '<div class="master-project-actions">'+actions+download+'</div></article>';
- }).join(''):'<div class="master-files-empty"><strong>Noch keine 3MF-Datei hinterlegt</strong><p>Lege dein fertig eingerichtetes Druckprojekt unter „Neue Masterdatei speichern“ ab. Alle im Projekt gespeicherten Einstellungen bleiben enthalten.</p></div>');
+ }).join(''):'<div class="master-files-empty"><strong>Noch keine 3MF-Datei hinterlegt</strong><p>Lege dein fertig eingerichtetes Druckprojekt unter „Neue Masterdatei speichern“ ab. Alle im Projekt gespeicherten Einstellungen bleiben enthalten.</p>'+masterPalettePreviewMarkup({id:'profile',listing_id:x.listing_id,variant_id:x.variant_id,printer:x.printer,insights:{filaments:[]}})+'</div>');
  const mount=masterColorEditFileId?document.querySelector('[data-master-palette-mount="'+masterColorEditFileId+'"]'):null;
  if(panel){panel.hidden=!mount;if(mount)mount.appendChild(panel);}
 }
