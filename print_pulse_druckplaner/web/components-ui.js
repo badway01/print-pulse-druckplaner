@@ -356,6 +356,7 @@ renderCatalog=function(){
  const rows=model.products.filter(p=>p.state==='active'&&p.title.toLocaleLowerCase('de').includes(search));
  updateHTML(shell,rows.length?rows.map(p=>{
   const files=(printTools.files||[]).filter(f=>String(f.listing_id)===String(p.id)).length;
+  const profiles=(printTools.profiles||[]).filter(f=>String(f.listing_id)===String(p.id)).length;
   const enabled=Boolean(p.components_enabled), open=catalogExpanded.has(String(p.id));
   const img=thumbnail(p.image);
   return '<article class="catalog-item pp-catalog-product" data-catalog-item="'+esc(p.id)+'">'+
@@ -363,7 +364,7 @@ renderCatalog=function(){
    (img?'<img src="'+esc(img)+'" alt="'+esc(p.title)+'" loading="lazy" referrerpolicy="no-referrer">':
        '<span class="catalog-placeholder">Produktfoto</span>')+
    '<span class="pp-catalog-product-name"><strong>'+esc(p.title)+'</strong>'+
-   '<small>'+files+' Masterdatei'+(files===1?'':'en')+(enabled?' · '+(p.components||[]).length+' Bauteile':'')+'</small>'+
+   '<small>'+files+' Masterdatei'+(files===1?'':'en')+' · '+profiles+' Druckprofil(e)'+(enabled?' · '+(p.components||[]).length+' Bauteile':'')+'</small>'+
    '<small>'+esc(p.items.length>1?p.items.length+' Varianten':'Standardvariante')+'</small></span>'+
    '<span class="pp-catalog-chevron" aria-hidden="true">'+(open?'−':'+')+'</span></button>'+
    '<div class="pp-catalog-settings"><label class="catalog-part-switch">'+
