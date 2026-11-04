@@ -7,7 +7,7 @@ let orderSort='ship';
 let workspace='production',filamentView='colors',filamentData=null,filamentBusy=false,filamentLoading=false;
 let filamentSort='default';
 try{const saved=localStorage.getItem('pp-filament-sort');if(['default','stock-desc','stock-asc','internal-code','manufacturer-code','hex-code'].includes(saved))filamentSort=saved;}catch{}
-let printTools={profiles:[],files:[],component_links:[],order_master_defaults:[],filaments_library:[]}, masterContext=null,masterSources=[],masterBusy=false,masterUploadPending=null;
+let printTools={profiles:[],files:[],component_links:[],order_master_defaults:[],filaments_library:[]}, masterContext=null,masterSources=[],masterColorEditFileId=null,masterBusy=false,masterUploadPending=null;
 let printerLive=null,printerLoading=false,printerEntities=[],printerConfigId=null,printerConfigBusy=false;
 let etsyAlertExpanded=false,etsyAlertFocused=null;
 try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
@@ -1625,6 +1625,9 @@ function findMasterProfile(){
 }
 function masterSelectionChanged(){
  closeMasterPicker(false);
+ const panel=$('master-color-editor-panel');if(panel){$('master-color-editor-home').appendChild(panel);panel.hidden=true;}
+ masterColorEditFileId=null;
+ $('master-source-side').hidden=$('master-printer').value!=='H2D';
  $('master-upload-status').textContent='';
  $('master-profile-status').textContent='';
  const existing=findMasterProfile();
@@ -1662,21 +1665,39 @@ function masterSwatchHex(value){
 function masterFilament(fid){
  return (filamentData?.filaments||[]).find(f=>String(f.id)===String(fid))||null;
 }
+function masterNozzleSide(s){return s?.side==='left'?'left':s?.side==='right'?'right':'unassigned';}
+function masterNozzleLabel(side){return side==='left'?'Düse links':side==='right'?'Düse rechts':'Düse noch nicht zugeordnet';}
 function masterSlotMarkup(fid,sourceIndex,slotIndex){
- const f=masterFilament(fid);
- const name=f?f.color:fid?'Filament nicht mehr vorhanden':'Nicht belegt';
- const subtitle=f?[(f.internal_code?'Intern '+f.internal_code:''),f.brand,f.material].filter(Boolean).join(' · '):fid?'Bitte neu zuordnen':'Tippen und Farbe wählen';
- const swatch=f?'<span class="master-slot-color" style="background:'+esc(masterSwatchHex(f.color_hex))+'"></span>':'<span class="master-slot-color master-slot-empty"></span>';
- return '<div class="master-slot"><span class="master-slot-label">Platz '+(slotIndex+1)+'</span>'+
-  '<button type="button" class="master-slot-button'+(f?' is-assigned':'')+'" data-master-slot-open="'+slotIndex+'" data-master-source="'+sourceIndex+'" aria-label="Platz '+(slotIndex+1)+': '+esc(name)+'. Filament wählen">'+
-  swatch+'<span class="master-slot-text"><strong>'+esc(name)+'</strong><small>'+esc(subtitle)+'</small></span><span class="master-slot-arrow" aria-hidden="true">⌄</span></button></div>';
+ const row=masterFilament(fid),name=row?row.color:fid?'Filament nicht mehr vorhanden':'Farbe wählen';
+ const label=row?(row.internal_code||row.manufacturer_code||row.material||'PLA'):'+ Farbe';
+ const dot='<span class="master-insight-dot'+(row?'':' master-slot-empty')+'"'+(row?' style="background:'+esc(masterSwatchHex(row.color_hex))+'"':'')+'></span>';
+ return '<div class="pp-palette-slot"><button type="button" class="pp-palette-chip" data-master-slot-open="'+slotIndex+'" data-master-source="'+sourceIndex+'" title="'+esc(name+' · Platz '+(slotIndex+1))+'" aria-label="'+esc(name)+' · Platz '+(slotIndex+1)+' wählen">'+dot+'<span>'+esc(label)+'</span></button>'+
+ (fid?'<button type="button" class="pp-palette-chip-remove" data-master-slot-clear="'+slotIndex+'" data-master-source="'+sourceIndex+'" aria-label="'+esc(name)+' entfernen" title="Farbe entfernen">×</button>':'')+'</div>';
 }
 function renderMasterSources(){
  updateHTML($('master-sources'),masterSources.length?masterSources.map((s,n)=>
-  '<div class="master-source" data-master-source="'+n+'"><div class="master-source-title"><b>'+esc(s.label)+'</b><button type="button" class="text-button" data-master-remove="'+n+'">Entfernen</button></div><div class="master-slots">'+
-  s.slots.map((fid,j)=>masterSlotMarkup(fid,n,j)).join('')+'</div></div>'
- ).join(''):'<p class="hint">Noch keine Filamentquelle zugeordnet. Füge ein AMS, AMS HT oder eine externe Spule hinzu.</p>');
+ '<div class="pp-palette-source"><div class="pp-palette-source-top"><strong>'+esc(s.label)+'</strong>'+
+ ($('master-printer').value==='H2D'?'<select data-master-source-side="'+n+'" aria-label="Düse für '+esc(s.label)+' wählen"><option value=""'+(masterNozzleSide(s)==='unassigned'?' selected':'')+'>Düse zuordnen</option><option value="left"'+(masterNozzleSide(s)==='left'?' selected':'')+'>Düse links</option><option value="right"'+(masterNozzleSide(s)==='right'?' selected':'')+'>Düse rechts</option></select>':'')+
+ '<button type="button" class="text-button" data-master-remove="'+n+'">Quelle entfernen</button></div><div class="pp-palette-slots">'+s.slots.map((fid,j)=>masterSlotMarkup(fid,n,j)).join('')+'</div></div>').join(''):'<p class="hint">Noch keine Quelle. AMS, AMS HT oder externe Spule hinzufügen.</p>');
 }
+function masterPalettePreviewMarkup(file){
+ const selected=selectedMasterTarget();
+ const active=masterContext&&file.listing_id===selected.listing_id&&file.variant_id===selected.variant_id&&file.printer===selected.printer;
+ const profile=(printTools.profiles||[]).find(p=>p.listing_id===file.listing_id&&p.variant_id===file.variant_id&&p.printer===file.printer)||
+ (printTools.profiles||[]).find(p=>p.listing_id===file.listing_id&&!p.variant_id&&p.printer===file.printer);
+ const sources=(active?masterSources:profile?.sources)||[];
+ const groups=['left','right','unassigned'].map(side=>({side,sources:sources.filter(s=>file.printer==='H2D'?masterNozzleSide(s)===side:side==='unassigned')})).filter(g=>g.sources.length);
+ const dot=(hex)=>'<span class="master-insight-dot" style="background:'+esc(masterSwatchHex(hex))+'"></span>';
+ const previewGroups=groups.map(g=>'<div class="pp-palette-view-group"><div class="pp-palette-view-label">'+esc(file.printer==='H2D'?masterNozzleLabel(g.side):'Filamentquellen')+'</div>'+
+ g.sources.map(s=>'<div class="pp-palette-view-source"><small>'+esc(s.label)+'</small><div class="master-insight-colors">'+s.slots.filter(Boolean).map(fid=>{const item=masterFilament(fid);return '<span class="master-insight-color" title="'+esc((item?.color||'Filament fehlt')+' · '+s.label)+'">'+dot(item?.color_hex)+'<span>'+esc(item?.material||'PLA')+'</span></span>';}).join('')+'</div></div>').join('')+'</div>').join('');
+ const detected=(file.insights?.filaments||[]).map(row=>'<span class="master-insight-color" title="'+esc(row.name||'3MF-Filament')+'">'+dot(row.color_hex)+'<span>'+esc(row.name||'PLA')+'</span></span>').join('');
+ const assigned=sources.some(s=>s.slots.some(Boolean));
+ const preview=assigned?previewGroups:detected?'<div class="master-insight-colors">'+detected+'</div><small class="pp-palette-origin">Aus 3MF erkannt · Düsenbelegung noch nicht hinterlegt</small>':previewGroups||'<p class="master-insight-missing">Noch keine Filamente zugeordnet.</p>';
+ return '<div class="master-insight-palette pp-palette-inline"><div class="pp-palette-header"><strong>Benötigte Filamente</strong>'+
+ (active?'<button type="button" class="pp-palette-edit-button" data-master-color-edit="'+esc(file.id)+'" aria-expanded="'+(masterColorEditFileId===file.id)+'">'+(masterColorEditFileId===file.id?'Schließen':'Farben & Düsen bearbeiten')+'</button>':'')+
+ '</div>'+preview+(active?'<div data-master-palette-mount="'+esc(file.id)+'"></div>':'')+'</div>';
+}
+window.masterPalettePreviewMarkup=masterPalettePreviewMarkup;
 let masterPickerTarget=null;
 function closeMasterPicker(returnFocus=true){
  const target=masterPickerTarget;
@@ -1724,6 +1745,8 @@ function masterSlicerUrl(file,slicer='bambu'){
  return 'printpulse3mf://'+slicer+'/'+file.id+(host?'?server='+encodeURIComponent(host):'');
 }
 function renderMasterFiles(){
+ const panel=$('master-color-editor-panel'),home=$('master-color-editor-home');
+ if(panel&&home&&panel.parentElement!==home)home.appendChild(panel);
  const x=selectedMasterTarget();
  const files=printTools.files.filter(f=>f.listing_id===x.listing_id&&f.variant_id===x.variant_id&&f.printer===x.printer);
  const mac=masterSlicerMac();
@@ -1743,6 +1766,8 @@ function renderMasterFiles(){
    (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f):'')+
    '<div class="master-project-actions">'+actions+download+'</div></article>';
  }).join(''):'<div class="master-files-empty"><strong>Noch keine 3MF-Datei hinterlegt</strong><p>Lege dein fertig eingerichtetes Druckprojekt unter „Neue Masterdatei speichern“ ab. Alle im Projekt gespeicherten Einstellungen bleiben enthalten.</p></div>');
+ const mount=masterColorEditFileId?document.querySelector('[data-master-palette-mount="'+masterColorEditFileId+'"]'):null;
+ if(panel){panel.hidden=!mount;if(mount)mount.appendChild(panel);}
 }
 
 async function deleteMasterFile(id){
@@ -1772,7 +1797,7 @@ async function saveMaster(){
  masterBusy=true;$('master-save').disabled=true;
  try{const next=await api('print-profile',{...selectedMasterTarget(),sources:masterSources});
   printTools.profiles=[...printTools.profiles.filter(r=>r.listing_id!==masterContext.id),...next.profiles];
-  render();renderCatalog();
+  render();renderCatalog();renderMasterFiles();
   $('master-profile-status').textContent='✓ Filamentbelegung gespeichert.';
   $('master-profile-status').dataset.state='success';
   window.markDruckplanerDialogSaved?.('master-editor');
@@ -2050,22 +2075,37 @@ for(const box of ['products','catalog-rows'])$(box).addEventListener('click',eve
 });
 $('master-printer').addEventListener('change',masterSelectionChanged);
 $('master-variant').addEventListener('change',masterSelectionChanged);
+function markMasterColorsDirty(){
+ $('master-profile-status').textContent='Belegung geändert · bitte speichern.';
+ $('master-profile-status').dataset.state='pending';
+}
+$('master-files').addEventListener('click',event=>{
+ const b=event.target.closest('[data-master-color-edit]');if(!b)return;
+ const id=b.dataset.masterColorEdit;
+ masterColorEditFileId=masterColorEditFileId===id?null:id;
+ renderMasterFiles();
+});
 $('master-add').addEventListener('click',()=>{
  const type=$('master-source-type').value;
  if(masterSources.length>=12){flash('Maximal 12 Filamentquellen.',true);return;}
  const label=type==='ams'?'AMS ':type==='ams_ht'?'AMS HT ':'Externe Spule ';
- masterSources.push({type,label:label+(masterSources.filter(s=>s.type===type).length+1),slots:Array(type==='ams'?4:1).fill(null)});
- renderMasterSources();
+ const side=$('master-printer').value==='H2D'?$('master-source-side').value:'';
+ masterSources.push({type,side,label:label+(masterSources.filter(s=>s.type===type).length+1),slots:Array(type==='ams'?4:1).fill(null)});
+ renderMasterSources();markMasterColorsDirty();
 });
 $('master-sources').addEventListener('click',event=>{
  const slot=event.target.closest('[data-master-slot-open]');
  if(slot){openMasterPicker(Number(slot.dataset.masterSource),Number(slot.dataset.masterSlotOpen));return;}
+ const clear=event.target.closest('[data-master-slot-clear]');
+ if(clear){masterSources[Number(clear.dataset.masterSource)].slots[Number(clear.dataset.masterSlotClear)]=null;renderMasterSources();markMasterColorsDirty();return;}
  const b=event.target.closest('[data-master-remove]');if(!b)return;
  masterSources.splice(Number(b.dataset.masterRemove),1);
- for(const type of ['ams','ams_ht','external']){
-  masterSources.filter(s=>s.type===type).forEach((s,i)=>s.label=(type==='ams'?'AMS ':type==='ams_ht'?'AMS HT ':'Externe Spule ')+(i+1));
- }
- renderMasterSources();
+ for(const type of ['ams','ams_ht','external'])masterSources.filter(s=>s.type===type).forEach((s,i)=>s.label=(type==='ams'?'AMS ':type==='ams_ht'?'AMS HT ':'Externe Spule ')+(i+1));
+ renderMasterSources();markMasterColorsDirty();
+});
+$('master-sources').addEventListener('change',event=>{
+ const b=event.target.closest('[data-master-source-side]');if(!b)return;
+ masterSources[Number(b.dataset.masterSourceSide)].side=b.value;markMasterColorsDirty();
 });
 $('master-filament-search').addEventListener('input',renderMasterPickerResults);
 $('master-filament-picker-overlay').addEventListener('click',event=>{
@@ -2076,8 +2116,7 @@ $('master-filament-picker-overlay').addEventListener('click',event=>{
  masterSources[source].slots[slot]=chosen.dataset.masterPick?Number(chosen.dataset.masterPick):null;
  closeMasterPicker(false);
  renderMasterSources();
- $('master-profile-status').textContent='Belegung geändert · bitte speichern.';
- $('master-profile-status').dataset.state='pending';
+ markMasterColorsDirty();
  $('master-sources').querySelector('[data-master-source="'+source+'"][data-master-slot-open="'+slot+'"]')?.focus();
 });
 $('master-editor').addEventListener('keydown',event=>{
