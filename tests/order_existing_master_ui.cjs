@@ -35,8 +35,9 @@ const assert=require('node:assert/strict');
   await page.locator('[data-order-position="old-order-line"]').first().click();
   await page.waitForFunction(()=>document.querySelector('#order-position .simple-pos-master-product .simple-part-master-open')!==null);
   const dialog=page.locator('#order-position');
-  let link=dialog.locator('.simple-pos-master-product .simple-part-master-open');
+  let link=dialog.locator('.simple-pos-master-product .simple-part-master-open').first();
   assert.match(await link.getAttribute('href'),new RegExp('bambu/'+first));
+  assert.match(await dialog.locator('.simple-pos-master-product .simple-part-master-open').nth(1).getAttribute('href'),new RegExp('orca/'+first));
   assert.match(await dialog.innerText(),/MagSafe_P1S_Master\.3mf/);
   assert.equal(await dialog.locator('[data-focus-action="start"]').count(),1);
   await dialog.locator('[data-focus-close]').click();
@@ -44,6 +45,7 @@ const assert=require('node:assert/strict');
   await page.locator('[data-workspace="orders"]').click();
   await page.locator('#full-orders-grid [data-order-position="old-order-line"]').first().click();
   assert.match(await link.getAttribute('href'),new RegExp('bambu/'+first));
+  assert.match(await dialog.locator('.simple-pos-master-product .simple-part-master-open').nth(1).getAttribute('href'),new RegExp('orca/'+first));
   await dialog.locator('[data-focus-close]').click();
   // Another master added later: the already existing order immediately offers selection.
   files.push({id:second,listing_id:'101',variant_id:'',printer:'P1S Old',
@@ -57,6 +59,7 @@ const assert=require('node:assert/strict');
   assert.equal(saved.listing_id,'101');
   assert.equal(saved.file_id,first);
   assert.match(await link.getAttribute('href'),new RegExp('bambu/'+first));
+  assert.match(await dialog.locator('.simple-pos-master-product .simple-part-master-open').nth(1).getAttribute('href'),new RegExp('orca/'+first));
   assert(requests>=3,'Fetch current masters on each order open');
   assert.deepEqual(errors,[]);
   console.log('EXISTING ORDER MASTER PASS: old order in Dashboard + Bestellungen, latest 3MF, saved default');
