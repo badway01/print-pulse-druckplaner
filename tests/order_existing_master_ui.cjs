@@ -42,6 +42,10 @@ const assert=require('node:assert/strict');
   assert.equal(await dialog.locator('.simple-pos-master-product .master-insight-card').count(),1);
   assert.equal(await dialog.locator('[data-focus-action="start"]').count(),1);
   await dialog.locator('[data-focus-close]').click();
+  await page.locator('#orders [data-order-expand="test-old-order"]').first().click();
+  await page.locator('#order-details .order-overview-insights .master-insight-card').first().waitFor();
+  assert.match(await page.locator('#order-details .order-overview-insights').innerText(),/Druckdaten/);
+  await page.locator('#order-details [data-close="order-details"]').click();
   // Dashboard and separate Bestellungen tab must share this same position workflow.
   await page.locator('[data-workspace="orders"]').click();
   await page.locator('#full-orders-grid [data-order-position="old-order-line"]').first().click();
