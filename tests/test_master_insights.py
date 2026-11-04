@@ -71,6 +71,9 @@ class MasterInsightsTests(unittest.TestCase):
         insights.change(self.db, self.root, self.fid, {"action": "count"})
         result = insights.summarize(self.db, self.row(), self.root, self.spools())
         self.assertEqual(result["print_count"], 1)
+        self.assertIsNotNone(result["total_spend_eur"])
+        self.assertEqual(result["avg_cost_eur"], result["production_eur"])
+        self.assertEqual(result["avg_time_seconds"], 7200)
         self.assertIsInstance(result["last_print"], int)
         self.assertTrue(self.path.exists())
 
