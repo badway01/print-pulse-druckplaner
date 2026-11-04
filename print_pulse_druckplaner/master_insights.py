@@ -223,10 +223,23 @@ def summarize(db, file, root, spool_rows):
         base = material_cost + hours * watts / 1000 * energy
         base += hours * (purchase / (years * annual_hours) + maintenance / annual_hours)
         production_eur = round(base * (1 + failure / 100), 2)
+    print_count = max(0, int(details.get("print_count") or 0))
+    priced_count = max(0, int(details.get("history_cost_count") or 0))
+    timed_count = max(0, int(details.get("history_time_count") or 0))
+    cost_sum = _number(details.get("history_cost_sum")) or 0
+    time_sum = _number(details.get("history_time_sum")) or 0
+    # A missing historical cost cannot be filled with today's price. Treat
+    # cumulative values as complete only if EVERY logged print had a snapshot.
+    total_spend_eur = round(cost_sum, 2) if print_count and priced_count == print_count else None
+    avg_cost_eur = round(cost_sum / priced_count, 2) if print_count and priced_count == print_count else None
+    avg_time_seconds = round(time_sum / timed_count) if print_count and timed_count == print_count else None
     return {
         "time_seconds": seconds,
-        "print_count": max(0, int(details.get("print_count") or 0)),
+        "print_count": print_count,
         "last_print": details.get("last_print"),
+        "total_spend_eur": total_spend_eur,
+        "avg_cost_eur": avg_cost_eur,
+        "avg_time_seconds": avg_time_seconds,
         "filaments": filaments,
         "total_grams": round(total_grams, 2) if total_grams else None,
         "material_eur": material_eur,
@@ -243,7 +256,28 @@ def change(db, root, file_id, payload):
         raise ValueError("3MF-Datei nicht gefunden.")
     details = _record(db, file, root)
     if payload.get("action") == "count":
-        details["print_count"] = min(1000000, max(0, int(details.get("print_count") or 0)) + 1)
+        # Freeze the current per-charge estimate when a finished print is
+        # recorded. This is not a real-time counter from the printer.
+        fields={r["name"] for r in db.execute("PRAGMA table_info(filament_spools)")}
+        wanted=[name for name in ("id","brand","color","material","color_hex",
+                                  "internal_code","price_cents","spool_g") if name in fields]
+        spools={}
+        for row in db.execute("SELECT "+",".join(wanted)+" FROM filament_spools"):
+            value=dict(row)
+            value.setdefault("spool_g",1000)
+            value.setdefault("price_cents",None)
+            value.setdefault("internal_code","")
+            spools[value["id"]]=value
+        estimated=summarize(db,file,root,spools)
+        previous=min(999999, max(0,int(details.get("print_count") or 0)))
+        details["print_count"] = previous + 1
+        if estimated["production_eur"] is not None:
+            details["history_cost_sum"]=round(
+                (_number(details.get("history_cost_sum")) or 0) + estimated["production_eur"],2)
+            details["history_cost_count"]=int(details.get("history_cost_count") or 0) + 1
+        if estimated["time_seconds"] is not None:
+            details["history_time_sum"]=int(details.get("history_time_sum") or 0) + estimated["time_seconds"]
+            details["history_time_count"]=int(details.get("history_time_count") or 0) + 1
         details["last_print"] = int(time.time())
     elif payload.get("action") == "save":
         hours = payload.get("hours")
