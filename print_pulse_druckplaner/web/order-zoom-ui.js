@@ -38,7 +38,7 @@
    '<div class="order-card-top"><b>#'+esc(o.id)+'</b><span class="order-card-top-tools"><small>'+esc(shortDate(o.created))+'</small>'+
    '<button type="button" class="order-card-zoom" data-order-expand="'+esc(o.id)+'" aria-label="Bestellung groß ansehen">'+zoomIcon+'</button></span></div>'+
    orderPrintMarker(progress,true)+
-   '<button type="button" class="order-card-main pp-order-main" data-order-expand="'+esc(o.id)+'">'+
+   '<button type="button" class="order-card-main pp-order-main" data-order-open="'+esc(o.id)+'">'+
    (photo?'<img src="'+esc(photo)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':'<span class="pp-photo-missing">Produktfoto</span>')+
    '<span><strong>'+esc(orderShortProductTitle(lines[0]?.title||'Bestellung'))+'</strong>'+
    (lines[0]?.variant?'<small>Variante: '+esc(lines[0].variant)+'</small>':'')+
