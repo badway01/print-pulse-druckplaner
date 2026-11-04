@@ -19,7 +19,7 @@
   const st=status(line),image=thumbnail(line.image||'');
   const attrs=[line.variant,line.color?'Farbe: '+line.color:''].filter(Boolean).join(' · ');
   return '<button type="button" class="simple-order-tile'+(large?' is-large':'')+'" data-order-position="'+esc(line.transaction_id)+'" aria-label="'+esc(line.title)+' öffnen">'+
-   (large&&image?'<img class="simple-tile-image" src="'+esc(image)+'" alt="" loading="lazy">':'')+
+   (image?'<img class="simple-tile-image" src="'+esc(image)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':'')+
    '<span class="simple-tile-info"><strong>'+num(line.quantity)+' × '+esc(orderShortProductTitle(line.title))+'</strong>'+
    (attrs?'<small>'+esc(attrs)+'</small>':'')+
    '<span class="simple-tile-foot"><span class="simple-tile-state '+st[1]+'">'+esc(st[0])+'</span><b aria-hidden="true">›</b></span></span></button>';
@@ -30,8 +30,12 @@
    '<div class="order-card-top"><b>#'+esc(o.id)+'</b><span class="order-card-top-tools"><small>'+esc(shortDate(o.created))+'</small>'+
    '<button type="button" class="order-card-zoom" data-order-expand="'+esc(o.id)+'" aria-label="Bestellung groß ansehen">'+zoomIcon+'</button></span></div>'+
    orderPrintMarker(progress,true)+
-   '<div class="order-card-main">'+(photo?'<img src="'+esc(photo)+'" alt="" loading="lazy">':'')+
-   '<div><strong>'+esc(o.customer)+'</strong><small>'+num(o.quantity)+' Stück · '+lines.length+' Position'+(lines.length===1?'':'en')+'</small></div></div>'+
+   '<button type="button" class="order-card-main pp-order-main" data-order-expand="'+esc(o.id)+'">'+
+   (photo?'<img src="'+esc(photo)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':'<span class="pp-photo-missing">Produktfoto</span>')+
+   '<span><strong>'+esc(orderShortProductTitle(lines[0]?.title||'Bestellung'))+'</strong>'+
+   (lines[0]?.variant?'<small>Variante: '+esc(lines[0].variant)+'</small>':'')+
+   (lines[0]?.color?'<small>Wunschfarbe: '+esc(lines[0].color)+'</small>':'')+
+   '<small>'+esc(o.customer)+' · '+num(o.quantity)+' Stück</small></span><span class="pp-order-main-chevron">›</span></button>'+
    '<div class="simple-order-tiles">'+lines.map(line=>tile(line)).join('')+'</div>'+
    '<div class="order-card-foot"><span class="order-deadline '+ship.level+'">'+shippingMarkup(ship)+'</span>'+
    (o.source==='local'&&o.status==='ready'?'<button type="button" class="primary local-card-handover" data-local-handover="'+esc(o.id)+'">Übergabe bestätigen</button>':'')+'</div>'+
@@ -66,14 +70,24 @@
   const orderInsights=(o.items||[]).map(line=>{
     const selected=composed(line)&&(line.components||[]).length ?
       (line.components||[]).map(part=>({title:part.name,file:partMasterResolution(line,part).file}))
-        .filter(entry=>!!entry.file) :
-      [{title:orderShortProductTitle(line.title),file:productOrderMaster(line).file}]
-        .filter(entry=>!!entry.file);
-    return selected.map(entry=>
+        : [{title:orderShortProductTitle(line.title),file:productOrderMaster(line).file}];
+    const image=thumbnail(line.image||'');
+    const heading='<div class="pp-order-product-heading">'+
+       (image?'<img src="'+esc(image)+'" alt="'+esc(line.title)+'" loading="lazy" referrerpolicy="no-referrer">':
+         '<span class="pp-photo-missing">Produktfoto</span>')+
+       '<div><strong>'+esc(orderShortProductTitle(line.title))+'</strong>'+
+       (line.variant?'<small>Variante: '+esc(line.variant)+'</small>':'')+
+       (line.color?'<small>Wunschfarbe: '+esc(line.color)+'</small>':'')+
+       '<small>'+num(line.quantity)+' Stück</small></div></div>';
+    return '<section class="pp-order-product-section">'+heading+selected.map(entry=>
       '<div class="order-overview-master"><div class="order-overview-master-head">'+
-      '<strong>'+esc(entry.title)+'</strong>'+slicerActions(entry.file)+'</div>'+
-      (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(entry.file,true):'')+'</div>'
-    ).join('');
+      '<strong>'+esc(entry.title)+'</strong></div>'+
+      (entry.file?'<div class="pp-order-file-title">'+esc(entry.file.filename)+' · '+esc(entry.file.printer)+'</div>'+
+       (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(entry.file,true,line.color||line.variant||''):'')+
+       slicerActions(entry.file):
+       '<p class="simple-part-master-hint">Noch keine passende Masterdatei zugeordnet. Position öffnen und 3MF auswählen.</p>')+
+      '</div>'
+    ).join('')+'</section>';
    }).join('');
   const html='<div class="order-work-meta"><div><strong>'+esc(o.customer)+'</strong><small>Bestellt am '+esc(shortDate(o.created))+'</small></div>'+
    '<div class="order-deadline '+ship.level+'">'+shippingMarkup(ship)+'</div></div>'+
@@ -134,13 +148,8 @@
  }
  function slicerActions(file){
   if(!file)return '';
-  if(!(typeof masterSlicerMac==='function'&&masterSlicerMac()))
-   return '<a class="simple-part-master-open" href="api/master-download?id='+encodeURIComponent(file.id)+'" download>3MF herunterladen</a>';
-  const actions=[['bambu','Bambu Studio'],['orca','OrcaSlicer']];
-  if(file.printer==='Snapmaker U1')actions.unshift(['snapmaker','Snapmaker Orca']);
-  return '<span class="simple-master-slicer-links">'+actions.map(([target,label])=>
-   '<a class="simple-part-master-open" href="'+esc(masterSlicerUrl(file,target))+'">In '+label+' öffnen</a>'
-  ).join('')+'</span>';
+  return typeof masterSlicerButtonsMarkup==='function' ? masterSlicerButtonsMarkup(file) :
+    '<a class="simple-part-master-open" href="api/master-download?id='+encodeURIComponent(file.id)+'" download>3MF herunterladen</a>';
  }
  function productMasterHtml(line){
   if(!listingOf(line))return '';
@@ -155,7 +164,7 @@
    (file?'<div class="simple-part-master-current"><span class="simple-part-master-filename">'+
     esc(file.filename)+' · '+esc(file.printer)+(pinned?' · Standard':'')+'</span>'+open+'</div>':
     '<p class="simple-part-master-hint">Mehrere Druckprojekte vorhanden. Wähle einmal das passende Projekt.</p>')+
-   (file && typeof masterInsightsMarkup==='function'?masterInsightsMarkup(file,true):'')+
+   (file && typeof masterInsightsMarkup==='function'?masterInsightsMarkup(file,true,line.color||line.variant||''):'')+
    (files.length>1?(file?'<details class="simple-part-master-change"><summary>Projekt wechseln</summary>'+choices+'</details>':choices):'')+
    '</section>';
  }
@@ -215,7 +224,7 @@
    (file?'<div class="simple-part-master-current"><span class="simple-part-master-filename">3MF: '+esc(file.filename)+
       ' · '+esc(file.printer)+'</span>'+action+'</div>':
     '<span class="simple-part-master-hint">Noch keine eindeutige 3MF-Zuordnung</span>')+
-   (file && typeof masterInsightsMarkup==='function'?masterInsightsMarkup(file,true):'')+
+   (file && typeof masterInsightsMarkup==='function'?masterInsightsMarkup(file,true,line.color||line.variant||''):'')+
    (file?'<details class="simple-part-master-change"><summary>Andere 3MF zuordnen</summary>'+change+'</details>':change)+
    '</div>';
  }
@@ -308,6 +317,7 @@
    (image?'<img src="'+esc(image)+'" alt="" loading="lazy">':'')+
    '<div><small>BESTELLUNG #'+esc(o.id)+' · '+q+' STÜCK</small><h3>'+esc(orderShortProductTitle(line.title))+'</h3></div></div>'+
    orderVariantLabels(line.variant)+
+   '<div class="pp-focus-deadline order-deadline '+shipInfo(o).level+'">'+shippingMarkup(shipInfo(o))+'</div>'+
    (labels.length?'<div class="simple-pos-extras">'+labels.map(x=>'<strong>'+esc(x)+'</strong>').join('')+'</div>':'')+
    (partMode?componentPartRows(line):productMasterHtml(line))+
    '<div class="simple-pos-state '+st[1]+'"><strong>'+esc(st[0])+'</strong>'+
