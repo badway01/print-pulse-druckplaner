@@ -76,9 +76,13 @@
  window.masterInsightsMarkup = function(file, compact=false) {
    if (!file) return '';
    const info = file.insights || {};
-   const result = info.production_eur ?? info.material_eur;
-   const label = info.production_eur !== null && info.production_eur !== undefined ?
-     'Druckkosten / Charge' : 'Materialkosten / Charge';
+   const hasHistory = info.total_spend_eur !== null && info.total_spend_eur !== undefined;
+   const result = hasHistory ? info.total_spend_eur : (info.production_eur ?? info.material_eur);
+   const label = hasHistory ? 'Gesamtausgaben · protokolliert' :
+     (info.production_eur !== null && info.production_eur !== undefined ?
+      'Druckkosten / Charge' : 'Materialkosten / Charge');
+   const averageCost = info.avg_cost_eur ?? info.production_eur ?? info.material_eur;
+   const averageTime = info.avg_time_seconds ?? info.time_seconds;
    return '<section class="master-insight-card' + (compact ? ' is-compact' : '') +
      '" aria-label="Druckdaten zu ' + esc(file.filename) + '">' +
      '<div class="master-insight-top"><div><strong>Druckdaten</strong><small>Letzter Druck: ' +
@@ -86,10 +90,14 @@
      '<div class="master-insight-cost"><strong>' + money(result) + '</strong><span>' + label + '</span></div></div>' +
      '<div class="master-insight-kpis">' +
      '<div><strong>' + (Number(info.print_count) || 0) + '</strong><small>Drucke erfasst</small></div>' +
-     '<div><strong>' + (info.total_grams === null || info.total_grams === undefined ? '—' :
-       Number(info.total_grams).toLocaleString('de-DE') + ' g') + '</strong><small>Verbrauch / Charge</small></div>' +
-     '<div><strong>' + duration(info.time_seconds) + '</strong><small>Druckzeit / Charge</small></div>' +
-     '</div>' + paletteHtml(file) +
+     '<div><strong>' + money(averageCost) + '</strong><small>' +
+       (info.avg_cost_eur != null ? 'Ø Kosten je Druck' : 'Kosten / Charge') + '</small></div>' +
+     '<div><strong>' + duration(averageTime) + '</strong><small>' +
+       (info.avg_time_seconds != null ? 'Ø Zeit je Druck' : 'Druckzeit / Charge') + '</small></div>' +
+     '</div>' +
+     (info.total_grams != null ? '<p class="master-insight-consumption">Filament pro Charge: <b>' +
+       Number(info.total_grams).toLocaleString('de-DE') + ' g</b></p>' : '') +
+     paletteHtml(file) +
      (!compact ? '<div class="master-insight-foot"><small>Interne Kalkulation ohne Etsy-Gebühren, Verpackung und Versand.</small>' +
        '<button type="button" class="secondary small" data-master-insight-count="' + esc(file.id) +
        '" title="Einen tatsächlich abgeschlossenen Druck erfassen">+ Druck protokollieren</button></div>' +
