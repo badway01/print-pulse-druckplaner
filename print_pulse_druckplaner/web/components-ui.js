@@ -336,7 +336,9 @@ function catalogMasterRows(p) {
      '<small>'+esc(f.printer)+' · '+esc(variant)+(names?' · Bauteil: '+esc(names):'')+'</small></div></div>'+
      (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f,true):'')+
      (typeof masterSlicerButtonsMarkup==='function'?masterSlicerButtonsMarkup(f):'')+
-     '<button type="button" class="pp-catalog-edit" data-catalog-file-edit="'+esc(f.id)+'">✎ Master & Druckdaten bearbeiten</button>'+
+     (variants.length>1&&!f.variant_id?
+       '<small class="hint">Historische Standarddatei: Nur Ansicht. Bitte eine konkrete Variante auswählen.</small>':
+       '<button type="button" class="pp-catalog-edit" data-catalog-file-edit="'+esc(f.id)+'">✎ Master & Druckdaten bearbeiten</button>')+
      '</section>';
  }).join('');
  return '<section class="pp-catalog-panel" aria-label="Druckdaten für '+esc(p.title)+'">'+
@@ -411,6 +413,7 @@ function componentKindChange(){
 function componentReset(){
  $('components-form').reset();
  $('components-id').value='';
+ $('components-variant').value='';
  $('components-units').value='1';
  $('components-target').value='0';
  $('components-form-title').textContent='+ Bauteil hinzufügen';
@@ -421,12 +424,19 @@ function componentRenderEditor(){
  if(!p)return;
  $('components-title').textContent='Bauteile · '+p.title;
  const parts=p.components||[];
+ const variants=p.items||[];
+ const options='<option value="">Gemeinsames Bauteil (alle Varianten)</option>'+
+   variants.map(item=>'<option value="'+esc(item.id)+'">'+esc(item.label)+'</option>').join('');
+ updateHTML($('components-variant'),options);
  $('components-stock-bulk').hidden=!parts.some(part=>part.kind==='stock');
  updateHTML($('components-list'),parts.length?parts.map(part=>
   '<div class="component-management-row" data-component-row="'+esc(part.id)+'">'+
   '<div class="component-management-name"><strong>'+esc(part.name)+'</strong>'+
   '<small>'+(part.kind==='stock'?'Vorratsbauteil':'Nach Bestellung')+
   (part.color?' · Farbe: '+esc(part.color):'')+
+  (part.effective_variant_id?' · Variante: '+esc(variants.find(item=>String(item.id)===
+    String(part.effective_variant_id))?.label||'Unbekannt')+
+    (part.variant_source==='automatic'?' (automatisch erkannt)':''):' · Alle Varianten')+
   (part.property_name?' · '+esc(part.property_name):'')+
   (part.quantity_property?' · Set: '+esc(part.quantity_property):'')+
   ' · '+part.units+' je Einheit'+(part.kind==='stock'&&part.target_stock?' · Auffüllziel '+part.target_stock:'')+'</small></div>'+
@@ -496,6 +506,7 @@ $('components-list').addEventListener('click',async event=>{
   $('components-kind').value=part.kind;
   componentKindChange();
   $('components-property').value=part.property_name||'';
+  $('components-variant').value=part.effective_variant_id||part.variant_id||'';
   $('components-color').value=part.color||'';
   $('components-quantity-property').value=part.quantity_property||'';
   $('components-units').value=part.units;
@@ -546,6 +557,7 @@ $('components-form').addEventListener('submit',async event=>{
  if(busy||!componentEditorProduct)return;
  const data={action:'save',listing_id:componentEditorProduct,id:$('components-id').value,
   name:$('components-name').value,kind:$('components-kind').value,
+  variant_id:$('components-variant').value,
   property_name:$('components-property').value,
   color:$('components-color').value,
   quantity_property:$('components-quantity-property').value,
