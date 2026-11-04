@@ -63,6 +63,18 @@
    '<button type="button" class="secondary" data-local-close="cancel" data-local-id="'+esc(o.id)+'">Stornieren</button>'+
    '<button type="button" class="primary" data-local-handover="'+esc(o.id)+'" '+
     (o.status==='ready'?'':'disabled title="Zuerst alle Positionen fertigstellen"')+'>Übergabe bestätigen</button></div>':'';
+  const orderInsights=(o.items||[]).map(line=>{
+    const selected=composed(line)&&(line.components||[]).length ?
+      (line.components||[]).map(part=>({title:part.name,file:partMasterResolution(line,part).file}))
+        .filter(entry=>!!entry.file) :
+      [{title:orderShortProductTitle(line.title),file:productOrderMaster(line).file}]
+        .filter(entry=>!!entry.file);
+    return selected.map(entry=>
+      '<div class="order-overview-master"><div class="order-overview-master-head">'+
+      '<strong>'+esc(entry.title)+'</strong>'+slicerActions(entry.file)+'</div>'+
+      (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(entry.file,true):'')+'</div>'
+    ).join('');
+   }).join('');
   const html='<div class="order-work-meta"><div><strong>'+esc(o.customer)+'</strong><small>Bestellt am '+esc(shortDate(o.created))+'</small></div>'+
    '<div class="order-deadline '+ship.level+'">'+shippingMarkup(ship)+'</div></div>'+
    (local&&o.notes?'<p class="simple-order-local-notes">'+esc(o.notes)+'</p>':'')+
@@ -70,6 +82,7 @@
    '<p class="simple-order-summary">'+progress.finished+' von '+progress.total+' Stück fertig</p>'+
    (local&&o.status==='ready'?'<button type="button" class="primary local-detail-handover" data-local-handover="'+esc(o.id)+'">Übergabe bestätigen</button>':'')+
    '<div class="simple-order-zoom-tiles">'+(o.items||[]).map(line=>tile(line,true)).join('')+'</div>'+
+   (orderInsights?'<section class="order-overview-insights"><h3>3MF · Kosten &amp; Filamentbelegung</h3>'+orderInsights+'</section>':'')+
    '<details class="simple-order-advanced"><summary>Weitere Auftragsfunktionen (Lager und Bauteile)</summary>'+
    extra+localAdmin+'</details>';
   markupCache.delete(content);updateHTML(content,html);
