@@ -1536,6 +1536,9 @@ def validate_profile_target(db, data):
     if variant and not db.execute(
         'SELECT 1 FROM stock_items WHERE id=? AND listing_id=?',(variant,lid)).fetchone():
         raise ValueError('Variante gehört nicht zum Produkt.')
+    if not variant and db.execute('SELECT COUNT(*) FROM stock_items WHERE listing_id=?',
+                                   (lid,)).fetchone()[0]>1:
+        raise ValueError('Bitte eine konkrete Variante wählen. „Alle Varianten“ ist nur eine Übersicht.')
     return lid,variant,printer
 
 
