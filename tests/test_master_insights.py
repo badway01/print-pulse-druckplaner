@@ -100,6 +100,31 @@ class MasterInsightsTests(unittest.TestCase):
         current = self.db.execute("SELECT details_json FROM pp_master_file_insights").fetchone()[0]
         self.assertEqual(previous, current)
 
+    def test_master_color_mode_survives_reload_and_rejects_invalid_input(self):
+        self.path.write_bytes(b"PK-corrupt")
+        original = insights.summarize(self.db, self.row(), self.root, self.spools())
+        self.assertEqual(original["color_mode"], "fixed")
+        insights.change(self.db, self.root, self.fid, {
+            "action": "save", "hours": 1, "minutes": 20,
+            "color_mode": "custom",
+            "filaments": [{"filament_id": 1, "grams": 25.0}],
+        })
+        changed = insights.summarize(self.db, self.row(), self.root, self.spools())
+        self.assertEqual(changed["color_mode"], "custom")
+        self.assertEqual(changed["time_seconds"], 4800)
+        self.assertEqual(changed["filaments"][0]["code"], "25")
+        previous = self.db.execute(
+            "SELECT details_json FROM pp_master_file_insights WHERE file_id=?",
+            (self.fid,)).fetchone()[0]
+        with self.assertRaises(ValueError):
+            insights.change(self.db, self.root, self.fid, {
+                "action": "save", "hours": 1, "minutes": 20,
+                "color_mode": "unbekannt", "filaments": []
+            })
+        self.assertEqual(previous, self.db.execute(
+            "SELECT details_json FROM pp_master_file_insights WHERE file_id=?",
+            (self.fid,)).fetchone()[0])
+
     def test_broken_zip_never_fails_listing(self):
         self.path.write_bytes(b"PK-corrupt")
         result = insights.summarize(self.db, self.row(), self.root, self.spools())
