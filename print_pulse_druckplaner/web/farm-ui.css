@@ -48,3 +48,42 @@
  .farm-periods{width:100%}
  .farm-periods button{flex:1;padding:9px}
 }
+
+
+/* Zeitfilter für gemessene Druckfarm-Historie; bleibt auf dem Handy scrollbar. */
+.farm-history-shell{margin-top:20px;padding:20px;border:1px solid var(--line);border-radius:15px;background:#fffdf9;min-width:0}
+.farm-history-heading h3{font:600 21px Georgia,'Times New Roman',serif;margin:3px 0 5px;color:var(--ink)}
+.farm-history-heading p{font-size:12px;color:var(--muted);margin:0 0 16px}
+.farm-history-periods{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.farm-history-periods button{font-size:12px;padding:9px 13px;min-height:42px;background:#faf8f4}
+.farm-history-periods button.selected{background:var(--green);border-color:var(--green);color:white}
+.farm-history-plot{overflow-x:auto;overflow-y:hidden;width:100%;padding:10px 0 5px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.farm-history-bars{min-height:215px;display:grid;align-items:end;gap:6px;grid-template-columns:repeat(14,minmax(44px,1fr));min-width:675px}
+.farm-history-bars.farm-history-hourly{grid-template-columns:repeat(24,minmax(39px,1fr));min-width:1050px}
+.farm-history-bars.farm-history-weekly,.farm-history-bars.farm-history-monthly{grid-template-columns:repeat(12,minmax(46px,1fr));min-width:625px}
+.farm-history-bin{display:flex;flex-direction:column;align-items:center;gap:5px;border:1px solid transparent;border-radius:9px;background:transparent;padding:5px 2px;min-width:0;width:100%;height:205px;justify-content:end;color:var(--ink)}
+.farm-history-bin:hover,.farm-history-bin.selected{background:#edf3eb;border-color:#acc3b4}
+.farm-history-pct{font-size:10px;font-weight:650;white-space:nowrap;font-variant-numeric:tabular-nums}
+.farm-history-column{position:relative;width:min(100%,32px);height:152px;background:#f2f0e9;border-radius:5px 5px 0 0;overflow:hidden}
+.farm-history-column .farm-history-cover,.farm-history-column .farm-history-used{position:absolute;bottom:0;left:0;right:0;display:block;transition:height .2s ease}
+.farm-history-column .farm-history-cover{background:#ddc9a4;opacity:.75}
+.farm-history-column .farm-history-used{background:var(--green)}
+.farm-history-caption{font-size:10px;white-space:nowrap;color:var(--muted)}
+.farm-history-detail{margin-top:16px;padding:15px;background:#f5f4ee;border:1px solid var(--line);border-radius:11px}
+.farm-history-detail-head small{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:1px}
+.farm-history-detail-head h4{font-size:17px;margin:3px 0}
+.farm-history-detail-head span{font-size:12px;color:var(--muted)}
+.farm-history-machines{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 18px;margin-top:16px}
+.farm-history-machine{min-width:0}
+.farm-history-machine-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:11px}
+.farm-history-machine-head span{color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.farm-history-machine-track{height:9px;background:#dfded7;border-radius:20px;overflow:hidden}
+.farm-history-machine-track span{display:block;height:100%;background:var(--green);border-radius:20px}
+.farm-history-note{font-size:11px;line-height:1.55;color:var(--muted);margin:12px 0 0}
+@media(max-width:720px){
+ .farm-history-shell{padding:13px}
+ .farm-history-periods{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+ .farm-history-periods button{padding:9px 2px;font-size:11px}
+ .farm-history-machines{grid-template-columns:1fr}
+ .farm-history-bars{min-height:200px}
+}
