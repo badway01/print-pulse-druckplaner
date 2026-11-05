@@ -20,8 +20,8 @@ const assert=require('node:assert/strict');
   assert.equal(saved.status(),200,'test setup must create a real master profile');
   await page.locator('[data-workspace="catalog"]').click();
   const first=page.locator('[data-catalog-item="101"]');
-  await page.waitForFunction(()=>document.querySelector('[data-catalog-item="101"]')?.textContent.includes('1 Druckprofil(e)'));
-  assert((await first.textContent()).includes('1 Druckprofil(e)'));
+  await page.waitForFunction(()=>document.querySelector('[data-catalog-item="101"]')?.textContent.includes('1 Druckprofil'));
+  assert((await first.textContent()).includes('1 Druckprofil'));
   assert(!((await page.locator('#toast').textContent()).includes('The string did not match')));
 
   await page.route('**/api/print-tools',async route=>route.fulfill({
@@ -30,7 +30,7 @@ const assert=require('node:assert/strict');
   await page.locator('[data-workspace="production"]').click();
   await page.locator('[data-workspace="catalog"]').click();
   await page.waitForFunction(()=>document.querySelector('#toast')?.textContent.includes('statt JSON eine Webseite'));
-  assert((await first.textContent()).includes('1 Druckprofil(e)'),'existing valid snapshot must remain visible');
+  assert((await first.textContent()).includes('1 Druckprofil'),'existing valid snapshot must remain visible');
   assert(!((await page.locator('#toast').textContent()).includes('The string did not match')));
 
   await page.unroute('**/api/print-tools');
@@ -39,7 +39,7 @@ const assert=require('node:assert/strict');
    page.waitForResponse(res=>res.url().includes('/api/print-tools') && res.ok()),
    page.locator('[data-workspace="catalog"]').click()
   ]);
-  assert((await first.textContent()).includes('1 Druckprofil(e)'));
+  assert((await first.textContent()).includes('1 Druckprofil'));
   assert.deepEqual(errors,[],'Safari must not report JS errors');
   console.log('SAFARI PASS: real printer profiles, informative HTML proxy errors and recovery without losing saved profile.');
  }finally{await browser.close();}
