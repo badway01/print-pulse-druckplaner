@@ -1280,11 +1280,13 @@ function showWorkspace(value){
  $('filament-shell').hidden=value!=='filament';
  $('catalog-shell').hidden=value!=='catalog';
  $('printers-shell').hidden=value!=='printers';
+ $('farm-shell').hidden=value!=='farm';
  $('calculator-shell').hidden=value!=='calculator';
  if(value==='calculator'){if(typeof economyLoaded!=='undefined'&&economyLoaded)econRefresh();else loadEconomics();}
  if(value==='catalog'){renderCatalog();loadPrintTools();}
  if(value==='filament')loadFilaments();
  if(value==='printers'){renderPrinterMonitor();loadPrinters();}
+ if(value==='farm'&&typeof loadFarmStats==='function')loadFarmStats();
 }
 function renderFilamentRolls(){
  const d=$('filament-rolls');
