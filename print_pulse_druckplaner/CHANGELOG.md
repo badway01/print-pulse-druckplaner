@@ -1,3 +1,11 @@
+# 0.13.47 · Produktkatalog nach MakerWorld-Prinzip
+
+- Kompakte Produktkacheln mit umschaltbarer Listenansicht; Produktdetails zeigen großes Bild und zugeordnete 3MF-Druckdateien.
+- Pro Datei: eingebettete 3MF-Vorschau (mit Produktfoto als Rückfall), Drucker, Druckzeit, Grammwerte und weitere Informationen per Info-Schaltfläche/Mouseover.
+- Dropdown „3MF öffnen“ für Bambu Studio, OrcaSlicer, Snapmaker Orca und PrusaSlicer. Auf macOS aktualisierten Print-&-Pulse-Slicer-Helfer installieren; auf anderen Geräten wird die Originaldatei heruntergeladen.
+- 3MF-Dateien können standardmäßig für alle Farbvarianten eines Produkts gespeichert werden. Bei der Variantenauswahl bleiben gemeinsame Dateien sichtbar; eine eigene 3MF je Farbe ist nicht mehr notwendig.
+- Vorhandene Varianten, Bauteile, Zuordnungen, Druckprofile, Filamente und Kundenbestellungen bleiben unverändert. Die Original-3MF wird nicht automatisch umgefärbt.
+
 # 0.13.46 · Druckfarm lädt wieder und Dashboard-Karten erhalten Styling
 
 - Der HTTP-Server liefert jetzt `farm-ui.js`, `farm-ui.css` und `dashboard-order-cards.css` als zulässige statische Dateien aus. Vorher antwortete er für diese drei Dateien mit 404.

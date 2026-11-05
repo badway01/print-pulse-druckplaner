@@ -43,6 +43,7 @@ assert.equal(count(orderCard(order(4))),2);
 const css=fs.readFileSync(root+'dashboard-order-cards.css','utf8');
 assert(css.includes('height:440px')&&css.includes('.order-card.is-expanded'));
 const index=fs.readFileSync(root+'index.html','utf8');
-assert(index.includes('dashboard-order-cards.css?v=0.13.45'));
+assert(index.includes('dashboard-order-cards.css?v=0.13.46'));
+
 assert(index.includes('order-zoom-ui.js?v=0.13.45'));
 console.log('Dashboard order cards PASS: equal height styles and 1/2/3/4+ item expansion.');

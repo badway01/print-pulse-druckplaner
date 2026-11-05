@@ -1650,13 +1650,11 @@ async function openMasterEditor(id){
  if(!p)return;
  masterContext=p;
  $('master-title').textContent=p.title;
- // The overview may include all variants, but editing/uploads always target
- // a concrete Etsy SKU. Existing legacy generic 3MF files remain untouched.
- $('master-variant').innerHTML=p.items.length?
-    p.items.map(i=>'<option value="'+esc(i.id)+'">'+esc(i.label)+'</option>').join(''):
-    '<option value="">Standard (Produkt ohne Varianten)</option>';
+ // A single geometry master is shared by all color variants unless the user explicitly chooses a special variant.
+ $('master-variant').innerHTML='<option value="">Gemeinsame Masterdatei · alle Farbvarianten</option>'+
+    (p.items||[]).map(i=>'<option value="'+esc(i.id)+'">Nur: '+esc(i.label)+'</option>').join('');
  $('master-printer').innerHTML=masterPrinters.map(name=>'<option value="'+esc(name)+'">'+esc(name)+'</option>').join('');
- $('master-variant').value=p.items[0]?.id||'';
+ $('master-variant').value='';
  $('master-printer').value='H2D';
  $('master-editor').showModal();
  $('master-share-path').textContent=masterShareFolderUrl();
@@ -1789,7 +1787,7 @@ function masterSlicerMac(){
  return /Macintosh/.test(navigator.userAgent) && !('ontouchend' in document);
 }
 function masterSlicerUrl(file,slicer='bambu'){
- if(!file||!/^[a-f0-9]{24}$/.test(file.id)||!['bambu','orca','snapmaker'].includes(slicer))return '';
+ if(!file||!/^[a-f0-9]{24}$/.test(file.id)||!['bambu','orca','snapmaker','prusa'].includes(slicer))return '';
  const candidate=window.location.hostname.toLowerCase();
  const host=/^(10\.(\d{1,3}\.){2}\d{1,3}|192\.168\.(\d{1,3}\.)\d{1,3}|172\.(1[6-9]|2\d|3[01])\.(\d{1,3}\.)\d{1,3}|[a-z0-9-]+\.local)$/.test(candidate)?candidate:'';
  return 'printpulse3mf://'+slicer+'/'+file.id+(host?'?server='+encodeURIComponent(host):'');
@@ -1798,7 +1796,8 @@ function renderMasterFiles(){
  const panel=$('master-color-editor-panel'),home=$('master-color-editor-home');
  if(panel&&home&&panel.parentElement!==home)home.appendChild(panel);
  const x=selectedMasterTarget();
- const files=printTools.files.filter(f=>f.listing_id===x.listing_id&&f.variant_id===x.variant_id&&f.printer===x.printer);
+ const files=printTools.files.filter(f=>f.listing_id===x.listing_id&&f.printer===x.printer&&
+   (f.variant_id===x.variant_id||(x.variant_id&&f.variant_id==='')));
  const mac=masterSlicerMac();
  $('master-file-count').textContent=files.length===1?'1 Projektdatei':files.length+' Projektdateien';
  updateHTML($('master-files'),files.length?files.map((f,index)=>{
@@ -1810,7 +1809,7 @@ function renderMasterFiles(){
   const actions=mac?(printerLabel==='Snapmaker U1'?snap+bambu+orca:bambu+snap+orca):'';
   const download='<a class="master-file-download" href="api/master-download?id='+id+'" download>3MF herunterladen</a>';
   return '<article class="master-file master-project-card"><div class="master-project-top"><span class="master-project-icon" aria-hidden="true">3MF</span><div class="master-project-info"><div class="master-project-name">'+
-   '<strong title="'+esc(f.filename)+'">'+esc(f.filename)+'</strong>'+(index===0?'<span class="master-project-latest">Neueste</span>':'')+'</div>'+
+   '<strong title="'+esc(f.filename)+'">'+esc(f.filename)+'</strong>'+(f.variant_id===''?'<span class="master-project-latest">Alle Farben</span>':'')+(index===0?'<span class="master-project-latest">Neueste</span>':'')+'</div>'+
    '<div class="master-project-meta"><span>'+esc(printerLabel)+'</span><span>'+esc(stamp)+'</span><span>'+(f.bytes/1048576).toFixed(1)+' MB</span></div></div>'+
    '<button type="button" class="master-delete" data-master-delete="'+esc(f.id)+'" title="3MF löschen" aria-label="'+esc(f.filename)+' löschen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div>'+
    (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f):'')+

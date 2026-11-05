@@ -502,7 +502,7 @@ class MasterTests(unittest.TestCase):
         self.assertTrue(result['releases'])
         self.assertEqual(result['releases'][0]['version'],app.APP_VERSION)
         self.assertTrue(result['releases'][0]['changes'])
-        self.assertLessEqual(len(result['releases']),12)
+        self.assertLessEqual(len(result['releases']),16)
 
 
 if __name__=='__main__':

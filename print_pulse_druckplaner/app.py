@@ -60,7 +60,7 @@ except ImportError:
     _farm_spec.loader.exec_module(farm_stats)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.46'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.47'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2315,7 +2315,7 @@ def version_history():
     for line in lines:
         heading=re.fullmatch(r'#\s+(\d+\.\d+\.\d+)\s*[·–-]\s*(.+)',line.strip())
         if heading:
-            if len(entries)>=12:
+            if len(entries)>=16:
                 break
             entries.append({'version':heading.group(1),'title':heading.group(2)[:160],'changes':[]})
         elif line.startswith('- ') and entries and len(entries[-1]['changes'])<5:
@@ -2535,6 +2535,36 @@ class Handler(BaseHTTPRequestHandler):
             except (sqlite3.Error,ValueError,TypeError,KeyError,AttributeError):
                 log.exception('Druckprofile: Abruf fehlgeschlagen (keine gespeicherten Daten verändert)')
                 return self.send(500,{'error':'Druckprofile momentan nicht lesbar. Die gespeicherten Druckprofile und 3MF-Dateien bleiben erhalten. Bitte das App-Protokoll prüfen.'})
+        if path=='/api/master-thumbnail':
+            params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            file_id=(params.get('id') or [''])[0]
+            try:
+                _,master_path=master_download_record(file_id)
+                # Reuse only an embedded raster preview; never render arbitrary 3MF XML.
+                # Limit decompression to prevent oversized images/ZIP bombs.
+                with zipfile.ZipFile(master_path) as archive:
+                    names=[item for item in archive.infolist()
+                           if not item.is_dir() and 0<item.file_size<=2*1024*1024]
+                    def rank(item):
+                        name=item.filename.lower()
+                        if name.endswith('metadata/plate_1.png'): return 0
+                        if name.endswith('metadata/thumbnail.png'): return 1
+                        if name.endswith('/thumbnail.png'): return 2
+                        if name.endswith('metadata/preview.png'): return 3
+                        if name.endswith('metadata/plate_1.jpg'): return 4
+                        return 99
+                    candidates=sorted((item for item in names if rank(item)<99),key=rank)
+                    for item in candidates[:12]:
+                        with archive.open(item) as source:
+                            image=source.read(2*1024*1024+1)
+                        if len(image)>2*1024*1024: continue
+                        if image.startswith(b'\x89PNG\r\n\x1a\n'):
+                            return self.send(200,image,'image/png')
+                        if image.startswith(b'\xff\xd8\xff'):
+                            return self.send(200,image,'image/jpeg')
+                return self.send(404,{'error':'Keine eingebettete 3MF-Vorschau.'})
+            except (ValueError,FileNotFoundError,KeyError,OSError,zipfile.BadZipFile,RuntimeError):
+                return self.send(404,{'error':'3MF-Vorschau nicht verfügbar.'})
         if path=='/api/master-download':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             file_id=(params.get('id') or [''])[0]
