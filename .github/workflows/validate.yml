@@ -40,6 +40,7 @@ jobs:
         run: |
           node --check print_pulse_druckplaner/web/filament-planner-ui.js
           node --check print_pulse_druckplaner/web/filament-purchases-ui.js
+          node --check print_pulse_druckplaner/web/filament-quick-ui.js
           node --check print_pulse_druckplaner/web/app.js
           node --check print_pulse_druckplaner/web/farm-ui.js
           node --check print_pulse_druckplaner/web/master-insights-ui.js
@@ -59,6 +60,7 @@ jobs:
           node --check tests/local_mobile_ui.cjs
           node --check tests/local_shipping_ui.cjs
           node --check tests/filament_purchases_ui.cjs
+          node --check tests/filament_quick_ui.cjs
           node --check tests/master_picker_ui.cjs
           node --check tests/order_part_master_ui.cjs
           node --check tests/order_existing_master_ui.cjs
@@ -92,7 +94,7 @@ jobs:
           node tests/local_ui.cjs
           node tests/local_mobile_ui.cjs
           node tests/local_shipping_ui.cjs
-          node tests/filament_purchases_ui.cjs
+          node tests/filament_quick_ui.cjs
 
       - name: Ansichten der Bedienprüfung
         if: always()

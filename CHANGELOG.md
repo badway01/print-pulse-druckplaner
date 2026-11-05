@@ -1,3 +1,9 @@
+## 0.13.43 (2026-11-05)
+
+- Filament Schnellbuchung: Farbe → Rollenanzahl → Einkaufspreis je Rolle. Sofortiger Wareneingang mit gewichtetem GLD und gegen doppelte Klicks gesicherter Buchung.
+- Alte Einkaufserfassungsmaske ausgeblendet, Daten erhalten.
+- Dashboard-Bestellkarten zeigen den ersten Artikel nicht länger doppelt; Kunde, Positionen und Versandtermin bleiben klar erkennbar.
+
 ## 0.13.41 (2026-11-05)
 
 - Hotfix für Home-Assistant-Add-on-Start: `farm_stats.py` im Dockerfile ergänzen; verhindert den fehlenden Modulimport nach Update auf 0.13.40.

@@ -42,7 +42,80 @@ def schema(db):
       cost_cents INTEGER, created INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS pp_filament_price_baselines (
       filament_id INTEGER PRIMARY KEY, price_cents INTEGER, created INTEGER NOT NULL);
+    -- Separate immutable receipt audit for the simplified direct roll booking.
+    CREATE TABLE IF NOT EXISTS pp_filament_quick_receipts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      request_key TEXT NOT NULL UNIQUE,
+      filament_id INTEGER NOT NULL REFERENCES filament_spools(id),
+      quantity INTEGER NOT NULL CHECK(quantity>0),
+      unit_price_cents INTEGER NOT NULL CHECK(unit_price_cents>=0),
+      previous_full_qty INTEGER NOT NULL,
+      previous_gld_cents INTEGER,
+      new_full_qty INTEGER NOT NULL,
+      new_gld_cents INTEGER NOT NULL,
+      created INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS pp_fq_filament_date
+      ON pp_filament_quick_receipts(filament_id,created);
     """)
+
+
+def quick_book(db, data):
+    """Book actually received rolls immediately and update weighted moving average.
+
+    The existing average is cost per *full* spool; partly used spools cannot
+    be weighted honestly without their remaining grams and are excluded from
+    the unit-cost basis. A receipt is idempotent by request_key.
+    The caller must run the entire mutation in a BEGIN IMMEDIATE transaction.
+    """
+    if not isinstance(data,dict):raise ValueError('Ungültige Rollenbuchung.')
+    filament_id=num(data.get('filament_id'),1,999999999,'Filament')
+    quantity=num(data.get('quantity'),1,500,'Anzahl Rollen')
+    unit_price=num(data.get('unit_price_cents'),0,500000,'Preis je Rolle')
+    request_key=label(data.get('request_key',''),120,'Buchungskennung',True)
+    if not re.fullmatch(r'[a-zA-Z0-9_-]{16,120}',request_key):
+        raise ValueError('Buchungskennung ungültig. Bitte erneut versuchen.')
+    prior=db.execute('SELECT * FROM pp_filament_quick_receipts WHERE request_key=?',
+                     (request_key,)).fetchone()
+    if prior:
+        if prior['filament_id']!=filament_id or prior['quantity']!=quantity or prior['unit_price_cents']!=unit_price:
+            raise ValueError('Diese Buchungskennung wurde bereits für andere Rollen verwendet.')
+        return {
+            'filament_id':filament_id,'quantity':quantity,
+            'before_stock':prior['previous_full_qty'],'stock_qty':prior['new_full_qty'],
+            'before_gld_cents':prior['previous_gld_cents'],
+            'gld_cents':prior['new_gld_cents'],'replayed':True,
+            'missing_previous_price':False
+        }
+    spool=db.execute('SELECT id,color,material,stock_qty,open_qty,price_cents,cart_qty FROM filament_spools WHERE id=?',
+                     (filament_id,)).fetchone()
+    if not spool:raise ValueError('Diese Farbe existiert nicht mehr. Bitte die Liste aktualisieren.')
+    before=spool['stock_qty']
+    if before+quantity>100000:raise ValueError('Zu viele Rollen für den Lagerbestand.')
+    previous=spool['price_cents']
+    missing=before>0 and previous is None
+    # A missing previous cost must not be invented: use the first documented
+    # purchase price as the starting reference and tell the user.
+    previous_weight=before if previous is not None else 0
+    total_weight=previous_weight+quantity
+    # Exact integer-cent arithmetic, rounded once (HALF_UP).
+    new_avg=(previous_weight*(previous or 0)+quantity*unit_price+total_weight//2)//total_weight
+    now=int(time.time())
+    changed=db.execute("""UPDATE filament_spools
+        SET stock_qty=stock_qty+?,price_cents=?,cart_qty=MAX(0,cart_qty-?),
+            updated=? WHERE id=? AND stock_qty=?""",
+            (quantity,new_avg,quantity,now,filament_id,before))
+    if changed.rowcount!=1:raise ValueError('Lagerbestand wurde verändert. Bitte erneut öffnen.')
+    db.execute("""INSERT INTO pp_filament_quick_receipts
+        (request_key,filament_id,quantity,unit_price_cents,previous_full_qty,
+         previous_gld_cents,new_full_qty,new_gld_cents,created)
+        VALUES (?,?,?,?,?,?,?,?,?)""",
+        (request_key,filament_id,quantity,unit_price,before,previous,
+         before+quantity,new_avg,now))
+    return {
+        'filament_id':filament_id,'quantity':quantity,'before_stock':before,
+        'stock_qty':before+quantity,'before_gld_cents':previous,'gld_cents':new_avg,
+        'missing_previous_price':missing,'replayed':False
+    }
 
 def num(value, low, high, label):
     if isinstance(value, bool) or not isinstance(value, int) or not low<=value<=high:

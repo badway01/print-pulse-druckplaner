@@ -62,19 +62,18 @@
    (large?'<span class="pp-order-tile-open">Position öffnen</span>':'')+
    '<b aria-hidden="true">›</b></span></span></button>';
  }
+
  orderCard=function(o){
-  const ship=shipInfo(o),progress=orderPrintProgress(o),lines=o.items||[],photo=thumbnail(lines[0]?.image||'');
+  const ship=shipInfo(o),progress=orderPrintProgress(o),lines=o.items||[];
   return '<article class="order-card '+ship.level+(progress.complete?' print-complete':'')+'" data-order-card="'+esc(o.id)+'">'+
-   '<div class="order-card-top"><b>#'+esc(o.id)+'</b><span class="order-card-top-tools"><small>'+esc(shortDate(o.created))+'</small>'+
+   '<div class="order-card-top"><b>BESTELLUNG #'+esc(o.id)+'</b><span class="order-card-top-tools"><small>'+esc(shortDate(o.created))+'</small>'+
    '<button type="button" class="order-card-zoom" data-order-expand="'+esc(o.id)+'" aria-label="Bestellung groß ansehen">'+zoomIcon+'</button></span></div>'+
    orderPrintMarker(progress,true)+
-   '<button type="button" class="order-card-main pp-order-main" data-order-open="'+esc(o.id)+'">'+
-   (photo?'<img src="'+esc(photo)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':'<span class="pp-photo-missing">Produktfoto</span>')+
-   '<span><strong>'+esc(orderShortProductTitle(lines[0]?.title||'Bestellung'))+'</strong>'+
-   (lines[0]?.variant?'<small>Variante: '+esc(lines[0].variant)+'</small>':'')+
-   (lines[0]?.color?'<small>Wunschfarbe: '+esc(lines[0].color)+'</small>':'')+
-   '<small>'+esc(o.customer)+' · '+num(o.quantity)+' Stück</small></span><span class="pp-order-main-chevron">›</span></button>'+
-   '<div class="simple-order-tiles">'+lines.map(line=>tile(line)).join('')+'</div>'+
+   '<button type="button" class="order-card-main pp-order-main pp-order-overview" data-order-open="'+esc(o.id)+'">'+
+   '<span class="pp-order-overview-text"><small class="pp-order-overview-kicker">KUNDENBESTELLUNG · '+lines.length+' '+(lines.length===1?'POSITION':'POSITIONEN')+'</small>'+
+   '<strong>'+esc(o.customer)+'</strong><small>'+num(o.quantity)+' Stück insgesamt · Bestellung öffnen</small></span>'+
+   '<span class="pp-order-main-chevron">›</span></button>'+
+   '<div class="simple-order-tiles"><span class="pp-order-items-heading">BESTELLTE ARTIKEL &amp; VARIANTEN</span>'+lines.map(line=>tile(line)).join('')+'</div>'+
    '<div class="order-card-foot"><span class="order-deadline '+ship.level+'">'+shippingMarkup(ship)+'</span>'+
    (o.source==='local'&&o.status==='ready'?'<button type="button" class="primary local-card-handover" data-local-handover="'+esc(o.id)+'">Übergabe bestätigen</button>':'')+'</div>'+
    (o.source==='local'?'<div class="local-order-pdf-row">'+localPdfLink(o,'Auftrag A4 · PDF')+'</div>':'')+'</article>';

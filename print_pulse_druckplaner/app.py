@@ -60,7 +60,7 @@ except ImportError:
     _farm_spec.loader.exec_module(farm_stats)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.41'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.43'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -1200,7 +1200,10 @@ def filament_overview():
     """Manual filament register and local shopping list, independent of Etsy."""
     with connect() as db:
         rows=[dict(row) for row in db.execute(
-            "SELECT * FROM filament_spools ORDER BY brand COLLATE NOCASE, color COLLATE NOCASE, material COLLATE NOCASE, id")]
+            """SELECT s.*,EXISTS(
+              SELECT 1 FROM pp_filament_quick_receipts q WHERE q.filament_id=s.id
+            ) AS gl_d_active FROM filament_spools s
+            ORDER BY s.brand COLLATE NOCASE,s.color COLLATE NOCASE,s.material COLLATE NOCASE,s.id""")]
     selected=[row for row in rows if row['cart_qty']>0]
     return {'filaments':rows,'cart_count':sum(row['cart_qty'] for row in selected),
             'cart_known_total_cents':sum(row['cart_qty']*row['price_cents'] for row in selected if row['price_cents'] is not None),
@@ -2551,7 +2554,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except (ValueError,FileNotFoundError):
                 return self.send(404,{'error':'Datei nicht verfügbar.'})
-        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/master-insights-ui.js':('master-insights-ui.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
+        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/filament-quick-ui.js':('filament-quick-ui.js','application/javascript'),'/master-insights-ui.js':('master-insights-ui.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
@@ -2824,6 +2827,11 @@ class Handler(BaseHTTPRequestHandler):
                     result=filament_purchases.parse_text(source,db)
                 result['fingerprint']=hashlib.sha256(source.encode('utf-8')).hexdigest()
                 result['source_type']='text'
+                return self.send(200,result)
+            if path=='/api/filament-quick-book':
+                with connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    result=filament_purchases.quick_book(db,data)
                 return self.send(200,result)
             if path=='/api/filament-orders':
                 with connect() as db:
