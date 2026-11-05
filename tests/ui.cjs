@@ -466,8 +466,8 @@ assert.equal(printProgressChecks.overscheduled.complete,false);
 assert.equal(await page.locator('[data-order-card="501"] .order-print-complete').count(),0);
 const baseOrderGeometry=await page.locator('[data-order-card="501"]').evaluate(card=>({
  cardHeight:card.getBoundingClientRect().height,
- imageTop:card.querySelector('.order-card-main img').getBoundingClientRect().top,
- imageHeight:card.querySelector('.order-card-main img').getBoundingClientRect().height
+ imageTop:card.querySelector('.simple-order-tile .simple-tile-image').getBoundingClientRect().top,
+ imageHeight:card.querySelector('.simple-order-tile .simple-tile-image').getBoundingClientRect().height
 }));
 await page.evaluate(()=>{
  const example=model.orders.find(order=>order.id==='501');
@@ -481,7 +481,7 @@ assert.equal((await doneCard.locator('.order-print-complete').textContent()).tri
 assert.equal(await doneCard.locator('.order-print-check').textContent(),'✓');
 const bookmark=await doneCard.locator('.order-print-complete').evaluate(el=>{
  const r=el.getBoundingClientRect(),card=el.closest('.order-card').getBoundingClientRect();
- const image=el.closest('.order-card').querySelector('.order-card-main img').getBoundingClientRect();
+ const image=el.closest('.order-card').querySelector('.simple-order-tile .simple-tile-image').getBoundingClientRect();
  const scroller=el.closest('.orders-carousel').getBoundingClientRect();
  const css=getComputedStyle(el);
  return {tag:el.tagName,height:r.height,width:r.width,top:r.top,bottom:r.bottom,right:r.right,
