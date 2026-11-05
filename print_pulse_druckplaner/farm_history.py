@@ -71,22 +71,23 @@ def history(db, group="daily", printer="all", now=None):
             "start":a,"end":b,
             "label":_label(group,a),"printing_seconds":0,
             "observed_seconds":0,
-            "capacity_seconds":duration*count
+            "capacity_seconds":duration*count,
+            "by_printer":{name:{"printing_seconds":0,"observed_seconds":0} for name in machines}
         })
 
     # Fetch only necessary 24h/14d/12w/12m history.
     if printer=="all":
-        rows=db.execute("""SELECT started,ended,state FROM pp_farm_intervals
+        rows=db.execute("""SELECT printer,started,ended,state FROM pp_farm_intervals
             WHERE ended>? AND started<?""", (start,now))
-        manual=db.execute("""SELECT started,ended FROM pp_farm_manual
+        manual=db.execute("""SELECT printer,started,ended FROM pp_farm_manual
             WHERE started<? AND (ended IS NULL OR ended>?)""", (now,start))
     else:
-        rows=db.execute("""SELECT started,ended,state FROM pp_farm_intervals
+        rows=db.execute("""SELECT printer,started,ended,state FROM pp_farm_intervals
             WHERE printer=? AND ended>? AND started<?""",(printer,start,now))
-        manual=db.execute("""SELECT started,ended FROM pp_farm_manual
+        manual=db.execute("""SELECT printer,started,ended FROM pp_farm_manual
             WHERE printer=? AND started<? AND (ended IS NULL OR ended>?)""",(printer,now,start))
 
-    def add_interval(started, ended, is_printing, observed=True):
+    def add_interval(machine,started, ended, is_printing, observed=True):
         a = max(start,int(started))
         b = min(now,int(ended))
         if b<=a:return
@@ -94,19 +95,28 @@ def history(db, group="daily", printer="all", now=None):
             if limits[i]>=b:break
             if limits[i+1]<=a:continue
             seconds=max(0,min(b,limits[i+1])-max(a,limits[i]))
-            if observed:bucket["observed_seconds"]+=seconds
-            if is_printing:bucket["printing_seconds"]+=seconds
+            if observed:
+                bucket["observed_seconds"]+=seconds
+                bucket["by_printer"][machine]["observed_seconds"]+=seconds
+            if is_printing:
+                bucket["printing_seconds"]+=seconds
+                bucket["by_printer"][machine]["printing_seconds"]+=seconds
 
     for r in rows:
-        add_interval(r["started"],r["ended"],r["state"]=="printing")
+        add_interval(r["printer"],r["started"],r["ended"],r["state"]=="printing")
     for r in manual:
-        add_interval(r["started"],now if r["ended"] is None else r["ended"],True)
+        add_interval(r["printer"],r["started"],now if r["ended"] is None else r["ended"],True)
     for item in bins:
         item["printing_seconds"]=min(item["capacity_seconds"],item["printing_seconds"])
         item["observed_seconds"]=min(item["capacity_seconds"],item["observed_seconds"])
         cap=item["capacity_seconds"]
         item["utilization_percent"]=round(100*item["printing_seconds"]/cap,1) if cap else 0
         item["coverage_percent"]=round(100*item["observed_seconds"]/cap,1) if cap else 0
+        individual_capacity=cap//count if count else 0
+        for name, values in item["by_printer"].items():
+            values["utilization_percent"]=(round(100*values["printing_seconds"]/individual_capacity,1)
+                if individual_capacity else 0)
+        item["by_printer"]=[{"printer":name,**values} for name,values in item["by_printer"].items()]
     return {
         "group":group,"printer":printer,"start":start,"end":now,
         "printer_count":count,"buckets":bins,
