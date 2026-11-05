@@ -39,7 +39,7 @@ if [[ "$URL" == *"?server="* ]]; then
         SERVER_HINT=""
     fi
 fi
-if [[ "$BASE_URL" =~ ^printpulse3mf://(bambu|orca|snapmaker)/([a-f0-9]{24})/?$ ]]; then
+if [[ "$BASE_URL" =~ ^printpulse3mf://(bambu|orca|snapmaker|prusa)/([a-f0-9]{24})/?$ ]]; then
     SLICER="${BASH_REMATCH[1]}"
     FILE_ID="${BASH_REMATCH[2]}"
 else
@@ -116,6 +116,10 @@ if [ "$SLICER" = bambu ]; then
     /usr/bin/open -a "BambuStudio" "$FILE" ||
     /usr/bin/open -a "Bambu Studio" "$FILE" ||
     { echo "Bambu Studio wurde nicht gefunden. Öffne die Datei über den Finder."; exit 1; }
+elif [ "$SLICER" = prusa ]; then
+    /usr/bin/open -a "PrusaSlicer" "$FILE" ||
+    /usr/bin/open -a "Prusa Slicer" "$FILE" ||
+    { echo "PrusaSlicer wurde nicht gefunden. Öffne die Datei über den Finder."; exit 1; }
 elif [ "$SLICER" = orca ]; then
     /usr/bin/open -a "OrcaSlicer" "$FILE" ||
     /usr/bin/open -a "Orca Slicer" "$FILE" ||
