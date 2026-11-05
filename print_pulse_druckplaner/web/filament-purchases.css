@@ -250,3 +250,33 @@ html[data-theme="dark"] .pp-purchase-dialog .pp-auto-option:hover{background:#38
 .pp-receive-correction button{margin:8px 0}
 .pp-receive-correction small{display:block;opacity:.8}
 @media(max-width:480px){.pp-receive-row{grid-template-columns:minmax(0,1fr) 94px;gap:8px}.pp-receive-row>label{min-width:0;font-size:.85rem}}
+
+
+/* v0.13.43: direct rolls-in / weighted-average purchase price. */
+.pp-purchase-shell[hidden]{display:none!important}
+.filament-head-buttons{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.filament-head-buttons button{min-height:42px}
+#filament-rolls .filament-rolls-actions{display:flex;flex-wrap:wrap;gap:9px}
+#filament-roll-add{flex:1 0 100%;min-height:44px}
+.filament-quick-dialog{width:min(94vw,550px);max-height:90dvh;overflow:auto;padding:22px;border-radius:16px;box-sizing:border-box}
+.filament-quick-dialog::backdrop{background:#131e17a6}
+.filament-quick-dialog form{display:grid;gap:15px}
+.filament-quick-dialog .dialog-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.filament-quick-dialog .dialog-heading h2{margin:0;font-size:23px}
+.filament-quick-dialog label{display:grid;gap:7px;font-weight:650;font-size:13px;min-width:0}
+.filament-quick-dialog input,.filament-quick-dialog select{width:100%;min-width:0;box-sizing:border-box;min-height:44px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:var(--surface,#fff);color:var(--ink)}
+.filament-quick-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.filament-quick-preview{display:grid;gap:8px;padding:15px;border-radius:12px;border:1px solid #d4dfd6;background:#eef4ec;font-size:13px;line-height:1.5;color:#24553d}
+.filament-quick-preview>strong{font-size:13px;font-weight:650}
+.filament-quick-preview b{font-size:15px}
+.filament-quick-preview small{color:#a34620;line-height:1.45}
+.filament-quick-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
+.filament-quick-actions button{min-height:44px;flex:1 1 175px}
+.filament-quick-dialog .warning{color:#a33b2d;border:1px solid #e6aba4;border-radius:9px;background:#fff4f1;padding:10px}
+html[data-theme="dark"] .filament-quick-preview{background:#293f34;border-color:#416c54;color:#e3f5e8}
+@media(max-width:640px){
+ .filament-head-buttons{width:100%;justify-content:stretch}
+ .filament-head-buttons button{flex:1}
+ .filament-quick-dialog{width:95vw;padding:15px}
+ .filament-quick-fields{grid-template-columns:1fr}
+}
