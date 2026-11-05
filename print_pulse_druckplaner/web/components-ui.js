@@ -415,7 +415,7 @@ renderCatalog=function(){
    '<span class="pp-catalog-chevron" aria-hidden="true">'+(open?'−':'+')+'</span></button>'+
    '<div class="pp-catalog-settings"><label class="catalog-part-switch">'+
     '<input type="checkbox" role="switch" aria-label="Vorproduktion für '+esc(p.title)+'" data-components-toggle="'+esc(p.id)+'" '+(enabled?'checked':'')+'>'+
-    '<span>Vorproduktion</span></label>'+
+    '<span title="Vorproduktion verwenden">Vorproduktion</span></label>'+
     (enabled?'<button type="button" class="secondary small" data-components-open="'+esc(p.id)+'">Bauteile</button>':'')+
     '<button type="button" class="secondary small" data-econ-open="'+esc(p.id)+'" title="Kalkulieren">€</button>'+
     '<button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">3MF verwalten</button></div>'+
