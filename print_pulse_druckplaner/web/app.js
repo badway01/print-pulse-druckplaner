@@ -1117,9 +1117,9 @@ function filamentLine(f,inCart){
   (inCart?'':`<span class="filament-shop filament-shop-placeholder" aria-hidden="true"></span>`);
  const opened=Number(f.open_qty)||0;
  return `<article class="filament-line" data-filament-line="${f.id}">
-   ${intro}<div class="filament-meta"><span>${inCart?`<b>${f.cart_qty} Sp.</b> auf Liste`:`<b>${f.stock_qty}</b> voll · <b>${opened}</b> angebrochen`}</span><span>${filamentMoney(f.price_cents)} / volle Spule</span></div>
+   ${intro}<div class="filament-meta"><span>${inCart?`<b>${f.cart_qty} Sp.</b> auf Liste`:`<b>${f.stock_qty}</b> voll · <b>${opened}</b> angebrochen`}</span><span>${filamentMoney(f.price_cents)} / ${f.gl_d_active?"GLD":"bisheriger Preis"} je Spule</span></div>
    <div class="filament-line-actions ${inCart?'is-cart':'is-colors'}">${shop}${inCart?
-     `<button type="button" class="filament-step" data-filament-delta="-1" data-filament-id="${f.id}" aria-label="Eine Spule von der Einkaufsliste nehmen">−</button><b class="filament-cart-qty">${f.cart_qty}</b><button type="button" class="filament-step" data-filament-delta="1" data-filament-id="${f.id}" aria-label="Eine weitere Spule vormerken">+</button><button type="button" class="secondary filament-receive" data-filament-receive="${f.id}">Erhalten</button>`:
+     `<button type="button" class="filament-step" data-filament-delta="-1" data-filament-id="${f.id}" aria-label="Eine Spule von der Einkaufsliste nehmen">−</button><b class="filament-cart-qty">${f.cart_qty}</b><button type="button" class="filament-step" data-filament-delta="1" data-filament-id="${f.id}" aria-label="Eine weitere Spule vormerken">+</button><button type="button" class="secondary filament-receive" data-filament-receive="${f.id}">Einbuchen</button>`:
      `<button type="button" class="filament-cart-button" data-filament-cart="${f.id}" aria-label="${name} zur Einkaufsliste hinzufügen">${filamentSpoolCart}<span>Auf Liste ${f.cart_qty? `(${f.cart_qty})`:''}</span></button><button type="button" class="filament-roll-button" data-filament-rolls="${f.id}" aria-label="Volle und angebrochene Rollen für ${name} verwalten">Rollen</button><button type="button" class="filament-edit" data-filament-edit="${f.id}">Bearbeiten</button>`}
    </div></article>`;
 }
@@ -1182,7 +1182,7 @@ function renderFilaments(){
  const visible=filamentView==='cart'?cart:sortFilamentRows(rows.filter(f=>(f.brand+' '+f.color+' '+f.material+' '+(f.internal_code||'')+' '+filamentManufacturerCode(f)+' '+(f.color_hex||'')+' '+(f.notes||'')).toLocaleLowerCase('de').includes(query)));
 
  $('filament-message').textContent=filamentView==='cart'?
-  'Spulen für deinen nächsten Einkauf. „Erhalten“ öffnet die Preisprüfung und den Wareneingang.':
+  'Spulen für deinen nächsten Einkauf. Mit „Einbuchen“ nur Rollenanzahl und tatsächlichen Preis eingeben.':
   'Volle und angebrochene Rollen zählen – ohne Wiegen. Über „Rollen“ kannst du eine Spule öffnen oder als leer markieren.';
  updateHTML($('filament-rows'),visible.length?visible.map(f=>filamentLine(f,filamentView==='cart')).join(''):
   `<div class="filament-empty">${filamentView==='cart'?'Deine Einkaufsliste ist leer. Füge bei „Meine Farben“ eine Spule hinzu.':query?'Kein Filament passt zur Suche.':'Noch keine Farben angelegt. Starte mit „+ Filament anlegen“.'}</div>`);
@@ -1298,6 +1298,7 @@ function renderFilamentRolls(){
  $('filament-roll-open').disabled=filamentBusy||f.stock_qty<1;
  $('filament-roll-empty').disabled=filamentBusy||!f.open_qty;
  $('filament-roll-edit').disabled=filamentBusy;
+ $('filament-roll-add').disabled=filamentBusy;
 }
 function openFilamentRolls(id){
  $('filament-rolls').dataset.filamentId=id;
@@ -1501,7 +1502,7 @@ $('filament-rows').addEventListener('click',event=>{
  const receive=event.target.closest('[data-filament-receive]');
  if(receive){
   const spool=filamentData.filaments.find(f=>f.id===Number(receive.dataset.filamentReceive));
-  if(spool){if(window.ppPurchases)window.ppPurchases.quickReceive(spool);else flash('Wareneingang ist momentan nicht geladen. Bitte Seite neu öffnen.',true);}
+  if(spool){if(window.ppFilamentQuick)window.ppFilamentQuick.open(spool.id);else flash('Rollenbuchung ist nicht geladen. Bitte Seite neu öffnen.',true);}
  }
 });
 for(const field of ['brand','material','color']){
@@ -1556,7 +1557,12 @@ $('filament-form').addEventListener('submit',async event=>{
  const payload={action:'save',id:values.id?Number(values.id):null,brand:values.brand,color:values.color,material:values.material,color_hex:values.color_hex,stock_qty:Number(values.stock_qty),open_qty:Number(values.open_qty),price:values.price.trim(),purchase_url:values.purchase_url,internal_code:values.internal_code,manufacturer_code:values.manufacturer_code,notes:values.notes};
  // Keep the editor visible on network errors so the entered values are not lost.
  const saved=await filamentAction(payload,$('filament-save'));
- if(saved)$('filament-editor').close();
+ if(saved){
+  $('filament-editor').close();
+  const color=(filamentData?.filaments||[]).find(f=>
+   filamentUniqueIdentity(f.brand,f.material,f.color)===filamentUniqueIdentity(payload.brand,payload.material,payload.color));
+  if(color)window.ppFilamentQuick?.resumeAfterColor?.(color.id);
+ }
 });
 $('filament-delete').addEventListener('click',async()=>{
  const id=Number($('filament-id').value);
