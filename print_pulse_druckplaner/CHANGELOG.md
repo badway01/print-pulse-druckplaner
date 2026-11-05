@@ -1,3 +1,10 @@
+# 0.13.46 · Druckfarm lädt wieder und Dashboard-Karten erhalten Styling
+
+- Der HTTP-Server liefert jetzt `farm-ui.js`, `farm-ui.css` und `dashboard-order-cards.css` als zulässige statische Dateien aus. Vorher antwortete er für diese drei Dateien mit 404.
+- Druckfarm-Ansicht lädt jetzt ihre Messwerte aus `/api/farm-stats`; 24 h, 7 Tage, 30 Tage und manuelle Drucktimer sind bedienbar, sofern die HA-Druckstatussensoren verfügbar sind.
+- Die bisherige Home-Assistant-Datenerfassung bleibt unverändert. Weder Shelly-Stromdaten noch Bambu-Cloud-Kontodaten werden direkt abgefragt.
+- Keine Änderung an Etsy-Aufträgen, Lager, Filamenten, Druckerzuordnungen oder 3MF-Dateien.
+
 # 0.13.44 · Dashboard-Bestellungen eindeutig gestalten
 
 - Bestellungen im Dashboard zeigen nur noch eine Artikelkachel je bestellter Position statt einer optisch doppelten Karte.
