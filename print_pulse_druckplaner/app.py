@@ -26,7 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats
+    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats, farm_history
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -58,9 +58,12 @@ except ImportError:
     _farm_spec=importlib.util.spec_from_file_location('pp_farm_stats',Path(__file__).with_name('farm_stats.py'))
     farm_stats=importlib.util.module_from_spec(_farm_spec)
     _farm_spec.loader.exec_module(farm_stats)
+    _farm_history_spec=importlib.util.spec_from_file_location('pp_farm_history',Path(__file__).with_name('farm_history.py'))
+    farm_history=importlib.util.module_from_spec(_farm_history_spec)
+    _farm_history_spec.loader.exec_module(farm_history)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.41'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.42'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2513,6 +2516,15 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/printers':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             return self.send(200,printer_dashboard(force=params.get('refresh')==['1']))
+        if path=='/api/farm-history':
+            query=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            group=(query.get('group') or ['daily'])[0]
+            printer=(query.get('printer') or ['all'])[0]
+            try:
+                with connect() as db:
+                    return self.send(200,farm_history.history(db,group,printer))
+            except ValueError as exc:
+                return self.send(400,{'error':str(exc)[:150]})
         if path=='/api/farm-stats':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             try:
