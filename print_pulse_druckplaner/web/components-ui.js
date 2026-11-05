@@ -316,6 +316,7 @@ orderLineActions=function(line){
 /* MakerWorld-inspired catalog: same live data, no duplicate master storage. */
 const catalogExpanded = new Set();
 const catalogSelectedVariant = new Map();
+const catalogSelectedPrinter = new Map();
 let catalogView = 'grid';
 try {
  const stored = localStorage.getItem('pp-catalog-view');
@@ -331,7 +332,14 @@ function catalogMeta(f) {
 function catalogMasterRows(p) {
  const all=(printTools.files||[]).filter(f=>String(f.listing_id)===String(p.id));
  const selected=String(catalogSelectedVariant.get(String(p.id))||'');
- const shown=selected?all.filter(f=>!f.variant_id||String(f.variant_id)===selected):all;
+ const printerSelected=String(catalogSelectedPrinter.get(String(p.id))||'');
+ const shown=all.filter(f=>(!selected||!f.variant_id||String(f.variant_id)===selected)&&
+   (!printerSelected||f.printer===printerSelected));
+ const printers=[...new Set(all.map(f=>String(f.printer)).filter(Boolean))];
+ const filterMarkup='<div class="pp-catalog-printer-tabs" role="group" aria-label="Druckdateien nach Drucker filtern">'+
+   '<button type="button" data-catalog-printer="'+esc(p.id)+'" data-printer-name="" aria-pressed="'+String(!printerSelected)+'">Alle</button>'+
+   printers.map(name=>'<button type="button" data-catalog-printer="'+esc(p.id)+'" data-printer-name="'+esc(name)+
+   '" aria-pressed="'+String(name===printerSelected)+'">'+esc(name)+'</button>').join('')+'</div>';
  const variants=p.items||[];
  const options='<option value="">Alle Druckdateien</option>'+
    variants.map(v=>'<option value="'+esc(v.id)+'"'+(String(v.id)===selected?' selected':'')+'>'+esc(v.label)+'</option>').join('');
@@ -378,7 +386,7 @@ function catalogMasterRows(p) {
     (variants.length>1?'<label class="pp-catalog-variant">Druckdateien filtern nach<select data-catalog-variant="'+esc(p.id)+'">'+options+'</select></label>':'')+
    '</div>'+
    '<div class="pp-catalog-detail-right"><div class="pp-catalog-panel-head"><strong>Druckdateien ('+shown.length+')</strong>'+
-   '<span>'+all.length+' insgesamt</span></div>'+
+   '<span>'+all.length+' insgesamt</span></div>'+filterMarkup+
    (shown.length?'<div class="pp-catalog-master-list">'+lines+'</div>':
      '<p class="pp-catalog-empty">Noch keine Druckdatei vorhanden. Hinterlege eine Master-3MF einmalig für alle Farbvarianten.</p>')+
    '<div class="pp-catalog-panel-actions"><button type="button" class="primary small" data-master-open="'+esc(p.id)+'">+ 3MF hinterlegen</button>'+
@@ -448,6 +456,8 @@ $('catalog-rows').addEventListener('click',event=>{
    if(form){form.closest('details').open=true;form.scrollIntoView({block:'nearest',behavior:'smooth'});}
   });return;
  }
+ const printer=event.target.closest('[data-catalog-printer]');
+ if(printer){catalogSelectedPrinter.set(String(printer.dataset.catalogPrinter),printer.dataset.printerName||'');renderCatalog();return;}
  const back=event.target.closest('[data-catalog-back]');
  if(back){catalogExpanded.clear();renderCatalog();return;}
  const button=event.target.closest('[data-catalog-expand]');
