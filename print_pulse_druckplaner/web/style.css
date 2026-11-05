@@ -3218,3 +3218,10 @@ html[data-theme="dark"] .pp-catalog-master,html[data-theme="dark"] .pp-catalog-h
 html[data-theme="dark"] .pp-catalog-file-popover,html[data-theme="dark"] .pp-catalog-open-links{background:#1b2734;color:#e5eaf1}
 html[data-theme="dark"] .pp-catalog-panel{background:#151f2b}
 html[data-theme="dark"] .pp-catalog-detail-left h3,html[data-theme="dark"] .pp-catalog-file-name strong{color:#e5eaf1}
+
+/* Focused product page: the gallery returns via an explicit back link. */
+#catalog-rows.pp-catalog-single{display:block}
+#catalog-rows.pp-catalog-single>.pp-catalog-product{margin:0}
+.pp-catalog-back{display:flex;align-items:center;gap:12px;margin-bottom:12px;color:#697f90;font-size:12px}
+.pp-catalog-back button{border:1px solid #c6d8e4;background:white;border-radius:9px;padding:8px 12px;cursor:pointer;font-weight:750;color:#245d80}
+.pp-catalog-back button:hover{background:#e8f3f8}
