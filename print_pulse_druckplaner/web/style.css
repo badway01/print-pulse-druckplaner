@@ -3168,16 +3168,16 @@ html[data-theme="dark"] .order-card .simple-order-tile{background:#25382e;border
 .pp-catalog-file-tag{display:inline-flex;align-items:center;margin:2px 0 4px;padding:3px 7px;font-size:10px;font-weight:700;color:#16745c;background:#e5f5ed;border-radius:6px}
 .pp-catalog-file-metrics{display:flex;flex-wrap:wrap;gap:4px 10px;color:#607589;font-size:10px;font-weight:600}
 .pp-catalog-file-extra{position:relative;flex:0 0 auto;align-self:flex-start}
-.pp-catalog-file-extra>summary{display:grid;place-items:center;width:29px;height:29px;border:1px solid #d6e3eb;border-radius:50%;background:#f7fafb;color:#266a90;cursor:pointer;list-style:none;font-weight:700;font-size:17px}
-.pp-catalog-file-extra>summary::-webkit-details-marker{display:none}
-.pp-catalog-file-popover{position:absolute;right:0;top:34px;z-index:20;width:min(380px,calc(100vw - 80px));max-height:380px;overflow:auto;background:#fff;border:1px solid #cad9e3;border-radius:12px;box-shadow:0 15px 35px #102e4333;padding:14px;color:#24384b}
+.pp-catalog-file-extra>button{display:grid;place-items:center;width:29px;height:29px;border:1px solid #d6e3eb;border-radius:50%;background:#f7fafb;color:#266a90;cursor:pointer;list-style:none;font-weight:700;font-size:17px}
+.pp-catalog-file-extra>button::-webkit-details-marker{display:none}
+.pp-catalog-file-popover{display:none;position:absolute;right:0;top:34px;z-index:20;width:min(380px,calc(100vw - 80px));max-height:380px;overflow:auto;background:#fff;border:1px solid #cad9e3;border-radius:12px;box-shadow:0 15px 35px #102e4333;padding:14px;color:#24384b}
 .pp-catalog-file-popover>strong{display:block;margin-bottom:5px}
 .pp-catalog-file-popover>p{color:#6c7f90;font-size:11px}
 .pp-catalog-file-popover .pp-master-summary{margin:6px 0!important}
 .pp-catalog-file-popover .pp-insight-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(hover:hover) and (pointer:fine){
- .pp-catalog-file-extra:not([open]):hover>.pp-catalog-file-popover,
- .pp-catalog-file-extra:not([open]):focus-within>.pp-catalog-file-popover{display:block}
+ .pp-catalog-file-extra:hover>.pp-catalog-file-popover,
+ .pp-catalog-file-extra:focus-within>.pp-catalog-file-popover{display:block}
 }
 .pp-catalog-file-actions{display:flex;justify-content:flex-end;gap:9px;align-items:start;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px solid #eaf0f4}
 .pp-catalog-file-open{position:relative;flex:1 1 175px;min-width:0}
@@ -3229,3 +3229,5 @@ html[data-theme="dark"] .pp-catalog-detail-left h3,html[data-theme="dark"] .pp-c
 .pp-catalog-printer-tabs{display:flex;gap:6px;overflow-x:auto;padding:0 1px 8px;margin:0 0 7px;scrollbar-width:thin}
 .pp-catalog-printer-tabs button{flex:0 0 auto;min-height:30px;border:1px solid #d4e0e8;border-radius:8px;background:#eef3f6;color:#50687a;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer}
 .pp-catalog-printer-tabs button[aria-pressed="true"]{background:#257159;color:#fff;border-color:#257159}
+
+.pp-catalog-file-extra.is-open>.pp-catalog-file-popover{display:block}
