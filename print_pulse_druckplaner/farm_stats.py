@@ -9,7 +9,7 @@ PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "A1 mini", "Prusa MK4")
 MANUAL_PRINTERS = ("A1 mini", "Prusa MK4")
 KNOWN_STATES = {"printing", "paused", "idle", "finished", "error", "preparing"}
 MAX_GAP_SECONDS = 100
-RETENTION_DAYS = 95
+RETENTION_DAYS = 400
 
 
 def schema(db):
