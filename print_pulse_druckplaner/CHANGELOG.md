@@ -1,3 +1,9 @@
+# 0.13.41 · Home-Assistant-Startreparatur
+
+- Die neue Datei `farm_stats.py` wird in das Docker-Image des Add-ons kopiert. Ohne diese Datei konnte 0.13.40 beim Start einen ImportError auslösen.
+- Vorhandene Bestellungen, 3MF-Dateien, Lagerbestände und Druckerzuordnungen bleiben unverändert.
+- Der CI-Test prüft künftig, dass jedes zur Laufzeit importierte Modul im Add-on-Image enthalten ist.
+
 # 0.13.40 · Druckfarm: 24/7-Auslastung einschließlich Nachtbetrieb
 
 - Neuer HA-Reiter „Druckfarm“ mit 24-Stunden-, 7-Tage- und 30-Tage-Auswertung aller sechs vorhandenen Drucker.

@@ -1,3 +1,8 @@
+## 0.13.41 (2026-11-05)
+
+- Hotfix für Home-Assistant-Add-on-Start: `farm_stats.py` im Dockerfile ergänzen; verhindert den fehlenden Modulimport nach Update auf 0.13.40.
+- Startvalidierung im CI ergänzt.
+
 ## 0.13.40 (2026-11-05)
 
 - Neuer Reiter „Druckfarm“ im Home-Assistant-Add-on: 24/7-Auslastung, 24 Stunden / 7 Tage / 30 Tage, Messabdeckung und H2D-Investitionscheck.
