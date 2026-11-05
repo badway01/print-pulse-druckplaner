@@ -361,11 +361,11 @@ function catalogMasterRows(p) {
        '<small>'+esc(f.printer)+(names?' · '+esc(names):'')+'</small>'+
        '<span class="pp-catalog-file-tag">'+esc(variant)+'</span>'+
        '<div class="pp-catalog-file-metrics"><span>◷ '+esc(metrics.seconds)+'</span><span>◉ '+esc(metrics.grams)+'</span></div></div>'+
-       '<details class="pp-catalog-file-extra"><summary aria-label="Dateiinformationen anzeigen" title="Dateiinformationen">ⓘ</summary>'+
+       '<div class="pp-catalog-file-extra"><button type="button" data-catalog-info aria-expanded="false" aria-label="Dateiinformationen anzeigen" title="Dateiinformationen">ⓘ</button>'+
         '<div class="pp-catalog-file-popover"><strong>Dateiinformationen</strong>'+
          '<p>3MF · '+esc(f.printer)+' · '+esc(bytes)+' · '+esc(date)+'</p>'+
          (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f,true):'<p>Noch keine Druckdaten erfasst.</p>')+
-        '</div></details>'+
+        '</div></div>'+
      '</div>'+
      '<div class="pp-catalog-file-actions">'+
        '<details class="pp-catalog-file-open"><summary>3MF öffnen <span aria-hidden="true">⌄</span></summary>'+
@@ -456,6 +456,8 @@ $('catalog-rows').addEventListener('click',event=>{
    if(form){form.closest('details').open=true;form.scrollIntoView({block:'nearest',behavior:'smooth'});}
   });return;
  }
+ const info=event.target.closest('[data-catalog-info]');
+ if(info){const block=info.closest('.pp-catalog-file-extra');const open=!block.classList.contains('is-open');block.classList.toggle('is-open',open);info.setAttribute('aria-expanded',String(open));return;}
  const printer=event.target.closest('[data-catalog-printer]');
  if(printer){catalogSelectedPrinter.set(String(printer.dataset.catalogPrinter),printer.dataset.printerName||'');renderCatalog();return;}
  const back=event.target.closest('[data-catalog-back]');
