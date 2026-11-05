@@ -35,7 +35,7 @@ const assert=require('node:assert/strict');
   assert.match(await card.innerText(),/28 g/);
   await card.locator('[data-catalog-variant]').selectOption({index:1});
   assert.equal(await card.locator('[data-catalog-file]').count(),1,'Shared masters must remain visible for specific colors');
-  await card.locator('.pp-catalog-file-extra>summary').click();
+  await card.locator('.pp-catalog-file-extra>[data-catalog-info]').click();
   assert.match(await card.locator('.pp-catalog-file-popover').innerText(),/1[.,]0 MB/);
   await card.locator('.pp-catalog-file-open>summary').click();
   assert.equal(await card.locator('.pp-catalog-open-links .pp-slicer-action').count(),4);
