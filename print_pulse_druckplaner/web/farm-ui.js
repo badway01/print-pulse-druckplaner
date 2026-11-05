@@ -40,6 +40,7 @@ function farmPrinterCard(r,data){
    '<div class="farm-bar-title muted"><span>Messabdeckung</span><b>'+cover.toLocaleString('de-DE',{maximumFractionDigits:1})+' %</b></div>'+
    '<div class="farm-bar is-coverage"><span style="width:'+cover+'%"></span></div>'+
    '<div class="farm-card-bottom"><span>Erfasst: '+farmHours(recorded)+'</span><span>Druck-Anteil der erfassten Zeit: '+farmSafe(measured)+'</span></div>'+
+   '<div class="farm-card-bottom"><span>Leerlauf: '+farmHours(r.idle_seconds)+'</span><span>Pausen: '+farmHours(r.paused_seconds)+'</span><span>Vorbereitung: '+farmHours(r.preparing_seconds)+'</span><span>Störung: '+farmHours(r.fault_seconds)+'</span></div>'+
    '<div class="farm-card-bottom"><span>Erkannte Fertigstellungen: '+Number(r.successes||0)+'</span><span>Fehldrucke erkannt: '+Number(r.failures||0)+'</span></div>'+
    (manual?'<p class="farm-card-hint">Nur die manuell gestartete Druckzeit wird erfasst. Fehlende Stunden bleiben unbekannt.</p>':
     '<p class="farm-card-hint">Letzter protokollierter HA-Status: '+farmSafe(last)+'</p>')+
