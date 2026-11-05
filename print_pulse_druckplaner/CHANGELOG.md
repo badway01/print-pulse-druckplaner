@@ -1,3 +1,13 @@
+# 0.13.42 · Stündliche, tägliche, wöchentliche und monatliche Druckfarm-Historie
+
+- Im Home-Assistant-Reiter „Druckfarm“ gibt es einen interaktiven Zeitverlaufs-Balkenchart mit den Filtern Stündlich, Täglich, Wöchentlich und Monatlich.
+- Die Balken zeigen 24 Stunden, 14 Tage, 12 Kalenderwochen oder 12 Kalendermonate und passen sich beim Umschalten sofort an.
+- Ein Tipp auf einen Balken zeigt die gemessene Druckzeit aller sechs Drucker dieses Zeitraums im Detail.
+- Tatsächlich gedruckte Stunden und Messabdeckung bleiben getrennt. Fehlende Messdaten werden nicht als Leerlauf interpretiert.
+- Monats- und Wochenwechsel sowie Sommer-/Winterzeit werden berücksichtigt; Aufbewahrung der Messhistorie bis zu 400 Tage.
+- Das neue farm_history.py-Modul ist ausdrücklich im Dockerfile und im HA-Startmodultest enthalten, um den Startfehler aus 0.13.40 zu verhindern.
+- Vorhandene Aufträge, Lager, Filamente, Stammdaten und 3MF-Dateien bleiben unverändert.
+
 # 0.13.41 · Home-Assistant-Startreparatur
 
 - Die neue Datei `farm_stats.py` wird in das Docker-Image des Add-ons kopiert. Ohne diese Datei konnte 0.13.40 beim Start einen ImportError auslösen.

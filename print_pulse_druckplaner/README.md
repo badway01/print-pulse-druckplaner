@@ -1,3 +1,7 @@
+## Druckfarm-Zeitfilter (ab 0.13.42)
+
+Druckfarm → Druckstunden im Verlauf: Die Schaltflächen Stündlich, Täglich, Wöchentlich und Monatlich verändern Zahl und Höhe der Balken. Sie entsprechen den letzten 24 Stunden, 14 Tagen, 12 Kalenderwochen bzw. 12 Kalendermonaten. Ein Tipp auf einen Balken zeigt die Auslastung der sechs einzelnen Drucker. Grün zeigt echte Druckzeit, die Messabdeckung wird separat ausgewiesen. Unbekannte Stunden werden nicht als Leerlauf dargestellt. Die Auswertung setzt die bestehende Datenerfassung über Home Assistant voraus. Die Statistik für 24 Stunden, 7 und 30 Tage bleibt zusätzlich erhalten. Messdaten werden bis zu 400 Tage gespeichert.
+
 ## Neu: Druckfarm-Auslastung ab v0.13.40
 
 Im Reiter **Druckfarm** lassen sich die realen Druckzeiten der vorhandenen sechs Drucker über **24 Stunden**, **7 Tage** und **30 Tage** auswerten. Der H2D, beide P1S und der Snapmaker U1 nutzen ihre HA-Druckstatussensoren; das Add-on erhebt die Daten im Hintergrund jede Minute, auch nachts und ohne offenen Browser. Für **A1 mini** und **Prusa MK4** gibt es eine manuelle Start- und Fertigmeldung, inklusive Fehldruck.

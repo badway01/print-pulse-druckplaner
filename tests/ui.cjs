@@ -203,6 +203,19 @@ assert.deepEqual(navCheck.labels,
 assert.equal(navCheck.wrap,'nowrap','navigation never wraps to a second row');
 assert.equal(new Set(navCheck.tops).size,1,'all tabs are in one horizontal row');
 assert(navCheck.scrollWidth>=navCheck.clientWidth-3,'desktop navigation remains in one scrollable row without clipping');
+// Druckfarm history switches the actual chart bars, not just a label.
+await page.locator('[data-workspace="farm"]').click();
+await page.locator('#farm-history-shell').waitFor({state:'visible'});
+await page.waitForFunction(()=>document.querySelectorAll('[data-history-bin]').length===14);
+assert.equal(await page.locator('[data-history-bin]').count(),14);
+for(const [mode,count] of [['hourly',24],['weekly',12],['monthly',12],['daily',14]]){
+ await page.locator('[data-farm-group="'+mode+'"]').click();
+ await page.waitForFunction(expected=>document.querySelectorAll('[data-history-bin]').length===expected,count);
+ assert.equal(await page.locator('[data-farm-group="'+mode+'"]').getAttribute('aria-pressed'),'true');
+ assert.equal(await page.locator('[data-history-bin]').count(),count);
+}
+await page.locator('[data-history-bin]').last().click();
+assert.equal(await page.locator('.farm-history-machine').count(),6);
 // Connected calculator and real printer checklist work inside the Home Assistant preview.
 await page.locator('[data-workspace="calculator"]').click();
 await page.locator('#calculator-shell').waitFor({state:'visible'});

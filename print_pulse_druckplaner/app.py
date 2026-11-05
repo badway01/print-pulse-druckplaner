@@ -26,7 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats
+    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats, farm_history
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -58,9 +58,12 @@ except ImportError:
     _farm_spec=importlib.util.spec_from_file_location('pp_farm_stats',Path(__file__).with_name('farm_stats.py'))
     farm_stats=importlib.util.module_from_spec(_farm_spec)
     _farm_spec.loader.exec_module(farm_stats)
+    _farm_history_spec=importlib.util.spec_from_file_location('pp_farm_history',Path(__file__).with_name('farm_history.py'))
+    farm_history=importlib.util.module_from_spec(_farm_history_spec)
+    _farm_history_spec.loader.exec_module(farm_history)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.41'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.42'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2513,6 +2516,15 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/printers':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             return self.send(200,printer_dashboard(force=params.get('refresh')==['1']))
+        if path=='/api/farm-history':
+            query=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            group=(query.get('group') or ['daily'])[0]
+            printer=(query.get('printer') or ['all'])[0]
+            try:
+                with connect() as db:
+                    return self.send(200,farm_history.history(db,group,printer))
+            except ValueError as exc:
+                return self.send(400,{'error':str(exc)[:150]})
         if path=='/api/farm-stats':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             try:
@@ -2551,7 +2563,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except (ValueError,FileNotFoundError):
                 return self.send(404,{'error':'Datei nicht verfügbar.'})
-        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/master-insights-ui.js':('master-insights-ui.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
+        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/farm-ui.js':('farm-ui.js','application/javascript'),'/farm-history-ui.js':('farm-history-ui.js','application/javascript'),'/farm-ui.css':('farm-ui.css','text/css'),'/master-insights-ui.js':('master-insights-ui.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
