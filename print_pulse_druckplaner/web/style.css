@@ -3095,3 +3095,19 @@ html[data-theme="dark"] #order-details .pp-order-tile-open{color:#aad8f6}
 .pp-picker-correction span{font-size:11px;font-variant-numeric:tabular-nums;color:var(--muted)}
 .pp-picker-correction button{font-size:11px;min-height:34px}
 @media(max-width:560px){.pp-palette-view-source{align-items:flex-start}.pp-picker-item .master-picker-choice{min-height:68px}}
+
+
+/* v0.13.43: one order header, each ordered product shown only once below. */
+.order-card .pp-order-overview{background:#f3f7f5;border:1px solid #d7e3dc;border-radius:10px;
+ padding:10px 11px;margin:11px 0 7px;gap:9px;align-items:center;min-height:56px}
+.order-card .pp-order-overview-text{display:flex;flex-direction:column;flex:1;min-width:0;gap:3px}
+.order-card .pp-order-overview-text strong{font-size:14px;line-height:1.3;color:var(--ink);white-space:normal;overflow-wrap:anywhere}
+.order-card .pp-order-overview-text small{color:var(--muted);font-size:11px;line-height:1.35}
+.order-card .pp-order-overview-text .pp-order-overview-kicker{color:#45725c;font-weight:800;letter-spacing:.055em;font-size:9px}
+.order-card .simple-order-tiles{margin:2px 0 15px;gap:7px}
+.order-card .pp-order-items-heading{display:block;color:#49665a;font-weight:800;letter-spacing:.06em;font-size:9px;padding:3px 2px 0}
+.order-card .simple-order-tile{background:#fff;border:1px solid #dce4de}
+html[data-theme="dark"] .order-card .pp-order-overview{background:#293e34;border-color:#4c6658}
+html[data-theme="dark"] .order-card .pp-order-overview-text .pp-order-overview-kicker{color:#b0d7c1}
+html[data-theme="dark"] .order-card .pp-order-items-heading{color:#b5d0bf}
+html[data-theme="dark"] .order-card .simple-order-tile{background:#25382e;border-color:#405849}
