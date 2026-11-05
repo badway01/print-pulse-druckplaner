@@ -1200,7 +1200,10 @@ def filament_overview():
     """Manual filament register and local shopping list, independent of Etsy."""
     with connect() as db:
         rows=[dict(row) for row in db.execute(
-            "SELECT * FROM filament_spools ORDER BY brand COLLATE NOCASE, color COLLATE NOCASE, material COLLATE NOCASE, id")]
+            """SELECT s.*,EXISTS(
+              SELECT 1 FROM pp_filament_quick_receipts q WHERE q.filament_id=s.id
+            ) AS gl_d_active FROM filament_spools s
+            ORDER BY s.brand COLLATE NOCASE,s.color COLLATE NOCASE,s.material COLLATE NOCASE,s.id""")]
     selected=[row for row in rows if row['cart_qty']>0]
     return {'filaments':rows,'cart_count':sum(row['cart_qty'] for row in selected),
             'cart_known_total_cents':sum(row['cart_qty']*row['price_cents'] for row in selected if row['price_cents'] is not None),
