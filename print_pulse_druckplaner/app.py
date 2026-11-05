@@ -60,7 +60,7 @@ except ImportError:
     _farm_spec.loader.exec_module(farm_stats)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.41'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.43'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2824,6 +2824,11 @@ class Handler(BaseHTTPRequestHandler):
                     result=filament_purchases.parse_text(source,db)
                 result['fingerprint']=hashlib.sha256(source.encode('utf-8')).hexdigest()
                 result['source_type']='text'
+                return self.send(200,result)
+            if path=='/api/filament-quick-book':
+                with connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    result=filament_purchases.quick_book(db,data)
                 return self.send(200,result)
             if path=='/api/filament-orders':
                 with connect() as db:
