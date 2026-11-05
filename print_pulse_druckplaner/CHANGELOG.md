@@ -1,3 +1,10 @@
+# 0.13.44 · Dashboard-Bestellungen eindeutig gestalten
+
+- Bestellungen im Dashboard zeigen nur noch eine Artikelkachel je bestellter Position statt einer optisch doppelten Karte.
+- Kundenname und Auftragslink erscheinen als schmale Kopfzeile ohne Produktwiederholung. Bestellnummer, Datum, Varianten, Bild, Status, Versandfrist, Positionen und Vergrößerung bleiben erhalten.
+- Farb- und Variantenwünsche werden bei der Artikelanzeige ohne identische Dubletten dargestellt.
+- Die Filament-Schnellbuchung mit GLD aus 0.13.43 bleibt unverändert.
+
 # 0.13.43 · Filamentrollen direkt buchen und Dashboard-Bestellkarte vereinfachen
 
 - Filament → Rollen → „Neue Rollen einbuchen“: nur Farbe, Anzahl und Einkaufspreis je Rolle. Direkt in den vorhandenen Bestand buchen.
