@@ -63,6 +63,7 @@ jobs:
           node --check tests/filament_purchases_ui.cjs
           node --check tests/filament_quick_ui.cjs
           node --check tests/master_picker_ui.cjs
+          node --check tests/catalog_gallery_ui.cjs
           node --check tests/order_part_master_ui.cjs
           node --check tests/order_existing_master_ui.cjs
           bash -n print_pulse_druckplaner/web/install-slicer-helper-mac.command
@@ -89,6 +90,7 @@ jobs:
           node tests/dialog_ui.cjs
           node tests/stock_orders_ui.cjs
           node tests/master_picker_ui.cjs
+          node tests/catalog_gallery_ui.cjs
           node tests/order_part_master_ui.cjs
           node tests/order_existing_master_ui.cjs
           node tests/ui.cjs
