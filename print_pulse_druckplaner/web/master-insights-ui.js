@@ -102,7 +102,7 @@
  window.masterSlicerButtonsMarkup = function(file) {
    if (!file) return '';
    const mac = typeof masterSlicerMac==='function' && masterSlicerMac();
-   const labels=[['bambu','Bambu'],['orca','Orca'],['snapmaker','Snapmaker']];
+   const labels=[['bambu','Bambu Studio'],['orca','OrcaSlicer'],['snapmaker','Snapmaker Orca'],['prusa','PrusaSlicer']];
    return '<div class="pp-slicer-actions" aria-label="3MF in Slicer öffnen">' + labels.map(([key,label]) => {
      const url = mac ? masterSlicerUrl(file,key) : 'api/master-download?id='+encodeURIComponent(file.id);
      return '<a class="pp-slicer-action pp-slicer-'+key+(key!=='snapmaker'?' simple-part-master-open':'')+'" href="'+esc(url)+'"'+
