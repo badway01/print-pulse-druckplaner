@@ -3225,3 +3225,7 @@ html[data-theme="dark"] .pp-catalog-detail-left h3,html[data-theme="dark"] .pp-c
 .pp-catalog-back{display:flex;align-items:center;gap:12px;margin-bottom:12px;color:#697f90;font-size:12px}
 .pp-catalog-back button{border:1px solid #c6d8e4;background:white;border-radius:9px;padding:8px 12px;cursor:pointer;font-weight:750;color:#245d80}
 .pp-catalog-back button:hover{background:#e8f3f8}
+
+.pp-catalog-printer-tabs{display:flex;gap:6px;overflow-x:auto;padding:0 1px 8px;margin:0 0 7px;scrollbar-width:thin}
+.pp-catalog-printer-tabs button{flex:0 0 auto;min-height:30px;border:1px solid #d4e0e8;border-radius:8px;background:#eef3f6;color:#50687a;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer}
+.pp-catalog-printer-tabs button[aria-pressed="true"]{background:#257159;color:#fff;border-color:#257159}
