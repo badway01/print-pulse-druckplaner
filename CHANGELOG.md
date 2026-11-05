@@ -1,3 +1,9 @@
+## 0.13.44 (2026-11-05)
+
+- Dashboard-Bestellkarten: schmaler Kundenkopf, ein einzelnes Artikelbild samt Variante pro Position; keine doppelte Produktdarstellung.
+- Unverändert: Druckstatus, Versandfrist, Positionen, Zoom, Filamentrollen-Schnellbuchung mit GLD.
+- Desktop-/Mobiltests für Kundenkopf und Artikelkacheln angepasst.
+
 ## 0.13.43 (2026-11-05)
 
 - Filament Schnellbuchung: Farbe → Rollenanzahl → Einkaufspreis je Rolle. Sofortiger Wareneingang mit gewichtetem GLD und gegen doppelte Klicks gesicherter Buchung.

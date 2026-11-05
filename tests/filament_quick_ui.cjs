@@ -56,16 +56,20 @@ const assert=require('node:assert/strict');
    template.innerHTML=orderCard(sample);
    const card=template.querySelector('.order-card');
    return {
-    headerText:card.querySelector('.pp-order-overview')?.textContent||'',
+    headerText:card.querySelector('.order-card-customer-strip')?.textContent||'',
     totalTiles:card.querySelectorAll('.simple-order-tile').length,
     products:sample.items.length,
     itemTitle:orderShortProductTitle(sample.items[0].title),
-    productInHeader:card.querySelector('.pp-order-overview')?.textContent.includes(orderShortProductTitle(sample.items[0].title))
+    productInHeader:card.querySelector('.order-card-customer-strip')?.textContent.includes(orderShortProductTitle(sample.items[0].title)),
+     thumbnailCount:card.querySelectorAll('.simple-order-tile .simple-tile-image').length,
+     hasDuplicatePanel:!!card.querySelector('.pp-order-overview')
    };
   });
   if(cardCheck){
-   assert(cardCheck.headerText.includes('KUNDENBESTELLUNG'));
+   assert(cardCheck.headerText.includes('KUNDE'),'separate compact customer header is visible');
+    assert.equal(cardCheck.hasDuplicatePanel,false,'dashboard must not render duplicate header card');
    assert.equal(cardCheck.totalTiles,cardCheck.products);
+    assert.equal(cardCheck.thumbnailCount,cardCheck.products,'exactly one thumbnail per ordered item');
    assert.equal(cardCheck.productInHeader,false,'first ordered product must only appear in its one product tile');
   }
   assert.deepEqual(errors,[]);

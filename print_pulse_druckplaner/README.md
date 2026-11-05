@@ -1,3 +1,7 @@
+## Eindeutige Dashboard-Bestellkarten (ab 0.13.44)
+
+Im Dashboard enthält jede Bestellkarte einen schmalen Kopf mit Kunde und Auftragszugriff. Jeder bestellte Artikel mit Foto, Menge, Farbe/Variante und Status wird nur **einmal** als auswählbare Position dargestellt. Bestellnummer, Fälligkeit, Vergrößerung und bestehende Positionssteuerung bleiben erhalten.
+
 ## Filament schnell einbuchen (ab 0.13.43)
 
 Unter **Filament → Rollen → Neue Rollen einbuchen** oder oben über **+ Rollen erfassen** die Filamentfarbe auswählen, die Anzahl neuer Rollen und den tatsächlichen Einkaufspreis **je Rolle** eingeben. Beim Speichern werden die vollen Rollen direkt zum Bestand gebucht. Der gewichtete gleitende Durchschnittspreis (GLD) berechnet sich aus dem bisherigen vollen Lagerbestand mal gespeicherter Preisbasis plus neue Rollen mal Einkaufspreis, geteilt durch die neue Gesamtzahl voller Rollen. Angebrochene Rollen werden nicht einbezogen, weil ihr Restgewicht unbekannt ist. Bei vorhandenen Rollen ohne gespeicherten Preis kann die alte Kostenbasis nicht rekonstruiert werden; die Anzeige warnt vor der ersten Buchung. Historische Einzelkäufe werden nicht nachträglich aus dem bisherigen Preis zurückgerechnet.
