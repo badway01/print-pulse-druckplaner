@@ -1,3 +1,9 @@
+## 0.13.42 (2026-11-05)
+
+- Interaktive Druckfarm-Verlaufshistorie mit stündlichem, täglichem, wöchentlichem und monatlichem Balkenfilter.
+- Zeitbezogene Druckstunden aus der bestehenden HA-Datenbank, Sechs-Drucker-Detailanzeige je gewähltem Balken, 400 Tage Datenerhalt.
+- HA-Docker-Image kopiert das neue Python-Modul ausdrücklich; CI prüft Laufzeitmodule und neue Filter.
+
 ## 0.13.41 (2026-11-05)
 
 - Hotfix für Home-Assistant-Add-on-Start: `farm_stats.py` im Dockerfile ergänzen; verhindert den fehlenden Modulimport nach Update auf 0.13.40.
