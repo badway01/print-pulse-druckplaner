@@ -1,3 +1,13 @@
+# 0.13.43 · Filamentrollen direkt buchen und Dashboard-Bestellkarte vereinfachen
+
+- Filament → Rollen → „Neue Rollen einbuchen“: nur Farbe, Anzahl und Einkaufspreis je Rolle. Direkt in den vorhandenen Bestand buchen.
+- Schnellzugriff oben im Filamentlager; neue Farben weiterhin über den bestehenden Farbkatalog anlegen.
+- Gewichteter gleitender Durchschnittspreis (GLD) je volle Rolle aus bisherigem Bestand und echtem neuem Einkaufspreis; Preis wird für vorhandene Druckkostenrechner übernommen.
+- Alle Buchungen mit eindeutiger Kennung gegen Doppelerfassung geschützt und nachvollziehbar archiviert.
+- Alter, komplizierter Import-/Bestell-/Wareneingangsbereich wird aus der Benutzeroberfläche entfernt, bestehende Buchungsdaten bleiben gespeichert.
+- Dashboard: Der Bestellkopf wiederholt nicht länger den ersten bestellten Artikel; pro Kundenposition genau eine Produktkarte.
+- HA-Webserver gibt die neue UI-Datei frei; keine neue Python-Startdatei erforderlich, bestehende Bestellungen, 3MF-Dateien und Filamente bleiben erhalten.
+
 # 0.13.41 · Home-Assistant-Startreparatur
 
 - Die neue Datei `farm_stats.py` wird in das Docker-Image des Add-ons kopiert. Ohne diese Datei konnte 0.13.40 beim Start einen ImportError auslösen.
