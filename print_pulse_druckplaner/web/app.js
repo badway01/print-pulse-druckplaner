@@ -1286,7 +1286,10 @@ function showWorkspace(value){
  if(value==='catalog'){renderCatalog();loadPrintTools();}
  if(value==='filament')loadFilaments();
  if(value==='printers'){renderPrinterMonitor();loadPrinters();}
- if(value==='farm'&&typeof loadFarmStats==='function')loadFarmStats();
+ if(value==='farm'){
+  if(typeof loadFarmStats==='function')loadFarmStats();
+  if(typeof loadFarmHistory==='function')loadFarmHistory();
+ }
 }
 function renderFilamentRolls(){
  const d=$('filament-rolls');
