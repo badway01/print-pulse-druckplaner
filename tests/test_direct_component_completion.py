@@ -20,7 +20,7 @@ class DirectComponentCompletionTests(unittest.TestCase):
         self.db.executescript("""
             CREATE TABLE stock_listings(
                 id TEXT PRIMARY KEY, components_enabled INTEGER NOT NULL DEFAULT 1);
-            CREATE TABLE stock_items(id TEXT PRIMARY KEY, on_hand INTEGER DEFAULT 0);
+            CREATE TABLE stock_items(id TEXT PRIMARY KEY, listing_id TEXT NOT NULL, label TEXT NOT NULL, on_hand INTEGER DEFAULT 0);
             CREATE TABLE stock_transactions(
                 id TEXT PRIMARY KEY, receipt_id TEXT, listing_id TEXT,
                 item_id TEXT,qty INTEGER,status TEXT);
@@ -35,7 +35,7 @@ class DirectComponentCompletionTests(unittest.TestCase):
         """)
         components.schema(self.db)
         self.db.execute("INSERT INTO stock_listings(id,components_enabled) VALUES('p',1)")
-        self.db.execute("INSERT INTO stock_items(id,on_hand) VALUES('v',0)")
+        self.db.execute("INSERT INTO stock_items(id,listing_id,label,on_hand) VALUES('v','p','Farbe Grundplatte: 16. Gelb',0)")
         self.db.execute(
             "INSERT INTO stock_transactions(id,receipt_id,listing_id,item_id,qty,status)"
             " VALUES('t','receipt','p','v',2,'open')")

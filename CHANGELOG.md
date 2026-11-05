@@ -1,3 +1,9 @@
+## 0.13.40 (2026-11-05)
+
+- Neuer Reiter „Druckfarm“ im Home-Assistant-Add-on: 24/7-Auslastung, 24 Stunden / 7 Tage / 30 Tage, Messabdeckung und H2D-Investitionscheck.
+- Automatische historische Druckstatus-Erfassung für vier HA-integrierte Drucker, unabhängig vom geöffneten Browser; manuelle Stoppuhr für A1 mini und Prusa MK4.
+- Messlücken bleiben unbekannt. Keine fiktiven Betriebsstunden oder Beeinträchtigung bestehender Bestell- und 3MF-Daten.
+
 ## 0.13.38 (2026-11-04)
 
 - Master-3MF-Farbpunkte zeigen interne Nummer und exakten Farbname (z. B. „9 · Light Green“) statt bloß „PLA Matte“.

@@ -1,3 +1,9 @@
+## Neu: Druckfarm-Auslastung ab v0.13.40
+
+Im Reiter **Druckfarm** lassen sich die realen Druckzeiten der vorhandenen sechs Drucker über **24 Stunden**, **7 Tage** und **30 Tage** auswerten. Der H2D, beide P1S und der Snapmaker U1 nutzen ihre HA-Druckstatussensoren; das Add-on erhebt die Daten im Hintergrund jede Minute, auch nachts und ohne offenen Browser. Für **A1 mini** und **Prusa MK4** gibt es eine manuelle Start- und Fertigmeldung, inklusive Fehldruck.
+
+Wichtig: Ohne verlässlichen Sensorstatus wird keine Betriebszeit erfunden. Die Übersicht zeigt deshalb sowohl den Anteil der real beobachteten Druckzeit an der theoretisch möglichen 24/7-Kapazität als auch die Messabdeckung. Erst eine ausreichend lange, nahezu vollständig beobachtete H2D-Woche erlaubt eine fundierte Engpassbewertung. Bestehende SQLite-Daten, Lager, Aufträge, Druckprofile und Master-3MF-Dateien werden nicht umgeschrieben.
+
 ## Version 0.13.25 · Master-3MF direkt über Samba übernehmen
 
 Für größere 3MF-Dateien vom Mac ist der direkte Netzwerkweg zuverlässiger als ein Upload über den Home-Assistant-Ingress-Proxy. In Home Assistant **Lager → Produktkatalog → 3MF & Belegung → Neue Masterdatei speichern** öffnen. Die angezeigte Samba-Adresse im Finder über **⌘ K** verbinden, dann die 3MF in **`/share/print-pulse/3mf-eingang`** kopieren. Im Druckplaner **Dateiliste aktualisieren**, Datei auswählen und **Ausgewählte 3MF übernehmen**. Das Projekt wird auf den gewählten Drucker und die Variante als neue unveränderliche Masterversion registriert, ohne die Quelle aus dem gemeinsamen Ordner zu löschen. Der bisherige Browser-Upload ist weiterhin vorhanden.

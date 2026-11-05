@@ -1,3 +1,13 @@
+# 0.13.40 · Druckfarm: 24/7-Auslastung einschließlich Nachtbetrieb
+
+- Neuer HA-Reiter „Druckfarm“ mit 24-Stunden-, 7-Tage- und 30-Tage-Auswertung aller sechs vorhandenen Drucker.
+- Unabhängige Hintergrundmessung etwa einmal pro Minute: H2D, P1S Old, P1S New und Snapmaker U1 über vorhandene Home-Assistant-Druckstatussensoren. Läuft auch ohne geöffnetes Handy oder Dashboard.
+- Eigene manuelle Start-/Fertig-/Fehldruck-Erfassung für A1 mini und Prusa MK4; löst keine echte Druckersteuerung aus.
+- Streng getrennte Kennzahlen für wirkliche Druckzeit, 24/7-Kapazität, erfasste Betriebszeit und Messlücken; fehlende Sensordaten werden niemals als Leerlauf ausgegeben.
+- Druckfarm-Daten in eigenständigen SQLite-Tabellen, vorhandene Etsy-Aufträge, Bestände, Druckprofile und Master-3MF-Dateien bleiben unangetastet.
+- Kaufhinweis für einen möglichen zweiten H2D erst bei ausreichend belastbaren Messwerten. Zuerst Daten über eine volle Woche sammeln.
+- Tests für Leerlauf, Nachtbetrieb, Sensorausfall, Druckabschluss und manuelle Erfassung.
+
 # 0.13.39 · Bauteile eindeutig nach Etsy-Variante zuordnen
 
 - Bestellungen zeigen nur die Bauteile der gekauften Etsy-Variante, nicht alle Farbkarten desselben Produkts.
