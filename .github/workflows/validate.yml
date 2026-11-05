@@ -55,6 +55,7 @@ jobs:
           node --check tests/dialog_ui.cjs
           node --check print_pulse_druckplaner/web/import-ui.js
           node --check tests/ui.cjs
+          node --check tests/dashboard_card_ui.cjs
           node --check tests/ui_safari.cjs
           node --check tests/local_ui.cjs
           node --check tests/local_mobile_ui.cjs
@@ -84,6 +85,7 @@ jobs:
             if curl -fsS http://127.0.0.1:8099/api/status >/dev/null; then break; fi
             sleep 1
           done
+          node tests/dashboard_card_ui.cjs
           node tests/dialog_ui.cjs
           node tests/stock_orders_ui.cjs
           node tests/master_picker_ui.cjs
