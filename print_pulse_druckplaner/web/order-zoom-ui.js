@@ -23,6 +23,7 @@
   return ['Offen','pending'];
  };
  const zoomIcon='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/></svg>';
+ const expandedOrders = new Set();
  function orderCustomerOptions(line){
   const options=[];
   String(line.variant||'').split(/\s*[·|]\s*/).map(x=>x.trim()).filter(Boolean).forEach(entry=>{
@@ -65,13 +66,17 @@
 
  orderCard=function(o){
   const ship=shipInfo(o),progress=orderPrintProgress(o),lines=o.items||[];
-  return '<article class="order-card '+ship.level+(progress.complete?' print-complete':'')+'" data-order-card="'+esc(o.id)+'">'+
+  const key=String(o.id),expanded=expandedOrders.has(key),hasMore=lines.length>2;
+  const visible=hasMore&&!expanded?lines.slice(0,2):lines;
+  const toggle=hasMore?'<button type="button" class="order-card-items-toggle" data-order-toggle-items="'+esc(o.id)+'" aria-expanded="'+(expanded?'true':'false')+'" aria-label="'+(expanded?'Weitere Positionen ausblenden':'Alle '+lines.length+' Bestellpositionen anzeigen')+'">'+
+   (expanded?'Weniger anzeigen':'+ '+(lines.length-2)+' weitere anzeigen')+' <span aria-hidden="true">'+(expanded?'⌃':'⌄')+'</span></button>':'';
+  return '<article class="order-card '+ship.level+(progress.complete?' print-complete':'')+(expanded?' is-expanded':'')+'" data-order-card="'+esc(o.id)+'">'+
    '<div class="order-card-top"><b>BESTELLUNG #'+esc(o.id)+'</b><span class="order-card-top-tools"><small>'+esc(shortDate(o.created))+'</small>'+
    '<button type="button" class="order-card-zoom" data-order-expand="'+esc(o.id)+'" aria-label="Bestellung groß ansehen">'+zoomIcon+'</button></span></div>'+
    orderPrintMarker(progress,true)+
    '<div class="order-card-customer-strip"><span class="order-card-customer-detail"><small>KUNDE</small><strong>'+esc(o.customer)+'</strong></span>'+
    '<button type="button" class="order-card-customer-open" data-order-open="'+esc(o.id)+'" aria-label="Bestellung '+esc(o.id)+' öffnen">Auftrag öffnen ›</button></div>'+
-   '<div class="simple-order-tiles"><span class="pp-order-items-heading">'+(lines.length===1?'BESTELLTER ARTIKEL':lines.length+' BESTELLTE POSITIONEN')+'</span>'+lines.map(line=>tile(line)).join('')+'</div>'+
+   '<div class="simple-order-tiles"><span class="pp-order-items-heading">'+(lines.length===1?'BESTELLTER ARTIKEL':lines.length+' BESTELLTE POSITIONEN')+'</span>'+visible.map(line=>tile(line)).join('')+toggle+'</div>'+
    '<div class="order-card-foot"><span class="order-deadline '+ship.level+'">'+shippingMarkup(ship)+'</span>'+
    (o.source==='local'&&o.status==='ready'?'<button type="button" class="primary local-card-handover" data-local-handover="'+esc(o.id)+'">Übergabe bestätigen</button>':'')+'</div>'+
    (o.source==='local'?'<div class="local-order-pdf-row">'+localPdfLink(o,'Auftrag A4 · PDF')+'</div>':'')+'</article>';
@@ -443,6 +448,15 @@
   event.preventDefault();event.stopImmediatePropagation();open(b.dataset.orderPosition);
  },true);
  $('orders').addEventListener('click',event=>{
+  const toggle=event.target.closest('[data-order-toggle-items]');
+  if(toggle){
+   event.preventDefault();
+   const key=toggle.dataset.orderToggleItems,carousel=$('orders'),left=carousel.scrollLeft;
+   if(expandedOrders.has(key))expandedOrders.delete(key);else expandedOrders.add(key);
+   renderOrders();
+   carousel.scrollLeft=left;
+   return;
+  }
   const b=event.target.closest('[data-order-expand]');if(b)showOrder(b.dataset.orderExpand);
  });
  focus.addEventListener('click',event=>{

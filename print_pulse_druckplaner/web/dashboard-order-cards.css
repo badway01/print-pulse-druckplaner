@@ -1,0 +1,25 @@
+/* v0.13.45 – kompakte Karten mit einheitlicher Höhe, einzeln aufklappbar. */
+.orders-carousel{align-items:flex-start}
+.orders-carousel .order-card{
+ align-self:flex-start;box-sizing:border-box;height:440px;min-height:440px;
+}
+.orders-carousel .order-card.is-expanded{height:auto;min-height:440px}
+.order-card .simple-order-tiles{flex:0 0 auto}
+.order-card:not(.is-expanded) .simple-order-tile .simple-tile-info>strong,
+.order-card:not(.is-expanded) .simple-order-tile .simple-tile-info>small{
+ display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;
+}
+.order-card .order-card-items-toggle{
+ display:flex;align-items:center;justify-content:center;gap:7px;width:100%;
+ margin-top:2px;padding:9px 10px;min-height:39px;border-radius:9px;
+ border:1px solid var(--border-strong);background:var(--surface-soft,#f0f5ef);
+ color:var(--green);font-size:11px;font-weight:800;cursor:pointer;
+}
+.order-card .order-card-items-toggle:hover,
+.order-card .order-card-items-toggle:focus-visible{
+ background:var(--surface);border-color:var(--green);outline-offset:2px;
+}
+.order-card .order-card-items-toggle span{font-size:16px;line-height:1}
+html[data-theme="dark"] .order-card .order-card-items-toggle{
+ background:#25382e;border-color:#56705d;color:#bce1c8;
+}
