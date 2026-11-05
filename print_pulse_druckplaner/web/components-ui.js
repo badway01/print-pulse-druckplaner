@@ -389,7 +389,10 @@ renderCatalog=function(){
  if(!model)return;
  const shell=$('catalog-rows');if(!shell)return;
  const search=$('catalog-search').value.trim().toLocaleLowerCase('de');
- const rows=model.products.filter(p=>p.state==='active'&&p.title.toLocaleLowerCase('de').includes(search));
+ const matches=model.products.filter(p=>p.state==='active'&&p.title.toLocaleLowerCase('de').includes(search));
+ const current=[...catalogExpanded].find(id=>matches.some(p=>String(p.id)===id));
+ const rows=current?matches.filter(p=>String(p.id)===current):matches;
+ shell.classList.toggle('pp-catalog-single',Boolean(current));
  shell.classList.toggle('pp-catalog-grid',catalogView==='grid');
  shell.classList.toggle('pp-catalog-list',catalogView==='list');
  document.querySelectorAll('[data-catalog-view]').forEach(button=>{
@@ -397,7 +400,7 @@ renderCatalog=function(){
    button.setAttribute('aria-pressed',String(active));
    button.classList.toggle('active',active);
  });
- updateHTML(shell,rows.length?rows.map(p=>{
+ updateHTML(shell,(current?'<div class="pp-catalog-back"><button type="button" data-catalog-back>← Alle Produkte</button><span>Produktdetails & Druckdateien</span></div>':'')+(rows.length?rows.map(p=>{
   const files=(printTools.files||[]).filter(f=>String(f.listing_id)===String(p.id)).length;
   const profiles=(printTools.profiles||[]).filter(f=>String(f.listing_id)===String(p.id)).length;
   const enabled=Boolean(p.components_enabled), open=catalogExpanded.has(String(p.id));
@@ -417,7 +420,7 @@ renderCatalog=function(){
     '<button type="button" class="secondary small" data-econ-open="'+esc(p.id)+'" title="Kalkulieren">€</button>'+
     '<button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">3MF verwalten</button></div>'+
    (open?catalogMasterRows(p):'')+'</article>';
- }).join(''):'<p class="hint">Kein aktives Produkt passt zur Suche.</p>');
+ }).join(''):'<p class="hint">Kein aktives Produkt passt zur Suche.</p>'));
 };
 document.querySelectorAll('[data-catalog-view]').forEach(button=>button.addEventListener('click',()=>{
  catalogView=button.dataset.catalogView==='list'?'list':'grid';
@@ -445,10 +448,12 @@ $('catalog-rows').addEventListener('click',event=>{
    if(form){form.closest('details').open=true;form.scrollIntoView({block:'nearest',behavior:'smooth'});}
   });return;
  }
+ const back=event.target.closest('[data-catalog-back]');
+ if(back){catalogExpanded.clear();renderCatalog();return;}
  const button=event.target.closest('[data-catalog-expand]');
  if(!button)return;
  const id=String(button.dataset.catalogExpand);
- if(catalogExpanded.has(id))catalogExpanded.delete(id);else catalogExpanded.add(id);
+ if(catalogExpanded.has(id))catalogExpanded.clear();else{catalogExpanded.clear();catalogExpanded.add(id);}
  renderCatalog();
 });
 $('catalog-rows').addEventListener('change',event=>{
