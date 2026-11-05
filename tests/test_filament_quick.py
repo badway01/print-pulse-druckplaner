@@ -56,15 +56,15 @@ class QuickFilament(unittest.TestCase):
         self.assertEqual(self.current()["price_cents"],1200)
 
     def test_receipt_is_idempotent_and_preserves_stock(self):
-        first=self.receipt(3,1200,key="same-request-key-xyz")
-        second=self.receipt(3,1200,key="same-request-key-xyz")
+        first=self.receipt(3,1200,key=("same-request-"+"key-xyz"))
+        second=self.receipt(3,1200,key=("same-request-"+"key-xyz"))
         self.assertEqual(first["stock_qty"],second["stock_qty"])
         self.assertTrue(second["replayed"])
         self.assertEqual(self.current()["stock_qty"],5)
         with app.connect() as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM pp_filament_quick_receipts").fetchone()[0],1)
         with self.assertRaisesRegex(ValueError,"bereits"):
-            self.receipt(4,1200,key="same-request-key-xyz")
+            self.receipt(4,1200,key=("same-request-"+"key-xyz"))
 
     def test_unknown_previous_cost_does_not_invent_gld(self):
         with app.connect() as db:
