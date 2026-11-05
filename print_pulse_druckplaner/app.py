@@ -26,7 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights
+    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -55,9 +55,12 @@ except ImportError:
     _master_insights_spec=importlib.util.spec_from_file_location('pp_master_insights',Path(__file__).with_name('master_insights.py'))
     master_insights=importlib.util.module_from_spec(_master_insights_spec)
     _master_insights_spec.loader.exec_module(master_insights)
+    _farm_spec=importlib.util.spec_from_file_location('pp_farm_stats',Path(__file__).with_name('farm_stats.py'))
+    farm_stats=importlib.util.module_from_spec(_farm_spec)
+    _farm_spec.loader.exec_module(farm_stats)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.38'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.40'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -302,6 +305,7 @@ def init_db():
         filament_planner.schema(db)
         filament_purchases.schema(db)
         master_insights.schema(db)
+        farm_stats.schema(db)
         filament_planner.backfill_existing(db)
         # Previously stored order-print records must survive all add-on updates.
         print_columns={col['name'] for col in db.execute("PRAGMA table_info(stock_order_prints)")}
@@ -2509,6 +2513,14 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/printers':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             return self.send(200,printer_dashboard(force=params.get('refresh')==['1']))
+        if path=='/api/farm-stats':
+            params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            try:
+                days=int((params.get('days') or ['7'])[0])
+                with connect() as db:
+                    return self.send(200,farm_stats.summary(db,days))
+            except (ValueError,sqlite3.Error):
+                return self.send(400,{'error':'Druckfarm-Auswertung konnte nicht geladen werden.'})
         if path=='/api/printer-entities': return self.send(200,ha_entity_choices())
         if path=='/api/print-tools':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
@@ -2773,6 +2785,11 @@ class Handler(BaseHTTPRequestHandler):
                     dismissed=[r['key'] for r in db.execute(
                         'SELECT key FROM priority_dismissals ORDER BY dismissed_at DESC,key')]
                 return self.send(200,{'priority_dismissed':dismissed})
+            if path=='/api/farm-manual':
+                with connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    result=farm_stats.manual_action(db,data.get('printer'),data.get('action'))
+                return self.send(200,result)
             if path=='/api/printer-config':
                 return self.send(200,save_printer_bindings(data))
             if path=='/api/master-share-import':
@@ -2942,6 +2959,19 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(500,{'error':'Aktion fehlgeschlagen. Bitte neu laden und Bestand prüfen.'})
 
 
+def farm_poll_loop():
+    """Capture HA printer states even when no browser is open, including nights."""
+    while True:
+        try:
+            current=printer_dashboard(force=True)
+            with connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                farm_stats.record_poll(db,current['printers'])
+        except Exception:
+            log.exception('Druckfarm-Messung konnte nicht gespeichert werden')
+        time.sleep(60)
+
+
 def periodic_sync():
     while True:
         with connect() as db:
@@ -2957,4 +2987,5 @@ def periodic_sync():
 if __name__=='__main__':
     init_db()
     threading.Thread(target=periodic_sync,daemon=True).start()
+    threading.Thread(target=farm_poll_loop,daemon=True).start()
     ThreadingHTTPServer(('0.0.0.0',8099),Handler).serve_forever()
