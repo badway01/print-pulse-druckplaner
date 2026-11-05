@@ -440,6 +440,16 @@ assert.equal(await componentCard.locator('.stock-quick-toggle').count(),1,'norma
 assert.equal((await page.locator('#order-count').textContent()).trim(),'3 offen');
 assert.equal((await page.locator('[data-summary="critical"] .dashboard-kpi-value').textContent()).trim(),'2 Aufträge');
 assert.equal(await page.locator('.order-card').count(),3);
+assert.equal(await page.locator('[data-order-card="501"] .order-card-customer-strip').count(),1,
+ 'dashboard card shows one slim customer header, not a second product');
+assert.equal(await page.locator('[data-order-card="501"] .pp-order-overview').count(),0,
+ 'duplicated prominent order block must not be shown');
+assert.equal(await page.locator('[data-order-card="501"] .simple-order-tile').count(),1,
+ 'one ordered article is shown exactly once');
+assert.equal(await page.locator('[data-order-card="501"] .simple-tile-image').count(),1,
+ 'dashboard keeps exactly one product image per ordered article');
+assert.equal(await page.locator('[data-order-card="501"] [data-order-expand]').count(),1,
+ 'detail enlargement stays available on each order');
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'501');
 assert((await page.locator('[data-order-card="501"] .order-ship-date').textContent()).includes('Versand bis '));
 assert(await page.locator('[data-order-card="501"] .order-countdown').count()===1);
