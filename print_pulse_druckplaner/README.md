@@ -1,3 +1,9 @@
+## Filament schnell einbuchen (ab 0.13.43)
+
+Unter **Filament → Rollen → Neue Rollen einbuchen** oder oben über **+ Rollen erfassen** die Filamentfarbe auswählen, die Anzahl neuer Rollen und den tatsächlichen Einkaufspreis **je Rolle** eingeben. Beim Speichern werden die vollen Rollen direkt zum Bestand gebucht. Der gewichtete gleitende Durchschnittspreis (GLD) berechnet sich aus dem bisherigen vollen Lagerbestand mal gespeicherter Preisbasis plus neue Rollen mal Einkaufspreis, geteilt durch die neue Gesamtzahl voller Rollen. Angebrochene Rollen werden nicht einbezogen, weil ihr Restgewicht unbekannt ist. Bei vorhandenen Rollen ohne gespeicherten Preis kann die alte Kostenbasis nicht rekonstruiert werden; die Anzeige warnt vor der ersten Buchung. Historische Einzelkäufe werden nicht nachträglich aus dem bisherigen Preis zurückgerechnet.
+
+„+ Neue Farbe“ benutzt weiterhin den vorhandenen Farb-Editor mit internen Codes und Bambu-Farbnummern. Die frühere umfangreiche Bestellerfassung ist nicht mehr sichtbar; alle bisherigen Einträge bleiben in der Datenbank und werden nicht gelöscht. Bestand, Filamente, 3MF und Bestellungen bleiben unverändert.
+
 ## Neu: Druckfarm-Auslastung ab v0.13.40
 
 Im Reiter **Druckfarm** lassen sich die realen Druckzeiten der vorhandenen sechs Drucker über **24 Stunden**, **7 Tage** und **30 Tage** auswerten. Der H2D, beide P1S und der Snapmaker U1 nutzen ihre HA-Druckstatussensoren; das Add-on erhebt die Daten im Hintergrund jede Minute, auch nachts und ohne offenen Browser. Für **A1 mini** und **Prusa MK4** gibt es eine manuelle Start- und Fertigmeldung, inklusive Fehldruck.
