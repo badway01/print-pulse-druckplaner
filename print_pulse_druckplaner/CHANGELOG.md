@@ -1,3 +1,9 @@
+# 0.13.51 · 3MF-Farbbedarf und Varianten direkt an den Druckdateien
+
+- Die Datei-Info zeigt den Verbrauch je Filament in Gramm, wenn die 3MF oder gespeicherte Druckdaten eindeutige Einzelmengen enthalten. Profilfarben und Slicer-Mengen werden nur bei eindeutig passender Filament-ID, Farbcode oder HEX verbunden. Unklare Mengen bleiben getrennt, die Gesamtgrammzahl wird niemals auf Farben geschätzt.
+- Der Variantenfilter sitzt oberhalb der 3MF-Karten im rechten Bereich statt unter dem Produktfoto. Farbvarianten erscheinen als Farbpunkte mit zugänglichen Namen und klarer Markierung, maximal fünf auf einen Blick; weitere Varianten lassen sich aufklappen. Nicht farbliche Varianten bleiben als Auswahlliste verfügbar.
+- Gemeinsame Masterdateien bleiben beim Filtern nach einer Farbe sichtbar. Originaldateien, Bestellungen und Lagerdaten werden nicht verändert.
+
 # 0.13.50 · Snapmaker U1: vier Werkzeugköpfe statt AMS-Auswahl
 
 - Master-3MF-Farben für Snapmaker U1 lassen sich jetzt den vier festen Köpfen T0, T1, T2 und T3 zuordnen; pro Kopf eine Filamentrolle.
