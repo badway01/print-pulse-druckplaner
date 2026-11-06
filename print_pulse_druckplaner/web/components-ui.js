@@ -317,7 +317,64 @@ orderLineActions=function(line){
 const catalogExpanded = new Set();
 const catalogSelectedVariant = new Map();
 const catalogSelectedPrinter = new Map();
+const catalogVariantExpanded = new Set();
 let catalogView = 'grid';
+function catalogColorVariantHex(label){
+ // Exact display colors only. Do not guess a swatch for unknown variant text.
+ const name=String(label||'').split(':').slice(-1)[0].toLocaleLowerCase('de');
+ const colors=[
+  [/(?:schwarz|black|anthrazit)/,'#17191c'],
+  [/(?:jade.wei|wei(?:ß|ss)|white|elfenbein)/,'#f9f8f2'],
+  [/(?:gold|golden)/,'#d7ae42'],
+  [/(?:beige|sand|creme)/,'#d8c3a0'],
+  [/(?:silber|silver|grau|grey|gray)/,'#aeb6bf'],
+  [/(?:dunkelblau|navy)/,'#193c73'],
+  [/(?:hellblau|babyblau)/,'#9bd3f5'],
+  [/(?:blau|blue)/,'#3679ca'],
+  [/(?:burgunder|weinrot)/,'#84283e'],
+  [/(?:rot|red)/,'#dd4350'],
+  [/(?:rosa|pink)/,'#ec92b3'],
+  [/(?:gelb|yellow)/,'#f2da41'],
+  [/(?:grün|gruen|green)/,'#61a66f'],
+  [/(?:orange)/,'#ef943a'],
+  [/(?:lila|violett|purple)/,'#9362c2'],
+  [/(?:braun|brown)/,'#79513b']
+ ];
+ return colors.find(([pattern])=>pattern.test(name))?.[1]||null;
+}
+function catalogColorVariantFilter(p,variants,selected){
+ const prefix=String(variants[0]?.label||'').split(':')[0].trim();
+ const allColor=variants.every(v=>String(v.label||'').includes(':')&&String(v.label).split(':')[0].trim()===prefix&&/farbe|color|colour/i.test(prefix));
+ const colorLike=allColor||variants.filter(v=>catalogColorVariantHex(v.label)).length===variants.length;
+ const toggleId=String(p.id);
+ const more=catalogVariantExpanded.has(toggleId);
+ const visible=more?variants:variants.slice(0,5);
+ const label=allColor?prefix:(colorLike?'Farbe':'Variante');
+ if(!colorLike){
+  const options='<option value="">Alle Druckdateien</option>'+variants.map(v=>
+   '<option value="'+esc(v.id)+'"'+(String(v.id)===selected?' selected':'')+'>'+esc(v.label)+'</option>').join('');
+  return '<div class="pp-catalog-variantbar"><label class="pp-catalog-variant"><span>'+esc(label)+'</span><select data-catalog-variant="'+esc(p.id)+'">'+options+'</select></label></div>';
+ }
+ const chosen=variants.find(v=>String(v.id)===selected);
+ const swatch=v=>{
+  const hex=catalogColorVariantHex(v.label);
+  const active=String(v.id)===selected;
+  const friendly=String(v.label).split(':').slice(-1)[0].trim();
+  return '<button type="button" class="pp-catalog-color-choice'+(active?' is-selected':'')+
+   '" data-catalog-color-variant="'+esc(p.id)+'" data-variant-id="'+esc(v.id)+
+   '" aria-label="'+esc(v.label)+'" aria-pressed="'+String(active)+'" title="'+esc(v.label)+'">'+
+   '<span class="pp-catalog-color-dot'+(hex?'':' is-unknown')+'"'+(hex?' style="background:'+hex+'"':'')+'></span></button>';
+ };
+ return '<div class="pp-catalog-variantbar" role="group" aria-label="'+esc(label)+' auswählen">'+
+  '<div class="pp-catalog-variantbar-heading"><strong>'+esc(label)+'</strong><small>'+
+  esc(chosen?chosen.label:'Alle Farben')+'</small></div>'+
+  '<div class="pp-catalog-color-choices"><button type="button" class="pp-catalog-color-all'+(!selected?' is-selected':'')+
+  '" data-catalog-color-variant="'+esc(p.id)+'" data-variant-id="" aria-pressed="'+String(!selected)+'">Alle</button>'+
+  visible.map(swatch).join('')+
+  (variants.length>5?'<button type="button" class="pp-catalog-color-more" data-catalog-color-more="'+esc(p.id)+
+  '" aria-expanded="'+String(more)+'">'+(more?'Weniger':'+'+(variants.length-5)+' weitere')+'</button>':'')+
+  '</div></div>';
+}
 try {
  const stored = localStorage.getItem('pp-catalog-view');
  if (stored === 'list') catalogView = stored;
@@ -341,8 +398,7 @@ function catalogMasterRows(p) {
    printers.map(name=>'<button type="button" data-catalog-printer="'+esc(p.id)+'" data-printer-name="'+esc(name)+
    '" aria-pressed="'+String(name===printerSelected)+'">'+esc(name)+'</button>').join('')+'</div>';
  const variants=p.items||[];
- const options='<option value="">Alle Druckdateien</option>'+
-   variants.map(v=>'<option value="'+esc(v.id)+'"'+(String(v.id)===selected?' selected':'')+'>'+esc(v.label)+'</option>').join('');
+ const variantFilter=variants.length>1?catalogColorVariantFilter(p,variants,selected):'';
  const photo=thumbnail(p.image);
  const lines=shown.map(f=>{
    const variant=f.variant_id?(variants.find(v=>String(v.id)===String(f.variant_id))?.label||'Spezielle Variante'):'Alle Farbvarianten';
@@ -383,10 +439,9 @@ function catalogMasterRows(p) {
     '<h3>'+esc(p.title)+'</h3>'+
     '<p>'+variants.length+' Variante'+(variants.length===1?'':'n')+' · '+all.length+' Druckdatei'+(all.length===1?'':'en')+'</p>'+
     '<p class="pp-catalog-help">Eine Master-3MF kann für alle Farbvarianten verwendet werden. Die bestellte Farbe wird später in der Bestellung angezeigt; die Originaldatei bleibt unverändert.</p>'+
-    (variants.length>1?'<label class="pp-catalog-variant">Druckdateien filtern nach<select data-catalog-variant="'+esc(p.id)+'">'+options+'</select></label>':'')+
    '</div>'+
    '<div class="pp-catalog-detail-right"><div class="pp-catalog-panel-head"><strong>Druckdateien ('+shown.length+')</strong>'+
-   '<span>'+all.length+' insgesamt</span></div>'+filterMarkup+
+   '<span>'+all.length+' insgesamt</span></div>'+variantFilter+filterMarkup+
    (shown.length?'<div class="pp-catalog-master-list">'+lines+'</div>':
      '<p class="pp-catalog-empty">Noch keine Druckdatei vorhanden. Hinterlege eine Master-3MF einmalig für alle Farbvarianten.</p>')+
    '<div class="pp-catalog-panel-actions"><button type="button" class="primary small" data-master-open="'+esc(p.id)+'">+ 3MF hinterlegen</button>'+
@@ -458,6 +513,20 @@ $('catalog-rows').addEventListener('click',event=>{
  }
  const info=event.target.closest('[data-catalog-info]');
  if(info){const block=info.closest('.pp-catalog-file-extra');const open=!block.classList.contains('is-open');block.classList.toggle('is-open',open);info.setAttribute('aria-expanded',String(open));return;}
+ const more=event.target.closest('[data-catalog-color-more]');
+ if(more){
+  const id=String(more.dataset.catalogColorMore);
+  if(catalogVariantExpanded.has(id))catalogVariantExpanded.delete(id);else catalogVariantExpanded.add(id);
+  renderCatalog();return;
+ }
+ const color=event.target.closest('[data-catalog-color-variant]');
+ if(color){
+  const id=String(color.dataset.catalogColorVariant),variant=String(color.dataset.variantId||'');
+  catalogSelectedVariant.set(id,variant);
+  const product=model.products.find(p=>String(p.id)===id);
+  if(product&&(product.items||[]).findIndex(v=>String(v.id)===variant)>=5)catalogVariantExpanded.add(id);
+  renderCatalog();return;
+ }
  const printer=event.target.closest('[data-catalog-printer]');
  if(printer){catalogSelectedPrinter.set(String(printer.dataset.catalogPrinter),printer.dataset.printerName||'');renderCatalog();return;}
  const back=event.target.closest('[data-catalog-back]');
