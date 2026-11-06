@@ -354,10 +354,12 @@ class StockTests(unittest.TestCase):
             app.put_cfg(db,'shop_id','501')
             app.put_cfg(db,'stock_last_catalog_sync',int(time.time()))
         with patch.object(app,'fetch_catalog',side_effect=AssertionError('Catalog should be cached')) as cat,\
-             patch.object(app,'fetch_receipts',return_value=([transaction()],{'401'},[])) as sales:
+             patch.object(app,'fetch_receipts',return_value=([transaction()],{'401'},[])) as sales,\
+             patch.object(app,'refresh_shop_availability') as availability:
             app.synchronize()
         cat.assert_not_called()
         sales.assert_called_once_with('501',include_orders=True)
+        availability.assert_called_once()
         self.assertEqual(self.item()['on_hand'],6)
         self.assertEqual(self.item()['reserved'],2)
 
