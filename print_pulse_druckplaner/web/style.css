@@ -3231,3 +3231,18 @@ html[data-theme="dark"] .pp-catalog-detail-left h3,html[data-theme="dark"] .pp-c
 .pp-catalog-printer-tabs button[aria-pressed="true"]{background:#257159;color:#fff;border-color:#257159}
 
 .pp-catalog-file-extra.is-open>.pp-catalog-file-popover{display:block}
+
+/* v0.13.48 – Etsy-Nullbestand in der Dashboard-Übersicht sofort hervorheben. */
+.etsy-stock-banner[hidden],.etsy-alert-list[hidden]{display:none!important}
+.etsy-stock-banner.etsy-alert-critical{border:2px solid #b42318;border-left:7px solid #b42318;background:#fff0ed;box-shadow:0 4px 18px #b4231825}
+.etsy-alert-critical .etsy-alert-info strong{color:#9f2119;font-size:clamp(15px,1.5vw,19px)}
+.etsy-alert-critical .etsy-alert-icon{width:35px;height:35px;flex-basis:35px;background:#b42318}
+.etsy-alert-item.empty{background:#fff7f4;border:1px solid #ebad9f;border-left:5px solid #b42318}
+.etsy-alert-item.empty .etsy-alert-qty{font-size:13px;color:#a22319}
+.etsy-alert-item.empty .etsy-alert-variants strong{color:#a22319;font-size:12px}
+.etsy-stock-banner.etsy-alert-stale:not(.etsy-alert-critical){border-color:#bd8d36;border-left:5px solid #bd8d36}
+html[data-theme="dark"] .etsy-stock-banner.etsy-alert-critical{background:#4b2625;border-color:#eb7667}
+html[data-theme="dark"] .etsy-alert-critical .etsy-alert-info strong{color:#ffc3b8}
+html[data-theme="dark"] .etsy-alert-item.empty{background:#422b2a;border-color:#a65d54}
+html[data-theme="dark"] .etsy-alert-item.empty .etsy-alert-qty,
+html[data-theme="dark"] .etsy-alert-item.empty .etsy-alert-variants strong{color:#ffc3b8}
