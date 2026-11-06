@@ -749,29 +749,37 @@ function renderEtsyStockBanner(){
   return;
  }
  const severity=empty?'empty':alerts.length?'low':'none';
- // Open the article list automatically when an alert first appears or escalates.
- if((severity==='empty'&&etsyAlertPreviousSeverity!=='empty')||
-    (severity==='low'&&etsyAlertPreviousSeverity==='none')){
-  etsyAlertExpanded=true;
- }
+ // Low stock stays compact on first load. A zero/sold-out listing opens
+ // the details immediately; returning to low stock collapses them again.
+ // Manual toggling is respected until the alert severity changes.
+ if(severity!==etsyAlertPreviousSeverity)etsyAlertExpanded=severity==='empty';
  etsyAlertPreviousSeverity=severity;
+ const quantities=alerts.map(item=>{
+  const variants=(item.variants||[]).filter(v=>Number.isInteger(v.etsy_qty)&&v.etsy_qty>=0);
+  if(variants.length)return Math.min(...variants.map(v=>v.etsy_qty));
+  return Number.isInteger(item.etsy_qty)&&item.etsy_qty>=0?item.etsy_qty:null;
+ }).filter(qty=>qty!==null);
+ const minimum=quantities.length?Math.min(...quantities):null;
  wrapper.hidden=false;
  wrapper.classList.toggle('etsy-alert-critical',empty>0);
  wrapper.classList.toggle('etsy-alert-stale',stale);
+ wrapper.classList.toggle('etsy-alert-expanded',!!alerts.length&&etsyAlertExpanded);
  $('etsy-alert-title').textContent=empty?
   'SOFORT HANDELN · '+empty+' Etsy-Artikel mit 0 Stück / ausverkauft':
   low?low+' Etsy-Artikel mit niedrigem Bestand':'Etsy-Bestandsprüfung überfällig';
  $('etsy-alert-subtitle').textContent=empty?
   (low?low+' weitere Artikel knapp · ':'')+'Betroffene Artikel direkt unten prüfen und bei Etsy nachfüllen':
-  low?'Warnschwelle: '+(model.etsy_alert_percent??25)+' % des höchsten gespeicherten Etsy-Bestands':
+  low?(minimum!==null?'Niedrigster Variantenbestand: '+minimum+' '+(minimum===1?'Stück':'Stück'):
+   'Artikelbestand niedrig · Details prüfen'):
   'Keine verlässliche aktuelle Entwarnung möglich. Bitte Etsy-Abgleich prüfen.';
  $('etsy-alert-updated').textContent=availabilityAt?
   'Etsy-Stand: '+new Date(availabilityAt*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Berlin'})+
   (stale?' · DATEN VERALTET':' · Shop-Status alle 15 Min.') :
   'Noch kein erfolgreicher Etsy-Bestandsabgleich';
- $('etsy-alert-toggle').textContent=!alerts.length?'Jetzt prüfen':etsyAlertExpanded?'Liste schließen':'Alle '+alerts.length+' ansehen';
+ $('etsy-alert-toggle').textContent=!alerts.length?'Jetzt prüfen':etsyAlertExpanded?'Schließen':'Details';
  $('etsy-alert-toggle').setAttribute('aria-expanded',String(!!alerts.length&&etsyAlertExpanded));
  $('etsy-alert-list').hidden=!alerts.length||!etsyAlertExpanded;
+ $('etsy-alert-foot').hidden=!alerts.length||!etsyAlertExpanded;
  if(!alerts.length||!etsyAlertExpanded)return;
  updateHTML($('etsy-alert-list'),alerts.map(item=>{
   const isEmpty=item.severity==='empty',amount=item.etsy_qty;
