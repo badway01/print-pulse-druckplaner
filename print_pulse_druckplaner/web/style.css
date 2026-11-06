@@ -3251,3 +3251,15 @@ html[data-theme="dark"] .etsy-alert-item.empty .etsy-alert-variants strong{color
 #master-add-source[hidden], #master-u1-note[hidden]{display:none!important}
 .master-u1-note{margin:0 0 10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;color:var(--ink);font-size:12px;line-height:1.5}
 #master-printer:has(option[value="Snapmaker U1"]:checked)~* .pp-palette-source{min-width:0}
+
+/* Keep the master dialog close icon inside its top-right corner (Safari/HA). */
+#master-editor>.dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
+#master-editor>.dialog-heading h2{flex:1;min-width:0;margin:0}
+#master-editor>.dialog-heading>.icon-button{
+ position:static!important;inset:auto!important;transform:none!important;
+ margin:0!important;padding:0!important;flex:0 0 42px!important;
+ width:42px;min-width:42px;min-height:42px;height:42px;
+ display:inline-flex;align-items:center;justify-content:center;
+ border:1px solid var(--line);border-radius:9px;
+ font-size:25px;line-height:1;color:var(--ink);background:var(--surface);
+}
