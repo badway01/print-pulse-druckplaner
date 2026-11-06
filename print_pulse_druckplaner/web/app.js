@@ -792,13 +792,17 @@ function renderEtsyStockBanner(){
      ' <small>(von '+esc(v.etsy_reference_qty)+' · Warnung bis '+esc(v.warning_at)+')</small></span>').join('')+
     (item.more_variants?'<small>+ '+item.more_variants+' weitere betroffene Variante'+(item.more_variants===1?'':'n')+'</small>':'')+
     '</div>':'')+
-   '</div><button type="button" class="secondary small" data-etsy-alert-to="'+esc(item.listing_id)+'" data-etsy-alert-variant="'+esc(variants[0]?.id||'')+'">Zur Produktkarte ↗</button>'+
+   '</div><button type="button" class="secondary small" data-etsy-alert-to="'+esc(item.listing_id)+'" data-etsy-alert-variant="'+esc(variants[0]?.id||'')+'">'+(item.untracked?'Bei Etsy prüfen ↗':'Zur Produktkarte ↗')+'</button>'+
    '</article>';
  }).join(''));
 }
 function goToEtsyAlertListing(listingId,variantId){
  const product=model?.products.find(p=>p.id===listingId);
- if(!product)return;
+ if(!product){
+  // Not every Etsy listing has been imported into the production catalog.
+  if(/^[0-9]+$/.test(String(listingId)))window.open('https://www.etsy.com/listing/'+encodeURIComponent(listingId),'_blank','noopener,noreferrer');
+  return;
+ }
  etsyAlertFocused=listingId;
  filter='all';
  $('search').value='';
