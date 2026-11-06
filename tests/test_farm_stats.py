@@ -58,26 +58,67 @@ class FarmTests(unittest.TestCase):
 
     def test_manual_timer_records_only_confirmed_print_duration(self):
         farm.manual_action(self.db, "A1 mini", "start", 10000)
-        running = self.item(13600, name="A1 mini")
-        self.assertEqual(running["printing_seconds"], 3600)
-        self.assertEqual(running["manual_active_since"], 10000)
+        running = self.db.execute(
+            "SELECT started,ended FROM pp_farm_manual WHERE printer='A1 mini'"
+        ).fetchone()
+        self.assertEqual((running["started"], running["ended"]), (10000, None))
         farm.manual_action(self.db, "A1 mini", "finish", 13600)
-        r = self.item(14000, name="A1 mini")
-        self.assertEqual(r["printing_seconds"], 3600)
-        self.assertEqual(r["successes"], 1)
-        self.assertIsNone(r["manual_active_since"])
-        self.assertLess(r["coverage_percent"], 5.0)
+        saved = self.db.execute(
+            "SELECT started,ended,outcome FROM pp_farm_manual WHERE printer='A1 mini'"
+        ).fetchone()
+        self.assertEqual((saved["ended"] - saved["started"], saved["outcome"]),
+                         (3600, "success"))
+        self.assertNotIn("A1 mini",
+                         [x["printer"] for x in farm.summary(self.db, 1, now=14000)["printers"]])
         with self.assertRaises(ValueError):
             farm.manual_action(self.db, "A1 mini", "finish", 14100)
 
     def test_failed_manual_run_and_invalid_actions(self):
         farm.manual_action(self.db, "Prusa MK4", "start", 20000)
         farm.manual_action(self.db, "Prusa MK4", "failed", 20600)
-        self.assertEqual(self.item(20700, name="Prusa MK4")["failures"], 1)
+        saved = self.db.execute(
+            "SELECT outcome FROM pp_farm_manual WHERE printer='Prusa MK4'"
+        ).fetchone()
+        self.assertEqual(saved["outcome"], "failed")
+        self.assertNotIn("Prusa MK4",
+                         [x["printer"] for x in farm.summary(self.db, 1, now=20700)["printers"]])
         with self.assertRaises(ValueError):
             farm.manual_action(self.db, "H2D", "start", 20700)
         with self.assertRaises(ValueError):
             farm.manual_action(self.db, "Prusa MK4", "unknown", 20700)
+
+    def test_production_kpis_exclude_manual_printers(self):
+        start = 10000
+        end = start + 60
+        production = ("H2D", "P1S Old", "P1S New", "Snapmaker U1")
+        for name in production:
+            self.poll(name, "printing", start)
+            self.poll(name, "printing", end)
+        for name in ("A1 mini", "Prusa MK4"):
+            farm.manual_action(self.db, name, "start", start)
+            farm.manual_action(self.db, name, "finish", end)
+
+        result = farm.summary(self.db, days=7, now=end)
+        self.assertEqual([p["printer"] for p in result["printers"]], list(production))
+        self.assertEqual(result["printer_count"], 4)
+        self.assertEqual(result["capacity_seconds"], 4 * 7 * 24 * 3600)
+        self.assertEqual(result["printing_seconds"], 4 * 60)
+        self.assertEqual(result["observed_seconds"], 4 * 60)
+        self.assertAlmostEqual(
+            result["capacity_percent"],
+            round(100 * (4 * 60) / (4 * 7 * 24 * 3600), 1)
+        )
+        self.assertAlmostEqual(
+            result["coverage_percent"],
+            round(100 * (4 * 60) / (4 * 7 * 24 * 3600), 1)
+        )
+
+    def test_capacity_for_each_period_uses_four_printers(self):
+        for days in (1, 7, 30):
+            result = farm.summary(self.db, days=days, now=20000)
+            self.assertEqual(result["printer_count"], 4)
+            self.assertEqual(result["capacity_seconds"], 4 * days * 24 * 3600)
+            self.assertEqual(result["printing_seconds"], 0)
 
     def test_window_clips_old_intervals(self):
         t=10*86400
