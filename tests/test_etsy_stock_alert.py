@@ -161,5 +161,20 @@ class EtsyAvailabilityTests(unittest.TestCase):
         self.assertGreater(current["last_availability_sync"],1111)
 
 
+    def test_unimported_sold_out_etsy_product_still_raises_alert(self):
+        # Unapproved new Etsy products must not be auto-imported into stock.
+        missing={"listing_id":"404","title":"Nicht importierte Arschkarte",
+                 "quantity":0,"state":"sold_out"}
+        with patch.object(app,"pages",side_effect=lambda endpoint, params:
+                          [missing] if params["state"]=="sold_out" else []):
+            app.refresh_shop_availability("123",[],force=False)
+        data=app.overview()
+        self.assertEqual(data["products"],[])
+        self.assertEqual(len(data["etsy_stock_alerts"]),1)
+        self.assertEqual(data["etsy_stock_alerts"][0]["title"],missing["title"])
+        self.assertTrue(data["etsy_stock_alerts"][0]["untracked"])
+        self.assertEqual(data["etsy_stock_alerts"][0]["severity"],"empty")
+
+
 if __name__=="__main__":
     unittest.main()
