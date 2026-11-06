@@ -9,7 +9,7 @@ let filamentSort='default';
 try{const saved=localStorage.getItem('pp-filament-sort');if(['default','stock-desc','stock-asc','internal-code','manufacturer-code','hex-code'].includes(saved))filamentSort=saved;}catch{}
 let printTools={profiles:[],files:[],component_links:[],order_master_defaults:[],filaments_library:[]}, masterContext=null,masterSources=[],masterColorEditFileId=null,masterBusy=false,masterUploadPending=null;
 let printerLive=null,printerLoading=false,printerEntities=[],printerConfigId=null,printerConfigBusy=false;
-let etsyAlertExpanded=false,etsyAlertFocused=null;
+let etsyAlertExpanded=false,etsyAlertFocused=null,etsyAlertPreviousSeverity='none';
 try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
 
 /* Theme choice is local to this browser; Auto follows HA sun.sun, then OS theme. */
@@ -734,34 +734,56 @@ function orderPrintDialog(tid,action){
 function renderEtsyStockBanner(){
  const alerts=Array.isArray(model?.etsy_stock_alerts)?model.etsy_stock_alerts:[];
  const wrapper=$('etsy-stock-banner');
- if(!alerts.length||workspace!=='production'){
+ if(workspace!=='production'||(!alerts.length&&!model?.authorized)){
   wrapper.hidden=true;
+  etsyAlertPreviousSeverity='none';
   return;
  }
- wrapper.hidden=false;
  const empty=alerts.filter(item=>item.severity==='empty').length;
  const low=alerts.length-empty;
+ const availabilityAt=Number(model?.last_availability_sync||model?.last_catalog_sync||0);
+ const stale=!availabilityAt||Date.now()/1000-availabilityAt>3600;
+ if(!alerts.length&&!stale){
+  wrapper.hidden=true;
+  etsyAlertPreviousSeverity='none';
+  return;
+ }
+ const severity=empty?'empty':alerts.length?'low':'none';
+ // Open the article list automatically when an alert first appears or escalates.
+ if((severity==='empty'&&etsyAlertPreviousSeverity!=='empty')||
+    (severity==='low'&&etsyAlertPreviousSeverity==='none')){
+  etsyAlertExpanded=true;
+ }
+ etsyAlertPreviousSeverity=severity;
+ wrapper.hidden=false;
  wrapper.classList.toggle('etsy-alert-critical',empty>0);
+ wrapper.classList.toggle('etsy-alert-stale',stale);
  $('etsy-alert-title').textContent=empty?
-  empty+' Artikel ausverkauft oder mit 0 Stück in einer Variante':
-  low+' Artikel mit niedrigem Etsy-Bestand';
+  'SOFORT HANDELN · '+empty+' Etsy-Artikel mit 0 Stück / ausverkauft':
+  low?low+' Etsy-Artikel mit niedrigem Bestand':'Etsy-Bestandsprüfung überfällig';
  $('etsy-alert-subtitle').textContent=empty?
-  (low?low+' weitere Artikel knapp · ':'')+'Etsy-Verfügbarkeit jetzt prüfen':
-  'Bei diesen Artikeln liegt die Etsy-Menge bei höchstens '+(model.etsy_alert_percent??25)+' % der gemerkten Etsy-Menge (aufgerundet)';
- $('etsy-alert-updated').textContent=model.last_catalog_sync?
-  'Stand: '+new Date(model.last_catalog_sync*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Berlin'})+' · Katalogabgleich täglich':
-  'Etsy-Katalogdaten noch nicht geladen';
- $('etsy-alert-toggle').textContent=etsyAlertExpanded?'Schließen':'Alle '+alerts.length+' ansehen';
- $('etsy-alert-toggle').setAttribute('aria-expanded',String(etsyAlertExpanded));
- $('etsy-alert-list').hidden=!etsyAlertExpanded;
- if(!etsyAlertExpanded)return;
+  (low?low+' weitere Artikel knapp · ':'')+'Betroffene Artikel direkt unten prüfen und bei Etsy nachfüllen':
+  low?'Warnschwelle: '+(model.etsy_alert_percent??25)+' % des höchsten gespeicherten Etsy-Bestands':
+  'Keine verlässliche aktuelle Entwarnung möglich. Bitte Etsy-Abgleich prüfen.';
+ $('etsy-alert-updated').textContent=availabilityAt?
+  'Etsy-Stand: '+new Date(availabilityAt*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Berlin'})+
+  (stale?' · DATEN VERALTET':' · Shop-Status alle 15 Min.') :
+  'Noch kein erfolgreicher Etsy-Bestandsabgleich';
+ $('etsy-alert-toggle').textContent=!alerts.length?'Jetzt prüfen':etsyAlertExpanded?'Liste schließen':'Alle '+alerts.length+' ansehen';
+ $('etsy-alert-toggle').setAttribute('aria-expanded',String(!!alerts.length&&etsyAlertExpanded));
+ $('etsy-alert-list').hidden=!alerts.length||!etsyAlertExpanded;
+ if(!alerts.length||!etsyAlertExpanded)return;
  updateHTML($('etsy-alert-list'),alerts.map(item=>{
-  const empty=item.severity==='empty',amount=item.etsy_qty;
-  const qty=Number.isInteger(amount)?amount+' Stk. bei Etsy':item.state==='sold_out'?'Bei Etsy ausverkauft':'Etsy-Gesamtmenge unbekannt';
+  const isEmpty=item.severity==='empty',amount=item.etsy_qty;
   const variants=item.variants||[];
+  const zeroVariant=variants.some(v=>v.etsy_qty===0);
+  const qty=zeroVariant&&Number.isInteger(amount)&&amount>0?
+   'Variante auf 0 · Gesamt '+amount+' Stk. bei Etsy':
+   Number.isInteger(amount)?amount+' Stk. bei Etsy':
+   item.state==='sold_out'?'Bei Etsy ausverkauft':'Etsy-Gesamtmenge unbekannt';
   const reference=Number.isInteger(item.etsy_reference_qty)&&Number.isInteger(item.warning_at)?
    ' · Referenz '+item.etsy_reference_qty+' Stk. · Warnung bis '+item.warning_at+' Stk.':'';
-  return '<article class="etsy-alert-item '+(empty?'empty':'low')+'">'+
+  return '<article class="etsy-alert-item '+(isEmpty?'empty':'low')+'">'+
    '<div class="etsy-alert-item-text"><b title="'+esc(item.title)+'">'+esc(item.title)+'</b>'+
    '<span class="etsy-alert-qty">'+esc(qty)+(variants.length?'':esc(reference))+'</span>'+
    (item.state==='sold_out'?'<small>Dieses Listing ist bei Etsy als ausverkauft markiert.</small>':'')+
@@ -790,6 +812,7 @@ function goToEtsyAlertListing(listingId,variantId){
  setTimeout(()=>card.classList.remove('etsy-alert-highlight'),3500);
 }
 $('etsy-alert-toggle').addEventListener('click',()=>{
+ if(!model?.etsy_stock_alerts?.length){$('sync').click();return;}
  etsyAlertExpanded=!etsyAlertExpanded;renderEtsyStockBanner();
 });
 $('etsy-alert-list').addEventListener('click',event=>{
@@ -807,11 +830,12 @@ function render(){if(!model)return;
  $('sync').disabled=!!model.sync.running||!model.authorized||cooldownActive;
  $('undo').disabled=!model.undo||busy;
  const when=seconds=>seconds?new Date(seconds*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Berlin'}):'noch kein Abgleich';
- const date=when(model.last_sync),catalogDate=when(model.last_catalog_sync);
+ const date=when(model.last_sync),catalogDate=when(model.last_catalog_sync),availabilityDate=when(model.last_availability_sync);
  const cooldownDate=when(model.cooldown_until);
- $('sync-state').textContent=model.sync.running?model.sync.message:cooldownActive?`Etsy-Anfragelimit erreicht · Pause bis ${cooldownDate} · gespeicherte Bestände bleiben sichtbar`:`Bestellungen: ${date} (alle 15 Minuten) · Produktkatalog: ${catalogDate} (täglich)`;
+ $('sync-state').textContent=model.sync.running?model.sync.message:cooldownActive?`Etsy-Anfragelimit erreicht · Pause bis ${cooldownDate} · gespeicherte Bestände bleiben sichtbar`:`Bestellungen: ${date} (15 Min.) · Etsy-Bestand: ${availabilityDate} (15 Min.) · Katalog: ${catalogDate} (täglich)`;
  const stale=model.last_sync&&Date.now()/1000-model.last_sync>3600;
- showAlert([model.sync.error,model.warning,!model.authorized?'Bitte Etsy unter Einstellungen verbinden.':cooldownActive?`Etsy hat zu viele Anfragen gemeldet. Bis ${cooldownDate} pausiert unser Druckplaner automatisch.`:stale?'Bestelldaten sind älter als eine Stunde. Etsy-Abgleich prüfen.':'']);
+ const staleAvailability=!!model.authorized&&(!model.last_availability_sync||Date.now()/1000-model.last_availability_sync>3600);
+ showAlert([model.sync.error,model.warning,!model.authorized?'Bitte Etsy unter Einstellungen verbinden.':cooldownActive?`Etsy hat zu viele Anfragen gemeldet. Bis ${cooldownDate} pausiert unser Druckplaner automatisch.`:stale?'Bestelldaten sind älter als eine Stunde. Etsy-Abgleich prüfen.':'',staleAvailability?'Etsy-Bestandsdaten sind älter als eine Stunde. Ausverkaufte Artikel könnten noch fehlen.':'']);
  const critical=(model.orders||[]).filter(o=>{if(o.source==='local'&&o.status==='ready')return false;const days=calendarDaysUntil(o.ship_by);return days!==null&&days<=2;}).length;
  // When an item is assembled from components, unfinished Etsy variant stock is
  // not a production recommendation. Count only real component jobs.
