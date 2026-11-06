@@ -1,3 +1,11 @@
+# 0.13.50 · Snapmaker U1: vier Werkzeugköpfe statt AMS-Auswahl
+
+- Master-3MF-Farben für Snapmaker U1 lassen sich jetzt den vier festen Köpfen T0, T1, T2 und T3 zuordnen; pro Kopf eine Filamentrolle.
+- Die Bambu-AMS-Auswahl entfällt nur beim U1. H2D-Düsenzuordnung (links/rechts) und P1S-AMS-Profile bleiben wie gehabt.
+- Bereits vorhandene U1-AMS-Altbelegungen werden unverbindlich auf die Köpfe vorgeschlagen und erst nach ausdrücklichem Speichern übernommen. Original-3MF-Dateien bleiben unberührt.
+- Das oben rechts verrutschte Schließen-Symbol im Masterdatei-Dialog sitzt wieder innerhalb des Fensters.
+- Browser- und Backend-Regressionstests für den U1 sind ergänzt.
+
 # 0.13.49 · Druckfarm nur für vier Produktionsdrucker
 
 - Die Produktionsauswertung umfasst ausschließlich H2D, P1S Old, P1S New und Snapmaker U1. A1 mini und Prusa MK4 werden aus den Druckfarm-Kennzahlen und Einzelkarten ausgeschlossen.
