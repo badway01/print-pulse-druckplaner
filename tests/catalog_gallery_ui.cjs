@@ -41,12 +41,11 @@ const assert=require('node:assert/strict');
   assert.match(await card.innerText(),/Alle Farbvarianten/);
   assert.match(await card.innerText(),/1 h 30 min/);
   assert.match(await card.innerText(),/28 g/);
-  // Older variants may use a select; known color variants use swatches.
-  if(await card.locator('[data-catalog-variant]').count()){
-   await card.locator('[data-catalog-variant]').selectOption({index:1});
-  }else{
-   await card.locator('.pp-catalog-color-choice').first().click();
-  }
+  // Always show the exact Etsy color variant text in a select.
+  assert.equal(await card.locator('.pp-catalog-detail-right [data-catalog-variant]').count(),1);
+  assert.equal(await card.locator('.pp-catalog-detail-left [data-catalog-variant]').count(),0);
+  assert.equal(await card.locator('.pp-catalog-color-choice').count(),0);
+  await card.locator('[data-catalog-variant]').selectOption({index:1});
   assert.equal(await card.locator('[data-catalog-file]').count(),1,'Shared masters must remain visible for specific colors');
   await card.locator('.pp-catalog-file-extra>[data-catalog-info]').click();
   assert.match(await card.locator('.pp-catalog-file-popover').innerText(),/1[.,]0 MB/);
@@ -57,8 +56,7 @@ const assert=require('node:assert/strict');
   await card.locator('.pp-catalog-file-open>summary').click();
   assert.equal(await card.locator('.pp-catalog-open-links .pp-slicer-action').count(),4);
   assert.match(await card.locator('.pp-slicer-prusa').getAttribute('href'),/^printpulse3mf:\/\/prusa\/aaaaaaaaaaaaaaaaaaaaaaaa/);
-  // Selecting a color must happen immediately above the 3MF cards, not
-  // below the product photo. Five swatches stay compact; more expand on demand.
+  // The dropdown is placed beside the 3MF files, with no inferred colors.
   await page.evaluate(()=>{
    const p=model.products.find(p=>p.id==='101');
    p.items=[
@@ -71,20 +69,19 @@ const assert=require('node:assert/strict');
    ];
    renderCatalog();
   });
-  assert.equal(await card.locator('.pp-catalog-detail-right .pp-catalog-variantbar').count(),1);
-  assert.equal(await card.locator('.pp-catalog-detail-left .pp-catalog-variantbar').count(),0);
-  assert.equal(await card.locator('.pp-catalog-color-choice').count(),5);
-  assert.equal(await card.locator('[data-catalog-color-more]').innerText(),'+1 weitere');
-  await card.locator('[data-catalog-color-more]').click();
-  assert.equal(await card.locator('.pp-catalog-color-choice').count(),6);
-  await card.locator('[data-catalog-color-variant][data-variant-id="black"]').click();
-  assert.match(await card.locator('.pp-catalog-variantbar-heading').innerText(),/Schwarze Karte/);
-  assert.equal(await card.locator('.pp-catalog-color-choice[aria-pressed="true"]').count(),1);
-  assert.equal(await card.locator('[data-catalog-file]').count(),1,'Shared 3MF stays visible across colors');
-  await card.locator('[data-catalog-color-variant][data-variant-id="blue"]').click();
-  assert.match(await card.locator('.pp-catalog-variantbar-heading').innerText(),/Blau/);
-  assert.equal(await card.locator('.pp-catalog-color-choice').count(),6);
-  await card.locator('[data-catalog-color-variant][data-variant-id=""]').click();
+  const drop=card.locator('.pp-catalog-detail-right [data-catalog-variant]');
+  assert.equal(await drop.count(),1);
+  assert.equal(await card.locator('.pp-catalog-detail-left [data-catalog-variant]').count(),0);
+  assert.equal(await card.locator('.pp-catalog-color-choice').count(),0);
+  assert.equal(await drop.locator('option').count(),7);
+  assert.equal(await drop.locator('option[value="gold"]').textContent(),'Kartenfarbe: Gold Edition');
+  assert.match(await card.locator('.pp-catalog-variantbar').innerText(),/Kartenfarbe/);
+  await drop.selectOption('black');
+  assert.equal(await drop.inputValue(),'black');
+  assert.equal(await card.locator('[data-catalog-file]').count(),1,'Shared masters remain visible across colors');
+  await drop.selectOption('blue');
+  assert.equal(await drop.inputValue(),'blue');
+  await drop.selectOption('');
   assert.equal(await card.locator('[data-catalog-file]').count(),1);
   await page.locator('[data-catalog-view="list"]').click();
   assert.equal(await page.locator('#catalog-rows').evaluate(el=>el.classList.contains('pp-catalog-list')),true);
