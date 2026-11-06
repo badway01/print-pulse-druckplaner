@@ -1659,6 +1659,20 @@ function findMasterProfile(){
  const x=selectedMasterTarget();
  return printTools.profiles.find(p=>p.listing_id===x.listing_id&&p.variant_id===x.variant_id&&p.printer===x.printer);
 }
+function masterU1Toolheads(existing=[]){
+ const heads=Array.from({length:4},(_,i)=>({type:'toolhead',side:'t'+i,label:'Kopf T'+i,slots:[null]}));
+ if(existing.every(s=>s.type==='toolhead')){
+  for(const source of existing){
+   const head=heads.find(h=>h.side===source.side);
+   if(head)head.slots[0]=(source.slots||[])[0]||null;
+  }
+  return {heads,legacy:false};
+ }
+ // Previously stored U1 AMS colors are merely suggested, not auto-saved.
+ const oldSlots=existing.flatMap(s=>s.slots||[]).filter(Boolean);
+ heads.forEach((h,i)=>h.slots[0]=oldSlots[i]||null);
+ return {heads,legacy:existing.length>0};
+}
 function masterSelectionChanged(){
  closeMasterPicker(false);
  const panel=$('master-color-editor-panel');if(panel){$('master-color-editor-home').appendChild(panel);panel.hidden=true;}
@@ -1667,7 +1681,17 @@ function masterSelectionChanged(){
  $('master-upload-status').textContent='';
  $('master-profile-status').textContent='';
  const existing=findMasterProfile();
- masterSources=existing?JSON.parse(JSON.stringify(existing.sources)):[];
+ const isU1=$('master-printer').value==='Snapmaker U1';
+ const savedSources=existing?JSON.parse(JSON.stringify(existing.sources)):[];
+ const u1Data=isU1?masterU1Toolheads(savedSources):null;
+ masterSources=isU1?u1Data.heads:savedSources;
+ $('master-add-source').hidden=isU1;
+ $('master-source-side').hidden=isU1||$('master-printer').value!=='H2D';
+ const u1Note=$('master-u1-note');
+ u1Note.hidden=!isU1;
+ if(isU1)u1Note.textContent=u1Data.legacy?
+  'Alte AMS-Belegung erkannt. Die bisherigen Farben wurden zur Kontrolle auf T0–T3 verteilt. Bitte die Werkzeugköpfe prüfen und erst dann speichern. Die bisherige Zuordnung bleibt bis dahin erhalten.':
+  'Snapmaker U1: vier unabhängige Werkzeugköpfe T0–T3, jeweils eine Filamentrolle. Kein AMS.';
  renderMasterSources();renderMasterFiles();
  const slots=masterSources.flatMap(s=>s.slots||[]);
  const filled=slots.filter(Boolean).length;
@@ -1708,15 +1732,16 @@ function masterNozzleLabel(side){return side==='left'?'Düse links':side==='righ
 function masterSlotMarkup(fid,sourceIndex,slotIndex){
  const row=masterFilament(fid),name=row?row.color:fid?'Filament nicht mehr vorhanden':'Farbe wählen';
  const label=row?[(row.internal_code||row.manufacturer_code||''),row.color].filter(Boolean).join(' · '):'+ Farbe';
+ const slotName=masterSources[sourceIndex]?.type==='toolhead'?'Filament':'Platz '+(slotIndex+1);
  const dot='<span class="master-insight-dot'+(row?'':' master-slot-empty')+'"'+(row?' style="background:'+esc(masterSwatchHex(row.color_hex))+'"':'')+'></span>';
- return '<div class="pp-palette-slot"><button type="button" class="pp-palette-chip" data-master-slot-open="'+slotIndex+'" data-master-source="'+sourceIndex+'" title="'+esc(name+' · Platz '+(slotIndex+1))+'" aria-label="'+esc(name)+' · Platz '+(slotIndex+1)+' wählen">'+dot+'<span>'+esc(label)+'</span></button>'+
+ return '<div class="pp-palette-slot"><button type="button" class="pp-palette-chip" data-master-slot-open="'+slotIndex+'" data-master-source="'+sourceIndex+'" title="'+esc(name+' · '+slotName)+'" aria-label="'+esc(name)+' · '+slotName+' wählen">'+dot+'<span>'+esc(label)+'</span></button>'+
  (fid?'<button type="button" class="pp-palette-chip-remove" data-master-slot-clear="'+slotIndex+'" data-master-source="'+sourceIndex+'" aria-label="'+esc(name)+' entfernen" title="Farbe entfernen">×</button>':'')+'</div>';
 }
 function renderMasterSources(){
  updateHTML($('master-sources'),masterSources.length?masterSources.map((s,n)=>
  '<div class="pp-palette-source"><div class="pp-palette-source-top"><strong>'+esc(s.label)+'</strong>'+
  ($('master-printer').value==='H2D'?'<select data-master-source-side="'+n+'" aria-label="Düse für '+esc(s.label)+' wählen"><option value=""'+(masterNozzleSide(s)==='unassigned'?' selected':'')+'>Düse zuordnen</option><option value="left"'+(masterNozzleSide(s)==='left'?' selected':'')+'>Düse links</option><option value="right"'+(masterNozzleSide(s)==='right'?' selected':'')+'>Düse rechts</option></select>':'')+
- '<button type="button" class="text-button" data-master-remove="'+n+'">Quelle entfernen</button></div><div class="pp-palette-slots">'+s.slots.map((fid,j)=>masterSlotMarkup(fid,n,j)).join('')+'</div></div>').join(''):'<p class="hint">Noch keine Quelle. AMS, AMS HT oder externe Spule hinzufügen.</p>');
+ ($('master-printer').value==='Snapmaker U1'?'':'<button type="button" class="text-button" data-master-remove="'+n+'">Quelle entfernen</button>')+'</div><div class="pp-palette-slots">'+s.slots.map((fid,j)=>masterSlotMarkup(fid,n,j)).join('')+'</div></div>').join(''):'<p class="hint">Noch keine Quelle. AMS, AMS HT oder externe Spule hinzufügen.</p>');
 }
 function masterPalettePreviewMarkup(file){
  const selected=selectedMasterTarget();
@@ -1724,12 +1749,15 @@ function masterPalettePreviewMarkup(file){
  const exact=(printTools.profiles||[]).find(p=>p.listing_id===file.listing_id&&p.variant_id===file.variant_id&&p.printer===file.printer);
  const profile=exact||(printTools.profiles||[]).find(p=>p.listing_id===file.listing_id&&!p.variant_id&&p.printer===file.printer);
  const sources=(active?masterSources:profile?.sources)||[];
- const groups=['left','right','unassigned'].map(side=>({
-  side,sources:sources.filter(s=>file.printer==='H2D'?masterNozzleSide(s)===side:side==='unassigned')
+ const sides=file.printer==='H2D'?['left','right','unassigned']:
+  file.printer==='Snapmaker U1'?['t0','t1','t2','t3']:['unassigned'];
+ const groups=sides.map(side=>({
+  side,sources:sources.filter(s=>file.printer==='H2D'?masterNozzleSide(s)===side:
+   file.printer==='Snapmaker U1'?s.side===side:side==='unassigned')
  })).filter(g=>g.sources.some(s=>s.slots.some(Boolean)));
  const swatch=(hex)=>'<span class="master-insight-dot" style="background:'+esc(masterSwatchHex(hex))+'"></span>';
  const previewGroups=groups.map(g=>'<div class="pp-palette-view-group"><div class="pp-palette-view-label">'+
-  esc(file.printer==='H2D'?masterNozzleLabel(g.side):'Filamentquellen')+'</div>'+
+  esc(file.printer==='H2D'?masterNozzleLabel(g.side):file.printer==='Snapmaker U1'?'Kopf '+g.side.toUpperCase():'Filamentquellen')+'</div>'+
   g.sources.map(s=>'<div class="pp-palette-view-source"><small>'+esc(s.label)+'</small><div class="master-insight-colors">'+
    s.slots.map((fid,slot)=>{
     if(!fid)return '';
@@ -1804,7 +1832,7 @@ function openMasterPicker(source,slot){
  if(!masterSources[source]||slot<0||slot>=masterSources[source].slots.length)return;
  masterColorFixTarget=null;$('master-color-correction').hidden=true;
  masterPickerTarget={source,slot};
- $('master-filament-picker-title').textContent=masterSources[source].label+' · Platz '+(slot+1);
+ $('master-filament-picker-title').textContent=masterSources[source].label+' · '+(masterSources[source].type==='toolhead'?'Filament':'Platz '+(slot+1));
  $('master-filament-search').value='';
  $('master-filament-picker-overlay').hidden=false;
  renderMasterPickerResults();
@@ -2164,6 +2192,7 @@ $('master-files').addEventListener('click',event=>{
  renderMasterFiles();
 });
 $('master-add').addEventListener('click',()=>{
+ if($('master-printer').value==='Snapmaker U1')return;
  const type=$('master-source-type').value;
  if(masterSources.length>=12){flash('Maximal 12 Filamentquellen.',true);return;}
  const label=type==='ams'?'AMS ':type==='ams_ht'?'AMS HT ':'Externe Spule ';
@@ -2177,6 +2206,7 @@ $('master-sources').addEventListener('click',event=>{
  const clear=event.target.closest('[data-master-slot-clear]');
  if(clear){masterSources[Number(clear.dataset.masterSource)].slots[Number(clear.dataset.masterSlotClear)]=null;renderMasterSources();markMasterColorsDirty();return;}
  const b=event.target.closest('[data-master-remove]');if(!b)return;
+ if($('master-printer').value==='Snapmaker U1')return;
  masterSources.splice(Number(b.dataset.masterRemove),1);
  for(const type of ['ams','ams_ht','external'])masterSources.filter(s=>s.type===type).forEach((s,i)=>s.label=(type==='ams'?'AMS ':type==='ams_ht'?'AMS HT ':'Externe Spule ')+(i+1));
  renderMasterSources();markMasterColorsDirty();
