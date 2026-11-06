@@ -1565,7 +1565,9 @@ def print_tools_overview(listing_id=None):
                 if f:
                     row['colors'].append({'id':sid,'code':f['internal_code'],'color':f['color'],
                         'brand':f['brand'],'material':f['material'],'hex':f['color_hex'],
-                        'slot':('Düse links · ' if source.get('side')=='left' else 'Düse rechts · ' if source.get('side')=='right' else '')+label+' · '+str(number)})
+                        'slot':(label if source.get('type')=='toolhead' else
+                                ('Düse links · ' if source.get('side')=='left' else
+                                 'Düse rechts · ' if source.get('side')=='right' else '')+label+' · '+str(number))})
         row['sources']=clean
     return {'profiles':profiles,'files':files,'component_links':links,'order_master_defaults':defaults,
             'filaments_library':spool_options}
@@ -1651,28 +1653,52 @@ def validate_profile_target(db, data):
 
 
 def save_print_profile(data):
+    """Store nozzle/filament assignments specific to the selected printer.
+
+    Snapmaker U1 has four independent toolheads T0–T3; Bambu printers use
+    AMS/AMS HT/external sources, with H2D left/right nozzle routing.
+    Existing saved profile JSON is not rewritten by this validation.
+    """
     sources=data.get('sources')
     if not isinstance(sources,list) or len(sources)>12:
         raise ValueError('Maximal 12 Filamentquellen erlaubt.')
+    printer=data.get('printer')
+    is_u1=printer=='Snapmaker U1'
+    if is_u1 and len(sources)>4:
+        raise ValueError('Der Snapmaker U1 hat genau vier Werkzeugköpfe (T0–T3).')
     clean=[]
+    assigned_heads=set()
     for source in sources:
-        if not isinstance(source,dict): raise ValueError('Ungültige Filamentquelle.')
+        if not isinstance(source,dict):
+            raise ValueError('Ungültige Filamentquelle.')
         typ=source.get('type')
-        if typ not in ('ams','ams_ht','external'): raise ValueError('Unbekannte Filamentquelle.')
+        if is_u1:
+            if typ!='toolhead':
+                raise ValueError('Snapmaker U1: Bitte T0–T3 statt AMS-Quellen zuordnen.')
+        elif typ not in ('ams','ams_ht','external'):
+            raise ValueError('Unbekannte Filamentquelle für diesen Drucker.')
         slots=source.get('slots')
         expected=4 if typ=='ams' else 1
         if not isinstance(slots,list) or len(slots)!=expected:
             raise ValueError('Ungültige Anzahl Filamentplätze.')
         clean_slots=[]
         for fid in slots:
-            if fid is None or fid=='': clean_slots.append(None)
-            else: clean_slots.append(integer(fid,1,999999999))
-        label=('AMS '+str(sum(s['type']=='ams' for s in clean)+1) if typ=='ams'
-               else 'AMS HT '+str(sum(s['type']=='ams_ht' for s in clean)+1) if typ=='ams_ht'
-               else 'Externe Spule '+str(sum(s['type']=='external' for s in clean)+1))
+            if fid is None or fid=='':
+                clean_slots.append(None)
+            else:
+                clean_slots.append(integer(fid,1,999999999))
         side=source.get('side','')
-        if side not in ('','left','right',None):
-            raise ValueError('Ungültige Düsen-Zuordnung.')
+        if is_u1:
+            if side not in ('t0','t1','t2','t3') or side in assigned_heads:
+                raise ValueError('Snapmaker U1: Jeder Werkzeugkopf T0–T3 darf nur einmal vorkommen.')
+            assigned_heads.add(side)
+            label='Kopf '+side.upper()
+        else:
+            if side not in ('','left','right',None):
+                raise ValueError('Ungültige Düsen-Zuordnung.')
+            label=('AMS '+str(sum(s['type']=='ams' for s in clean)+1) if typ=='ams'
+                   else 'AMS HT '+str(sum(s['type']=='ams_ht' for s in clean)+1) if typ=='ams_ht'
+                   else 'Externe Spule '+str(sum(s['type']=='external' for s in clean)+1))
         clean.append({'type':typ,'label':label,'slots':clean_slots,'side':side or ''})
     with connect() as db:
         lid,variant,printer=validate_profile_target(db,data)
