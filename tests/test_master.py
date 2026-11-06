@@ -129,6 +129,31 @@ class MasterTests(unittest.TestCase):
         self.assertEqual(f['notes'],'Eigener interner Code')
         return f['id']
 
+    def test_snapmaker_u1_four_toolheads_and_existing_bambu_profile(self):
+        fid=self.spool()
+        h2d=app.save_print_profile({'listing_id':'123','variant_id':'variant1',
+            'printer':'H2D','sources':[{'type':'ams','slots':[fid,None,None,None],'side':'left'}]})
+        u1_sources=[{'type':'toolhead','side':f't{i}','slots':[fid if i==2 else None]}
+                    for i in range(4)]
+        result=app.save_print_profile({'listing_id':'123','variant_id':'variant1',
+            'printer':'Snapmaker U1','sources':u1_sources})
+        u1=next(p for p in result['profiles'] if p['printer']=='Snapmaker U1')
+        self.assertEqual([s['label'] for s in u1['sources']],['Kopf T0','Kopf T1','Kopf T2','Kopf T3'])
+        self.assertEqual(u1['colors'][0]['slot'],'Kopf T2')
+        self.assertEqual(u1['sources'][2]['slots'],[fid])
+        self.assertEqual(next(p for p in result['profiles'] if p['printer']=='H2D')['sources'],
+                         h2d['profiles'][0]['sources'])
+        with self.assertRaisesRegex(ValueError,'statt AMS'):
+            app.save_print_profile({'listing_id':'123','variant_id':'variant1',
+                'printer':'Snapmaker U1','sources':[{'type':'ams','slots':[fid,None,None,None]}]})
+        with self.assertRaisesRegex(ValueError,'nur einmal'):
+            app.save_print_profile({'listing_id':'123','variant_id':'variant1',
+                'printer':'Snapmaker U1','sources':[{'type':'toolhead','side':'t0','slots':[fid]},
+                                                  {'type':'toolhead','side':'t0','slots':[None]}]})
+        with self.assertRaisesRegex(ValueError,'Unbekannte Filamentquelle'):
+            app.save_print_profile({'listing_id':'123','variant_id':'variant1',
+                'printer':'P1S Old','sources':[{'type':'toolhead','side':'t0','slots':[fid]}]})
+
     def test_samba_inbox_import_preserves_source_and_existing_masters(self):
         inbox=app.master_share_import_directory()
         self.assertTrue(inbox.is_dir())
