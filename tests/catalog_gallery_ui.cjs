@@ -41,7 +41,12 @@ const assert=require('node:assert/strict');
   assert.match(await card.innerText(),/Alle Farbvarianten/);
   assert.match(await card.innerText(),/1 h 30 min/);
   assert.match(await card.innerText(),/28 g/);
-  await card.locator('[data-catalog-variant]').selectOption({index:1});
+  // Older variants may use a select; known color variants use swatches.
+  if(await card.locator('[data-catalog-variant]').count()){
+   await card.locator('[data-catalog-variant]').selectOption({index:1});
+  }else{
+   await card.locator('.pp-catalog-color-choice').first().click();
+  }
   assert.equal(await card.locator('[data-catalog-file]').count(),1,'Shared masters must remain visible for specific colors');
   await card.locator('.pp-catalog-file-extra>[data-catalog-info]').click();
   assert.match(await card.locator('.pp-catalog-file-popover').innerText(),/1[.,]0 MB/);
