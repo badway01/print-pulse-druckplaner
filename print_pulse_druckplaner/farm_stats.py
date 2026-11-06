@@ -6,6 +6,9 @@ are never silently treated as idle; manual runs are clearly identified.
 import time
 
 PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "A1 mini", "Prusa MK4")
+# Only these four printers count toward the production fleet statistics.
+# The two manual printers and their existing history remain intact.
+PRODUCTION_PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1")
 MANUAL_PRINTERS = ("A1 mini", "Prusa MK4")
 KNOWN_STATES = {"printing", "paused", "idle", "finished", "error", "preparing"}
 MAX_GAP_SECONDS = 100
@@ -166,7 +169,8 @@ def summary(db, days=7, now=None):
         if r["printer"] in records and r["outcome"] in ("success","failed"):
             key="successes" if r["outcome"]=="success" else "failures"
             records[r["printer"]][key]+=r["qty"]
-    printers=list(records.values())
+    # Ignore manual/standby printers for both numerator and denominator.
+    printers=[records[name] for name in PRODUCTION_PRINTERS]
     for row in printers:
         row["observed_seconds"]=min(capacity,row["observed_seconds"])
         row["printing_seconds"]=min(capacity,row["printing_seconds"])
