@@ -321,6 +321,25 @@ await page.locator('[data-close="settings"]').click();
  await page.locator('[data-close="quantity"]').click();
  assert.equal(await page.locator('#quantity').evaluate(el=>el.open),false);
 
+// With low stock only, the alert starts compact and occupies little space.
+await page.evaluate(()=>{
+ window.__etsyAlertsForTest=model.etsy_stock_alerts;
+ model.etsy_stock_alerts=model.etsy_stock_alerts.filter(item=>item.severity==='low');
+ renderEtsyStockBanner();
+});
+assert.equal(await page.locator('#etsy-stock-banner').isVisible(),true);
+assert.equal(await page.locator('#etsy-alert-list').isVisible(),false,'Low Etsy stock should start collapsed');
+assert((await page.locator('#etsy-alert-title').textContent()).includes('niedrigem Bestand'));
+const compactHeight=await page.locator('#etsy-stock-banner').evaluate(el=>el.getBoundingClientRect().height);
+assert(compactHeight<=95,'Collapsed warning should be compact; got '+compactHeight+'px');
+await page.locator('#etsy-alert-toggle').click();
+assert.equal(await page.locator('#etsy-alert-list').isVisible(),true);
+await page.locator('#etsy-alert-toggle').click();
+await page.evaluate(()=>{
+ model.etsy_stock_alerts=window.__etsyAlertsForTest;
+ delete window.__etsyAlertsForTest;
+ renderEtsyStockBanner();
+});
 assert.equal(await page.locator('#etsy-stock-banner').isVisible(),true);
 assert((await page.locator('#etsy-alert-title').textContent()).includes('1 Etsy-Artikel mit 0 Stück'));
 assert.equal(await page.locator('#etsy-alert-list').isVisible(),true,'critical Etsy alerts open automatically');
@@ -332,6 +351,8 @@ await page.locator('[data-etsy-alert-to="101"]').click();
 assert.equal(await page.locator('[data-product="101"]').isVisible(),true);
 await page.locator('#etsy-alert-toggle').click();
 assert.equal(await page.locator('#etsy-alert-list').isVisible(),false);
+const criticalCompactHeight=await page.locator('#etsy-stock-banner').evaluate(el=>el.getBoundingClientRect().height);
+assert(criticalCompactHeight<=95,'Even the closed red alert should remain compact');
 assert.equal(await page.locator('#printer-strip').isVisible(),true);
 assert.equal(await page.locator('[data-printer-focus="A1 mini"]').count(),0);
 await page.locator('#printer-strip-more').click();
