@@ -301,7 +301,7 @@ const latestRelease=await page.locator('#release-history-content .release-entry'
 assert.match(installedVersion,/^v\d+\.\d+\.\d+$/);
 assert(latestRelease.includes(installedVersion.slice(1)),'latest packaged release matches app version');
 const releaseNotes=await page.locator('#release-history-content .release-entry').allTextContents();
-assert(releaseNotes.some(note=>note.includes('Etsy')&&note.includes('Preisstufen')&&note.includes('Drucker')),'release history retains fees, pricing tiers and printer costs');
+assert(releaseNotes.some(note=>note.includes('Kompakte Bestandswarnung')&&note.includes('Etsy-Variantenauswahl')),'release history includes current compact alert and variants release');
 await page.locator('#etsy-import-panel summary').click();
 await page.locator('#etsy-import-rows').getByText('Keine neuen aktiven Artikel', {exact:false}).waitFor();
 await page.locator('[data-close="settings"]').click();
