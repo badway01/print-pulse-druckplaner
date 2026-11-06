@@ -779,22 +779,33 @@ def refresh_shop_availability(shop, transactions, force=False):
     now=int(time.time())
     with connect() as db:
         db.execute('BEGIN IMMEDIATE')
+        untracked=[]
         for lid,row in summaries.items():
-            if lid not in known:
-                continue
             state=str(row.get('state') or '')
             if state not in ('active','sold_out'):
                 continue
             qty=row.get('quantity')
             qty=qty if type(qty) is int and qty>=0 else None
-            db.execute('''UPDATE stock_listings SET etsy_qty=?,state=?,updated=?
-                WHERE id=?''',(qty,state,now,lid))
             if qty is not None:
                 db.execute("""INSERT INTO etsy_stock_reference(listing_id,variant_id,peak_qty,updated)
                     VALUES(?,'',?,?) ON CONFLICT(listing_id,variant_id) DO UPDATE SET
                     peak_qty=MAX(peak_qty,excluded.peak_qty),updated=excluded.updated""",
                     (lid,qty,now))
+            if lid not in known:
+                reference=db.execute("""SELECT peak_qty FROM etsy_stock_reference
+                    WHERE listing_id=? AND variant_id=''""",(lid,)).fetchone()
+                untracked.append({'id':lid,
+                                  'title':html.unescape(str(row.get('title') or 'Etsy-Artikel')),
+                                  'state':state,'etsy_qty':qty,
+                                  'etsy_reference_qty':reference[0] if reference else None,
+                                  'items':[]})
+                continue
+            db.execute('''UPDATE stock_listings SET etsy_qty=?,state=?,updated=?
+                WHERE id=?''',(qty,state,now,lid))
         write_catalog_listings(db,details,now)
+        # Read-only Etsy alerts include unimported products; do not silently
+        # ignore a sold-out Etsy listing just because it is not in the catalog.
+        put_cfg(db,'stock_untracked_availability',json.dumps(untracked,ensure_ascii=False))
         put_cfg(db,'stock_last_availability_sync',now)
         put_cfg(db,'stock_availability_cursor',
                 0 if not ids or force else (cursor+min(12,len(ids)))%len(ids))
@@ -922,6 +933,11 @@ def overview():
         etsy_percent=max(1,min(100,int(cfg(db,'etsy_alert_percent','25'))))
         etsy_refs={(r['listing_id'],r['variant_id']):r['peak_qty']
                    for r in db.execute('SELECT * FROM etsy_stock_reference')}
+        try:
+            untracked=json.loads(cfg(db,'stock_untracked_availability','[]'))
+            if not isinstance(untracked,list): untracked=[]
+        except (TypeError,ValueError):
+            untracked=[]
         sync_at=int(cfg(db,'stock_last_sync','0'))
         configured=bool(cfg(db,'keystring') and cfg(db,'callback'))
         authorized=bool(cfg(db,'access_token'))
@@ -1007,6 +1023,12 @@ def overview():
     for p in listings: p['bestseller']=p['id'] in top
     listings.sort(key=lambda p:({'red':0,'yellow':1,'unknown':2,'green':3}[p['level']],-p['need'],-p['sold7'],p['title'].casefold()))
     low_etsy=etsy_stock_alerts(listings,etsy_percent) if catalog_at else []
+    for alert in etsy_stock_alerts(untracked,etsy_percent):
+        alert['untracked']=True
+        low_etsy.append(alert)
+    low_etsy.sort(key=lambda x:(0 if x['severity']=='empty' else 1,
+                                x['etsy_qty'] if x['etsy_qty'] is not None else 999999,
+                                x['title'].casefold()))
     images={p['id']:safe_etsy_image_url(p['image']) for p in listings}
     titles={p['id']:p['title'] for p in listings}
     orders=[]
