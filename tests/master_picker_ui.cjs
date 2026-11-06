@@ -201,6 +201,28 @@ const assert=require('node:assert/strict');
   assert.match(await page.locator('.master-project-name strong').innerText(),/Samba Größe\.3mf/);
   assert.equal(shareMeta.filename,'Samba Größe.3mf');
   assert.deepEqual(errors,[],'No JavaScript errors after Samba import');
-  console.log('MASTER PICKER PASS: Samba import, swatches, chunked fallback, mobile, delete and failure');
+  // Snapmaker U1 needs four fixed independent heads instead of Bambu AMS sources.
+  await page.locator('#master-printer').selectOption('Snapmaker U1');
+  assert.equal(await page.locator('#master-add-source').isVisible(),false);
+  assert.equal(await page.locator('#master-u1-note').isVisible(),true);
+  await page.locator('[data-master-color-edit="profile"]').click();
+  assert.equal(await page.locator('#master-sources .pp-palette-source').count(),4);
+  assert.deepEqual(await page.locator('#master-sources .pp-palette-source-top strong').allTextContents(),['Kopf T0','Kopf T1','Kopf T2','Kopf T3']);
+  assert.equal(await page.locator('#master-sources [data-master-remove]').count(),0);
+  await page.locator('[data-master-slot-open="2"]').click();
+  await page.locator('[data-master-pick="3"]').click();
+  await page.locator('#master-save').click();
+  await page.waitForFunction(()=>document.querySelector('#master-profile-status').textContent.includes('gespeichert'));
+  assert.equal(saved.printer,'Snapmaker U1');
+  assert.deepEqual(saved.sources.map(s=>s.side),['t0','t1','t2','t3']);
+  assert.deepEqual(saved.sources.map(s=>s.slots[0]),[null,null,3,null]);
+  assert.match(await page.locator('[data-master-palette-preview="profile"]').innerText(),/Kopf T2/);
+  const closeInside=await page.locator('#master-editor').evaluate(dialog=>{
+   const d=dialog.getBoundingClientRect(),b=dialog.querySelector('.dialog-heading>.icon-button').getBoundingClientRect();
+   return b.left>=d.left&&b.top>=d.top&&b.right<=d.right&&b.bottom<=d.bottom;
+  });
+  assert.equal(closeInside,true,'Master dialog close icon stays within dialog bounds');
+  assert.deepEqual(errors,[],'No browser errors with U1 toolheads');
+  console.log('MASTER PICKER PASS: Samba import, swatches, U1 T0-T3, mobile, delete and failure');
  }finally{await browser.close();}
 })().catch(err=>{console.error(err);process.exit(1)});
