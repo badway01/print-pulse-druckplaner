@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 BOOT=tempfile.TemporaryDirectory()
 os.environ["PP_DATA_DIR"]=BOOT.name
@@ -126,6 +127,53 @@ class EtsyAvailabilityTests(unittest.TestCase):
         self.assertEqual(result["etsy_alert_percent"],50)
         self.assertEqual(result["etsy_stock_alerts"][0]["warning_at"],2)
         self.assertEqual(result["etsy_stock_alerts"][0]["etsy_qty"],2)
+
+
+    def test_zero_listing_is_critical_even_with_older_positive_variant_data(self):
+        alert=app.etsy_stock_alerts(
+            [row(total=0,baseline=12,variants=[variant("old",5,10)])],25)
+        self.assertEqual(len(alert),1)
+        self.assertEqual(alert[0]["severity"],"empty")
+        self.assertEqual(alert[0]["etsy_qty"],0)
+
+    def test_rapid_etsy_refresh_updates_zero_stock_without_mutating_own_inventory(self):
+        original=[({"listing_id":"101","title":"Arschkarte","quantity":8,"state":"active"},
+                   "","",[("v-one","101","p-one","Rot","sig1",8,1)],True)]
+        app.apply_snapshot(original,[],set())
+        app.mutate_stock({"id":"v-one","action":"set","quantity":17,"revision":0})
+        with app.connect() as db:
+            app.put_cfg(db,"stock_last_catalog_sync",1111)
+        zero={"listing_id":"101","title":"Arschkarte","quantity":0,"state":"sold_out"}
+        def fake_pages(endpoint, params):
+            return [zero] if params["state"]=="sold_out" else []
+        with patch.object(app,"pages",side_effect=fake_pages), patch.object(
+            app,"fetch_listing_details",return_value=[
+                (zero,"","",[("v-one","101","p-one","Rot","sig1",0,1)],True)]
+        ) as details:
+            app.refresh_shop_availability("123",[],force=True)
+            self.assertFalse(details.call_args.kwargs["include_images"])
+        current=app.overview()
+        self.assertEqual(current["products"][0]["items"][0]["on_hand"],17)
+        self.assertEqual(current["products"][0]["items"][0]["etsy_qty"],0)
+        self.assertEqual(current["etsy_stock_alerts"][0]["severity"],"empty")
+        self.assertEqual(current["etsy_stock_alerts"][0]["title"],"Arschkarte")
+        self.assertEqual(current["last_catalog_sync"],1111)
+        self.assertGreater(current["last_availability_sync"],1111)
+
+
+    def test_unimported_sold_out_etsy_product_still_raises_alert(self):
+        # Unapproved new Etsy products must not be auto-imported into stock.
+        missing={"listing_id":"404","title":"Nicht importierte Arschkarte",
+                 "quantity":0,"state":"sold_out"}
+        with patch.object(app,"pages",side_effect=lambda endpoint, params:
+                          [missing] if params["state"]=="sold_out" else []):
+            app.refresh_shop_availability("123",[],force=False)
+        data=app.overview()
+        self.assertEqual(data["products"],[])
+        self.assertEqual(len(data["etsy_stock_alerts"]),1)
+        self.assertEqual(data["etsy_stock_alerts"][0]["title"],missing["title"])
+        self.assertTrue(data["etsy_stock_alerts"][0]["untracked"])
+        self.assertEqual(data["etsy_stock_alerts"][0]["severity"],"empty")
 
 
 if __name__=="__main__":

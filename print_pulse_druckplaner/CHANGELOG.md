@@ -1,3 +1,11 @@
+# 0.13.48 · Etsy-Bestandsalarm und schnellerer Abgleich
+
+- Etsy-Listingstatus (aktiv / ausverkauft) und Etsy-Mengen werden nun mit jeder 15-Minuten-Bestellsynchronisation geprüft, statt nur bei der täglichen Katalogaktualisierung.
+- Variantenbestände werden rollierend (12 Artikel je Lauf) sowie nach neu eingegangenen Verkäufen geprüft. „Bestellungen aktualisieren“ prüft alle bekannten Varianten sofort mit.
+- Artikel mit 0 Stück werden unabhängig von verzögerten Variantendaten als ausverkauft erkannt. Die rote Warnung oben im Dashboard zeigt betroffene Produktnamen und Varianten automatisch ausgeklappt. Auch geringe Bestände bleiben sichtbar.
+- Der Stand der Bestandsprüfung wird angezeigt; bei über 60 Minuten alten Etsy-Daten wird ausdrücklich vor veralteten Zahlen gewarnt.
+- Physische Lagerbestände, Nachdruckaufträge, 3MF-Dateien und Kundenbestellungen bleiben von der Etsy-Bestandsprüfung unberührt. Etsy wird weiterhin nur gelesen.
+
 # 0.13.47 · Produktkatalog nach MakerWorld-Prinzip
 
 - Kompakte Produktkacheln mit umschaltbarer Listenansicht; Produktdetails zeigen großes Bild und zugeordnete 3MF-Druckdateien.

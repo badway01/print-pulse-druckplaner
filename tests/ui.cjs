@@ -322,13 +322,12 @@ await page.locator('[data-close="settings"]').click();
  assert.equal(await page.locator('#quantity').evaluate(el=>el.open),false);
 
 assert.equal(await page.locator('#etsy-stock-banner').isVisible(),true);
-assert((await page.locator('#etsy-alert-title').textContent()).includes('1 Artikel ausverkauft'));
-assert.equal(await page.locator('#etsy-alert-list').isVisible(),false);
-await page.locator('#etsy-alert-toggle').click();
+assert((await page.locator('#etsy-alert-title').textContent()).includes('1 Etsy-Artikel mit 0 Stück'));
+assert.equal(await page.locator('#etsy-alert-list').isVisible(),true,'critical Etsy alerts open automatically');
 assert.equal(await page.locator('.etsy-alert-item').count(),2);
 assert((await page.locator('#etsy-alert-list').textContent()).includes('Farbe: Beige'));
 assert((await page.locator('#etsy-alert-list').textContent()).includes('Warnung bis 2'));
-assert((await page.locator('#etsy-alert-subtitle').textContent()).includes('Etsy-Verfügbarkeit'));
+assert((await page.locator('#etsy-alert-subtitle').textContent()).includes('Betroffene Artikel'));
 await page.locator('[data-etsy-alert-to="101"]').click();
 assert.equal(await page.locator('[data-product="101"]').isVisible(),true);
 await page.locator('#etsy-alert-toggle').click();

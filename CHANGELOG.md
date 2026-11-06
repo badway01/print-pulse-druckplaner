@@ -1,3 +1,9 @@
+# v0.13.48 – Etsy-Bestand: sofort sichtbare Warnungen
+
+- Etsy-Artikelstatus und Bestandszahlen alle 15 Minuten aktualisieren, Varianten rollierend und nach neuen Verkäufen, statt erst beim täglichen Komplettabgleich.
+- Nullbestände und kritische Varianten direkt im Dashboard rot und automatisch aufgeklappt anzeigen; Staleness-Warnung bei verzögertem Etsy-Abgleich.
+- Manuelle Synchronisierung prüft auch die Artikelverfügbarkeit. Lagerbestand und Druckdateien unverändert.
+
 ## 0.13.44 (2026-11-05)
 
 - Dashboard-Bestellkarten: schmaler Kundenkopf, ein einzelnes Artikelbild samt Variante pro Position; keine doppelte Produktdarstellung.
