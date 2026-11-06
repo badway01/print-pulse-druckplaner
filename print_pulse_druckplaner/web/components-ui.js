@@ -325,11 +325,22 @@ function catalogColorVariantFilter(p,variants,selected){
  const prefix=raw.includes(':')?raw.split(':')[0].trim():'';
  const shared=prefix&&variants.every(v=>String(v.label||'').startsWith(prefix+':'));
  const label=shared?prefix:'Variante';
- const options='<option value="">Alle Druckdateien</option>'+
-  variants.map(v=>'<option value="'+esc(v.id)+'"'+(String(v.id)===selected?' selected':'')+'>'+esc(v.label)+'</option>').join('');
- return '<div class="pp-catalog-variantbar"><label class="pp-catalog-variant"><span>'+
-   esc(label)+'</span><select data-catalog-variant="'+esc(p.id)+'" aria-label="'+esc(label)+' auswählen">'+
-   options+'</select></label></div>';
+ const chosen=variants.find(v=>String(v.id)===selected);
+ const current=chosen?String(chosen.label):'Alle Druckdateien';
+ const option=(value,name,active)=>
+  '<button type="button" class="pp-catalog-variant-option'+(active?' is-selected':'')+
+  '" data-catalog-variant-choice="'+esc(p.id)+'" data-variant-id="'+esc(value)+
+  '" aria-pressed="'+String(active)+'"><span>'+esc(name)+'</span>'+
+  '<span class="pp-catalog-variant-check" aria-hidden="true">'+(active?'✓':'')+'</span></button>';
+ return '<div class="pp-catalog-variantbar"><span class="pp-catalog-variant-label">'+esc(label)+'</span>'+
+  '<details class="pp-catalog-variant-menu" data-catalog-variant-menu>'+
+  '<summary aria-label="'+esc(label)+' auswählen, aktuell: '+esc(current)+'">'+
+  '<span class="pp-catalog-variant-current">'+esc(current)+'</span>'+
+  '<svg class="pp-catalog-variant-chevron" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>'+
+  '<div class="pp-catalog-variant-options" role="group" aria-label="'+esc(label)+'">'+
+  option('','Alle Druckdateien',!selected)+variants.map(v=>
+   option(String(v.id),String(v.label),String(v.id)===selected)).join('')+
+  '</div></details></div>';
 }
 try {
  const stored = localStorage.getItem('pp-catalog-view');
@@ -469,6 +480,16 @@ $('catalog-rows').addEventListener('click',event=>{
  }
  const info=event.target.closest('[data-catalog-info]');
  if(info){const block=info.closest('.pp-catalog-file-extra');const open=!block.classList.contains('is-open');block.classList.toggle('is-open',open);info.setAttribute('aria-expanded',String(open));return;}
+ const variant=event.target.closest('[data-catalog-variant-choice]');
+ if(variant){
+  const id=String(variant.dataset.catalogVariantChoice);
+  catalogSelectedVariant.set(id,String(variant.dataset.variantId||''));
+  renderCatalog();
+  const menu=[...document.querySelectorAll('[data-catalog-item]')].find(item=>item.dataset.catalogItem===id)
+    ?.querySelector('.pp-catalog-variant-menu>summary');
+  menu?.focus({preventScroll:true});
+  return;
+ }
  const printer=event.target.closest('[data-catalog-printer]');
  if(printer){catalogSelectedPrinter.set(String(printer.dataset.catalogPrinter),printer.dataset.printerName||'');renderCatalog();return;}
  const back=event.target.closest('[data-catalog-back]');
@@ -479,11 +500,17 @@ $('catalog-rows').addEventListener('click',event=>{
  if(catalogExpanded.has(id))catalogExpanded.clear();else{catalogExpanded.clear();catalogExpanded.add(id);}
  renderCatalog();
 });
-$('catalog-rows').addEventListener('change',event=>{
- const select=event.target.closest('[data-catalog-variant]');
- if(!select)return;
- catalogSelectedVariant.set(String(select.dataset.catalogVariant),select.value);
- renderCatalog();
+// Close the floating Etsy variant menu without modifying the chosen variant.
+document.addEventListener('click',event=>{
+ if(event.target.closest('.pp-catalog-variant-menu'))return;
+ document.querySelectorAll('.pp-catalog-variant-menu[open]').forEach(menu=>menu.open=false);
+});
+document.addEventListener('keydown',event=>{
+ if(event.key!=='Escape')return;
+ document.querySelectorAll('.pp-catalog-variant-menu[open]').forEach(menu=>{
+  menu.open=false;
+  menu.querySelector('summary')?.focus({preventScroll:true});
+ });
 });
 function componentKindChange(){
  const stock=$('components-kind').value==='stock';
