@@ -836,7 +836,7 @@ function render(){if(!model)return;
  const when=seconds=>seconds?new Date(seconds*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Berlin'}):'noch kein Abgleich';
  const date=when(model.last_sync),catalogDate=when(model.last_catalog_sync),availabilityDate=when(model.last_availability_sync);
  const cooldownDate=when(model.cooldown_until);
- $('sync-state').textContent=model.sync.running?model.sync.message:cooldownActive?`Etsy-Anfragelimit erreicht · Pause bis ${cooldownDate} · gespeicherte Bestände bleiben sichtbar`:`Bestellungen: ${date} (15 Min.) · Etsy-Bestand: ${availabilityDate} (15 Min.) · Katalog: ${catalogDate} (täglich)`;
+ $('sync-state').textContent=model.sync.running?model.sync.message:cooldownActive?`Etsy-Anfragelimit erreicht · Pause bis ${cooldownDate} · gespeicherte Bestände bleiben sichtbar`:`Bestellungen: ${date} (alle 15 Minuten) · Etsy-Bestand: ${availabilityDate} (alle 15 Minuten) · Katalog: ${catalogDate} (täglich)`;
  const stale=model.last_sync&&Date.now()/1000-model.last_sync>3600;
  const staleAvailability=!!model.authorized&&(!model.last_availability_sync||Date.now()/1000-model.last_availability_sync>3600);
  showAlert([model.sync.error,model.warning,!model.authorized?'Bitte Etsy unter Einstellungen verbinden.':cooldownActive?`Etsy hat zu viele Anfragen gemeldet. Bis ${cooldownDate} pausiert unser Druckplaner automatisch.`:stale?'Bestelldaten sind älter als eine Stunde. Etsy-Abgleich prüfen.':'',staleAvailability?'Etsy-Bestandsdaten sind älter als eine Stunde. Ausverkaufte Artikel könnten noch fehlen.':'']);
