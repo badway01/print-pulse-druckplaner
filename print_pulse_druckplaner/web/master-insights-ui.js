@@ -15,15 +15,33 @@
  }
  function filamentRows(file) {
    const profile=profileColors(file);
-   if(profile.length)return {rows:profile.map(f=>({
-     filament_id:f.id, name:f.color, color_hex:f.hex, code:f.code,
-     grams:null, slot:f.slot
-   })),fromProfile:true};
-   return {rows:file.insights?.filaments || [],fromProfile:false};
+   const slicer=Array.isArray(file.insights?.filaments)?file.insights.filaments:[];
+   if(!profile.length)return {rows:slicer,fromProfile:false,unmatched:[]};
+   // Never distribute a plate's total weight evenly among colors.
+   // A per-color estimate is only assigned to a saved profile color when
+   // the filament ID, unambiguous color code or exact HEX agrees.
+   const used=new Set();
+   const normalizeHex=value=>/^#[a-f\d]{6}$/i.test(value||'')?value.toLowerCase():null;
+   const uniqueMatch=(filter)=>{
+     const indices=slicer.map((f,i)=>({f,i})).filter(({f,i})=>!used.has(i)&&filter(f));
+     return indices.length===1?indices[0]:null;
+   };
+   const rows=profile.map(f=>{
+     const match=uniqueMatch(row=>f.id!=null&&row.filament_id!=null&&String(f.id)===String(row.filament_id))||
+       uniqueMatch(row=>Boolean(f.code&&row.code)&&String(f.code)===String(row.code))||
+       uniqueMatch(row=>Boolean(normalizeHex(f.hex))&&normalizeHex(f.hex)===normalizeHex(row.color_hex));
+     if(match)used.add(match.i);
+     const grams=match&&Number.isFinite(match.f.grams)&&match.f.grams>=0?match.f.grams:null;
+     return {filament_id:f.id,name:f.color,color_hex:f.hex,code:f.code,grams,slot:f.slot};
+   });
+   const unmatched=slicer.filter((f,i)=>!used.has(i)&&Number.isFinite(f.grams)&&f.grams>0);
+   return {rows,fromProfile:true,unmatched};
  }
  function paletteHtml(file,orderColor='',compact=false) {
    if (!compact && typeof window.masterPalettePreviewMarkup==='function' && masterContext?.id===file.listing_id) return window.masterPalettePreviewMarkup(file);
-   const {rows,fromProfile} = filamentRows(file);
+   const {rows,fromProfile,unmatched} = filamentRows(file);
+   const knownGrams=rows.some(f=>Number.isFinite(f.grams)&&f.grams>0)||unmatched.length>0;
+   const formatGrams=n=>Number(n).toLocaleString('de-DE',{maximumFractionDigits:2})+' g';
    const wish = file.insights?.color_mode === 'custom';
    const chosen = wish && String(orderColor||'').trim();
    return '<div class="master-insight-palette">' +
@@ -34,10 +52,15 @@
        '<span class="master-insight-color" title="' + esc(f.slot || f.name || 'Filament') + '">' +
        '<span class="master-insight-dot" style="background:' + safeColor(f.color_hex) + '"></span>' +
        '<span>' + esc(f.code ? f.code + ' · ' + f.name : f.name || 'Filament') + '</span>' +
-       (f.grams !== null && f.grams !== undefined ? '<small>' + Number(f.grams).toLocaleString('de-DE') + ' g</small>' : '') +
+       (Number.isFinite(f.grams) ? '<small class="pp-insight-grams">' + formatGrams(f.grams) + '</small>' : '') +
        '</span>').join('') + '</div>' :
        '<p class="master-insight-missing">Noch keine Filamente hinterlegt.</p>') +
-     (fromProfile && rows.length ? '<small>Farben aus dem Druckprofil.</small>' : '') +
+     (unmatched.length ? '<div class="pp-insight-unmatched"><strong>Weitere Mengen aus der 3MF (Farbe nicht eindeutig zugeordnet)</strong>' +
+       '<div class="master-insight-colors">'+unmatched.map(f=>
+       '<span class="master-insight-color"><span class="master-insight-dot" style="background:'+safeColor(f.color_hex)+'"></span>'+
+       '<span>'+esc(f.name||f.code||'3MF-Filament')+'</span><small class="pp-insight-grams">'+formatGrams(f.grams)+'</small></span>'
+       ).join('')+'</div></div>':'') +
+     (fromProfile && rows.length ? '<small>Farben aus dem Druckprofil'+(knownGrams?' · Grammwerte aus der 3MF oder gespeicherten Druckdaten.':' · Gramm je Farbe noch nicht hinterlegt. Unter Bearbeiten ergänzen.')+'</small>' : '') +
      '</div>';
  }
  function spoolOptionHtml(selected) {
