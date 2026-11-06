@@ -3246,3 +3246,8 @@ html[data-theme="dark"] .etsy-alert-critical .etsy-alert-info strong{color:#ffc3
 html[data-theme="dark"] .etsy-alert-item.empty{background:#422b2a;border-color:#a65d54}
 html[data-theme="dark"] .etsy-alert-item.empty .etsy-alert-qty,
 html[data-theme="dark"] .etsy-alert-item.empty .etsy-alert-variants strong{color:#ffc3b8}
+
+/* v0.13.50 – Snapmaker U1: fixed T0–T3 toolhead picker, not Bambu AMS. */
+#master-add-source[hidden], #master-u1-note[hidden]{display:none!important}
+.master-u1-note{margin:0 0 10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;color:var(--ink);font-size:12px;line-height:1.5}
+#master-printer:has(option[value="Snapmaker U1"]:checked)~* .pp-palette-source{min-width:0}
