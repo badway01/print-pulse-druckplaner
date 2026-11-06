@@ -60,7 +60,7 @@ except ImportError:
     _farm_spec.loader.exec_module(farm_stats)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.47'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.48'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -392,7 +392,7 @@ def receipt_status(receipt):
     return 'shipped' if receipt.get('is_shipped') or receipt.get('was_shipped') or status=='completed' else 'open'
 
 
-def fetch_listing_details(listings):
+def fetch_listing_details(listings, include_images=True):
     """Load images and variants only for listings already approved for production."""
     result=[]
     inventory_forbidden=False
@@ -405,14 +405,15 @@ def fetch_listing_details(listings):
         image=''
         error=''
         products=None
-        try:
-            imgs=api_request(f'/application/listings/{lid}/images').get('results',[])
-            if imgs:
-                image=safe_etsy_image_url(imgs[0].get('url_570xN') or imgs[0].get('url_fullxfull') or '')
-        except EtsyRateLimited:
-            raise
-        except RuntimeError:
-            pass
+        if include_images:
+            try:
+                imgs=api_request(f'/application/listings/{lid}/images').get('results',[])
+                if imgs:
+                    image=safe_etsy_image_url(imgs[0].get('url_570xN') or imgs[0].get('url_fullxfull') or '')
+            except EtsyRateLimited:
+                raise
+            except RuntimeError:
+                pass
         if not inventory_forbidden:
             try:
                 inv=api_request(f'/application/listings/{lid}/inventory')
@@ -722,40 +723,117 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None, 
         put_cfg(db,'stock_last_sync',now)
         if catalog is not None:
             put_cfg(db,'stock_last_catalog_sync',now)
+            put_cfg(db,'stock_last_availability_sync',now)
             put_cfg(db,'stock_warning',warning)
 
 
-def synchronize():
+def refresh_shop_availability(shop, transactions, force=False):
+    """Update Etsy quantities every order poll, without a costly full catalog import.
+
+    Listing states/quantities are checked each poll. Variants are checked after
+    new orders and in a rolling batch. A manual sync checks every known variant.
+    Physical stock, reservations and customer orders are never overwritten.
+    """
+    with STATUS_LOCK:
+        STATUS['message']='Etsy-Verfügbarkeit prüfen …'
+    try:
+        active=pages(f'/application/shops/{shop}/listings',{'state':'active'})
+        sold_out=pages(f'/application/shops/{shop}/listings',{'state':'sold_out'})
+    except RuntimeError as exc:
+        if 'HTTP 403' not in str(exc):
+            raise
+        active=pages(f'/application/shops/{shop}/listings/active')
+        sold_out=[]
+    summaries={str(row.get('listing_id') or ''):row for row in active+sold_out
+               if str(row.get('listing_id') or '').isdigit()}
+    with connect() as db:
+        known={r['id']:r['state'] for r in db.execute('SELECT id,state FROM stock_listings')}
+        previous_tx={r[0] for r in db.execute('SELECT id FROM stock_transactions')}
+        cursor=max(0,int(cfg(db,'stock_availability_cursor','0')))
+    # If the Etsy token permits only the /active endpoint, confirm missing
+    # formerly active listings directly rather than silently treating them as OK.
+    if not sold_out:
+        missing=[lid for lid,state in known.items()
+                 if state=='active' and lid not in summaries]
+        for lid in missing[:24]:
+            try:
+                item=api_request(f'/application/listings/{lid}')
+                if str(item.get('listing_id') or '')==lid:
+                    summaries[lid]=item
+            except EtsyRateLimited:
+                raise
+            except RuntimeError:
+                pass
+    ids=sorted(lid for lid in known if lid in summaries and
+               summaries[lid].get('state') in ('active','sold_out'))
+    changed={str(lid) for tid,rid,lid,pid,sig,qty,created,status in transactions
+             if str(tid) not in previous_tx and status in ('open','shipped')}
+    batch=ids[cursor % len(ids):] + ids[:cursor % len(ids)] if ids else []
+    selected=set(ids if force else batch[:12])
+    selected.update(changed.intersection(ids))
+    to_scan=[summaries[lid] for lid in ids if lid in selected]
+    if to_scan:
+        with STATUS_LOCK:
+            STATUS['message']='Etsy-Varianten prüfen: '+str(len(to_scan))+' Artikel'
+    details=fetch_listing_details(to_scan,include_images=False) if to_scan else []
+    now=int(time.time())
+    with connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        for lid,row in summaries.items():
+            if lid not in known:
+                continue
+            state=str(row.get('state') or '')
+            if state not in ('active','sold_out'):
+                continue
+            qty=row.get('quantity')
+            qty=qty if type(qty) is int and qty>=0 else None
+            db.execute('''UPDATE stock_listings SET etsy_qty=?,state=?,updated=?
+                WHERE id=?''',(qty,state,now,lid))
+            if qty is not None:
+                db.execute("""INSERT INTO etsy_stock_reference(listing_id,variant_id,peak_qty,updated)
+                    VALUES(?,'',?,?) ON CONFLICT(listing_id,variant_id) DO UPDATE SET
+                    peak_qty=MAX(peak_qty,excluded.peak_qty),updated=excluded.updated""",
+                    (lid,qty,now))
+        write_catalog_listings(db,details,now)
+        put_cfg(db,'stock_last_availability_sync',now)
+        put_cfg(db,'stock_availability_cursor',
+                0 if not ids or force else (cursor+min(12,len(ids)))%len(ids))
+
+
+def synchronize(force_availability=False):
     with connect() as db:
         shop=cfg(db,'shop_id')
         existing=db.execute('SELECT COUNT(*) FROM stock_listings').fetchone()[0]
         catalog_at=int(cfg(db,'stock_last_catalog_sync',cfg(db,'stock_last_sync','0')))
     if not shop.isdigit(): raise ValueError('Bitte Etsy unter Einstellungen verbinden.')
-    # Orders first: changes arrive frequently, without a large catalog import.
     with STATUS_LOCK: STATUS['message']='Offene Bestellungen abrufen …'
     transactions,receipts,orders=fetch_receipts(shop,include_orders=True)
     due=not existing or not catalog_at or time.time()-catalog_at>=CATALOG_INTERVAL
     if not due:
+        try:
+            refresh_shop_availability(shop,transactions,force=force_availability)
+        except Exception:
+            # Freshness remains unchanged on failure. Never lose verified orders.
+            apply_snapshot(None,transactions,receipts,orders=orders)
+            raise
         apply_snapshot(None,transactions,receipts,orders=orders)
         return
     with STATUS_LOCK: STATUS['message']='Täglichen Produktkatalog abrufen …'
     try:
         catalog,warning,candidates=fetch_catalog(shop)
     except Exception:
-        # Commit fully verified orders even if the costly catalog refresh fails.
-        # No listing is disabled or any counted stock overwritten.
         apply_snapshot(None,transactions,receipts,orders=orders)
         raise
     apply_snapshot(catalog,transactions,receipts,warning,orders,candidates)
 
 
-def run_sync():
+def run_sync(force_availability=False):
     check_cooldown()
     if not IMPORT_LOCK.acquire(blocking=False): return False
     with STATUS_LOCK: STATUS.update(running=True,error=None,message='Etsy wird abgeglichen …')
     def job():
         try:
-            synchronize()
+            synchronize(force_availability=force_availability)
         except Exception as exc:
             log.warning('Etsy-Abgleich fehlgeschlagen: %s',type(exc).__name__)
             with STATUS_LOCK: STATUS['error']=str(exc)[:300]
@@ -795,7 +873,7 @@ def etsy_stock_alerts(listings, percent=25):
                         type(v.get('etsy_qty')) is int and v['etsy_qty']>=0]
         # Use listing quantity as a fallback only: variants can have independent Etsy stock.
         use_total=not valid_variants
-        listing_low=use_total and total is not None and threshold is not None and total<=threshold
+        listing_low=(total==0 or (use_total and total is not None and threshold is not None and total<=threshold))
         variants=[]
         for item in valid_variants:
             qty=item['etsy_qty']
@@ -810,7 +888,7 @@ def etsy_stock_alerts(listings, percent=25):
         if not (sold_out or listing_low or variants):
             continue
         variants.sort(key=lambda v:(v['etsy_qty'],-v['sold30'],v['label'].casefold()))
-        has_zero=sold_out or (use_total and total==0) or any(v['etsy_qty']==0 for v in variants)
+        has_zero=sold_out or total==0 or any(v['etsy_qty']==0 for v in variants)
         result.append({
             'listing_id':str(listing['id']),
             'title':str(listing['title']),
@@ -849,6 +927,7 @@ def overview():
         authorized=bool(cfg(db,'access_token'))
         warning=cfg(db,'stock_warning')
         catalog_at=int(cfg(db,'stock_last_catalog_sync',cfg(db,'stock_last_sync','0')))
+        availability_at=int(cfg(db,'stock_last_availability_sync',str(catalog_at)))
         cooldown=int(cfg(db,'etsy_rate_limit_until','0'))
         action=db.execute('SELECT * FROM stock_actions WHERE undone=0 ORDER BY created DESC,rowid DESC LIMIT 1').fetchone()
         undo=None
@@ -960,7 +1039,7 @@ def overview():
         components.snapshot(db,listings,orders)
         local_orders.enrich(db,orders)
     with STATUS_LOCK: status=dict(STATUS)
-    return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'etsy_alert_percent':etsy_percent,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'priority_dismissed':priority_dismissed,'version':'0.1'}
+    return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'last_availability_sync':availability_at,'etsy_alert_percent':etsy_percent,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'priority_dismissed':priority_dismissed,'version':'0.1'}
 
 
 def mutate_stock(data):
@@ -2980,7 +3059,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/import-products":
                 return self.send(200,import_new_listings(data.get('ids')))
             if path == "/api/sync":
-                if not run_sync():
+                if not run_sync(force_availability=True):
                     return self.respond(200, {"ok": True,"running":True})
                 return self.respond(202, {"ok": True, "running":True})
             return self.send(404,{'error':'Nicht gefunden.'})
