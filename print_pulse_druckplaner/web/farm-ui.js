@@ -55,10 +55,10 @@ function renderFarmStats(){
  const d=farmStats;
  const total=Math.max(0,Number(d.capacity_seconds)||0);
  kpis.innerHTML=[
-   farmKpi('Erfasste Druckzeit',farmHours(d.printing_seconds),'Über alle sechs Drucker'),
+   farmKpi('Erfasste Druckzeit',farmHours(d.printing_seconds),'Über alle '+String(d.printer_count)+' Produktionsdrucker'),
    farmKpi('24/7-Auslastung',farmPercent(d.capacity_percent).toLocaleString('de-DE',{maximumFractionDigits:1})+' %','Bezogen auf '+farmHours(total)+' maximal mögliche Zeit'),
    farmKpi('Messabdeckung',farmPercent(d.coverage_percent).toLocaleString('de-DE',{maximumFractionDigits:1})+' %','Fehlende Sensordaten zählen nicht als Leerlauf'),
-   farmKpi('Eingesetzte Drucker',String(d.printer_count),'Vorhandene Drucker, kein zweiter H2D angenommen')
+   farmKpi('Produktionsdrucker',String(d.printer_count),'P1S Old · P1S New · H2D · U1')
  ].join('');
  root.innerHTML=(d.printers||[]).map(r=>farmPrinterCard(r,d)).join('');
  const h2d=(d.printers||[]).find(p=>p.printer==='H2D');
