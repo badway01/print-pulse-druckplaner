@@ -1,3 +1,9 @@
+# 0.13.52 · Kompakte Bestandswarnung und moderne Etsy-Variantenauswahl
+
+- Die Bestandswarnung im Dashboard erscheint als schmale, auffällige Leiste. Niedrige Etsy-Bestände bleiben standardmäßig eingeklappt, kritische Nullbestände öffnen ihre Artikelliste automatisch. Die Details sind jederzeit manuell auf- und zuklappbar. Direkte Produktlinks und der Etsy-Zeitstempel bleiben erhalten.
+- Der 3MF-Variantenfilter bleibt oben neben den Druckdateien, wird aber als modernes schwebendes Auswahlmenü mit Chevron, Markierung und Tastatursteuerung dargestellt. Original-Etsy-Bezeichnungen statt unzutreffender Farbpunkte.
+- Die 3MF-Dateien, Bestände und Druckprofile werden durch diese Oberflächenänderung nicht verändert.
+
 # 0.13.51 · 3MF-Farbbedarf und Varianten direkt an den Druckdateien
 
 - Die Datei-Info zeigt den Verbrauch je Filament in Gramm, wenn die 3MF oder gespeicherte Druckdaten eindeutige Einzelmengen enthalten. Profilfarben und Slicer-Mengen werden nur bei eindeutig passender Filament-ID, Farbcode oder HEX verbunden. Unklare Mengen bleiben getrennt, die Gesamtgrammzahl wird niemals auf Farben geschätzt.
