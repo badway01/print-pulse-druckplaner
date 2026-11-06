@@ -209,7 +209,7 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('#master-sources .pp-palette-source').count(),4);
   assert.deepEqual(await page.locator('#master-sources .pp-palette-source-top strong').allTextContents(),['Kopf T0','Kopf T1','Kopf T2','Kopf T3']);
   assert.equal(await page.locator('#master-sources [data-master-remove]').count(),0);
-  await page.locator('[data-master-slot-open="2"]').click();
+  await page.locator('[data-master-source="2"][data-master-slot-open="0"]').click();
   await page.locator('[data-master-pick="3"]').click();
   await page.locator('#master-save').click();
   await page.waitForFunction(()=>document.querySelector('#master-profile-status').textContent.includes('gespeichert'));
