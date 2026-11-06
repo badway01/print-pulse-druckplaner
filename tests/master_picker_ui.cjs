@@ -217,7 +217,10 @@ const assert=require('node:assert/strict');
   assert.deepEqual(saved.sources.map(s=>s.side),['t0','t1','t2','t3']);
   assert.deepEqual(saved.sources.map(s=>s.slots[0]),[null,null,3,null]);
   assert.match(await page.locator('[data-master-palette-preview="profile"]').innerText(),/Kopf T2/);
+  // The mobile dialog has scrolled to the Save button; measure the top-right
+  // close icon with its header actually visible, not off-screen above scrollTop.
   const closeInside=await page.locator('#master-editor').evaluate(dialog=>{
+   dialog.scrollTop=0;
    const d=dialog.getBoundingClientRect(),b=dialog.querySelector('.dialog-heading>.icon-button').getBoundingClientRect();
    return b.left>=d.left&&b.top>=d.top&&b.right<=d.right&&b.bottom<=d.bottom;
   });
