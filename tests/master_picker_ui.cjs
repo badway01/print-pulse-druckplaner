@@ -204,8 +204,8 @@ const assert=require('node:assert/strict');
   // Snapmaker U1 needs four fixed independent heads instead of Bambu AMS sources.
   await page.locator('#master-printer').selectOption('Snapmaker U1');
   assert.equal(await page.locator('#master-add-source').isVisible(),false);
-  assert.equal(await page.locator('#master-u1-note').isVisible(),true);
   await page.locator('[data-master-color-edit="profile"]').click();
+  assert.equal(await page.locator('#master-u1-note').isVisible(),true);
   assert.equal(await page.locator('#master-sources .pp-palette-source').count(),4);
   assert.deepEqual(await page.locator('#master-sources .pp-palette-source-top strong').allTextContents(),['Kopf T0','Kopf T1','Kopf T2','Kopf T3']);
   assert.equal(await page.locator('#master-sources [data-master-remove]').count(),0);
