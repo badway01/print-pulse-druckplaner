@@ -3263,3 +3263,38 @@ html[data-theme="dark"] .etsy-alert-item.empty .etsy-alert-variants strong{color
  border:1px solid var(--line);border-radius:9px;
  font-size:25px;line-height:1;color:var(--ink);background:var(--surface);
 }
+
+/* v0.13.51 – Variant colors belong next to the 3MF files, not under the photo. */
+.pp-catalog-variantbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+ padding:10px 11px;margin:0 0 10px;border:1px solid #d7e3e8;border-radius:10px;background:var(--surface)}
+.pp-catalog-variantbar-heading{display:flex;flex-direction:column;gap:2px;min-width:112px;max-width:100%}
+.pp-catalog-variantbar-heading strong{font-size:12px;color:var(--ink)}
+.pp-catalog-variantbar-heading small{font-size:10px;color:var(--muted);overflow-wrap:anywhere}
+.pp-catalog-color-choices{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;min-width:0}
+.pp-catalog-color-choice{display:inline-grid;place-items:center;width:33px;height:33px;min-width:33px;min-height:33px;
+ border:2px solid #d1d9de;border-radius:50%;background:var(--surface);padding:4px;cursor:pointer}
+.pp-catalog-color-choice .pp-catalog-color-dot{display:block;width:19px;height:19px;flex:0 0 19px;border:1px solid #aab4ba;border-radius:50%;box-shadow:inset 0 0 0 1px #ffffff45}
+.pp-catalog-color-choice .pp-catalog-color-dot.is-unknown{background:repeating-linear-gradient(45deg,#d5d9db 0 4px,#f4f5f6 4px 8px)}
+.pp-catalog-color-choice.is-selected{border-color:#23775d;box-shadow:0 0 0 2px #23775d2b}
+.pp-catalog-color-choice:focus-visible{outline:3px solid #bb985d;outline-offset:2px}
+.pp-catalog-color-all,.pp-catalog-color-more{min-height:32px;padding:5px 9px;font-size:11px;font-weight:700;
+ border:1px solid #ccdce2;border-radius:8px;background:var(--surface);color:var(--ink)}
+.pp-catalog-color-all.is-selected{background:#257159;border-color:#257159;color:#fff}
+.pp-catalog-color-more{color:var(--green);background:var(--surface-soft)}
+.pp-catalog-variantbar .pp-catalog-variant{display:flex;flex-direction:column;gap:6px;width:100%;margin:0}
+.pp-catalog-variantbar .pp-catalog-variant>span{font-size:11px;font-weight:750;color:var(--ink)}
+.pp-catalog-variantbar .pp-catalog-variant select{width:100%;max-width:360px;min-height:37px;font-size:12px}
+.pp-insight-grams{font-weight:800;color:#176b55;white-space:nowrap}
+.pp-insight-unmatched{margin:9px 0 5px;padding:8px;border:1px dashed #c6d8e2;border-radius:9px}
+.pp-insight-unmatched>strong{display:block;font-size:10px;margin-bottom:7px;color:var(--muted)}
+.pp-catalog-file-popover{max-height:min(70vh,490px)}
+@media(max-width:760px){
+ .pp-catalog-variantbar{align-items:flex-start}
+ .pp-catalog-color-choices{justify-content:flex-start}
+}
+html[data-theme="dark"] .pp-catalog-variantbar,
+html[data-theme="dark"] .pp-catalog-color-all,
+html[data-theme="dark"] .pp-catalog-color-more,
+html[data-theme="dark"] .pp-catalog-color-choice{background:#202f3b;color:#e5eaf1}
+html[data-theme="dark"] .pp-catalog-color-all.is-selected{background:#257159;color:#fff}
+html[data-theme="dark"] .pp-insight-grams{color:#85d5b1}
