@@ -1,3 +1,9 @@
+# 0.13.49 · Druckfarm nur für vier Produktionsdrucker
+
+- Die Produktionsauswertung umfasst ausschließlich H2D, P1S Old, P1S New und Snapmaker U1. A1 mini und Prusa MK4 werden aus den Druckfarm-Kennzahlen und Einzelkarten ausgeschlossen.
+- Erfasste Druckzeit, Messabdeckung, 24/7-Auslastung und Kapazität werden konsequent aus denselben vier Geräten berechnet: 96 h für 24 Stunden, 672 h für 7 Tage und 2.880 h für 30 Tage.
+- Vorhandene Zeitaufzeichnungen und manuelle Historien bleiben in der Datenbank gespeichert. Andere Druckerfunktionen, Aufträge und Produktdaten bleiben unverändert.
+
 # 0.13.48 · Etsy-Bestandsalarm und schnellerer Abgleich
 
 - Etsy-Listingstatus (aktiv / ausverkauft) und Etsy-Mengen werden nun mit jeder 15-Minuten-Bestellsynchronisation geprüft, statt nur bei der täglichen Katalogaktualisierung.
