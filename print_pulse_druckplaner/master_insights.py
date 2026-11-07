@@ -249,7 +249,7 @@ def summarize(db, file, root, spool_rows):
     }
 
 
-def change(db, root, file_id, payload):
+def change(db, root, file_id, payload, on_count=None):
     if not re.fullmatch(r"[a-f0-9]{24}", str(file_id or "")):
         raise ValueError("Ungültige 3MF-ID.")
     file = db.execute("SELECT * FROM master_files WHERE id=?", (file_id,)).fetchone()
@@ -280,6 +280,10 @@ def change(db, root, file_id, payload):
             details["history_time_sum"]=int(details.get("history_time_sum") or 0) + estimated["time_seconds"]
             details["history_time_count"]=int(details.get("history_time_count") or 0) + 1
         details["last_print"] = int(time.time())
+        # Optional observer runs in the same SQLite transaction and captures
+        # the GLD (not future prices) when the print was confirmed.
+        if on_count is not None:
+            on_count(db, file, estimated)
     elif payload.get("action") == "save":
         mode = payload.get("color_mode", details.get("color_mode", "fixed"))
         if mode not in ("fixed", "custom"):
