@@ -2043,7 +2043,9 @@ async function uploadMaster(){
  if(file.size>100*1024*1024){
   status.textContent='Maximal 100 MB pro Datei.';status.dataset.state='error';return;
  }
- const printers=selectedUploadPrinterTargets();
+ let printers;
+ try{printers=selectedUploadPrinterTargets();}
+ catch(error){status.textContent=error.message;status.dataset.state='error';return;}
  const selected=selectedMasterTarget();
  const target={...selected,printer:printers.includes(selected.printer)?selected.printer:printers[0]};
  const signature=JSON.stringify([target.listing_id,target.variant_id,printers,file.name,file.size,file.lastModified]);
@@ -2198,7 +2200,9 @@ async function importMasterFromShare(){
   status.dataset.state='error';
   return;
  }
- const printers=selectedUploadPrinterTargets();
+ let printers;
+ try{printers=selectedUploadPrinterTargets();}
+ catch(error){status.textContent=error.message;status.dataset.state='error';return;}
  const selected=selectedMasterTarget();
  const target={...selected,printer:printers.includes(selected.printer)?selected.printer:printers[0]};
  masterBusy=true;
