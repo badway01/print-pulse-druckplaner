@@ -1931,7 +1931,9 @@ function renderMasterFiles(){
    (f.revision_no>1?'<details class="master-revision-history"><summary>Ältere Versionen ('+(f.revision_no-1)+')</summary>'+
     '<div class="master-revision-items">'+history.filter(h=>h.origin_id===f.id)
       .sort((a,b)=>b.revision_no-a.revision_no).map(h=>
-     '<div><span>Version '+h.revision_no+' · gesichert</span><a href="api/master-download?id='+encodeURIComponent(h.id)+'" download>3MF herunterladen</a></div>').join('')+
+     '<div><span>Version '+h.revision_no+' · gesichert</span>'+
+      '<a href="api/master-download?id='+encodeURIComponent(h.id)+'" download>3MF herunterladen</a>'+
+      '<button type="button" class="secondary small" data-master-restore="'+esc(h.id)+'" data-current-id="'+esc(f.id)+'">Wiederherstellen</button></div>').join('')+
     '</div></details>':'')+'</article>';
  }).join(''):'<div class="master-files-empty"><strong>Noch keine 3MF-Datei hinterlegt</strong><p>Lege dein fertig eingerichtetes Druckprojekt unter „Neue Masterdatei speichern“ ab. Alle im Projekt gespeicherten Einstellungen bleiben enthalten.</p>'+masterPalettePreviewMarkup({id:'profile',listing_id:x.listing_id,variant_id:x.variant_id,printer:x.printer,insights:{filaments:[]}})+'</div>');
  const mount=masterColorEditFileId?document.querySelector('[data-master-palette-mount="'+masterColorEditFileId+'"]'):null;
@@ -2348,6 +2350,20 @@ $('master-share-import').addEventListener('click',importMasterFromShare);
 $('master-share-file').addEventListener('change',()=>{$('master-share-import').disabled=!$('master-share-file').value||masterBusy;});
 $('master-upload').addEventListener('click',uploadMaster);
 $('master-files').addEventListener('click',async event=>{
+ const restore=event.target.closest('[data-master-restore]');
+ if(restore){
+  if(!window.confirm('Alte 3MF als neue aktuelle Version übernehmen? Die bisherige Version bleibt in der Historie erhalten.'))return;
+  restore.disabled=true;
+  try{
+   await api('master-restore',{history_id:restore.dataset.masterRestore,current_id:restore.dataset.currentId});
+   const tool=await api('print-tools?listing_id='+encodeURIComponent(masterContext.id));
+   printTools.files=[...printTools.files.filter(f=>f.listing_id!==masterContext.id),...tool.files];
+   renderMasterFiles();renderCatalog();render();
+   flash('Frühere 3MF als neue Version wiederhergestellt. Druckerprofil prüfen.');
+  }catch(err){flash(err.message,true);}
+  finally{restore.disabled=false;}
+  return;
+ }
  const sync=event.target.closest('[data-master-sync]');
  if(sync){
   const payload={source_id:sync.dataset.masterSource,target_id:sync.dataset.masterSync};
