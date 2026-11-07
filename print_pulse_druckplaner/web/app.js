@@ -1680,6 +1680,28 @@ async function loadPrintTools(){
 function selectedMasterTarget(){
  return {listing_id:masterContext?.id||'',variant_id:$('master-variant').value,printer:$('master-printer').value};
 }
+function selectedUploadPrinterTargets(){
+ const values=[...document.querySelectorAll('#master-upload-printers input[type="checkbox"]:checked')].map(i=>i.value);
+ const allowed=['H2D','P1S Old','P1S New','Snapmaker U1'];
+ const choices=values.filter(value=>allowed.includes(value));
+ if(!choices.length)throw Error('Wähle mindestens einen Produktionsdrucker aus.');
+ return choices;
+}
+function syncUploadPrinterTargets(){
+ const current=$('master-printer').value;
+ document.querySelectorAll('#master-upload-printers input[type="checkbox"]').forEach(input=>{
+  input.checked=input.value===current;
+ });
+ $('master-upload-printers-status').textContent='';
+}
+async function distributeMasterFile(sourceId,printers,primary){
+ const others=printers.filter(p=>p!==primary);
+ if(!others.length)return '';
+ const response=await masterUploadApi('master-clone',{file_id:sourceId,printers:others},120000);
+ if(!response.ok||!Array.isArray(response.files))throw Error('3MF-Kopien konnten nicht bestätigt werden.');
+ return ' Weitere Zuordnungen: '+response.files.map(item=>item.printer).join(', ')+
+  '. Für diese Drucker unbedingt das Projekt im Slicer anpassen und freigeben.';
+}
 function findMasterProfile(){
  const x=selectedMasterTarget();
  return printTools.profiles.find(p=>p.listing_id===x.listing_id&&p.variant_id===x.variant_id&&p.printer===x.printer);
@@ -1705,6 +1727,7 @@ function masterSelectionChanged(){
  $('master-source-side').hidden=$('master-printer').value!=='H2D';
  $('master-upload-status').textContent='';
  $('master-profile-status').textContent='';
+ syncUploadPrinterTargets();
  const existing=findMasterProfile();
  const isU1=$('master-printer').value==='Snapmaker U1';
  const savedSources=existing?JSON.parse(JSON.stringify(existing.sources)):[];
@@ -2003,8 +2026,10 @@ async function uploadMaster(){
  if(file.size>100*1024*1024){
   status.textContent='Maximal 100 MB pro Datei.';status.dataset.state='error';return;
  }
- const target=selectedMasterTarget();
- const signature=JSON.stringify([target.listing_id,target.variant_id,target.printer,file.name,file.size,file.lastModified]);
+ const printers=selectedUploadPrinterTargets();
+ const selected=selectedMasterTarget();
+ const target={...selected,printer:printers.includes(selected.printer)?selected.printer:printers[0]};
+ const signature=JSON.stringify([target.listing_id,target.variant_id,printers,file.name,file.size,file.lastModified]);
  masterBusy=true;$('master-upload').disabled=true;
  progress.hidden=false;progress.value=0;progress.max=file.size;
  status.dataset.state='pending';
@@ -2073,10 +2098,13 @@ async function uploadMaster(){
   if(!data.ok||!data.id)throw Error('Speicherbestätigung unvollständig. Bitte die Dateiliste prüfen.');
   stored=true;
   masterUploadPending=null;
+  let multiMessage='';
+  try{multiMessage=await distributeMasterFile(data.id,printers,target.printer);}
+  catch(copyError){multiMessage=' Weitere Druckerzuordnungen fehlgeschlagen: '+copyError.message+' Bitte nicht erneut hochladen, sondern die Dateiliste prüfen.';}
   progress.value=file.size;
   $('master-upload-input').value='';
   printTools.files=[{id:data.id,...target,filename:file.name,bytes:data.bytes||file.size,created:Math.floor(Date.now()/1000)},...printTools.files.filter(f=>f.id!==data.id)];
-  status.textContent='✓ 3MF vollständig geprüft und sicher gespeichert.';
+  status.textContent='✓ 3MF vollständig geprüft und sicher gespeichert.'+multiMessage;
   status.dataset.state='success';
   try{renderMasterFiles();render();renderCatalog();}
   catch(error){console.warn('Master-3MF-Anzeige:',error);}
@@ -2153,7 +2181,9 @@ async function importMasterFromShare(){
   status.dataset.state='error';
   return;
  }
- const target=selectedMasterTarget();
+ const printers=selectedUploadPrinterTargets();
+ const selected=selectedMasterTarget();
+ const target={...selected,printer:printers.includes(selected.printer)?selected.printer:printers[0]};
  masterBusy=true;
  $('master-share-import').disabled=true;
  $('master-share-refresh').disabled=true;
@@ -2164,8 +2194,11 @@ async function importMasterFromShare(){
   const result=await masterUploadApi('master-share-import',{...target,filename},120000);
   if(!result.ok||!result.id)throw Error('Keine Bestätigung der lokalen Speicherung.');
   saved=true;
+  let multiMessage='';
+  try{multiMessage=await distributeMasterFile(result.id,printers,target.printer);}
+  catch(copyError){multiMessage=' Weitere Druckerzuordnungen nicht abgeschlossen: '+copyError.message+'. Bitte nicht erneut importieren.';}
   printTools.files=[{id:result.id,...target,filename,bytes:result.bytes,created:Math.floor(Date.now()/1000)},...printTools.files.filter(f=>f.id!==result.id)];
-  status.textContent='✓ '+filename+' wurde direkt aus dem Eingangsordner in die Masterdateien übernommen. Die Quelldatei bleibt im Ordner.';
+  status.textContent='✓ '+filename+' übernommen. Die Quelldatei bleibt im Eingangsordner.'+multiMessage;
   status.dataset.state='success';
   window.markDruckplanerDialogSaved?.('master-editor');
   renderMasterFiles();renderCatalog();render();
