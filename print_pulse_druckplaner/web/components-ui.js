@@ -354,7 +354,7 @@ function catalogMeta(f) {
  return {seconds,grams};
 }
 function catalogMasterRows(p) {
- const all=(printTools.files||[]).filter(f=>String(f.listing_id)===String(p.id));
+ const all=(printTools.files||[]).filter(f=>!f.is_history&&String(f.listing_id)===String(p.id));
  const selected=String(catalogSelectedVariant.get(String(p.id))||'');
  const printerSelected=String(catalogSelectedPrinter.get(String(p.id))||'');
  const shown=all.filter(f=>(!selected||!f.variant_id||String(f.variant_id)===selected)&&
@@ -383,6 +383,8 @@ function catalogMasterRows(p) {
        '<div class="pp-catalog-file-name"><strong title="'+esc(f.filename)+'">'+esc(f.filename)+'</strong>'+
        '<small>'+esc(f.printer)+(names?' · '+esc(names):'')+'</small>'+
        '<span class="pp-catalog-file-tag">'+esc(variant)+'</span>'+
+       '<span class="pp-catalog-file-tag">Version '+esc(f.revision_no||1)+'</span>'+
+       (f.needs_review?'<span class="pp-catalog-file-tag pp-catalog-review-tag">Druckerprofil prüfen</span>':'')+
        '<div class="pp-catalog-file-metrics"><span>◷ '+esc(metrics.seconds)+'</span><span>◉ '+esc(metrics.grams)+'</span></div></div>'+
        '<div class="pp-catalog-file-extra"><button type="button" data-catalog-info aria-expanded="false" aria-label="Dateiinformationen anzeigen" title="Dateiinformationen">ⓘ</button>'+
         '<div class="pp-catalog-file-popover"><strong>Dateiinformationen</strong>'+
@@ -431,7 +433,7 @@ renderCatalog=function(){
    button.classList.toggle('active',active);
  });
  updateHTML(shell,(current?'<div class="pp-catalog-back"><button type="button" data-catalog-back>← Alle Produkte</button><span>Produktdetails & Druckdateien</span></div>':'')+(rows.length?rows.map(p=>{
-  const files=(printTools.files||[]).filter(f=>String(f.listing_id)===String(p.id)).length;
+  const files=(printTools.files||[]).filter(f=>!f.is_history&&String(f.listing_id)===String(p.id)).length;
   const profiles=(printTools.profiles||[]).filter(f=>String(f.listing_id)===String(p.id)).length;
   const enabled=Boolean(p.components_enabled), open=catalogExpanded.has(String(p.id));
   const img=thumbnail(p.image);
