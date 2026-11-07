@@ -1647,6 +1647,32 @@ def sync_compatible_bambu_settings(data):
     return {'ok':True,'changes':changes,'applied':True,'review_required':True}
 
 
+def restore_master_revision(data):
+    """Restore an archived 3MF as another new version, never destroy history."""
+    current_id=str(data.get('current_id') or '')
+    history_id=str(data.get('history_id') or '')
+    if not all(re.fullmatch(r'[a-f0-9]{24}',x) for x in (current_id,history_id)):
+        raise ValueError('Ungültige 3MF-Version.')
+    current,path=master_download_record(current_id)
+    history,old_path=master_download_record(history_id)
+    if current['is_history'] or not history['is_history'] or history['origin_id']!=current_id:
+        raise ValueError('Diese Version gehört nicht zur aktuellen Master-3MF.')
+    if not old_path.is_file() or not path.is_file():
+        raise ValueError('Eine Projektdatei fehlt.')
+    staged=path.with_name('.'+path.name+'.restore-'+secrets.token_hex(5))
+    try:
+        shutil.copy2(old_path,staged)
+        with zipfile.ZipFile(staged,'r') as z:
+            if z.testzip() is not None:raise ValueError('Alte 3MF ist beschädigt.')
+        staged.replace(path)
+        with connect() as db:
+            db.execute('UPDATE master_files SET verified=0 WHERE id=?',(current_id,))
+            sync_master_revisions(db,current['listing_id'])
+    finally:
+        staged.unlink(missing_ok=True)
+    return {'ok':True,'id':current_id}
+
+
 def clone_master_printers(data):
     """Create printer-specific candidate copies from one uploaded source.
 
@@ -3196,6 +3222,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,verify_master_printer(data))
             if path=='/api/master-sync-settings':
                 return self.send(200,sync_compatible_bambu_settings(data))
+            if path=='/api/master-restore':
+                return self.send(200,restore_master_revision(data))
             if path=='/api/master-insights':
                 with connect() as db:
                     return self.send(200,master_insights.change(db,MASTER_ROOT,data.get('id'),data))
