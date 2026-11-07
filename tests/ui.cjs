@@ -309,6 +309,10 @@ await page.locator('[data-close="settings"]').click();
 
  // Ungezählte Variante: Bestätigen ist erreichbar, fehlender Anfangsbestand wird im Dialog abgefragt.
  await page.evaluate(()=>{const found=findItem('combination-2');found.i.in_print=2;quantityDialog(found.i.id,'finish');});
+ assert.equal(await page.locator('#quantity-initial-choice').isVisible(),true);
+ assert.equal(await page.locator('#quantity-initial-stock').isVisible(),false);
+ assert.equal(await page.locator('input[name="initial-stock-choice"][value="none"]').isChecked(),true);
+ await page.locator('input[name="initial-stock-choice"][value="some"]').check();
  assert.equal(await page.locator('#quantity-initial-stock').isVisible(),true);
  assert.equal(await page.locator('#quantity-confirm').isEnabled(),true);
  await page.locator('#quantity-value').fill('2');
