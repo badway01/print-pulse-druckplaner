@@ -521,6 +521,90 @@ class MasterTests(unittest.TestCase):
         with patch.object(app,'homeassistant_states',side_effect=RuntimeError('offline')):
             self.assertEqual(app.theme_sun_state(),{'theme':None,'source':'system'})
 
+    def test_direct_samba_save_becomes_version_two_and_retains_previous_bytes(self):
+        import time
+        def project(walls):
+            b=io.BytesIO()
+            with zipfile.ZipFile(b,'w') as z:
+                z.writestr('3D/3dmodel.model','identical mesh')
+                z.writestr('Metadata/project_settings.config','{"wall_loops":"%s"}'%walls)
+            return b.getvalue()
+        initial=project(2)
+        meta={'listing_id':'123','variant_id':'variant1','printer':'H2D','filename':'Geist.3mf'}
+        saved=app.store_master_file(meta,io.BytesIO(initial),len(initial))
+        before=app.print_tools_overview('123')
+        self.assertEqual(before['files'][0]['revision_no'],1)
+        _,path=app.master_download_record(saved['id'])
+        change=project(3)
+        path.write_bytes(change)
+        os.utime(path,ns=(time.time_ns(),time.time_ns()))
+        after=app.print_tools_overview('123')
+        current=next(row for row in after['files'] if row['id']==saved['id'])
+        prior=next(row for row in after['files'] if row['is_history'])
+        self.assertEqual(current['revision_no'],2)
+        self.assertEqual(prior['revision_no'],1)
+        self.assertEqual(prior['origin_id'],saved['id'])
+        self.assertEqual(app.master_download_record(prior['id'])[1].read_bytes(),initial)
+        self.assertEqual(app.master_download_record(saved['id'])[1].read_bytes(),change)
+        self.assertEqual(len([f for f in after['files'] if not f['is_history']]),1)
+        self.assertEqual(app.print_tools_overview('123')['files'][0]['revision_no'],2)
+
+    def test_multi_printer_clones_require_slicer_review_and_are_idempotent(self):
+        b=io.BytesIO()
+        with zipfile.ZipFile(b,'w') as archive:
+            archive.writestr('3D/3dmodel.model','mesh')
+        raw=b.getvalue()
+        source=app.store_master_file({'listing_id':'123','variant_id':'variant1',
+                                      'printer':'H2D','filename':'Master.3mf'},io.BytesIO(raw),len(raw))
+        clones=app.clone_master_printers({'file_id':source['id'],
+                'printers':['P1S Old','P1S New','Snapmaker U1']})
+        self.assertEqual(len(clones['files']),3)
+        self.assertTrue(clones['review_required'])
+        again=app.clone_master_printers({'file_id':source['id'],
+                'printers':['P1S Old','P1S New','Snapmaker U1']})
+        self.assertTrue(all(row['existing'] for row in again['files']))
+        files=app.print_tools_overview('123')['files']
+        self.assertEqual(len(files),4)
+        for row in files:
+            self.assertEqual(app.master_download_record(row['id'])[1].read_bytes(),raw)
+            if row['printer']!='H2D':
+                self.assertFalse(row['verified'])
+                self.assertTrue(row['needs_review'])
+        with self.assertRaises(ValueError):
+            app.clone_master_printers({'file_id':source['id'],'printers':['Unknown']})
+
+    def test_compatible_h2d_wall_line_transfer_preserves_p1s_machine_settings(self):
+        def archive(walls,machine,geometry='same'):
+            b=io.BytesIO()
+            with zipfile.ZipFile(b,'w') as z:
+                z.writestr('3D/3dmodel.model',geometry)
+                z.writestr('Metadata/project_settings.config',
+                           __import__('json').dumps({'wall_loops':walls,'machine':machine,
+                                              'sparse_infill_density':'15%'}))
+            return b.getvalue()
+        source_bytes=archive('3','H2D')
+        target_bytes=archive('2','P1S')
+        src=app.store_master_file({'listing_id':'123','variant_id':'variant1',
+                'printer':'H2D','filename':'Test.3mf'},io.BytesIO(source_bytes),len(source_bytes))
+        dst=app.store_master_file({'listing_id':'123','variant_id':'variant1',
+                'printer':'P1S Old','filename':'Test.3mf'},io.BytesIO(target_bytes),len(target_bytes))
+        request={'source_id':src['id'],'target_id':dst['id']}
+        preview=app.sync_compatible_bambu_settings({**request,'action':'preview'})
+        self.assertEqual(preview['changes'],{'wall_loops':{'old':'2','new':'3'}})
+        app.sync_compatible_bambu_settings({**request,'action':'apply'})
+        current=app.print_tools_overview('123')['files']
+        p1s=next(f for f in current if f['id']==dst['id'])
+        self.assertEqual(p1s['revision_no'],2)
+        self.assertFalse(p1s['verified'])
+        with zipfile.ZipFile(app.master_download_record(dst['id'])[1]) as z:
+            settings=__import__('json').loads(z.read('Metadata/project_settings.config'))
+        self.assertEqual(settings['wall_loops'],'3')
+        self.assertEqual(settings['machine'],'P1S')
+        self.assertEqual(len([f for f in current if f['is_history']]),1)
+        app.verify_master_printer({'file_id':dst['id']})
+        self.assertFalse(next(f for f in app.print_tools_overview('123')['files']
+                              if f['id']==dst['id'])['needs_review'])
+
     def test_changelog_exposes_real_version_and_release_notes(self):
         result=app.version_history()
         self.assertEqual(result['version'],app.APP_VERSION)
