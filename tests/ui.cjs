@@ -618,6 +618,16 @@ const dayChange=await page.evaluate(()=>{
 assert.notEqual(dayChange.before,dayChange.after);
 await page.locator('[data-workspace="filament"]').click();
 assert.equal(await page.locator('#filament-stock-summary').isVisible(),true);
+assert.equal(await page.locator('#filament-statistics').isVisible(),true);
+await page.waitForFunction(()=>document.querySelector('#filament-stats-tiles').children.length===6);
+assert.equal(await page.locator('.filament-stats-tile').count(),6);
+assert.equal(await page.locator('.filament-stats-bar-col').count(),12);
+assert.match(await page.locator('#filament-stats-tiles').innerText(),/Materialkosten \(GLD\)/);
+await page.locator('[data-filament-stats-period="week"]').click();
+await page.waitForFunction(()=>document.querySelector('#filament-stats-chart').children.length===8);
+assert.equal(await page.locator('[data-filament-stats-period="week"]').getAttribute('aria-pressed'),'true');
+await page.locator('[data-filament-stats-period="month"]').click();
+await page.waitForFunction(()=>document.querySelector('#filament-stats-chart').children.length===12);
 assert.equal(await page.locator('#filament-stock-spools').textContent(),'0 volle Spulen · 0 angebrochen');
 assert((await page.locator('#filament-stock-value').textContent()).includes('0,00'));
 await page.locator('#filament-add').click();
@@ -844,6 +854,9 @@ assert.equal(await page.locator('#filament-stock-spools').textContent(),'0 volle
 assert((await page.locator('#filament-stock-value').textContent()).includes('0,00'));
 await page.locator('#filament-roll-empty').click();
 await page.waitForFunction(()=>document.querySelector('#filament-rolls-open').textContent==='0');
+await page.waitForFunction(()=>document.querySelector('#filament-stats-tiles')?.innerText.includes('Als leer ausgebuchte Rollen')&&
+ document.querySelector('#filament-stats-tiles')?.children?.[4]?.querySelector('strong')?.textContent==='1');
+assert.equal(await page.locator('.filament-stats-tile').nth(4).locator('strong').innerText(),'1');
 assert.equal(await page.locator('#filament-rolls-full').textContent(),'0');
 assert.equal(await page.locator('#filament-roll-empty').isDisabled(),true);
 await page.locator('#filament-roll-edit').click();
@@ -878,6 +891,7 @@ assert.equal(savedPetg.price_cents,1450);
 assert.equal(await page.evaluate(()=>filamentData.filaments.some(f=>f.brand==='Bambu Lab'&&f.material==='PLA Basic'&&f.color==='Jade-Weiß')),true);
 
 await page.locator('[data-workspace="production"]').click();
+assert.equal(await page.locator('#filament-statistics').isVisible(),false);
 assert.equal(await page.locator('.product').count(),4);
 await page.locator('[data-order-sort="new"]').click();
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'503');
