@@ -1913,6 +1913,8 @@ function renderMasterFiles(){
   const snap='<a class="master-action master-action-primary" data-master-slicer-file="'+esc(f.id)+'" href="'+esc(masterSlicerUrl(f,'snapmaker'))+'">In Snapmaker Orca öffnen</a>';
   const actions=mac?(printerLabel==='Snapmaker U1'?snap+bambu+orca:bambu+snap+orca):'';
   const download='<a class="master-file-download" href="api/master-download?id='+id+'" download>3MF herunterladen</a>';
+  const base=printTools.files.find(other=>!other.is_history&&other.listing_id===f.listing_id&&
+    other.variant_id===f.variant_id&&other.printer==='H2D');
   return '<article class="master-file master-project-card"><div class="master-project-top"><span class="master-project-icon" aria-hidden="true">3MF</span><div class="master-project-info"><div class="master-project-name">'+
    '<strong title="'+esc(f.filename)+'">'+esc(f.filename)+'</strong>'+
    '<span class="master-project-latest">Version '+(f.revision_no||1)+'</span>'+
@@ -1922,6 +1924,8 @@ function renderMasterFiles(){
    '<button type="button" class="master-delete" data-master-delete="'+esc(f.id)+'" title="3MF löschen" aria-label="'+esc(f.filename)+' löschen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div>'+
    (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f):'')+
    (f.needs_review?'<p class="master-verify-warning">Für diesen Drucker prüfen: Die H2D hat neuere Projekteinstellungen oder die Datei wurde nur als Vorlage kopiert. Erst nach Anpassung im Slicer freigeben.</p>'+
+    ((base&&['P1S Old','P1S New'].includes(f.printer))?
+      '<button type="button" class="secondary small" data-master-sync="'+esc(f.id)+'" data-master-source="'+esc(base.id)+'">Kompatible H2D-Einstellungen übernehmen</button>':'')+
     '<button type="button" class="secondary small" data-master-verify="'+esc(f.id)+'">Druckerprofil im Slicer geprüft ✓</button>':'')+
    '<div class="master-project-actions">'+actions+download+'</div>'+
    (f.revision_no>1?'<details class="master-revision-history"><summary>Ältere Versionen ('+(f.revision_no-1)+')</summary>'+
@@ -2344,6 +2348,32 @@ $('master-share-import').addEventListener('click',importMasterFromShare);
 $('master-share-file').addEventListener('change',()=>{$('master-share-import').disabled=!$('master-share-file').value||masterBusy;});
 $('master-upload').addEventListener('click',uploadMaster);
 $('master-files').addEventListener('click',async event=>{
+ const sync=event.target.closest('[data-master-sync]');
+ if(sync){
+  const payload={source_id:sync.dataset.masterSource,target_id:sync.dataset.masterSync};
+  sync.disabled=true;
+  try{
+   const preview=await api('master-sync-settings',{...payload,action:'preview'});
+   const entries=Object.entries(preview.changes||{});
+   if(!entries.length){
+    flash('Keine eindeutig kompatiblen geänderten Einstellungen gefunden. Bitte Projekt im Slicer prüfen.');
+    return;
+   }
+   const labels={wall_loops:'Wandlinien',top_shell_layers:'Obere Schichten',
+    bottom_shell_layers:'Untere Schichten',sparse_infill_density:'Infill'};
+   const message=entries.map(([key,value])=>(labels[key]||key)+': '+value.old+' → '+value.new).join('\n');
+   if(!window.confirm('Diese gemeinsamen Einstellungen von der H2D übernehmen?\n\n'+message+
+    '\n\nDrucker- und Filamentprofile bleiben unverändert. Danach P1S im Slicer prüfen.'))return;
+   const applied=await api('master-sync-settings',{...payload,action:'apply'});
+   if(!applied.ok||!applied.applied)throw Error('Einstellungen konnten nicht übernommen werden.');
+   const tool=await api('print-tools?listing_id='+encodeURIComponent(masterContext.id));
+   printTools.files=[...printTools.files.filter(f=>f.listing_id!==masterContext.id),...tool.files];
+   renderMasterFiles();renderCatalog();
+   flash('Gemeinsame Einstellungen übernommen. Neue P1S-Dateiversion gespeichert. Bitte im Slicer prüfen und freigeben.');
+  }catch(err){flash(err.message,true);}
+  finally{sync.disabled=false;}
+  return;
+ }
  const verify=event.target.closest('[data-master-verify]');
  if(verify){
   const id=verify.dataset.masterVerify;
