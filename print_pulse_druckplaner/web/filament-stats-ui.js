@@ -7,7 +7,7 @@
  const fmt=(n,digits=1)=>Number(n||0).toLocaleString('de-DE',{minimumFractionDigits:digits,maximumFractionDigits:digits});
  const eur=n=>n==null?'—':Number(n).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
  const escape=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
- let period='month',seen=0,loading=false,serial=0,lastPeriod='',lastData=null;
+ let period='month',seen=0,loading=false,pending=false,serial=0,lastPeriod='',lastData=null;
  function tile(label,value,sub,muted=false){
   return '<div class="filament-stats-tile'+(muted?' is-muted':'')+'"><span>'+escape(label)+'</span>'+
     '<strong>'+escape(value)+'</strong><small>'+escape(sub)+'</small></div>';
@@ -69,19 +69,22 @@
  }
  async function refresh(force=false){
   if(root.hidden)return;
-  if(loading)return;
+  if(loading){pending=true;return;}
   if(!force&&lastData&&lastPeriod===period&&Date.now()-seen<60000){render(lastData);return;}
   loading=true;
-  const current=++serial;
+  const current=++serial,requested=period;
   el('filament-stats-status').textContent='Filament-Statistik wird geladen …';
   try{
    const data=await api('filament-stats?period='+encodeURIComponent(period));
-   if(current!==serial)return;
-   lastData=data;lastPeriod=period;seen=Date.now();
+   if(current!==serial||requested!==period)return;
+   lastData=data;lastPeriod=requested;seen=Date.now();
    render(data);
   }catch(err){
    el('filament-stats-status').textContent='Filament-Statistik derzeit nicht verfügbar: '+err.message;
-  }finally{loading=false;}
+  }finally{
+   loading=false;
+   if(pending){pending=false;refresh(true);}
+  }
  }
  root.addEventListener('click',event=>{
   const b=event.target.closest('[data-filament-stats-period]');
