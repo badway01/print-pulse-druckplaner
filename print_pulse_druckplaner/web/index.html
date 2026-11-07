@@ -445,6 +445,14 @@
 <details id="master-upload-details" class="master-detail-group">
  <summary><span>Neue Masterdatei speichern</span><small>3MF-Druckprojekt mit Profilen ablegen</small></summary>
  <div class="master-detail-content">
+  <fieldset class="master-printer-targets" id="master-upload-printers">
+   <legend>Für welche Produktionsdrucker gilt diese 3MF?</legend>
+   <p>Ein Upload reicht für mehrere Zuordnungen. Die Kopie für einen anderen Drucker muss im jeweiligen Slicer angepasst und geprüft werden; das Tool konvertiert keine Druckprofile.</p>
+   <label><input type="checkbox" value="H2D" checked> H2D</label>
+   <label><input type="checkbox" value="P1S Old"> P1S Old</label>
+   <label><input type="checkbox" value="P1S New"> P1S New</label>
+   <label><input type="checkbox" value="Snapmaker U1"> Snapmaker U1</label>
+  </fieldset>
   <section class="master-share-box" aria-label="3MF direkt aus Netzwerkordner übernehmen">
    <h4>Aus Home Assistant übernehmen <span class="master-share-recommended">Empfohlen am Mac</span></h4>
    <p>3MF im Finder in den gemeinsamen Eingangsordner kopieren und hier auswählen. Kein Browser-Upload und keine Wartezeit über den Home-Assistant-Proxy.</p>
@@ -455,6 +463,7 @@
    <button type="button" id="master-share-import" class="primary" disabled>Ausgewählte 3MF übernehmen</button>
    <p id="master-share-status" class="master-inline-status" role="status" aria-live="polite"></p>
   </section>
+  <p id="master-upload-printers-status" class="master-inline-status" role="status"></p>
   <section class="master-browser-fallback" aria-label="3MF alternativ im Browser hochladen">
    <h4>Alternativ im Browser hochladen</h4>
    <label class="master-upload">Neue Masterdatei (.3mf)<input id="master-upload-input" type="file" accept=".3mf" /></label>
