@@ -1230,7 +1230,9 @@ function renderFilaments(){
  const inventory=filamentStockValue(rows);
  const opened=rows.reduce((sum,f)=>sum+Math.max(0,Number(f.open_qty)||0),0);
  $('filament-stock-summary').hidden=filamentView!=='colors';
+ $('filament-statistics').hidden=filamentView!=='colors';
  $('fp-panel').hidden=filamentView!=='cart';
+ if(filamentView==='colors')window.ppFilamentStats?.refresh?.();
  $('filament-stock-spools').textContent=inventory.spools+' '+(inventory.spools===1?'volle Spule':'volle Spulen')+' · '+opened+' angebrochen';
  $('filament-stock-value').textContent=filamentMoney(inventory.known_total_cents);
  $('filament-stock-missing').textContent=inventory.missing_qty
@@ -1298,6 +1300,7 @@ async function filamentAction(data,trigger=null){
    }
   }
   renderFilaments();
+  if(data.action==='empty')window.ppFilamentStats?.refresh?.(true);
   const after=filamentData?.filaments?.find(f=>f.id===data.id);
   const automaticallyListed=(data.action==='open'||data.action==='save')&&
     before&&after&&Number(before.stock_qty)>0&&Number(after.stock_qty)===0&&
