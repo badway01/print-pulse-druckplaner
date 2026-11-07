@@ -319,6 +319,7 @@ def init_db():
             ('mtime_ns','INTEGER NOT NULL DEFAULT 0'),
             ('modified','INTEGER NOT NULL DEFAULT 0'),
             ('verified','INTEGER NOT NULL DEFAULT 1'),
+            ('origin_id',"TEXT NOT NULL DEFAULT ''"),
         ):
             if name not in master_columns:
                 db.execute('ALTER TABLE master_files ADD COLUMN '+name+' '+definition)
@@ -1554,11 +1555,11 @@ def sync_master_revisions(db, listing_id=None):
                 shutil.copy2(path,baseline_new)
                 db.execute("""INSERT INTO master_files
                     (id,listing_id,variant_id,printer,filename,relative_path,bytes,created,
-                     revision_no,is_history,mtime_ns,modified,verified)
-                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                     revision_no,is_history,mtime_ns,modified,verified,origin_id)
+                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                    (history_id,item['listing_id'],item['variant_id'],item['printer'],item['filename'],
                     str(archive_path.relative_to(MASTER_ROOT)),baseline.stat().st_size,
-                    item['created'],old_number,1,baseline.stat().st_mtime_ns,item['modified'],item['verified']))
+                    item['created'],old_number,1,baseline.stat().st_mtime_ns,item['modified'],item['verified'],item['id']))
                 db.execute("""INSERT OR IGNORE INTO pp_master_file_insights
                     (file_id,details_json,updated)
                     SELECT ?,details_json,updated FROM pp_master_file_insights WHERE file_id=?""",
@@ -1633,7 +1634,7 @@ def print_tools_overview(listing_id=None):
         profiles=[dict(r) for r in db.execute(
             'SELECT * FROM pp_master_filament_profiles'+where+' ORDER BY listing_id,printer,variant_id',args)]
         files=[dict(r) for r in db.execute(
-            'SELECT id,listing_id,variant_id,printer,filename,bytes,created,relative_path,revision_no,is_history,modified,verified FROM master_files'
+            'SELECT id,listing_id,variant_id,printer,filename,bytes,created,relative_path,revision_no,is_history,modified,verified,origin_id FROM master_files'
             +where+' ORDER BY created DESC,id DESC',args)]
         links=[dict(r) for r in db.execute("""SELECT m.component_id,m.variant_id,m.printer,m.file_id,
             c.listing_id FROM pp_component_master_links m
