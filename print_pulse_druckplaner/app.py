@@ -11,6 +11,7 @@ import math
 import os
 import re
 import secrets
+import shutil
 import sqlite3
 import stat
 import threading
@@ -289,6 +290,9 @@ def init_db():
           printer TEXT NOT NULL,filename TEXT NOT NULL,relative_path TEXT NOT NULL UNIQUE,
           bytes INTEGER NOT NULL,created INTEGER NOT NULL);
         CREATE INDEX IF NOT EXISTS master_files_listing ON master_files(listing_id);
+        CREATE TABLE IF NOT EXISTS pp_master_clone_assignments(
+          source_file_id TEXT NOT NULL,printer TEXT NOT NULL,file_id TEXT NOT NULL,
+          PRIMARY KEY(source_file_id,printer));
         -- Product-level default 3MF for existing and future orders without parts.
         CREATE TABLE IF NOT EXISTS pp_order_master_defaults(
           listing_id TEXT NOT NULL,variant_id TEXT NOT NULL DEFAULT '',
@@ -307,6 +311,18 @@ def init_db():
         master_insights.schema(db)
         farm_stats.schema(db)
         filament_planner.backfill_existing(db)
+        # Old HA installations receive revision fields without touching master data.
+        master_columns={col['name'] for col in db.execute("PRAGMA table_info(master_files)")}
+        for name,definition in (
+            ('revision_no','INTEGER NOT NULL DEFAULT 1'),
+            ('is_history','INTEGER NOT NULL DEFAULT 0'),
+            ('mtime_ns','INTEGER NOT NULL DEFAULT 0'),
+            ('modified','INTEGER NOT NULL DEFAULT 0'),
+            ('verified','INTEGER NOT NULL DEFAULT 1'),
+        ):
+            if name not in master_columns:
+                db.execute('ALTER TABLE master_files ADD COLUMN '+name+' '+definition)
+        db.execute('UPDATE master_files SET modified=created WHERE modified=0')
         # Previously stored order-print records must survive all add-on updates.
         print_columns={col['name'] for col in db.execute("PRAGMA table_info(stock_order_prints)")}
         if 'allocated' not in print_columns:
@@ -1484,15 +1500,140 @@ def filament_mutate(data):
 
 
 
+
+def sync_master_revisions(db, listing_id=None):
+    """Safeguard and detect direct saves through the mounted Samba master path.
+
+    Each active project keeps a hidden known-good baseline. On the *next*
+    overview after Bambu Studio saves to that same path, the baseline becomes
+    a read-only numbered history entry; the stable master ID keeps pointing at
+    the changed project. No modifications are made to 3MF projects by the app.
+    """
+    condition=' WHERE listing_id=? AND is_history=0' if listing_id else ' WHERE is_history=0'
+    args=(listing_id,) if listing_id else ()
+    active=db.execute('SELECT * FROM master_files'+condition,args).fetchall()
+    for item in active:
+        path=MASTER_ROOT/item['relative_path']
+        try:
+            if not path.is_file() or path.is_symlink():
+                continue
+            statinfo=path.stat()
+            # An unchanged file requires no checksum or ZIP parsing.
+            if item['mtime_ns'] and item['mtime_ns']==statinfo.st_mtime_ns and item['bytes']==statinfo.st_size:
+                continue
+            baseline=path.with_name('.'+path.name+'.pp-baseline')
+            # Verify the file before ever recording a new revision.
+            with zipfile.ZipFile(path,'r') as archive:
+                if archive.testzip() is not None:
+                    continue
+            if not baseline.exists():
+                # For pre-existing files, the first scan establishes v1 safely.
+                shutil.copy2(path,baseline)
+                db.execute('UPDATE master_files SET bytes=?,mtime_ns=? WHERE id=?',
+                           (statinfo.st_size,statinfo.st_mtime_ns,item['id']))
+                continue
+            # A timestamp-only change is not a new version.
+            def digest(p):
+                hasher=hashlib.sha256()
+                with p.open('rb') as inp:
+                    for piece in iter(lambda:inp.read(1024*1024),b''):
+                        hasher.update(piece)
+                return hasher.digest()
+            if digest(path)==digest(baseline):
+                db.execute('UPDATE master_files SET bytes=?,mtime_ns=? WHERE id=?',
+                           (statinfo.st_size,statinfo.st_mtime_ns,item['id']))
+                continue
+            old_number=int(item['revision_no'] or 1)
+            history_id=secrets.token_hex(12)
+            historic=path.parent/'.pp-history'
+            historic.mkdir(exist_ok=True)
+            archive_path=historic/(history_id+'-'+path.name)
+            shutil.copy2(baseline,archive_path)
+            baseline_new=baseline.with_name(baseline.name+'.new-'+secrets.token_hex(4))
+            try:
+                shutil.copy2(path,baseline_new)
+                db.execute("""INSERT INTO master_files
+                    (id,listing_id,variant_id,printer,filename,relative_path,bytes,created,
+                     revision_no,is_history,mtime_ns,modified,verified)
+                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   (history_id,item['listing_id'],item['variant_id'],item['printer'],item['filename'],
+                    str(archive_path.relative_to(MASTER_ROOT)),baseline.stat().st_size,
+                    item['created'],old_number,1,baseline.stat().st_mtime_ns,item['modified'],item['verified']))
+                db.execute("""INSERT OR IGNORE INTO pp_master_file_insights
+                    (file_id,details_json,updated)
+                    SELECT ?,details_json,updated FROM pp_master_file_insights WHERE file_id=?""",
+                    (history_id,item['id']))
+                db.execute('DELETE FROM pp_master_file_insights WHERE file_id=?',(item['id'],))
+                db.execute("""UPDATE master_files SET revision_no=?,bytes=?,mtime_ns=?,modified=?
+                    WHERE id=?""",(old_number+1,statinfo.st_size,statinfo.st_mtime_ns,int(time.time()),item['id']))
+                baseline_new.replace(baseline)
+            finally:
+                baseline_new.unlink(missing_ok=True)
+        except (OSError,zipfile.BadZipFile,RuntimeError,ValueError,sqlite3.Error):
+            log.exception('3MF-Versionierung konnte Datei %s nicht prüfen; Projekt bleibt erhalten.',item['id'])
+
+
+def clone_master_printers(data):
+    """Create printer-specific candidate copies from one uploaded source.
+
+    Byte-identical copies are NOT slicer conversions: they are explicitly
+    unverified until each target profile has been configured and sliced.
+    Repeated requests return existing targets rather than duplicate files.
+    """
+    source_id=str(data.get('file_id') or '')
+    printers=data.get('printers')
+    if not re.fullmatch(r'[a-f0-9]{24}',source_id) or not isinstance(printers,list) or len(printers)>4:
+        raise ValueError('Ungültige Datei oder Druckerauswahl.')
+    allowed=('H2D','P1S Old','P1S New','Snapmaker U1')
+    if any(p not in allowed for p in printers) or len(set(printers))!=len(printers):
+        raise ValueError('Nur bekannte Produktionsdrucker dürfen ausgewählt werden.')
+    source,path=master_download_record(source_id)
+    if source['is_history']:
+        raise ValueError('Historische Versionen können nicht als aktuelle Druckdatei verteilt werden.')
+    results=[]
+    for printer in printers:
+        if printer==source['printer']:
+            continue
+        with connect() as db:
+            prior=db.execute('SELECT file_id FROM pp_master_clone_assignments WHERE source_file_id=? AND printer=?',
+                             (source_id,printer)).fetchone()
+        if prior:
+            results.append({'printer':printer,'id':prior['file_id'],'existing':True})
+            continue
+        with path.open('rb') as inp:
+            saved=store_master_file({'listing_id':source['listing_id'],'variant_id':source['variant_id'],
+                                     'printer':printer,'filename':source['filename'],'verified':0},
+                                    inp,path.stat().st_size)
+        with connect() as db:
+            db.execute('INSERT OR IGNORE INTO pp_master_clone_assignments(source_file_id,printer,file_id) VALUES(?,?,?)',
+                       (source_id,printer,saved['id']))
+        results.append({'printer':printer,'id':saved['id'],'existing':False})
+    return {'ok':True,'files':results,'review_required':bool(results)}
+
+
+def verify_master_printer(data):
+    file_id=str(data.get('file_id') or '')
+    if not re.fullmatch(r'[a-f0-9]{24}',file_id):
+        raise ValueError('Ungültige Projektdatei.')
+    with connect() as db:
+        row=db.execute('SELECT is_history FROM master_files WHERE id=?',(file_id,)).fetchone()
+        if not row or row['is_history']:
+            raise ValueError('Nur aktuelle Projektdateien können freigegeben werden.')
+        db.execute('UPDATE master_files SET verified=1,modified=? WHERE id=?',
+                   (int(time.time()),file_id))
+    return {'ok':True,'id':file_id}
+
+
 def print_tools_overview(listing_id=None):
     """Central printer assignments and immutable 3MF revisions."""
     with connect() as db:
+        sync_master_revisions(db,listing_id)
         where=' WHERE listing_id=?' if listing_id else ''
         args=(listing_id,) if listing_id else ()
         profiles=[dict(r) for r in db.execute(
             'SELECT * FROM pp_master_filament_profiles'+where+' ORDER BY listing_id,printer,variant_id',args)]
         files=[dict(r) for r in db.execute(
-            'SELECT id,listing_id,variant_id,printer,filename,bytes,created,relative_path FROM master_files'
+            'SELECT id,listing_id,variant_id,printer,filename,bytes,created,relative_path,revision_no,is_history,modified,verified FROM master_files'
             +where+' ORDER BY created DESC,id DESC',args)]
         links=[dict(r) for r in db.execute("""SELECT m.component_id,m.variant_id,m.printer,m.file_id,
             c.listing_id FROM pp_component_master_links m
@@ -1506,6 +1647,13 @@ def print_tools_overview(listing_id=None):
             WHERE f.listing_id=d.listing_id""" +
             (' AND d.listing_id=?' if listing_id else '') +
             ' ORDER BY d.listing_id,d.variant_id',args)]
+        # A newer H2D project signals possible shared-setting changes.
+        h2d={(f['listing_id'],f['variant_id']):int(f['modified'] or f['created'])
+             for f in files if f['printer']=='H2D' and not f['is_history']}
+        for file in files:
+            file['needs_review']=not file['is_history'] and file['printer']!='H2D' and (
+                not file['verified'] or
+                h2d.get((file['listing_id'],file['variant_id']),0)>int(file['modified'] or 0))
         # v0.11.x stores two optional filament columns. Old installations may
         # contain older columns; read the common fields without changing data.
         cols={col['name'] for col in db.execute('PRAGMA table_info(filament_spools)')}
@@ -1767,6 +1915,11 @@ def store_master_file(meta, stream, length):
             db.execute("""INSERT INTO master_files(id,listing_id,variant_id,printer,filename,
               relative_path,bytes,created) VALUES(?,?,?,?,?,?,?,?)""",
               (upload_id,lid,variant,printer,name,relative,length,int(time.time())))
+            st=path.stat()
+            db.execute('UPDATE master_files SET mtime_ns=?,verified=? WHERE id=?',
+                       (st.st_mtime_ns,1 if meta.get('verified',1) else 0,upload_id))
+        # Keep the prior version safe when a Slicer overwrites the SMB file.
+        shutil.copy2(path,path.with_name('.'+path.name+'.pp-baseline'))
     except BaseException:
         path.unlink(missing_ok=True)
         raise
@@ -1988,6 +2141,8 @@ def delete_master_file(data):
             if path.exists():
                 path.rename(staged)
                 moved=True
+            # Remove the backup only after the database change succeeds.
+            baseline=path.with_name('.'+path.name+'.pp-baseline')
             db.execute('DELETE FROM pp_component_master_links WHERE file_id=?',(file_id,))
             db.execute('DELETE FROM pp_order_master_defaults WHERE file_id=?',(file_id,))
             db.execute('DELETE FROM pp_master_file_insights WHERE file_id=?',(file_id,))
@@ -1997,6 +2152,7 @@ def delete_master_file(data):
             staged.rename(path)
         raise
     if moved:
+        baseline.unlink(missing_ok=True)
         try:
             staged.unlink()
         except OSError:
@@ -2960,6 +3116,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,finish_master_upload(data.get('upload_id')))
             if path=='/api/master-delete':
                 return self.send(200,delete_master_file(data))
+            if path=='/api/master-clone':
+                return self.send(200,clone_master_printers(data))
+            if path=='/api/master-verify':
+                return self.send(200,verify_master_printer(data))
             if path=='/api/master-insights':
                 with connect() as db:
                     return self.send(200,master_insights.change(db,MASTER_ROOT,data.get('id'),data))
