@@ -685,12 +685,26 @@ function findOrderJob(tid){
  return null;
 }
 function setInitialStockRequired(required){
- const label=$('quantity-initial-stock-label');
+ const wrap=$('quantity-initial-choice'),label=$('quantity-initial-stock-label');
  const field=$('quantity-initial-stock');
- label.hidden=!required;
- field.required=required;
+ wrap.hidden=!required;
+ const checked=document.querySelector('input[name="initial-stock-choice"][value="none"]');
+ if(checked)checked.checked=true;
+ label.hidden=true;
+ field.required=false;
  field.value='';
 }
+function updateInitialStockChoice(){
+ const some=document.querySelector('input[name="initial-stock-choice"]:checked')?.value==='some';
+ const label=$('quantity-initial-stock-label'),field=$('quantity-initial-stock');
+ label.hidden=!some;field.required=some;
+ if(!some)field.value='';
+}
+$('quantity-initial-choice').addEventListener('change',event=>{
+ if(event.target.name!=='initial-stock-choice')return;
+ updateInitialStockChoice();
+ if(event.target.value==='some')$('quantity-initial-stock').focus();
+});
 
 function orderPrintDialog(tid,action){
  if(busy)return;
@@ -725,8 +739,8 @@ function orderPrintDialog(tid,action){
   action==='release'?'Diese Menge wird von der Bestellung gelöst und sofort in den verfügbaren Lagerbestand zurückgebucht.':
   action==='printing'?
   'Der Druck wird genau diesem Auftrag zugeordnet und reduziert die offene Nachdruckempfehlung. Dein Lagerbestand bleibt bis „Fertig“ unverändert.':
-  action==='finish'?(needsInitialStock?'Trage den bisher vorhandenen fertigen Bestand ein (0, falls keiner da ist). Die jetzt gedruckten Stücke kommen zusätzlich dazu.':job.status==='shipped'?'Bereits versendet: Fertigmelden erhöht den Lagerbestand nicht erneut.':'Erfolgreich gedruckte Stücke werden ins Lager gebucht. Etsy zieht sie beim Versand einmalig ab.'):'Fehldruck oder Abbruch: Die Menge wird aus „Im Druck“ entfernt.';
- (needsInitialStock?$('quantity-initial-stock'):field).focus();if(!needsInitialStock)field.select();
+  action==='finish'?(needsInitialStock?'Wähle, ob du vorher schon fertige Exemplare hattest. Die gerade gedruckten Stücke kommen zusätzlich dazu.':job.status==='shipped'?'Bereits versendet: Fertigmelden erhöht den Lagerbestand nicht erneut.':'Erfolgreich gedruckte Stücke werden ins Lager gebucht. Etsy zieht sie beim Versand einmalig ab.'):'Fehldruck oder Abbruch: Die Menge wird aus „Im Druck“ entfernt.';
+ (needsInitialStock?$('quantity-initial-choice').querySelector('input[type="radio"]'):field).focus();if(!needsInitialStock)field.select();
 }
 
 
@@ -1412,7 +1426,7 @@ async function mutate(path,data){
  return saved;
 }
 function findItem(id){for(const p of model.products){const i=p.items.find(i=>i.id===id);if(i)return {p,i};}return null;}
-function quantityDialog(id,action){const found=findItem(id);if(!found)return;const {p,i}=found;quantityContext={id,action,revision:i.revision};$('quantity-variants').hidden=true;const needsInitialStock=action==='finish'&&i.on_hand===null;setInitialStockRequired(needsInitialStock);$('quantity-confirm').disabled=false;$('quantity-confirm').textContent=['printing','finish','cancel'].includes(action)?'Bestätigen':'Speichern';const labels={set:'Bestand erfassen',printing:'In Druck nehmen',finish:'Fertige Stücke einlagern',cancel:'Druckmenge zurücknehmen',minimum:'Mindestbestand'};$('quantity-title').textContent=labels[action];$('quantity-label').textContent=p.title+' · '+i.label;const input=$('quantity-value');input.min=['set','minimum'].includes(action)?0:1;input.max=['finish','cancel'].includes(action)?i.in_print-(i.order_printing||0):100000;input.value=action==='set'?(i.on_hand??0):action==='minimum'?i.minimum:action==='printing'?Math.max(1,i.need||1):i.in_print-(i.order_printing||0);$('quantity-help').textContent=action==='set'?'Alle fertigen Stücke zählen, einschließlich reservierter und gepackter Ware.':action==='finish'&&i.on_hand===null?'Trage den bisher fertigen Lagerbestand ein (0, wenn keiner vorhanden ist). Die jetzt gedruckten Stücke werden danach hinzugebucht.':action==='finish'?'Nur erfolgreich gedruckte Stücke buchen. Fehlgeschlagene Stücke über „Abbruch“ zurücknehmen.':action==='printing'?'Merkt die Menge vor. Startet keinen Drucker.':action==='minimum'?'Wird bei Lagerartikeln mindestens als freier Vorrat empfohlen.':'Entfernt die Menge aus „Im Druck“, ohne den Lagerbestand zu erhöhen.';if(!$('quantity').open){$('quantity').showModal();(needsInitialStock?$('quantity-initial-stock'):input).focus();if(!needsInitialStock)input.select();}}
+function quantityDialog(id,action){const found=findItem(id);if(!found)return;const {p,i}=found;quantityContext={id,action,revision:i.revision};$('quantity-variants').hidden=true;const needsInitialStock=action==='finish'&&i.on_hand===null;setInitialStockRequired(needsInitialStock);$('quantity-confirm').disabled=false;$('quantity-confirm').textContent=['printing','finish','cancel'].includes(action)?'Bestätigen':'Speichern';const labels={set:'Bestand erfassen',printing:'In Druck nehmen',finish:'Fertige Stücke einlagern',cancel:'Druckmenge zurücknehmen',minimum:'Mindestbestand'};$('quantity-title').textContent=labels[action];$('quantity-label').textContent=p.title+' · '+i.label;const input=$('quantity-value');input.min=['set','minimum'].includes(action)?0:1;input.max=['finish','cancel'].includes(action)?i.in_print-(i.order_printing||0):100000;input.value=action==='set'?(i.on_hand??0):action==='minimum'?i.minimum:action==='printing'?Math.max(1,i.need||1):i.in_print-(i.order_printing||0);$('quantity-help').textContent=action==='set'?'Alle fertigen Stücke zählen, einschließlich reservierter und gepackter Ware.':action==='finish'&&i.on_hand===null?'Wähle erst, ob du vor diesem Druck bereits Stücke auf Lager hattest. Die neue Druckmenge wird dazugebucht.':action==='finish'?'Nur erfolgreich gedruckte Stücke buchen. Fehlgeschlagene Stücke über „Abbruch“ zurücknehmen.':action==='printing'?'Merkt die Menge vor. Startet keinen Drucker.':action==='minimum'?'Wird bei Lagerartikeln mindestens als freier Vorrat empfohlen.':'Entfernt die Menge aus „Im Druck“, ohne den Lagerbestand zu erhöhen.';if(!$('quantity').open){$('quantity').showModal();(needsInitialStock?$('quantity-initial-choice').querySelector('input[type="radio"]'):input).focus();if(!needsInitialStock)input.select();}}
 // Quick buttons use the same atomic API as the quantity dialog. The item
 // revision rejects stale clicks and double submits across browser sessions.
 async function runOrderQuick(button){
@@ -1494,7 +1508,10 @@ $('quantity-form').addEventListener('submit',async event=>{
  event.preventDefault();
  if(busy)return;
  const data={...quantityContext,quantity:Number($('quantity-value').value)};
- if($('quantity-initial-stock').required)data.initial_stock=Number($('quantity-initial-stock').value);
+ if(!$('quantity-initial-choice').hidden){
+  const choice=document.querySelector('input[name="initial-stock-choice"]:checked')?.value;
+  data.initial_stock=choice==='some'?Number($('quantity-initial-stock').value):0;
+ }
  const button=$('quantity-confirm');
  const oldText=button.textContent;
  button.disabled=true;
