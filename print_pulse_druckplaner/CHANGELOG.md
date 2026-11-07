@@ -1,3 +1,10 @@
+# 0.13.54 · Materialtreue Farbvorschläge für neue Filamentrollen
+
+- Beim Filament anlegen bleiben Hersteller und ausdrücklich gewähltes Material unverändert, auch wenn eine Farbe aus den Vorschlägen angeklickt wird. PETG Weiß kann nicht mehr unbemerkt zu PLA Basic Jade-Weiß werden.
+- Hersteller-Farbvorschläge und gespeicherte Farbcodes werden nur aus der tatsächlich gewählten Materialfamilie angeboten. Bei Materialien ohne eigenen Herstellerfarbkatalog erscheinen allgemeine Farbmuster ohne behauptete Hersteller-Farbnummern.
+- Automatische Schreibweisekorrektur erfolgt nur bei derselben normalisierten Farbbezeichnung, nicht bei abweichenden Aliasnamen wie Weiß → Jade-Weiß. Bei Hersteller- oder Materialwechsel werden nicht manuell geschützte Hersteller-Farbnummern zurückgesetzt.
+- Die separate Anlage von PETG Weiß und PLA Basic Jade-Weiß ist durch Browser-Regressionstests abgesichert. Vorhandene Filamentdaten werden nicht verändert.
+
 # 0.13.53 · Modelle, Lagererfassung und versionierte 3MF-Projekte
 
 - „Produktkatalog“ heißt jetzt „Modelle“ und „Meine Modelle“.
