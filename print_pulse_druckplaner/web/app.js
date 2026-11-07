@@ -1900,8 +1900,9 @@ function renderMasterFiles(){
  const panel=$('master-color-editor-panel'),home=$('master-color-editor-home');
  if(panel&&home&&panel.parentElement!==home)home.appendChild(panel);
  const x=selectedMasterTarget();
- const files=printTools.files.filter(f=>f.listing_id===x.listing_id&&f.printer===x.printer&&
+ const files=printTools.files.filter(f=>!f.is_history&&f.listing_id===x.listing_id&&f.printer===x.printer&&
    (f.variant_id===x.variant_id||(x.variant_id&&f.variant_id==='')));
+ const history=printTools.files.filter(f=>f.is_history&&f.listing_id===x.listing_id&&f.printer===x.printer);
  const mac=masterSlicerMac();
  $('master-file-count').textContent=files.length===1?'1 Projektdatei':files.length+' Projektdateien';
  updateHTML($('master-files'),files.length?files.map((f,index)=>{
@@ -1913,11 +1914,21 @@ function renderMasterFiles(){
   const actions=mac?(printerLabel==='Snapmaker U1'?snap+bambu+orca:bambu+snap+orca):'';
   const download='<a class="master-file-download" href="api/master-download?id='+id+'" download>3MF herunterladen</a>';
   return '<article class="master-file master-project-card"><div class="master-project-top"><span class="master-project-icon" aria-hidden="true">3MF</span><div class="master-project-info"><div class="master-project-name">'+
-   '<strong title="'+esc(f.filename)+'">'+esc(f.filename)+'</strong>'+(f.variant_id===''?'<span class="master-project-latest">Alle Farben</span>':'')+(index===0?'<span class="master-project-latest">Neueste</span>':'')+'</div>'+
+   '<strong title="'+esc(f.filename)+'">'+esc(f.filename)+'</strong>'+
+   '<span class="master-project-latest">Version '+(f.revision_no||1)+'</span>'+
+   (f.variant_id===''?'<span class="master-project-latest">Alle Farben</span>':'')+
+   (index===0?'<span class="master-project-latest">Aktuell</span>':'')+'</div>'+
    '<div class="master-project-meta"><span>'+esc(printerLabel)+'</span><span>'+esc(stamp)+'</span><span>'+(f.bytes/1048576).toFixed(1)+' MB</span></div></div>'+
    '<button type="button" class="master-delete" data-master-delete="'+esc(f.id)+'" title="3MF löschen" aria-label="'+esc(f.filename)+' löschen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div>'+
    (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f):'')+
-   '<div class="master-project-actions">'+actions+download+'</div></article>';
+   (f.needs_review?'<p class="master-verify-warning">Für diesen Drucker prüfen: Die H2D hat neuere Projekteinstellungen oder die Datei wurde nur als Vorlage kopiert. Erst nach Anpassung im Slicer freigeben.</p>'+
+    '<button type="button" class="secondary small" data-master-verify="'+esc(f.id)+'">Druckerprofil im Slicer geprüft ✓</button>':'')+
+   '<div class="master-project-actions">'+actions+download+'</div>'+
+   (f.revision_no>1?'<details class="master-revision-history"><summary>Ältere Versionen ('+(f.revision_no-1)+')</summary>'+
+    '<div class="master-revision-items">'+history.filter(h=>h.listing_id===f.listing_id&&h.variant_id===f.variant_id&&h.printer===f.printer&&h.filename===f.filename)
+      .sort((a,b)=>b.revision_no-a.revision_no).map(h=>
+     '<div><span>Version '+h.revision_no+' · gesichert</span><a href="api/master-download?id='+encodeURIComponent(h.id)+'" download>3MF herunterladen</a></div>').join('')+
+    '</div></details>':'')+'</article>';
  }).join(''):'<div class="master-files-empty"><strong>Noch keine 3MF-Datei hinterlegt</strong><p>Lege dein fertig eingerichtetes Druckprojekt unter „Neue Masterdatei speichern“ ab. Alle im Projekt gespeicherten Einstellungen bleiben enthalten.</p>'+masterPalettePreviewMarkup({id:'profile',listing_id:x.listing_id,variant_id:x.variant_id,printer:x.printer,insights:{filaments:[]}})+'</div>');
  const mount=masterColorEditFileId?document.querySelector('[data-master-palette-mount="'+masterColorEditFileId+'"]'):null;
  if(panel){panel.hidden=!mount;if(mount)mount.appendChild(panel);}
@@ -2332,7 +2343,20 @@ $('master-share-refresh').addEventListener('click',refreshMasterShareInbox);
 $('master-share-import').addEventListener('click',importMasterFromShare);
 $('master-share-file').addEventListener('change',()=>{$('master-share-import').disabled=!$('master-share-file').value||masterBusy;});
 $('master-upload').addEventListener('click',uploadMaster);
-$('master-files').addEventListener('click',event=>{
+$('master-files').addEventListener('click',async event=>{
+ const verify=event.target.closest('[data-master-verify]');
+ if(verify){
+  const id=verify.dataset.masterVerify;
+  if(!window.confirm('Hast du dieses Projekt im passenden Druckerprofil gesliced und die Druckeinstellungen kontrolliert?'))return;
+  try{
+   await api('master-verify',{file_id:id});
+   const tool=await api('print-tools?listing_id='+encodeURIComponent(masterContext.id));
+   printTools.files=[...printTools.files.filter(f=>f.listing_id!==masterContext.id),...tool.files];
+   renderMasterFiles();renderCatalog();
+   flash('Druckerprojekt als geprüft markiert.');
+  }catch(err){flash(err.message,true);}
+  return;
+ }
  const remove=event.target.closest('[data-master-delete]');
  if(remove){deleteMasterFile(remove.dataset.masterDelete);return;}
  const link=event.target.closest('[data-master-slicer-file]');
