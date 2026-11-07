@@ -618,7 +618,7 @@ const dayChange=await page.evaluate(()=>{
 assert.notEqual(dayChange.before,dayChange.after);
 await page.locator('[data-workspace="filament"]').click();
 assert.equal(await page.locator('#filament-stock-summary').isVisible(),true);
-assert.equal(await page.locator('#filament-statistics').isVisible(),true);
+await page.locator('#filament-statistics').waitFor({state:'visible'});
 await page.waitForFunction(()=>document.querySelector('#filament-stats-tiles').children.length===6);
 assert.equal(await page.locator('.filament-stats-tile').count(),6);
 assert.equal(await page.locator('.filament-stats-bar-col').count(),12);
