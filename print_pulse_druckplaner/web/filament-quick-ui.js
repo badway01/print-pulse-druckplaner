@@ -116,6 +116,7 @@
    });
    filamentData=await api('filaments');
    renderFilaments();
+   window.ppFilamentStats?.refresh?.(true);
    if(!booked||booked.stock_qty!==f.stock_qty+qty){
     // Idempotent retry may have already booked after a connection interruption.
     // Reload exact stock; never rebook with a new key just for display.
