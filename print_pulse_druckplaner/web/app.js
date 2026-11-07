@@ -1925,7 +1925,7 @@ function renderMasterFiles(){
     '<button type="button" class="secondary small" data-master-verify="'+esc(f.id)+'">Druckerprofil im Slicer geprüft ✓</button>':'')+
    '<div class="master-project-actions">'+actions+download+'</div>'+
    (f.revision_no>1?'<details class="master-revision-history"><summary>Ältere Versionen ('+(f.revision_no-1)+')</summary>'+
-    '<div class="master-revision-items">'+history.filter(h=>h.listing_id===f.listing_id&&h.variant_id===f.variant_id&&h.printer===f.printer&&h.filename===f.filename)
+    '<div class="master-revision-items">'+history.filter(h=>h.origin_id===f.id)
       .sort((a,b)=>b.revision_no-a.revision_no).map(h=>
      '<div><span>Version '+h.revision_no+' · gesichert</span><a href="api/master-download?id='+encodeURIComponent(h.id)+'" download>3MF herunterladen</a></div>').join('')+
     '</div></details>':'')+'</article>';
