@@ -345,7 +345,7 @@
  function draw(){
   const found=locate();if(!found){if(focus.open)focus.close();return;}
   const snapshot=JSON.stringify([selected,found.line,findItem(found.line.item_id)?.i?.on_hand,
-   (printTools.files||[]).filter(f=>String(f.listing_id)===listingOf(found.line)),
+   (printTools.files||[]).filter(f=>!f.is_history&&String(f.listing_id)===listingOf(found.line)),
    (printTools.component_links||[]).filter(m=>String(m.listing_id)===listingOf(found.line)),
    (printTools.order_master_defaults||[]).filter(m=>String(m.listing_id)===listingOf(found.line))]);
   if(focus.open&&snapshot===positionSnapshot)return;
