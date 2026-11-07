@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats
+    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats, filament_stats
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -59,6 +59,9 @@ except ImportError:
     _farm_spec=importlib.util.spec_from_file_location('pp_farm_stats',Path(__file__).with_name('farm_stats.py'))
     farm_stats=importlib.util.module_from_spec(_farm_spec)
     _farm_spec.loader.exec_module(farm_stats)
+    _filament_stats_spec=importlib.util.spec_from_file_location('pp_filament_stats',Path(__file__).with_name('filament_stats.py'))
+    filament_stats=importlib.util.module_from_spec(_filament_stats_spec)
+    _filament_stats_spec.loader.exec_module(filament_stats)
 
 ROOT = Path(__file__).resolve().parent
 APP_VERSION = os.environ.get('PP_VERSION') or '0.13.54'
@@ -309,6 +312,7 @@ def init_db():
         filament_planner.schema(db)
         filament_purchases.schema(db)
         master_insights.schema(db)
+        filament_stats.schema(db)
         farm_stats.schema(db)
         filament_planner.backfill_existing(db)
         # Old HA installations receive revision fields without touching master data.
@@ -1488,6 +1492,9 @@ def filament_mutate(data):
                SET open_qty=open_qty-1,updated=?
                WHERE id=? AND open_qty>0""",(now,rowid))
             if not changed.rowcount: raise ValueError('Keine angebrochene Rolle vorhanden.')
+            # A physical empty-spool action is not identical to measured print
+            # grams. Count it in a separate immutable journal, atomically.
+            filament_stats.record_empty(db,rowid,created=now)
         elif action=='receive':
             changed=db.execute("""UPDATE filament_spools SET stock_qty=stock_qty+cart_qty,cart_qty=0,updated=?
                WHERE id=? AND cart_qty>0 AND stock_qty+cart_qty<=100000""",(now,rowid))
@@ -2882,6 +2889,13 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/theme': return self.send(200,theme_sun_state())
         if path=='/api/versions': return self.send(200,version_history())
         if path=='/api/filaments': return self.send(200,filament_overview())
+        if path=='/api/filament-stats':
+            query=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            period=(query.get('period') or ['month'])[0]
+            if period not in ('week','month','year','all'):
+                return self.send(400,{'error':'Ungültiger Statistikzeitraum.'})
+            with connect() as db:
+                return self.send(200,filament_stats.summary(db,period))
         if path=='/api/filament-orders':
             with connect() as db: return self.send(200,filament_purchases.overview(db))
         if path=='/api/filament-plan':
@@ -3226,7 +3240,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,restore_master_revision(data))
             if path=='/api/master-insights':
                 with connect() as db:
-                    return self.send(200,master_insights.change(db,MASTER_ROOT,data.get('id'),data))
+                    return self.send(200,master_insights.change(db,MASTER_ROOT,data.get('id'),data,
+                        on_count=lambda connection,file,estimate:filament_stats.record_print(connection,file,estimate)))
             if path=='/api/print-profile':
                 return self.send(200,save_print_profile(data))
             if path=='/api/master-component-link':
