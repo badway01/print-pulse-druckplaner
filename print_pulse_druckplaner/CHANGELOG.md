@@ -1,3 +1,12 @@
+# 0.13.53 · Modelle, Lagererfassung und versionierte 3MF-Projekte
+
+- „Produktkatalog“ heißt jetzt „Modelle“ und „Meine Modelle“.
+- Bei unbekanntem Anfangsbestand fragt das Druck-Ende eindeutig „Nein, bisher 0 Stück“ oder „Ja, vorhandenen Bestand eingeben“. Die neue Druckmenge wird separat hinzugebucht.
+- Beim 3MF-Upload beziehungsweise Samba-Import können H2D, P1S Old, P1S New und Snapmaker U1 gemeinsam ausgewählt werden. Nur ein Originalupload; zusätzliche Zieldrucker erhalten zunächst ungeprüfte 3MF-Vorlagen, keine stillschweigend als druckfertig freigegebenen Druckerprofile.
+- Die originalen 3MF-Dateien bleiben per Samba editierbar. Das Tool sichert die vorangegangene Version, erkennt geänderte gültige 3MF beim nächsten Dateiladen und zeigt die aktuelle Version samt herunterladbarer Historie. Die ursprüngliche Datei-ID bleibt stabil.
+- Ein H2D-Update markiert P1S-Projekte als prüfbedürftig. Bei exakt gleicher Geometrie können ausdrücklich ausgewählte gemeinsame Druckparameter (Wandlinien, Deck-/Bodenschichten, Infill) nach Vorschau und Bestätigung übernommen werden; ein P1S-Druckerprofil/Filamentprofil wird nicht überschrieben. Nach dem Abgleich muss die P1S-Datei im Slicer geprüft und freigegeben werden.
+- U1 und abweichende Geometrien werden nicht automatisch konvertiert. Bestehende Bestellungen, Lager, Filamentdaten und alte 3MF-Dateien bleiben erhalten.
+
 # 0.13.52 · Kompakte Bestandswarnung und moderne Etsy-Variantenauswahl
 
 - Die Bestandswarnung im Dashboard erscheint als schmale, auffällige Leiste. Niedrige Etsy-Bestände bleiben standardmäßig eingeklappt, kritische Nullbestände öffnen ihre Artikelliste automatisch. Die Details sind jederzeit manuell auf- und zuklappbar. Direkte Produktlinks und der Etsy-Zeitstempel bleiben erhalten.
