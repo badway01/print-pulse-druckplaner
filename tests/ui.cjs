@@ -645,6 +645,26 @@ await page.locator('#filament-brand').fill('Bambu');
 assert((await page.locator('#filament-brand-options').textContent()).includes('Bambu Lab'));
 await page.locator('#filament-brand-options .filament-suggest-item').first().click();
 assert.equal(await page.locator('#filament-brand').inputValue(),'Bambu Lab');
+// Regression: new Bambu PETG white must NOT become PLA Basic Jade-Weiß.
+// Neutral suggestions are fine, but must not import PLA codes or a material.
+await page.locator('#filament-material').fill('PETG');
+await page.locator('#filament-color').fill('Weiß');
+assert.equal(await page.locator('#filament-material').inputValue(),'PETG');
+assert((await page.locator('#filament-color-options').textContent()).includes('Weiß'));
+assert(!(await page.locator('#filament-color-options').textContent()).includes('Jade-Weiß'),
+ 'PETG suggestions must not contain a PLA Basic manufacturer color');
+await page.locator('#filament-color').press('Tab');
+assert.equal(await page.locator('#filament-color').inputValue(),'Weiß');
+assert.equal(await page.locator('#filament-material').inputValue(),'PETG');
+assert.equal(await page.locator('#filament-manufacturer-code').inputValue(),'');
+await page.locator('#filament-color').focus();
+await page.locator('#filament-color-options .filament-suggest-item').filter({hasText:'Weiß'}).first().click();
+assert.equal(await page.locator('#filament-color').inputValue(),'Weiß');
+assert.equal(await page.locator('#filament-material').inputValue(),'PETG');
+assert.equal(await page.locator('#filament-color-hex').inputValue(),'#ffffff');
+assert.equal(await page.locator('#filament-manufacturer-code').inputValue(),'');
+// Keep the separate PLA Basic case working when material is selected explicitly.
+await page.locator('#filament-material').fill('PLA Basic');
 await page.locator('#filament-color').fill('Jade');
 assert((await page.locator('#filament-color-options').textContent()).includes('Jade-Weiß'));
 await page.locator('#filament-color-options .filament-suggest-item').filter({hasText:'Jade-Weiß'}).first().click();
@@ -833,6 +853,29 @@ await page.locator('#filament-form [name="stock_qty"]').fill('1');
 await page.locator('#filament-form [type="submit"]').click();
 await page.waitForFunction(()=>document.querySelector('#filament-stock-spools').textContent==='1 volle Spule · 2 angebrochen');
 assert((await page.locator('#filament-stock-value').textContent()).includes('19,90'));
+
+// End-to-end persistence: Weiß saved for PETG is a distinct filament,
+// not a change to the existing PLA Basic Jade-Weiß.
+await page.locator('#filament-add').click();
+await page.locator('#filament-brand').fill('Bambu Lab');
+await page.locator('#filament-material').fill('PETG');
+await page.locator('#filament-color').fill('Weiß');
+await page.locator('#filament-color').press('Tab');
+assert.equal(await page.locator('#filament-material').inputValue(),'PETG');
+assert.equal(await page.locator('#filament-color').inputValue(),'Weiß');
+assert.equal(await page.locator('#filament-manufacturer-code').inputValue(),'');
+assert.equal(await page.locator('#filament-save').isEnabled(),true);
+await page.locator('#filament-form [name="stock_qty"]').fill('1');
+await page.locator('#filament-form [name="price"]').fill('');
+await page.locator('#filament-form [name="price"]').pressSequentially('1450');
+await page.locator('#filament-form [type="submit"]').click();
+await page.waitForFunction(()=>filamentData?.filaments?.some(f=>f.brand==='Bambu Lab'&&f.material==='PETG'&&f.color==='Weiß'));
+const savedPetg=await page.evaluate(()=>filamentData.filaments.find(f=>f.brand==='Bambu Lab'&&f.material==='PETG'&&f.color==='Weiß'));
+assert.equal(savedPetg.manufacturer_code,'');
+assert.equal(savedPetg.color_hex.toLowerCase(),'#ffffff');
+assert.equal(savedPetg.stock_qty,1);
+assert.equal(savedPetg.price_cents,1450);
+assert.equal(await page.evaluate(()=>filamentData.filaments.some(f=>f.brand==='Bambu Lab'&&f.material==='PLA Basic'&&f.color==='Jade-Weiß')),true);
 
 await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('.product').count(),4);
