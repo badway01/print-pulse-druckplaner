@@ -15,6 +15,7 @@ COPY economics.py ./economics.py
 COPY cost_v2.py ./cost_v2.py
 COPY filament_planner.py ./filament_planner.py
 COPY filament_purchases.py ./filament_purchases.py
+COPY filament_stats.py ./filament_stats.py
 COPY master_insights.py ./master_insights.py
 COPY farm_stats.py ./farm_stats.py
 COPY web ./web
