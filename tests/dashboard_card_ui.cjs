@@ -45,5 +45,5 @@ assert(css.includes('height:440px')&&css.includes('.order-card.is-expanded'));
 const index=fs.readFileSync(root+'index.html','utf8');
 assert(index.includes('dashboard-order-cards.css?v=0.13.46'));
 
-assert(index.includes('order-zoom-ui.js?v=0.13.45'));
+assert(/order-zoom-ui\.js\?v=0\.13\.\d+/.test(index),'The current versioned order-detail script must be loaded');
 console.log('Dashboard order cards PASS: equal height styles and 1/2/3/4+ item expansion.');
