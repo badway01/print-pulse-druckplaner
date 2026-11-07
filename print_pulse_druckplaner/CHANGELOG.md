@@ -1,3 +1,11 @@
+# 0.13.55 · Filamentstatistik aus echten Druck- und Rollenbuchungen
+
+- Unter „Filament“ werden bestätigte Materialverbräuche nach Woche, Monat, Jahr oder Gesamt angezeigt: Gramm/Kilogramm, 1-kg-/Spulengewichtsäquivalente, Materialkosten zum damaligen GLD, geschätzte Filamentmeter, leer gebuchte Rollen und dokumentierte Einkaufsausgaben.
+- Ein Klick auf „Druck zählen“ bei einer Master-3MF speichert je zugeordnetem Filament eine datierte Verbrauchsbuchung mit der zum Druckzeitpunkt gültigen Preisbasis. Spätere GLD-Änderungen ändern historische Druckkosten nicht rückwirkend.
+- „Angebrochene Rolle leer“ zählt transaktional eine leere Rolle, ohne diese mit dem Druckgewicht gleichzusetzen. Echte Einkaufsbuchungen werden separat aus Wareneingängen gelesen.
+- Mobilfähige Kennzahlen, Material-Rangliste und Verbrauchsdiagramm. Meter sind ausdrücklich eine Näherung für 1,75-mm-Filament nach üblichen Materialdichten; unbekannte Materialien oder Preise werden kenntlich gemacht.
+- Historische Etsy-Verkäufe, vorhandene 3MF-Druckzähler und alte Spulenbestände haben keine verlässlichen Einzelverbrauchszeitpunkte; deshalb werden hierfür keine erfundenen Verbrauchsmengen in die Statistik rückdatiert. Bestehende Daten bleiben unverändert.
+
 # 0.13.54 · Materialtreue Farbvorschläge für neue Filamentrollen
 
 - Beim Filament anlegen bleiben Hersteller und ausdrücklich gewähltes Material unverändert, auch wenn eine Farbe aus den Vorschlägen angeklickt wird. PETG Weiß kann nicht mehr unbemerkt zu PLA Basic Jade-Weiß werden.
