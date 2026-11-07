@@ -3390,3 +3390,63 @@ html[data-theme="dark"] .master-printer-targets{background:#263830;border-color:
 html[data-theme="dark"] .master-printer-targets>label{background:#253d33;color:#e6f1e9}
 html[data-theme="dark"] .master-verify-warning{background:#4a3727;color:#f1d9a6;border-color:#936b2d}
 @media(max-width:540px){.master-printer-targets>label{width:calc(50% - 8px);min-width:0;white-space:normal}.quantity-initial-choice{padding:9px}}
+
+/* Print & Pulse filament statistics: real dated records, no fabricated history. */
+.filament-stats{margin:16px 0 20px;padding:17px;border:1px solid #d5e1d9;border-radius:14px;
+ background:linear-gradient(150deg,#fff,#f6faf6);box-shadow:0 4px 18px #213c2a09}
+.filament-stats-heading{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+.filament-stats-heading h3{margin:3px 0 5px;font-family:Georgia,serif;font-size:21px;color:var(--ink)}
+.filament-stats-heading p{margin:0;max-width:600px;color:var(--muted);font-size:12px}
+.filament-stats-controls{display:flex;align-items:center;gap:4px;background:#e9f1ea;padding:4px;border:1px solid #d1ded4;border-radius:10px}
+.filament-stats-controls button{background:transparent;border-color:transparent;font-size:11px;font-weight:750;padding:8px 10px;min-height:36px}
+.filament-stats-controls button.selected{background:#456f61;color:#fff;border-color:#456f61;box-shadow:0 2px 5px #143d2630}
+.filament-stats-controls button:focus-visible{outline:3px solid #c5a477;outline-offset:2px}
+.filament-stats-status{margin:4px 0 10px;color:var(--muted);font-size:11px;line-height:1.5}
+.filament-stats-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.filament-stats-tile{display:flex;flex-direction:column;gap:4px;padding:14px 13px;border:1px solid #dce5dd;
+ background:#fff;border-radius:11px;min-width:0}
+.filament-stats-tile>span{font-size:11px;font-weight:750;color:#436b5e}
+.filament-stats-tile strong{font-size:clamp(19px,2.5vw,26px);line-height:1.2;color:#233e33;letter-spacing:-.6px;overflow-wrap:anywhere}
+.filament-stats-tile small{color:#737a73;font-size:10px;line-height:1.35}
+.filament-stats-bottom{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:10px;margin-top:11px}
+.filament-stats-panel{min-width:0;background:#fff;border:1px solid #e0e8e0;border-radius:11px;padding:13px 14px}
+.filament-stats-panel h4{margin:0 0 11px;font-size:12px;color:#315546;font-weight:800}
+.filament-stats-chart{height:180px;display:flex;gap:7px;align-items:stretch;justify-content:space-around}
+.filament-stats-bar-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px}
+.filament-stats-bar-col>small{font-size:9px;color:var(--muted);white-space:nowrap;letter-spacing:-.15px}
+.filament-stats-bar-track{flex:1;min-height:0;width:min(100%,28px);background:#f0f4ef;
+ border-radius:7px;display:flex;align-items:flex-end;overflow:hidden}
+.filament-stats-bar{display:block;min-width:100%;background:linear-gradient(180deg,#76ad8f,#38765d);
+ border-radius:7px 7px 0 0}
+.filament-stats-bar-label{font-size:9px;color:var(--muted);text-align:center;line-height:1.2;white-space:nowrap}
+.filament-stats-top{display:flex;flex-direction:column;gap:10px}
+.filament-stats-material>div:first-child{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin:0 0 4px}
+.filament-stats-material b{font-size:11px;overflow-wrap:anywhere}
+.filament-stats-material div>span{font-size:10px;color:var(--muted);white-space:nowrap}
+.filament-stats-track{height:8px;background:#eff4ed;border-radius:9px;overflow:hidden}
+.filament-stats-track>span{display:block;height:100%;background:#4e8b71;border-radius:9px}
+.filament-stats-empty{font-size:12px;color:var(--muted)}
+.filament-stats-notes{margin:12px 2px 0;font-size:10px;line-height:1.6;color:var(--muted)}
+html[data-theme="dark"] .filament-stats,
+html[data-theme="dark"] .filament-stats-tile,
+html[data-theme="dark"] .filament-stats-panel{background:var(--surface);border-color:var(--line)}
+html[data-theme="dark"] .filament-stats-heading h3,
+html[data-theme="dark"] .filament-stats-tile strong{color:var(--ink)}
+html[data-theme="dark"] .filament-stats-panel h4,
+html[data-theme="dark"] .filament-stats-tile>span{color:#9acbb3}
+html[data-theme="dark"] .filament-stats-controls{background:#283e35;border-color:#496f58}
+html[data-theme="dark"] .filament-stats-tile small,
+html[data-theme="dark"] .filament-stats-material div>span{color:var(--muted)}
+@media(max-width:800px){
+ .filament-stats-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .filament-stats-bottom{grid-template-columns:1fr}
+}
+@media(max-width:500px){
+ .filament-stats{padding:11px}
+ .filament-stats-controls{width:100%;justify-content:space-between}
+ .filament-stats-controls button{flex:1;padding:8px 5px;font-size:11px}
+ .filament-stats-tile{padding:11px 10px}
+ .filament-stats-tile strong{font-size:20px}
+ .filament-stats-chart{height:155px}
+ .filament-stats-bar-col>small,.filament-stats-bar-label{font-size:8px}
+}
