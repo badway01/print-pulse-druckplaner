@@ -1574,6 +1574,79 @@ def sync_master_revisions(db, listing_id=None):
             log.exception('3MF-Versionierung konnte Datei %s nicht prüfen; Projekt bleibt erhalten.',item['id'])
 
 
+def sync_compatible_bambu_settings(data):
+    """Preview or transfer a small whitelist of printer-independent process
+    settings from H2D to P1S; never copy its machine/filament/AMS profile.
+
+    Exactly matching 3D model XML is required. Targets must be re-sliced and
+    explicitly marked verified after transfer. U1 is intentionally excluded.
+    """
+    source_id=str(data.get('source_id') or '')
+    target_id=str(data.get('target_id') or '')
+    action=data.get('action','preview')
+    if not all(re.fullmatch(r'[a-f0-9]{24}',x) for x in (source_id,target_id)):
+        raise ValueError('Ungültige Masterdatei-IDs.')
+    if action not in ('preview','apply'):
+        raise ValueError('Ungültige Übertragungsaktion.')
+    with connect() as db:
+        sync_master_revisions(db)
+    source,source_path=master_download_record(source_id)
+    target,target_path=master_download_record(target_id)
+    if source['printer']!='H2D' or target['printer'] not in ('P1S Old','P1S New'):
+        raise ValueError('Kompatible Bambu-Einstellungen nur von H2D zu P1S übernehmen.')
+    if source['listing_id']!=target['listing_id'] or source['variant_id']!=target['variant_id']:
+        raise ValueError('Die Projekte gehören nicht zum selben Modell und derselben Variante.')
+    if source['is_history'] or target['is_history']:
+        raise ValueError('Bitte aktuelle Projektdateien auswählen.')
+    allowed=('wall_loops','top_shell_layers','bottom_shell_layers','sparse_infill_density')
+    with zipfile.ZipFile(source_path) as src,zipfile.ZipFile(target_path) as dst:
+        model_name='3D/3dmodel.model'
+        if model_name not in src.namelist() or model_name not in dst.namelist() or (
+                hashlib.sha256(src.read(model_name)).digest()!=hashlib.sha256(dst.read(model_name)).digest()):
+            raise ValueError('Die 3D-Geometrie ist nicht identisch; Einstellungen bitte im Slicer übertragen.')
+        meta='Metadata/project_settings.config'
+        if meta not in src.namelist() or meta not in dst.namelist():
+            raise ValueError('Keine kompatiblen Bambu-Projekteinstellungen gefunden. Im Slicer prüfen.')
+        for z in (src,dst):
+            if z.getinfo(meta).file_size>2*1024*1024 or sum(i.file_size for i in z.infolist())>400*1024*1024:
+                raise ValueError('Projektmetadaten zu groß für einen sicheren Einstellungsabgleich.')
+        try:
+            sdata=json.loads(src.read(meta))
+            tdata=json.loads(dst.read(meta))
+        except (ValueError,UnicodeDecodeError,TypeError) as exc:
+            raise ValueError('Slicer-Projektmetadaten sind nicht lesbar.') from exc
+        if not isinstance(sdata,dict) or not isinstance(tdata,dict):
+            raise ValueError('Slicer-Projektstruktur nicht kompatibel.')
+        changes={}
+        for key in allowed:
+            x,y=sdata.get(key),tdata.get(key)
+            if (key in sdata and key in tdata and isinstance(x,(str,int,float))
+                    and not isinstance(x,bool) and isinstance(y,(str,int,float))
+                    and not isinstance(y,bool) and x!=y):
+                changes[key]={'old':y,'new':x}
+        if action=='preview' or not changes:
+            return {'ok':True,'changes':changes,'applied':False}
+        for key in changes:
+            tdata[key]=sdata[key]
+        destination=target_path.with_name('.'+target_path.name+'.sync-'+secrets.token_hex(5))
+        try:
+            with zipfile.ZipFile(destination,'w') as out:
+                for entry in dst.infolist():
+                    content=(json.dumps(tdata,ensure_ascii=False,indent=2).encode('utf-8')
+                             if entry.filename==meta else dst.read(entry))
+                    out.writestr(entry,content)
+            with zipfile.ZipFile(destination,'r') as verify:
+                if verify.testzip() is not None:
+                    raise ValueError('Neue 3MF konnte nicht geprüft werden.')
+            destination.replace(target_path)
+            with connect() as db:
+                db.execute('UPDATE master_files SET verified=0 WHERE id=?',(target_id,))
+                sync_master_revisions(db,target['listing_id'])
+        finally:
+            destination.unlink(missing_ok=True)
+    return {'ok':True,'changes':changes,'applied':True,'review_required':True}
+
+
 def clone_master_printers(data):
     """Create printer-specific candidate copies from one uploaded source.
 
@@ -1917,8 +1990,8 @@ def store_master_file(meta, stream, length):
               relative_path,bytes,created) VALUES(?,?,?,?,?,?,?,?)""",
               (upload_id,lid,variant,printer,name,relative,length,int(time.time())))
             st=path.stat()
-            db.execute('UPDATE master_files SET mtime_ns=?,verified=? WHERE id=?',
-                       (st.st_mtime_ns,1 if meta.get('verified',1) else 0,upload_id))
+            db.execute('UPDATE master_files SET mtime_ns=?,modified=?,verified=? WHERE id=?',
+                       (st.st_mtime_ns,int(time.time()),1 if meta.get('verified',1) else 0,upload_id))
         # Keep the prior version safe when a Slicer overwrites the SMB file.
         shutil.copy2(path,path.with_name('.'+path.name+'.pp-baseline'))
     except BaseException:
@@ -3121,6 +3194,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,clone_master_printers(data))
             if path=='/api/master-verify':
                 return self.send(200,verify_master_printer(data))
+            if path=='/api/master-sync-settings':
+                return self.send(200,sync_compatible_bambu_settings(data))
             if path=='/api/master-insights':
                 with connect() as db:
                     return self.send(200,master_insights.change(db,MASTER_ROOT,data.get('id'),data))
