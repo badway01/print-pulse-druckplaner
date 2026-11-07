@@ -1630,7 +1630,7 @@ setInterval(()=>{if(workspace==='filament'&&!document.hidden)loadFilaments();},3
 const masterPrinters=['H2D','P1S Old','P1S New','Snapmaker U1','A1 mini','Prusa MK4'];
 function toolSummary(p){
  const profiles=printTools.profiles.filter(r=>r.listing_id===p.id);
- const files=printTools.files.filter(r=>r.listing_id===p.id);
+ const files=printTools.files.filter(r=>!r.is_history&&r.listing_id===p.id);
  const preferred=profiles.find(r=>r.variant_id===(selectedVariants.get(p.id)||'')&&r.printer==='H2D')||profiles.find(r=>r.variant_id===''&&r.printer==='H2D')||profiles[0];
  const colors=preferred?.colors||[];
  return '<div class="master-card-row"><button type="button" class="secondary small" data-econ-open="'+esc(p.id)+'">€ Kalkulieren</button><button type="button" class="secondary small" data-master-open="'+esc(p.id)+'">▣ 3MF &amp; Farben'+(files.length?' · '+files.length:'')+'</button>'
@@ -1642,7 +1642,7 @@ function renderCatalog(){
  const search=$('catalog-search').value.trim().toLocaleLowerCase('de');
  const rows=model.products.filter(p=>p.state==='active'&&p.title.toLocaleLowerCase('de').includes(search));
  updateHTML(shell,rows.length?rows.map(p=>{
-  const files=printTools.files.filter(f=>f.listing_id===p.id).length;
+  const files=printTools.files.filter(f=>!f.is_history&&f.listing_id===p.id).length;
   const profiles=printTools.profiles.filter(f=>f.listing_id===p.id).length;
   const img=thumbnail(p.image);
   return '<article class="catalog-item" data-catalog-item="'+esc(p.id)+'">'+(img?'<img src="'+esc(img)+'" alt="" loading="lazy">':'<div class="catalog-placeholder">P+</div>')+
@@ -1766,7 +1766,7 @@ async function openMasterEditor(id){
   printTools.order_master_defaults=[...(printTools.order_master_defaults||[]).filter(r=>r.listing_id!==id),...(tool.order_master_defaults||[])];
   filamentData=spool;
   masterSelectionChanged();
-  $('master-upload-details').open=!printTools.files.some(f=>f.listing_id===id&&f.variant_id===''&&f.printer==='H2D');
+  $('master-upload-details').open=!printTools.files.some(f=>!f.is_history&&f.listing_id===id&&f.variant_id===''&&f.printer==='H2D');
  }catch(err){flash(err.message,true);}
 }
 function masterSwatchHex(value){
