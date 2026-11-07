@@ -1044,15 +1044,24 @@ function filamentSuggestions(field){
  }else{
   const catalog=filamentCatalog[brand]||{};
   const materialId=normFilamentMaterial(material);
-  const families=Object.entries(catalog);
-  for(const [family,values] of families){
-   if(!families.some(([name])=>normFilamentMaterial(name)===materialId)||normFilamentMaterial(family)===materialId)
-    values.forEach(([name,hex,aliases])=>add(name,hex,'Herstellerfarbcode',family,aliases||[]));
-  }
+  // Never offer a PLA Basic manufacturer color as a PETG suggestion.
+  // An exact material match is required for product-specific colors and codes.
+  const materialFamilies=Object.entries(catalog)
+    .filter(([family])=>normFilamentMaterial(family)===materialId);
+  materialFamilies.forEach(([family,values])=>
+   values.forEach(([name,hex,aliases])=>add(name,hex,'Herstellerfarbcode',family,aliases||[])));
   records.filter(f=>normFilament(canonicalFilamentBrand(f.brand))===normFilament(brand)&&
-    (!families.some(([name])=>normFilamentMaterial(name)===materialId)||
-      normFilamentMaterial(f.material)===materialId))
+    normFilamentMaterial(f.material)===materialId)
     .forEach(f=>add(f.color,f.color_hex,'Bereits angelegt',f.material));
+  if(!materialFamilies.length){
+   // Neutral swatches are only visual aids, NOT verified manufacturer PETG
+   // numbers. Users may enter any other color or customize its HEX.
+   [
+    ['Weiß','#FFFFFF'],['Schwarz','#000000'],['Grau','#808080'],
+    ['Beige','#E6D5BD'],['Rot','#DC4040'],['Blau','#3985D5'],
+    ['Grün','#479F70'],['Gelb','#F3D64C'],['Orange','#F49A46']
+   ].forEach(([name,hex])=>add(name,hex,'Farbvorlage',material));
+  }
  }
  return result;
 }
@@ -1094,7 +1103,8 @@ function applyFilamentSuggestion(field,item,automatic=false){
  if(field==='brand'){
   form.elements.brand.value=canonicalFilamentBrand(item.name);
  }else if(field==='color'&&item.hex){
-  form.elements.material.value=item.family;
+  // Selecting a color NEVER selects another material. The user's PETG,
+  // PLA Basic, etc. is authoritative, including on explicit clicks.
   // Only an explicit suggestion click may overwrite a saved/manually entered code.
   if(!automatic||!filamentHexProtected){
    form.elements.color_hex.value=item.hex;
@@ -1104,7 +1114,9 @@ function applyFilamentSuggestion(field,item,automatic=false){
    form.elements.manufacturer_code.value=item.manufacturer_code||'';
   }
   if(!automatic){filamentHexProtected=false;filamentManufacturerProtected=false;}
-  filamentHexPreview(item.source==='Bereits angelegt'?'Farbcode aus deinem Lager übernommen':'Herstellerfarbcode automatisch übernommen');
+  filamentHexPreview(item.source==='Bereits angelegt'?'Farbcode aus deinem Lager übernommen':
+   item.source==='Herstellerfarbcode'?'Herstellerfarbcode übernommen':
+   'Allgemeines Farbmuster, kein bestätigter Herstellerfarbcode');
  }
  closeFilamentSuggestions();
  if(field!=='color')matchExactFilamentColor();
@@ -1116,6 +1128,10 @@ function matchExactFilamentColor(){
  const key=normFilament(query);
  const matches=filamentSuggestions('color').filter(o=>[o.name,...o.aliases].some(name=>normFilament(name)===key));
  if(matches.length!==1)return;
+ // Typing "Weiß" is not consent to rename it to "Jade-Weiß" just
+ // because a different product lists Weiß as an alias. Minor spelling
+ // normalization (Jadeweiß -> Jade-Weiß) stays supported.
+ if(normFilament(query)!==normFilament(matches[0].name))return;
  applyFilamentSuggestion('color',matches[0],true);
 }
 function updateFilamentDuplicate(){
@@ -1563,7 +1579,13 @@ for(const field of ['brand','material','color']){
  input.addEventListener('focus',()=>{closeFilamentSuggestions(field);showFilamentSuggestions(field);});
  input.addEventListener('input',()=>{
   closeFilamentSuggestions(field);showFilamentSuggestions(field);
-  if(field==='brand'||field==='material')matchExactFilamentColor();
+  if(field==='brand'||field==='material'){
+   // Manufacturer codes are tied to both the material AND the brand.
+   // Clear only auto-managed codes, preserve explicit edits.
+   if(!filamentManufacturerProtected)$('filament-manufacturer-code').value='';
+   matchExactFilamentColor();
+   filamentHexPreview();
+  }
   updateFilamentDuplicate();
  });
  input.addEventListener('change',()=>{
