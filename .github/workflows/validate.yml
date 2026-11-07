@@ -24,7 +24,7 @@ jobs:
 
       - name: Python-Code pruefen
         run: |
-          python -m py_compile print_pulse_druckplaner/app.py print_pulse_druckplaner/local_orders.py print_pulse_druckplaner/local_order_pdf.py print_pulse_druckplaner/economics.py print_pulse_druckplaner/cost_v2.py print_pulse_druckplaner/filament_planner.py print_pulse_druckplaner/filament_purchases.py print_pulse_druckplaner/master_insights.py print_pulse_druckplaner/farm_stats.py
+          python -m py_compile print_pulse_druckplaner/app.py print_pulse_druckplaner/local_orders.py print_pulse_druckplaner/local_order_pdf.py print_pulse_druckplaner/economics.py print_pulse_druckplaner/cost_v2.py print_pulse_druckplaner/filament_planner.py print_pulse_druckplaner/filament_purchases.py print_pulse_druckplaner/master_insights.py print_pulse_druckplaner/farm_stats.py print_pulse_druckplaner/filament_stats.py
           python -m pip install 'reportlab>=3.6,<6' 'pillow>=10,<13'
 
       - name: Home-Assistant-Startmodule im Docker-Image prüfen
@@ -32,7 +32,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           docker = Path('print_pulse_druckplaner/Dockerfile').read_text()
-          for file in ('components.py','safety.py','local_orders.py','local_order_pdf.py','economics.py','filament_planner.py','filament_purchases.py','master_insights.py','farm_stats.py'):
+          for file in ('components.py','safety.py','local_orders.py','local_order_pdf.py','economics.py','filament_planner.py','filament_purchases.py','master_insights.py','farm_stats.py','filament_stats.py'):
               assert f'COPY {file} ./{file}' in docker, f'Home Assistant startet nicht: {file} fehlt im Dockerfile.'
           PY
 
@@ -41,6 +41,7 @@ jobs:
           node --check print_pulse_druckplaner/web/filament-planner-ui.js
           node --check print_pulse_druckplaner/web/filament-purchases-ui.js
           node --check print_pulse_druckplaner/web/filament-quick-ui.js
+          node --check print_pulse_druckplaner/web/filament-stats-ui.js
           node --check print_pulse_druckplaner/web/app.js
           node --check print_pulse_druckplaner/web/farm-ui.js
           node --check print_pulse_druckplaner/web/master-insights-ui.js
