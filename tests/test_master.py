@@ -548,6 +548,13 @@ class MasterTests(unittest.TestCase):
         self.assertEqual(app.master_download_record(saved['id'])[1].read_bytes(),change)
         self.assertEqual(len([f for f in after['files'] if not f['is_history']]),1)
         self.assertEqual(next(f['revision_no'] for f in app.print_tools_overview('123')['files'] if not f['is_history']),2)
+        restored=app.restore_master_revision({'current_id':saved['id'],'history_id':prior['id']})
+        self.assertTrue(restored['ok'])
+        latest=app.print_tools_overview('123')['files']
+        active=next(f for f in latest if not f['is_history'])
+        self.assertEqual(active['revision_no'],3)
+        self.assertEqual(app.master_download_record(saved['id'])[1].read_bytes(),initial)
+        self.assertEqual({f['revision_no'] for f in latest if f['is_history']},{1,2})
 
     def test_multi_printer_clones_require_slicer_review_and_are_idempotent(self):
         b=io.BytesIO()
