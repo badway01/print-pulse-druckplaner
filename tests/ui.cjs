@@ -198,7 +198,7 @@ const navCheck=await page.locator('.workspace-tabs').evaluate(nav=>{
   scrollWidth:nav.scrollWidth,clientWidth:nav.clientWidth};
 });
 assert.deepEqual(navCheck.labels,
- ['Dashboard','Bestellungen','Lagerbestand','Produktkatalog','Filament','Drucker','Druckfarm','Rechner'],
+ ['Dashboard','Bestellungen','Lagerbestand','Modelle','Filament','Drucker','Druckfarm','Rechner'],
  'eight short labels stay readable');
 assert.equal(navCheck.wrap,'nowrap','navigation never wraps to a second row');
 assert.equal(new Set(navCheck.tops).size,1,'all tabs are in one horizontal row');
