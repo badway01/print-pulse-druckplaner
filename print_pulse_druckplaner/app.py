@@ -1901,9 +1901,10 @@ def validate_profile_target(db, data):
     if variant and not db.execute(
         'SELECT 1 FROM stock_items WHERE id=? AND listing_id=?',(variant,lid)).fetchone():
         raise ValueError('Variante gehört nicht zum Produkt.')
-    if not variant and db.execute('SELECT COUNT(*) FROM stock_items WHERE listing_id=?',
-                                   (lid,)).fetchone()[0]>1:
-        raise ValueError('Bitte eine konkrete Variante wählen. „Alle Varianten“ ist nur eine Übersicht.')
+    # variant_id='' is an intentional shared master/profile for every color
+    # variant of this listing. Only explicit variant IDs require membership.
+    # Other parts (ordering/links) continue to prefer a variant-specific file
+    # where one exists, falling back to the shared master.
     return lid,variant,printer
 
 
