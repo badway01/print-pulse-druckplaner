@@ -1,3 +1,10 @@
+# 0.13.56 · Gemeinsame Master-3MF für alle Farbvarianten
+
+- „Gemeinsame Masterdatei · alle Farbvarianten“ kann jetzt auch bei Etsy-Artikeln mit mehreren Varianten gespeichert werden. Eine veraltete Backend-Prüfung hat bisher fälschlich HTTP 400 ausgelöst.
+- Das gilt für Browser-Upload, gestückelten Home-Assistant-Upload, Samba-Eingangsordner und gemeinsame Druckprofile. Die leer gelassene Varianten-ID ist bewusst die gemeinsame Datei für alle Farbvarianten.
+- Individuelle 3MF-Dateien und Filamentprofile für ausdrücklich ausgewählte Varianten bleiben unabhängig und erhalten; unbekannte Varianten werden weiterhin abgelehnt.
+- Neue Regressionstests für mehrere Farbvarianten, gemeinsame Dateien, individuelle Ausnahmen und Samba-Import.
+
 # 0.13.55 · Filamentstatistik aus echten Druck- und Rollenbuchungen
 
 - Unter „Filament“ werden bestätigte Materialverbräuche nach Woche, Monat, Jahr oder Gesamt angezeigt: Gramm/Kilogramm, 1-kg-/Spulengewichtsäquivalente, Materialkosten zum damaligen GLD, geschätzte Filamentmeter, leer gebuchte Rollen und dokumentierte Einkaufsausgaben.
