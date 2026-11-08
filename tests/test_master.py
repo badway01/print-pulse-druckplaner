@@ -104,21 +104,63 @@ class MasterTests(unittest.TestCase):
         app.MASTER_IMPORT_ROOT=self.original_import_root
         self.temp.cleanup()
 
-    def test_all_variants_is_read_only_when_multiple_etsy_variants_exist(self):
+    def test_shared_master_and_profile_cover_multiple_color_variants(self):
+        # A color-only Etsy listing has several stock items, but its single
+        # geometry/project can legitimately be shared by all variants.
         with app.connect() as db:
             db.execute("""INSERT INTO stock_items(id,listing_id,product_id,label,signature)
                 VALUES('variant2','123','v2','Schwarz','')""")
-        with self.assertRaisesRegex(ValueError,'konkrete Variante'):
-            app.save_print_profile({'listing_id':'123','variant_id':'',
-                                    'printer':'H2D','sources':[]})
-        with self.assertRaisesRegex(ValueError,'konkrete Variante'):
-            app.store_master_file({'listing_id':'123','variant_id':'',
-                                   'printer':'H2D','filename':'Alle.3mf'},
-                                  io.BytesIO(b'test'),4)
-        # An individual Etsy variant remains editable.
-        result=app.save_print_profile({'listing_id':'123','variant_id':'variant1',
-                                       'printer':'H2D','sources':[]})
-        self.assertEqual(result['profiles'][0]['variant_id'],'variant1')
+        common={'listing_id':'123','variant_id':'','printer':'H2D'}
+        shared_profile=app.save_print_profile({**common,'sources':[]})
+        self.assertEqual([p['variant_id'] for p in shared_profile['profiles']],[''])
+        payload=io.BytesIO()
+        with zipfile.ZipFile(payload,'w') as archive:
+            archive.writestr('[Content_Types].xml','<Types/>')
+            archive.writestr('3D/3dmodel.model','shared geometry')
+        content=payload.getvalue()
+        shared=app.store_master_file({**common,'filename':'Alle Farben.3mf'},
+                                     io.BytesIO(content),len(content))
+        self.assertTrue(shared['ok'])
+        listing=app.print_tools_overview('123')
+        self.assertEqual(len(listing['files']),1)
+        self.assertEqual(listing['files'][0]['variant_id'],'')
+        self.assertEqual(app.master_download_record(shared['id'])[1].read_bytes(),content)
+        # A deliberately selected variant can still have an independent 3MF
+        # and filament profile without replacing the shared originals.
+        app.save_print_profile({**common,'variant_id':'variant1','sources':[]})
+        special=app.store_master_file({**common,'variant_id':'variant1',
+                                     'filename':'Nur Weiß.3mf'},io.BytesIO(content),len(content))
+        listing=app.print_tools_overview('123')
+        self.assertEqual({f['variant_id'] for f in listing['files']},{'','variant1'})
+        self.assertEqual(len(listing['profiles']),2)
+        self.assertNotEqual(shared['id'],special['id'])
+        # Only genuine variants from this listing may be explicitly assigned.
+        with self.assertRaisesRegex(ValueError,'Variante gehört nicht'):
+            app.save_print_profile({**common,'variant_id':'not-on-product','sources':[]})
+        with self.assertRaisesRegex(ValueError,'Variante gehört nicht'):
+            app.store_master_file({**common,'variant_id':'not-on-product',
+                'filename':'Unbekannt.3mf'},io.BytesIO(content),len(content))
+
+    def test_chunked_and_samba_shared_master_allow_multiple_variants(self):
+        with app.connect() as db:
+            db.execute("""INSERT INTO stock_items(id,listing_id,product_id,label,signature)
+                VALUES('variant2','123','v2','Schwarz','')""")
+        payload=io.BytesIO()
+        with zipfile.ZipFile(payload,'w') as archive:
+            archive.writestr('[Content_Types].xml','<Types/>')
+            archive.writestr('3D/3dmodel.model','same geometry')
+        content=payload.getvalue()
+        meta={'listing_id':'123','variant_id':'','printer':'H2D',
+              'filename':'Gemeinsam.3mf'}
+        upload=app.start_master_upload({**meta,'size':len(content)})
+        self.assertTrue(upload['upload_id'])
+        # Original Samba-import route uses the same variant_id='' validation.
+        inbox=app.master_share_import_directory()
+        (inbox/'Gemeinsam.3mf').write_bytes(content)
+        imported=app.import_master_from_share(meta)
+        self.assertTrue(imported['ok'])
+        self.assertEqual(app.master_download_record(imported['id'])[1].read_bytes(),content)
+        self.assertEqual(app.print_tools_overview('123')['files'][0]['variant_id'],'')
 
     def spool(self):
         app.filament_mutate({'action':'save','id':None,'brand':'Bambu','color':'Weiß','material':'PLA Matte',
