@@ -606,14 +606,14 @@ class MasterTests(unittest.TestCase):
         source=app.store_master_file({'listing_id':'123','variant_id':'variant1',
                                       'printer':'H2D','filename':'Master.3mf'},io.BytesIO(raw),len(raw))
         clones=app.clone_master_printers({'file_id':source['id'],
-                'printers':['P1S Old','P1S New','Snapmaker U1']})
-        self.assertEqual(len(clones['files']),3)
+                'printers':['P1S Old','P1S New','Snapmaker U1','X2D']})
+        self.assertEqual(len(clones['files']),4)
         self.assertTrue(clones['review_required'])
         again=app.clone_master_printers({'file_id':source['id'],
-                'printers':['P1S Old','P1S New','Snapmaker U1']})
+                'printers':['P1S Old','P1S New','Snapmaker U1','X2D']})
         self.assertTrue(all(row['existing'] for row in again['files']))
         files=app.print_tools_overview('123')['files']
-        self.assertEqual(len(files),4)
+        self.assertEqual(len(files),5)
         for row in files:
             self.assertEqual(app.master_download_record(row['id'])[1].read_bytes(),raw)
             if row['printer']!='H2D':

@@ -64,7 +64,7 @@ except ImportError:
     _filament_stats_spec.loader.exec_module(filament_stats)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.56'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.57'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -73,7 +73,7 @@ MASTER_IMPORT_ROOT = Path(os.environ.get("PP_MASTER_IMPORT_DIR", "/share/print-p
 MAX_MASTER_SIZE = 100 * 1024 * 1024
 MASTER_CHUNK_SIZE = 2 * 1024 * 1024  # Streaming ingress: fewer requests, adaptive fallback in client.
 MASTER_UPLOAD_LOCK = threading.RLock()
-PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","A1 mini","Prusa MK4")
+PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","X2D","A1 mini","Prusa MK4")
 MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1")
 MONITOR_FIELDS = ("status","progress","remaining","filename","nozzle","nozzle_left","nozzle_right",
                   "bed","chamber","layer","total_layers","stage","active_tray",
@@ -1689,9 +1689,9 @@ def clone_master_printers(data):
     """
     source_id=str(data.get('file_id') or '')
     printers=data.get('printers')
-    if not re.fullmatch(r'[a-f0-9]{24}',source_id) or not isinstance(printers,list) or len(printers)>4:
+    if not re.fullmatch(r'[a-f0-9]{24}',source_id) or not isinstance(printers,list) or len(printers)>5:
         raise ValueError('Ungültige Datei oder Druckerauswahl.')
-    allowed=('H2D','P1S Old','P1S New','Snapmaker U1')
+    allowed=('H2D','P1S Old','P1S New','Snapmaker U1','X2D')
     if any(p not in allowed for p in printers) or len(set(printers))!=len(printers):
         raise ValueError('Nur bekannte Produktionsdrucker dürfen ausgewählt werden.')
     source,path=master_download_record(source_id)

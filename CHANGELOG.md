@@ -1,3 +1,9 @@
+## 0.13.57 (2026-11-09)
+
+- Bambu X2D als fünfter Produktionsdrucker in der 3MF-Masterdatei-Mehrfachauswahl und Kalkulation.
+- Responsive Druckerkacheln mit grünem Auswahlzustand; serverseitige Validierung für fünf Produktionsdrucker und Regressionstests.
+- Bestehende 3MF-Dateien und Druckprofile bleiben unverändert.
+
 # v0.13.48 – Etsy-Bestand: sofort sichtbare Warnungen
 
 - Etsy-Artikelstatus und Bestandszahlen alle 15 Minuten aktualisieren, Varianten rollierend und nach neuen Verkäufen, statt erst beim täglichen Komplettabgleich.

@@ -1652,7 +1652,7 @@ $('filament-delete').addEventListener('click',async()=>{
 setInterval(()=>{if(workspace==='filament'&&!document.hidden)loadFilaments();},30000);
 
 
-const masterPrinters=['H2D','P1S Old','P1S New','Snapmaker U1','A1 mini','Prusa MK4'];
+const masterPrinters=['H2D','P1S Old','P1S New','Snapmaker U1','X2D','A1 mini','Prusa MK4'];
 function toolSummary(p){
  const profiles=printTools.profiles.filter(r=>r.listing_id===p.id);
  const files=printTools.files.filter(r=>!r.is_history&&r.listing_id===p.id);
@@ -1707,7 +1707,7 @@ function selectedMasterTarget(){
 }
 function selectedUploadPrinterTargets(){
  const values=[...document.querySelectorAll('#master-upload-printers input[type="checkbox"]:checked')].map(i=>i.value);
- const allowed=['H2D','P1S Old','P1S New','Snapmaker U1'];
+ const allowed=['H2D','P1S Old','P1S New','Snapmaker U1','X2D'];
  const choices=values.filter(value=>allowed.includes(value));
  if(!choices.length)throw Error('Wähle mindestens einen Produktionsdrucker aus.');
  return choices;
@@ -1778,7 +1778,7 @@ async function openMasterEditor(id){
  // A single geometry master is shared by all color variants unless the user explicitly chooses a special variant.
  $('master-variant').innerHTML='<option value="">Gemeinsame Masterdatei · alle Farbvarianten</option>'+
     (p.items||[]).map(i=>'<option value="'+esc(i.id)+'">Nur: '+esc(i.label)+'</option>').join('');
- $('master-printer').innerHTML=masterPrinters.map(name=>'<option value="'+esc(name)+'">'+esc(name)+'</option>').join('');
+ $('master-printer').innerHTML=masterPrinters.map(name=>'<option value="'+esc(name)+'">'+esc(name==='X2D'?'Bambu X2D':name)+'</option>').join('');
  $('master-variant').value='';
  $('master-printer').value='H2D';
  $('master-editor').showModal();

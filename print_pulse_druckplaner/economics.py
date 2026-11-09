@@ -22,7 +22,7 @@ except ImportError:
 from html.parser import HTMLParser
 
 
-PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "A1 mini", "Prusa MK4")
+PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "X2D", "A1 mini", "Prusa MK4")
 STATUSES = ("untested", "approved", "issue")
 
 PROFILE_FIELDS = (

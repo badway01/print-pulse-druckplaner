@@ -1,3 +1,10 @@
+# 0.13.57 · Bambu X2D und moderne 3MF-Druckerauswahl
+
+- X2D als fünften Produktionsdrucker für Master-3MF-Upload, Samba-Import, Mehrfachzuordnung, eigene 3MF-Dateien und separate Druck-/Filamentprofile ergänzt.
+- Abgerundete Auswahlkacheln mit grün markierter Mehrfachauswahl, NEU-Hinweis und mobiler Zweispaltenansicht.
+- Server akzeptiert bis zu fünf eindeutige Produktionsdrucker; Kopien bleiben bis zur Prüfung im Slicer ungeprüft. A1 mini und Prusa MK4 bleiben als historische, optionale Drucker vorhanden.
+- Regressionstests für X2D und die Kacheln. Vorhandene 3MF-Projekte und Profile bleiben erhalten.
+
 # 0.13.56 · Gemeinsame Master-3MF für alle Farbvarianten
 
 - „Gemeinsame Masterdatei · alle Farbvarianten“ kann jetzt auch bei Etsy-Artikeln mit mehreren Varianten gespeichert werden. Eine veraltete Backend-Prüfung hat bisher fälschlich HTTP 400 ausgelöst.

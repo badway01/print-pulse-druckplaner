@@ -119,6 +119,12 @@ const assert=require('node:assert/strict');
   assert.deepEqual(saved.sources[0].slots.slice(0,2),[2,4]);
   assert.equal(saved.sources[0].side,'right','H2D nozzle side persisted');
   if(!await page.locator('#master-upload-details').evaluate(el=>el.open)) await page.locator('#master-upload-details summary').click();
+  assert.equal(await page.locator('#master-upload-printers input[type="checkbox"]').count(),5);
+  const x2d=page.locator('#master-upload-printers input[value="X2D"]');
+  await x2d.check();
+  assert.deepEqual(await page.evaluate(()=>selectedUploadPrinterTargets()),['H2D','X2D']);
+  assert.equal(await x2d.locator('xpath=..').evaluate(el=>getComputedStyle(el).borderTopWidth),'2px');
+  await x2d.uncheck(); // existing import test only targets H2D
   await page.locator('#master-upload-input').setInputFiles({name:'My_Acorn_beide_größen.3mf',mimeType:'model/3mf',buffer:Buffer.alloc(700000,65)});
   await page.locator('#master-upload').click();
   await page.waitForFunction(()=>document.querySelector('#master-upload-status').textContent.includes('Nur die Aktualisierung'));

@@ -3369,13 +3369,22 @@ html[data-theme="dark"] .pp-catalog-variant-option.is-selected{background:#345f4
 .quantity-initial-choice #quantity-initial-stock-label:not([hidden]){display:block;padding:10px 12px}
 .quantity-initial-choice #quantity-initial-stock{display:block;width:100%;margin:6px 0 0}
 .quantity-initial-choice[hidden],.quantity-initial-choice #quantity-initial-stock-label[hidden]{display:none!important}
-.master-printer-targets{border:1px solid #d4e5db;background:#f5faf7;border-radius:12px;padding:12px;margin:7px 0 14px}
+/* Modern 3MF printer selection: five selectable production printers. */
+.master-printer-targets{border:1px solid #d4e5db;background:#f5faf7;border-radius:14px;padding:14px;margin:7px 0 14px;min-width:0}
 .master-printer-targets>legend{padding:0 6px;font-weight:800;font-size:13px;color:#275b44}
-.master-printer-targets>p{font-size:11px;line-height:1.5;color:#637a70;margin:3px 0 9px}
-.master-printer-targets>label{display:inline-flex;align-items:center;gap:7px;border:1px solid #cde0d4;
- background:white;padding:9px 11px;border-radius:8px;white-space:nowrap;font-size:12px;font-weight:650;margin:3px;cursor:pointer}
-.master-printer-targets>label:has(input:checked){border-color:#318663;background:#e1f4e8}
-.master-printer-targets input{accent-color:#25745c}
+.master-printer-targets>p{font-size:11px;line-height:1.5;color:#637a70;margin:3px 0 13px}
+.master-printer-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(116px,1fr));gap:9px}
+.master-printer-tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;
+ min-height:82px;min-width:0;padding:13px 12px;border:1px solid #d5e0da;border-radius:12px;background:#fff;
+ box-shadow:0 1px 3px #18362a0b;cursor:pointer;transition:background .16s,border-color .16s,box-shadow .16s}
+.master-printer-tile:hover{border-color:#84b8a0}
+.master-printer-tile input[type="checkbox"]{width:18px;height:18px;margin:0;accent-color:#227e5b;cursor:pointer}
+.master-printer-tile-title{font-size:12px;font-weight:750;line-height:1.35;color:#243c31;overflow-wrap:anywhere}
+.master-printer-tile:has(input:checked){background:#e2f4e9;border:2px solid #30916b;padding:12px 11px;
+ box-shadow:0 2px 9px #1e77551c}
+.master-printer-tile:focus-within{outline:2px solid #217b59;outline-offset:2px}
+.master-printer-tile-badge{position:absolute;right:9px;top:9px;padding:3px 5px;border-radius:5px;
+ background:#c8e9d6;color:#226745;font-size:9px;font-weight:850;letter-spacing:.03em}
 .master-verify-warning{margin:9px 0 6px;padding:10px;border:1px solid #e9cb91;border-left:4px solid #b17c2c;
  border-radius:8px;background:#fff9ed;color:#6e4f20;font-size:11px;line-height:1.45}
 .master-revision-history{margin-top:10px;border-top:1px solid #e0e9e3;padding:9px 0 0}
@@ -3387,9 +3396,12 @@ html[data-theme="dark"] .pp-catalog-variant-option.is-selected{background:#345f4
 .pp-catalog-review-tag{color:#946116!important;background:#fff1d5!important}
 html[data-theme="dark"] .quantity-initial-choice,
 html[data-theme="dark"] .master-printer-targets{background:#263830;border-color:#446454}
-html[data-theme="dark"] .master-printer-targets>label{background:#253d33;color:#e6f1e9}
+html[data-theme="dark"] .master-printer-tile{background:#263c33;border-color:#486556}
+html[data-theme="dark"] .master-printer-tile:has(input:checked){background:#26563f;border-color:#75cb99}
+html[data-theme="dark"] .master-printer-tile-title{color:#e4f2e7}
+html[data-theme="dark"] .master-printer-tile-badge{background:#345f49;color:#c3f2d7}
 html[data-theme="dark"] .master-verify-warning{background:#4a3727;color:#f1d9a6;border-color:#936b2d}
-@media(max-width:540px){.master-printer-targets>label{width:calc(50% - 8px);min-width:0;white-space:normal}.quantity-initial-choice{padding:9px}}
+@media(max-width:540px){.master-printer-targets{padding:11px}.master-printer-tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.master-printer-tile{min-height:77px}.quantity-initial-choice{padding:9px}}
 
 /* Print & Pulse filament statistics: real dated records, no fabricated history. */
 .filament-stats{margin:16px 0 20px;padding:17px;border:1px solid #d5e1d9;border-radius:14px;
