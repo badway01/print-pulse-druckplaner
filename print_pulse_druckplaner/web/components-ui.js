@@ -467,6 +467,15 @@ $('catalog-rows').addEventListener('error',event=>{
  if(fallback){img.removeAttribute('data-master-thumbnail');img.src=fallback;img.alt='Produktbild (keine 3MF-Vorschau verfügbar)';}
  else img.remove();
 },true);
+function catalogCloseInfo(){
+ const shell=$('catalog-rows');
+ shell?.classList.remove('pp-catalog-info-active');
+ document.querySelectorAll('#catalog-rows .pp-catalog-file-extra.is-open').forEach(el=>{
+  el.classList.remove('is-open');
+  el.closest('.pp-catalog-master')?.classList.remove('is-info-open');
+  el.querySelector('[data-catalog-info]')?.setAttribute('aria-expanded','false');
+ });
+}
 $('catalog-rows').addEventListener('click',event=>{
  const edit=event.target.closest('[data-catalog-file-edit]');
  if(edit){
@@ -485,11 +494,12 @@ $('catalog-rows').addEventListener('click',event=>{
  if(info){
   const block=info.closest('.pp-catalog-file-extra');
   const open=!block.classList.contains('is-open');
-  document.querySelectorAll('.pp-catalog-file-extra.is-open').forEach(el=>{
-   el.classList.remove('is-open');
-   el.querySelector('[data-catalog-info]')?.setAttribute('aria-expanded','false');
-  });
-  block.classList.toggle('is-open',open);
+  catalogCloseInfo();
+  if(open){
+   block.classList.add('is-open');
+   block.closest('.pp-catalog-master')?.classList.add('is-info-open');
+   $('catalog-rows').classList.add('pp-catalog-info-active');
+  }
   info.setAttribute('aria-expanded',String(open));
   return;
  }
@@ -516,19 +526,13 @@ $('catalog-rows').addEventListener('click',event=>{
 // Click outside / Escape closes the 3MF loading details.
 document.addEventListener('click',event=>{
  if(event.target.closest('.pp-catalog-file-extra'))return;
- document.querySelectorAll('.pp-catalog-file-extra.is-open').forEach(el=>{
-  el.classList.remove('is-open');
-  el.querySelector('[data-catalog-info]')?.setAttribute('aria-expanded','false');
- });
+ catalogCloseInfo();
 });
 document.addEventListener('keydown',event=>{
  if(event.key!=='Escape')return;
- document.querySelectorAll('.pp-catalog-file-extra.is-open').forEach(el=>{
-  el.classList.remove('is-open');
-  const info=el.querySelector('[data-catalog-info]');
-  info?.setAttribute('aria-expanded','false');
-  info?.focus({preventScroll:true});
- });
+ const opened=document.querySelector('#catalog-rows .pp-catalog-file-extra.is-open');
+ const button=opened?.querySelector('[data-catalog-info]');
+ if(opened){catalogCloseInfo();button?.focus({preventScroll:true});}
 });
 // Close the floating Etsy variant menu without modifying the chosen variant.
 document.addEventListener('click',event=>{

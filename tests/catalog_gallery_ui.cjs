@@ -62,6 +62,23 @@ const assert=require('node:assert/strict');
   for(const piece of ['12 g','10 g','6 g','Schwarz','Gold Silk','Jade-Weiß']){
    assert(infoText.includes(piece),'The info popover must show '+piece+' per plate, not just 28 g total');
   }
+  await page.evaluate(()=>{
+   const original=printTools.files.find(f=>f.id==='aaaaaaaaaaaaaaaaaaaaaaaa');
+   printTools.files.push({...original,id:'bbbbbbbbbbbbbbbbbbbbbbbb',filename:'Zweite Datei.3mf'});
+   renderCatalog();
+  });
+  const infoButtons=card.locator('[data-catalog-info]');
+  assert.equal(await infoButtons.count(),2);
+  await infoButtons.first().click();
+  assert.equal(await infoButtons.nth(1).isVisible(),false,
+   'Another info icon must be invisible while the first panel is open');
+  await page.keyboard.press('Escape');
+  assert.equal(await infoButtons.nth(1).isVisible(),true,
+   'Closing restores the other info icons');
+  await page.evaluate(()=>{
+   printTools.files=printTools.files.filter(f=>f.id!=='bbbbbbbbbbbbbbbbbbbbbbbb');
+   renderCatalog();
+  });
   await card.locator('.pp-catalog-file-open>summary').click();
   assert.equal(await card.locator('.pp-catalog-open-links .pp-slicer-action').count(),4);
   assert.match(await card.locator('.pp-slicer-prusa').getAttribute('href'),/^printpulse3mf:\/\/prusa\/aaaaaaaaaaaaaaaaaaaaaaaa/);

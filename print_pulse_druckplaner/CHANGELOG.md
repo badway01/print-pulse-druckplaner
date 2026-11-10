@@ -1,3 +1,10 @@
+## 0.13.60 – Filamentbelegung automatisch in Grammformular übernehmen (10.11.2026)
+
+- Filamentfarben, interne Nummern und Steckplätze werden unten aus der oberen AMS-/Düsenbelegung automatisch übernommen; doppelt belegte Filamente erscheinen nur einmal. Kein zweiter Farbwähler mehr, sobald ein Druckprofil vorhanden ist.
+- Bereits vorhandene Verbrauchswerte bleiben mit passender Filament-ID oder eindeutigem Farbwert verknüpft. Fehlende Grammwerte werden nicht erfunden, Druckdauer kann auch einzeln gespeichert werden.
+- Farbmodus ist als optionale Einstellung verfügbar. Die Anzeige aktualisiert sich nach Änderungen der oberen Belegung.
+- Bei geöffnetem Infofenster in der Produktübersicht verschwinden die anderen grünen Info-Symbole und die geöffnete Datei liegt im Vordergrund.
+
 ## 0.13.59 – Freigabe- und HA-Dateiserverkorrektur (10.11.2026)
 
 - Das neue 3MF-Info-Skript wird ausdrücklich vom Home-Assistant-Dateiserver ausgeliefert, vom Sicherheitscheck zugelassen und in der JavaScript-Prüfung validiert.
