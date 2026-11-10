@@ -386,10 +386,11 @@ function catalogMasterRows(p) {
        '<span class="pp-catalog-file-tag">Version '+esc(f.revision_no||1)+'</span>'+
        (f.needs_review?'<span class="pp-catalog-file-tag pp-catalog-review-tag">Druckerprofil prüfen</span>':'')+
        '<div class="pp-catalog-file-metrics"><span>◷ '+esc(metrics.seconds)+'</span><span>◉ '+esc(metrics.grams)+'</span></div></div>'+
-       '<div class="pp-catalog-file-extra"><button type="button" data-catalog-info aria-expanded="false" aria-label="Dateiinformationen anzeigen" title="Dateiinformationen">ⓘ</button>'+
-        '<div class="pp-catalog-file-popover"><strong>Dateiinformationen</strong>'+
+       '<div class="pp-catalog-file-extra"><button type="button" data-catalog-info aria-expanded="false" aria-controls="pp-catalog-file-info-'+esc(f.id)+'" aria-label="Filamentbelegung anzeigen" title="Filamentbelegung anzeigen"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/></svg></button>'+
+        '<div class="pp-catalog-file-popover" id="pp-catalog-file-info-'+esc(f.id)+'" role="region" aria-label="3MF-Druckdaten und Filamentbelegung"><strong>Dateiinformationen</strong>'+
          '<p>3MF · '+esc(f.printer)+' · '+esc(bytes)+' · '+esc(date)+'</p>'+
          (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f,true):'<p>Noch keine Druckdaten erfasst.</p>')+
+         (typeof window.ppCatalog3mfInfo==='function'?window.ppCatalog3mfInfo(f):'')+
         '</div></div>'+
      '</div>'+
      '<div class="pp-catalog-file-actions">'+
@@ -481,7 +482,17 @@ $('catalog-rows').addEventListener('click',event=>{
   });return;
  }
  const info=event.target.closest('[data-catalog-info]');
- if(info){const block=info.closest('.pp-catalog-file-extra');const open=!block.classList.contains('is-open');block.classList.toggle('is-open',open);info.setAttribute('aria-expanded',String(open));return;}
+ if(info){
+  const block=info.closest('.pp-catalog-file-extra');
+  const open=!block.classList.contains('is-open');
+  document.querySelectorAll('.pp-catalog-file-extra.is-open').forEach(el=>{
+   el.classList.remove('is-open');
+   el.querySelector('[data-catalog-info]')?.setAttribute('aria-expanded','false');
+  });
+  block.classList.toggle('is-open',open);
+  info.setAttribute('aria-expanded',String(open));
+  return;
+ }
  const variant=event.target.closest('[data-catalog-variant-choice]');
  if(variant){
   const id=String(variant.dataset.catalogVariantChoice);
@@ -501,6 +512,23 @@ $('catalog-rows').addEventListener('click',event=>{
  const id=String(button.dataset.catalogExpand);
  if(catalogExpanded.has(id))catalogExpanded.clear();else{catalogExpanded.clear();catalogExpanded.add(id);}
  renderCatalog();
+});
+// Click outside / Escape closes the 3MF loading details.
+document.addEventListener('click',event=>{
+ if(event.target.closest('.pp-catalog-file-extra'))return;
+ document.querySelectorAll('.pp-catalog-file-extra.is-open').forEach(el=>{
+  el.classList.remove('is-open');
+  el.querySelector('[data-catalog-info]')?.setAttribute('aria-expanded','false');
+ });
+});
+document.addEventListener('keydown',event=>{
+ if(event.key!=='Escape')return;
+ document.querySelectorAll('.pp-catalog-file-extra.is-open').forEach(el=>{
+  el.classList.remove('is-open');
+  const info=el.querySelector('[data-catalog-info]');
+  info?.setAttribute('aria-expanded','false');
+  info?.focus({preventScroll:true});
+ });
 });
 // Close the floating Etsy variant menu without modifying the chosen variant.
 document.addEventListener('click',event=>{

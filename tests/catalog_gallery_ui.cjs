@@ -18,7 +18,10 @@ const assert=require('node:assert/strict');
      {filament_id:3,name:'Jade-Weiß',color_hex:'#ffffff',grams:6,code:'1'}
     ]}};
   await page.route('**/api/print-tools*',route=>route.fulfill({
-   json:{files:[file],profiles:[{listing_id:'101',variant_id:'',printer:'H2D',sources:[],colors:[
+   json:{files:[file],profiles:[{listing_id:'101',variant_id:'',printer:'H2D',sources:[
+     {type:'ams_ht',side:'left',label:'AMS HT 1',slots:[1]},
+     {type:'ams',side:'right',label:'AMS 1',slots:[2,3,null,null]}
+    ],colors:[
     {id:1,code:'5',color:'Schwarz',hex:'#111111',slot:'Düse links'},
     {id:2,code:'27',color:'Gold Silk',hex:'#d7ae42',slot:'Düse links'},
     {id:3,code:'1',color:'Jade-Weiß',hex:'#ffffff',slot:'Düse rechts'}
@@ -50,6 +53,11 @@ const assert=require('node:assert/strict');
   assert.equal(await card.locator('[data-catalog-file]').count(),1,'Shared masters must remain visible for specific colors');
   await card.locator('.pp-catalog-file-extra>[data-catalog-info]').click();
   assert.match(await card.locator('.pp-catalog-file-popover').innerText(),/1[.,]0 MB/);
+  assert.equal(await card.locator('[data-catalog-info] svg').count(),1);
+  const loading=await card.locator('.pp-catalog-loading-plan').innerText();
+  for(const value of ['Düse links','Düse rechts','AMS HT 1','Slot 1','Slot 2','Schwarz','Gold Silk']){
+   assert(loading.includes(value),'The saved H2D physical loading plan must show '+value);
+  }
   const infoText=await card.locator('.pp-catalog-file-popover').innerText();
   for(const piece of ['12 g','10 g','6 g','Schwarz','Gold Silk','Jade-Weiß']){
    assert(infoText.includes(piece),'The info popover must show '+piece+' per plate, not just 28 g total');

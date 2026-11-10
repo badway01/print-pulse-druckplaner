@@ -1,3 +1,10 @@
+## 0.13.58 – 3MF-Dateiinfos und physische Filamentbelegung (10.11.2026)
+
+- Grünes, exakt zentriertes SVG-Info-Symbol statt verschobenem Unicode-Zeichen; Info öffnet per Klick, Escape und Außerklick schließen.
+- Die 3MF-Karten zeigen gespeicherte AMS- und Düsenbelegung inklusive Slot, interner Nummer, Farbe und Material: H2D links/rechts, Snapmaker U1 T0–T3 und P1S/X2D nach hinterlegten Quellen.
+- Originalfarben und Grammverbrauch laut 3MF sind getrennt von den gespeicherten Steckplatzinformationen dargestellt. Nicht gespeicherte Belegungen werden ausdrücklich als unbekannt markiert.
+- Bestehende Masterdateien, Lagerdaten und Druckprofile werden nicht geändert.
+
 # 0.13.57 · Bambu X2D und moderne 3MF-Druckerauswahl
 
 - X2D als fünften Produktionsdrucker für Master-3MF-Upload, Samba-Import, Mehrfachzuordnung, eigene 3MF-Dateien und separate Druck-/Filamentprofile ergänzt.
