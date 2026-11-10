@@ -145,8 +145,8 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('.master-project-card [data-insight-filament]').count(),2);
   assert.equal(await page.locator('.master-project-card select[data-insight-filament]').count(),0,
    'Assigned upper profile must remove redundant color selectors below');
-  assert.match(await page.locator('.master-project-card [data-insight-rows]').innerText(),/11 · Sakura Pink/);
-  assert.match(await page.locator('.master-project-card [data-insight-rows]').innerText(),/9 · Light Green/);
+  assert.match(await page.locator('.master-project-card [data-insight-rows]').textContent(),/11 · Sakura Pink/);
+  assert.match(await page.locator('.master-project-card [data-insight-rows]').textContent(),/9 · Light Green/);
   assert.match(await page.locator('.master-project-card .master-insight-card').innerText(),/Druckdaten/);
   assert.match(await page.locator('.master-project-card [data-master-palette-preview]').innerText(),/9 · Light Green/);
   assert.match(await page.locator('.master-project-card [data-master-palette-preview]').innerText(),/11 · Sakura Pink/);
