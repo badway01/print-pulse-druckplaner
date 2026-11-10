@@ -46,6 +46,7 @@ jobs:
           node --check print_pulse_druckplaner/web/farm-ui.js
           node --check print_pulse_druckplaner/web/master-insights-ui.js
           node --check print_pulse_druckplaner/web/components-ui.js
+          node --check print_pulse_druckplaner/web/catalog-3mf-info.js
           node --check print_pulse_druckplaner/web/priority-ui.js
           node --check print_pulse_druckplaner/web/economics-ui.js
           node --check print_pulse_druckplaner/web/local-orders-ui.js

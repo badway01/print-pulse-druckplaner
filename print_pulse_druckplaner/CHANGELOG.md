@@ -1,3 +1,8 @@
+## 0.13.59 – Freigabe- und HA-Dateiserverkorrektur (10.11.2026)
+
+- Das neue 3MF-Info-Skript wird ausdrücklich vom Home-Assistant-Dateiserver ausgeliefert, vom Sicherheitscheck zugelassen und in der JavaScript-Prüfung validiert.
+- Cache-Versionen aktualisiert. Keine Änderungen an Bestandsdaten oder gespeicherten Druckdateien.
+
 ## 0.13.58 – 3MF-Dateiinfos und physische Filamentbelegung (10.11.2026)
 
 - Grünes, exakt zentriertes SVG-Info-Symbol statt verschobenem Unicode-Zeichen; Info öffnet per Klick, Escape und Außerklick schließen.
