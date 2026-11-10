@@ -421,6 +421,9 @@ function catalogMasterRows(p) {
 renderCatalog=function(){
  if(!model)return;
  const shell=$('catalog-rows');if(!shell)return;
+ // A background refresh rebuilds the cards. Never leave hidden info icons
+ // behind when the previously open popover has been discarded.
+ shell.classList.remove('pp-catalog-info-active');
  const search=$('catalog-search').value.trim().toLocaleLowerCase('de');
  const matches=model.products.filter(p=>p.state==='active'&&p.title.toLocaleLowerCase('de').includes(search));
  const current=[...catalogExpanded].find(id=>matches.some(p=>String(p.id)===id));

@@ -1,3 +1,8 @@
+## 0.13.61 – Infofenster beim Neuzeichnen sauber zurücksetzen (10.11.2026)
+
+- Produktkarten-Aktualisierungen räumen den geöffneten 3MF-Infozustand korrekt auf. Kein dauerhaftes Ausblenden anderer Info-Symbole bei periodischem Daten-Refresh.
+- Alle automatischen Farb-/Gramm-Funktionen aus 0.13.60 bleiben erhalten.
+
 ## 0.13.60 – Filamentbelegung automatisch in Grammformular übernehmen (10.11.2026)
 
 - Filamentfarben, interne Nummern und Steckplätze werden unten aus der oberen AMS-/Düsenbelegung automatisch übernommen; doppelt belegte Filamente erscheinen nur einmal. Kein zweiter Farbwähler mehr, sobald ein Druckprofil vorhanden ist.
