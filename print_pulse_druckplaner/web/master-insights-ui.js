@@ -63,6 +63,107 @@
      (fromProfile && rows.length ? '<small>Farben aus dem Druckprofil'+(knownGrams?' · Grammwerte aus der 3MF oder gespeicherten Druckdaten.':' · Gramm je Farbe noch nicht hinterlegt. Unter Bearbeiten ergänzen.')+'</small>' : '') +
      '</div>';
  }
+
+ // Collect every distinct filament already assigned in the upper 3MF profile.
+ // A repeated filament ID in two AMS slots still needs just one grams field.
+ function assignedFilaments(file){
+   const choices=(printTools.profiles||[]).filter(p=>
+     String(p.listing_id)===String(file.listing_id)&&p.printer===file.printer);
+   const saved=choices.find(p=>String(p.variant_id||'')===String(file.variant_id||''))||
+     choices.find(p=>!p.variant_id);
+   const current=typeof selectedMasterTarget==='function'?selectedMasterTarget():null;
+   const draft=masterContext&&String(masterContext.id)===String(file.listing_id)&&
+     masterColorEditFileId===file.id&&current&&current.printer===file.printer&&
+     String(current.variant_id||'')===String(file.variant_id||'');
+   const sources=draft?masterSources:saved?.sources;
+   const assigned=new Map();
+   for(const src of Array.isArray(sources)?sources:[]){
+     if(!Array.isArray(src?.slots))continue;
+     src.slots.forEach((fid,i)=>{
+       const id=Number(fid);
+       if(!Number.isSafeInteger(id)||id<=0)return;
+       const record=(filamentData?.filaments||[]).find(f=>Number(f.id)===id);
+       const snapshot=(saved?.colors||[]).find(f=>Number(f.id)===id);
+       const library=(printTools.filaments_library||[]).find(f=>Number(f.id)===id);
+       const where=[
+         file.printer==='H2D'?(src.side==='left'?'Düse links':src.side==='right'?'Düse rechts':'Düse nicht zugeordnet'):'',
+         src.label||'Filamentquelle',src.type==='ams'?'Slot '+(i+1):'Spule'
+       ].filter(Boolean).join(' · ');
+       if(assigned.has(id)){assigned.get(id).places.push(where);return;}
+       assigned.set(id,{filament_id:id,
+         code:record?.internal_code||snapshot?.code||library?.code||'',
+         name:record?.color||snapshot?.color||library?.name||'Filament '+id,
+         hex:record?.color_hex||snapshot?.hex||library?.hex||'',
+         material:record?.material||snapshot?.material||'',
+         places:[where],grams:null});
+     });
+   }
+   const rows=[...assigned.values()];
+   const measurements=Array.isArray(file.insights?.filaments)?file.insights.filaments:[];
+   const used=new Set();
+   for(const item of rows){
+     let found=measurements.map((m,i)=>({m,i})).filter(({m,i})=>
+       !used.has(i)&&m.filament_id!=null&&Number(m.filament_id)===item.filament_id);
+     if(found.length!==1){
+       const hex=String(item.hex||'').toLowerCase();
+       const code=String(item.code||'');
+       const codeUnique=code&&rows.filter(x=>x.code===code).length===1;
+       const hexUnique=/^#[0-9a-f]{6}$/.test(hex)&&rows.filter(x=>String(x.hex||'').toLowerCase()===hex).length===1;
+       const byCode=codeUnique?measurements.map((m,i)=>({m,i})).filter(({m,i})=>
+         !used.has(i)&&m.code&&String(m.code)===code):[];
+       const byHex=hexUnique?measurements.map((m,i)=>({m,i})).filter(({m,i})=>
+         !used.has(i)&&String(m.color_hex||'').toLowerCase()===hex):[];
+       found=byCode.length===1?byCode:byHex.length===1?byHex:[];
+     }
+     if(found.length===1){
+       const {m,i}=found[0];
+       item.grams=Number.isFinite(m.grams)&&m.grams>0?m.grams:null;
+       used.add(i);
+     }
+   }
+   return rows;
+ }
+ function assignedInputRow(item){
+   const name=[item.code,item.name].filter(Boolean).join(' · ');
+   return '<div class="master-insight-input-row pp-insight-assigned-row">'+
+    '<div class="pp-insight-assigned-color"><span class="master-insight-dot" style="background:'+safeColor(item.hex)+'"></span>'+
+    '<span><strong>'+esc(name)+'</strong><small>'+esc([item.material,...item.places].filter(Boolean).join(' · '))+'</small></span></div>'+
+    '<input type="hidden" data-insight-filament value="'+item.filament_id+'">'+
+    '<label>Verbrauch (g)<input type="number" data-insight-grams inputmode="decimal" min="0" max="100000" step="0.01"'+
+    ' placeholder="Gramm fehlen" aria-label="Verbrauch in Gramm für '+esc(name)+'" value="'+
+    (Number.isFinite(item.grams)?item.grams:'')+'"></label></div>';
+ }
+ // Rebuild only the lower 3MF form when the upper palette changes.
+ // Duration and pending gram entries are retained.
+ window.ppSyncMasterInsightForms=function(){
+   document.querySelectorAll('#master-files form[data-master-insight-form]').forEach(form=>{
+     const file=(printTools.files||[]).find(f=>String(f.id)===form.dataset.masterInsightForm);
+     if(!file)return;
+     const details=form.closest('.master-insight-edit');
+     if(!details)return;
+     const hours=form.querySelector('[data-insight-hours]')?.value||'';
+     const minutes=form.querySelector('[data-insight-minutes]')?.value||'';
+     const mode=form.querySelector('[data-insight-mode]')?.value||'fixed';
+     const masses=new Map([...form.querySelectorAll('.master-insight-input-row')].map(row=>[
+       row.querySelector('[data-insight-filament]')?.value||'',
+       row.querySelector('[data-insight-grams]')?.value||''
+     ]));
+     const template=document.createElement('template');
+     template.innerHTML=editHtml(file);
+     const next=template.content.firstElementChild;
+     next.open=details.open;
+     const nextForm=next.querySelector('form');
+     nextForm.querySelector('[data-insight-hours]').value=hours;
+     nextForm.querySelector('[data-insight-minutes]').value=minutes;
+     nextForm.querySelector('[data-insight-mode]').value=mode;
+     nextForm.querySelectorAll('.master-insight-input-row').forEach(row=>{
+       const id=row.querySelector('[data-insight-filament]')?.value||'';
+       const value=masses.get(id);
+       if(id&&value!==undefined&&value!=='')row.querySelector('[data-insight-grams]').value=value;
+     });
+     details.replaceWith(next);
+   });
+ };
  function spoolOptionHtml(selected) {
    const options = (printTools.filaments_library || []).slice().sort((a,b) =>
      (a.code || '').localeCompare(b.code || '', 'de', {numeric:true}) ||
@@ -80,28 +181,39 @@
      '<button type="button" data-insight-remove aria-label="Filamentzeile entfernen" title="Zeile entfernen">×</button></div>';
  }
  function editHtml(file) {
-   const rows = file.insights?.filaments || [];
-   const defaults = rows.length ? rows : profileColors(file).map(f => ({filament_id:f.id,grams:null}));
-   const seconds = file.insights?.time_seconds;
-   const hours = Number.isFinite(seconds) ? Math.floor(seconds / 3600) : '';
-   const minutes = Number.isFinite(seconds) ? Math.floor(seconds / 60) % 60 : '';
-   const mode = file.insights?.color_mode === 'custom' ? 'custom' : 'fixed';
-   return '<details class="master-insight-edit"><summary>Master & Druckdaten bearbeiten</summary>' +
-     '<form data-master-insight-form="' + esc(file.id) + '" class="master-insight-form">' +
-     '<label>Farbzuordnung<select data-insight-mode>' +
-     '<option value="fixed"' + (mode==='fixed'?' selected':'') + '>Festfarben – immer gleiche Farben</option>' +
-     '<option value="custom"' + (mode==='custom'?' selected':'') + '>Wunschfarben – aus der Bestellung</option>' +
-     '</select></label>' +
-     '<div class="master-insight-time"><label>Stunden laut Slicer<input type="number" data-insight-hours min="0" max="2400" inputmode="numeric" value="' +
-     hours + '" placeholder="0"></label>' +
-     '<label>Minuten<input type="number" data-insight-minutes min="0" max="59" inputmode="numeric" value="' +
-     minutes + '" placeholder="0"></label></div>' +
-     '<strong>Filament aus deiner Bibliothek · Verbrauch je Druckplatte</strong>' +
-     '<div data-insight-rows>' + (defaults.length ? defaults.map(inputRow).join('') : inputRow()) + '</div>' +
-     '<div class="master-insight-edit-actions"><button type="button" class="secondary small" data-insight-add>+ Filament</button>' +
-     '<button type="submit" class="primary small">Druckdaten speichern</button></div>' +
-     '<small>Die Kosten werden automatisch mit deinen gespeicherten Filamentpreisen und Druckereinstellungen berechnet. Bei Wunschfarben ist der Preis ein Richtwert auf Grundlage der hinterlegten Referenzfilamente.</small>' +
-     '</form></details>';
+   const rows=file.insights?.filaments||[];
+   const assigned=assignedFilaments(file);
+   const auto=assigned.length>0;
+   const complete=auto&&assigned.every(f=>Number.isFinite(f.grams)&&f.grams>0);
+   const missing=assigned.filter(f=>!Number.isFinite(f.grams)||f.grams<=0).length;
+   const defaults=rows.length?rows:profileColors(file).map(f=>({filament_id:f.id,grams:null}));
+   const seconds=file.insights?.time_seconds;
+   const hours=Number.isFinite(seconds)?Math.floor(seconds/3600):'';
+   const minutes=Number.isFinite(seconds)?Math.floor(seconds/60)%60:'';
+   const mode=file.insights?.color_mode==='custom'?'custom':'fixed';
+   return '<details class="master-insight-edit"><summary>Master & Druckdaten bearbeiten</summary>'+
+    '<form data-master-insight-form="'+esc(file.id)+'" class="master-insight-form"'+(auto?' data-insight-auto="true"':'')+'>'+
+    '<div class="master-insight-time"><label>Stunden laut Slicer<input type="number" data-insight-hours min="0" max="2400" inputmode="numeric" value="'+
+    hours+'" placeholder="0"></label>'+
+    '<label>Minuten<input type="number" data-insight-minutes min="0" max="59" inputmode="numeric" value="'+
+    minutes+'" placeholder="0"></label></div>'+
+    (auto?'<details class="pp-insight-optional-masses"'+(complete?'':' open')+'><summary>'+
+      (complete?'Filamentverbrauch übernommen · bei Bedarf ändern':
+       'Verbrauch ergänzen: '+missing+' Farbe'+(missing===1?'':'n')+' ohne Grammwert')+'</summary>'+
+      '<p class="pp-insight-help">Farben und Steckplätze kommen automatisch von oben. Grammwerte werden aus der 3MF oder gespeicherten Druckdaten übernommen. Fehlende Mengen bitte einmal ergänzen.</p>'+
+      '<div data-insight-rows>'+assigned.map(assignedInputRow).join('')+'</div></details>':
+      '<div class="pp-insight-no-profile"><strong>Oben noch keine Filamentbelegung gespeichert.</strong>'+
+      '<small>Bitte die Farben und AMS-Slots zuordnen. Bis dahin bleibt die manuelle Eingabe verfügbar.</small></div>'+
+      '<div data-insight-rows>'+(defaults.length?defaults.map(inputRow).join(''):inputRow())+'</div>'+
+      '<button type="button" class="secondary small" data-insight-add>+ Filament</button>')+
+    '<details class="pp-insight-optional-mode"'+(mode==='custom'?' open':'')+'><summary>Farbmodus / Wunschfarben (optional)</summary>'+
+    '<label>Farbzuordnung<select data-insight-mode>'+
+    '<option value="fixed"'+(mode==='fixed'?' selected':'')+'>Festfarben – immer gleiche Farben</option>'+
+    '<option value="custom"'+(mode==='custom'?' selected':'')+'>Wunschfarben – aus der Bestellung</option>'+
+    '</select></label></details>'+
+    '<div class="master-insight-edit-actions"><button type="submit" class="primary small">Druckdaten speichern</button></div>'+
+    '<small>Kosten werden aus den bekannten Grammwerten und Filamentpreisen berechnet. Unbekannte Mengen werden nicht geschätzt.</small>'+
+    '</form></details>';
  }
  window.masterInsightsMarkup = function(file, compact=false, orderColor='') {
    if (!file) return '';
@@ -177,12 +289,11 @@
    const filaments=[];
    for (const row of rows) {
      const value=row.querySelector('[data-insight-filament]').value;
-     const grams=row.querySelector('[data-insight-grams]').value;
-     if (!value && !grams) continue;
-     if (value && !grams) continue;
-     if (!value || !grams || Number(grams) <= 0) {
-       flash('Bitte zu jedem Filament auch eine Grammzahl eintragen.',true);
-       return;
+     const grams=row.querySelector('[data-insight-grams]').value.trim().replace(',','.');
+     // Blank is unknown. Duration-only saves must not invent mass or cost.
+     if (!value&&!grams || value&&!grams)continue;
+     if (!value||!Number.isFinite(Number(grams))||Number(grams)<=0){
+       flash('Bitte eine gültige Grammzahl größer 0 eingeben.',true);return;
      }
      filaments.push({filament_id:Number(value),grams:Number(grams)});
    }
@@ -193,7 +304,7 @@
    try {
      await api('master-insights',{id,action:'save',hours,minutes,filaments,clear_filaments:rows.length===0,color_mode:form.querySelector('[data-insight-mode]').value});
      await refreshFile(id);
-     flash('Druckzeit und Filamentverbrauch gespeichert. Kosten neu berechnet.');
+     flash('Druckdaten gespeichert. Bekannte Grammwerte und Kosten aktualisiert.');
    } catch(error) { flash('Druckdaten nicht gespeichert: ' + error.message,true);button.disabled=false; }
  });
 })();

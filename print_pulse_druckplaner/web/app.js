@@ -1992,6 +1992,7 @@ async function saveMaster(){
  masterBusy=true;$('master-save').disabled=true;
  try{const next=await api('print-profile',{...selectedMasterTarget(),sources:masterSources});
   printTools.profiles=[...printTools.profiles.filter(r=>r.listing_id!==masterContext.id),...next.profiles];
+  window.ppSyncMasterInsightForms?.();
   render();renderCatalog();renderMasterFiles();
   $('master-profile-status').textContent='✓ Filamentbelegung gespeichert.';
   $('master-profile-status').dataset.state='success';
@@ -2286,6 +2287,7 @@ $('master-printer').addEventListener('change',masterSelectionChanged);
 $('master-variant').addEventListener('change',masterSelectionChanged);
 function markMasterColorsDirty(){
  refreshMasterPalettePreview();
+ window.ppSyncMasterInsightForms?.();
  $('master-profile-status').textContent='Belegung geändert · bitte speichern.';
  $('master-profile-status').dataset.state='pending';
 }
