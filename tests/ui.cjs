@@ -206,8 +206,8 @@ assert(navCheck.scrollWidth>=navCheck.clientWidth-3,'desktop navigation remains 
 // Connected calculator and real printer checklist work inside the Home Assistant preview.
 await page.locator('[data-workspace="calculator"]').click();
 await page.locator('#calculator-shell').waitFor({state:'visible'});
-await page.waitForFunction(()=>document.querySelectorAll('#econ-printer-checklist .econ-printer-chip').length===6);
-assert.equal(await page.locator('#econ-printer-checklist .econ-printer-chip').count(),6);
+await page.waitForFunction(()=>document.querySelectorAll('#econ-printer-checklist .econ-printer-chip').length===7);
+assert.equal(await page.locator('#econ-printer-checklist .econ-printer-chip').count(),7,'five production printers plus two legacy printers');
 await page.locator('#econ-hours').fill('2');
 await page.locator('#econ-minutes').fill('10');
 assert((await page.locator('#econ-results').textContent()).includes('Gesamtkosten der Druckcharge'),'charge cost shown');
