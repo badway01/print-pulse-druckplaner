@@ -1849,7 +1849,7 @@ function masterPalettePreviewMarkup(file){
    file.printer==='Snapmaker U1'?['t0','t1','t2','t3'].map(v=>[v,v.toUpperCase()]):[['unassigned','Zuordnen']];
   const actions=active?'<div class="master-original-assign" role="group" aria-label="'+esc(name)+' zuordnen">'+
    sideButtons.map(([side,label])=>'<button type="button" class="secondary small" data-master-original-assign="'+i+
-    '" data-master-original-side="'+esc(side)+'" data-master-original-file="'+esc(file.id)+'" title="'+esc(name+' · '+label+'">'+label+'</button>').join('')+'</div>':'';
+    '" data-master-original-side="'+esc(side)+'" data-master-original-file="'+esc(file.id)+'" title="'+esc(name+' · '+label)+'">'+label+'</button>').join('')+'</div>':'';
   return '<div class="master-original-row">'+swatch(row.color_hex)+'<span class="master-original-name">'+esc(name)+'</span>'+
    (Number.isFinite(row.grams)&&row.grams>0?'<small>'+Number(row.grams).toLocaleString('de-DE')+' g</small>':'')+
    actions+'</div>';
