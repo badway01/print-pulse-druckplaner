@@ -1828,7 +1828,7 @@ function masterPalettePreviewMarkup(file){
   side,sources:sources.filter(s=>file.printer==='H2D'?masterNozzleSide(s)===side:
    file.printer==='Snapmaker U1'?s.side===side:side==='unassigned')
  })).filter(g=>g.sources.some(s=>s.slots.some(Boolean)));
- const swatch=(hex)=>'<span class="master-insight-dot" style="background:'+esc(masterSwatchHex(hex))+'"></span>';
+ const swatch=hex=>'<span class="master-insight-dot" style="background:'+esc(masterSwatchHex(hex))+'"></span>';
  const previewGroups=groups.map(g=>'<div class="pp-palette-view-group"><div class="pp-palette-view-label">'+
   esc(file.printer==='H2D'?masterNozzleLabel(g.side):file.printer==='Snapmaker U1'?'Kopf '+g.side.toUpperCase():'Filamentquellen')+'</div>'+
   g.sources.map(s=>'<div class="pp-palette-view-source"><small>'+esc(s.label)+'</small><div class="master-insight-colors">'+
@@ -1840,20 +1840,35 @@ function masterPalettePreviewMarkup(file){
     return '<span class="master-insight-color pp-palette-label-chip" data-master-preview-filament="'+esc(fid)+'" title="'+esc(caption+' · '+info)+'">'+
      swatch(f?.color_hex)+'<span>'+esc(caption)+'</span></span>';
    }).join('')+'</div></div>').join('')+'</div>').join('');
- const original=(file.insights?.filaments||[]).map(row=>'<span class="master-insight-color" title="'+esc(row.name||'3MF-Filament')+'">'+
-  swatch(row.color_hex)+'<span>'+esc(row.code?row.code+' · '+row.name:row.name||'PLA')+'</span></span>').join('');
- const assigned=sources.some(s=>s.slots.some(Boolean));
- const originalDetails=original&&assigned?'<details class="pp-palette-original"><summary>Originalfarben der 3MF ansehen ('+
-  (file.insights?.filaments||[]).length+')</summary><div class="master-insight-colors">'+original+'</div>'+
-  '<small>Aus der gespeicherten 3MF gelesen – keine zusätzliche AMS-Belegung. Diese Farben werden nicht automatisch geändert.</small></details>':'';
- const activePalette=assigned?previewGroups:(original?
-  '<div class="master-insight-colors">'+original+'</div><small class="pp-palette-origin">Aus 3MF gelesen · noch keine AMS-Farben gespeichert</small>':
-  '<p class="master-insight-missing">Noch keine Farben zugeordnet.</p>');
- return '<div class="master-insight-palette pp-palette-inline"><div class="pp-palette-header"><strong>Benötigte Filamente</strong>'+
- (active?'<button type="button" class="pp-palette-edit-button" data-master-color-edit="'+esc(file.id)+'" aria-expanded="'+(masterColorEditFileId===file.id)+'">'+
-  (masterColorEditFileId===file.id?'Schließen':'Farben & Düsen bearbeiten')+'</button>':'')+'</div>'+
- '<div class="pp-palette-live-preview" data-master-palette-preview="'+esc(file.id)+'">'+activePalette+originalDetails+'</div>'+
- (active?'<div data-master-palette-mount="'+esc(file.id)+'"></div>':'')+'</div>';
+ // The raw 3MF already contains colors. Display them first, without
+ // pretending that a slicer color uniquely identifies a stock filament.
+ const originalRows=Array.isArray(file.insights?.filaments)?file.insights.filaments:[];
+ const original=originalRows.map((row,i)=>{
+  const name=[row.code,row.name].filter(Boolean).join(' · ')||'3MF-Farbe '+(i+1);
+  const sideButtons=file.printer==='H2D'?[['left','Links'],['right','Rechts']]:
+   file.printer==='Snapmaker U1'?['t0','t1','t2','t3'].map(v=>[v,v.toUpperCase()]):[['unassigned','Zuordnen']];
+  const actions=active?'<div class="master-original-assign" role="group" aria-label="'+esc(name)+' zuordnen">'+
+   sideButtons.map(([side,label])=>'<button type="button" class="secondary small" data-master-original-assign="'+i+
+    '" data-master-original-side="'+esc(side)+'" data-master-original-file="'+esc(file.id)+'" title="'+esc(name+' · '+label+'">'+label+'</button>').join('')+'</div>':'';
+  return '<div class="master-original-row">'+swatch(row.color_hex)+'<span class="master-original-name">'+esc(name)+'</span>'+
+   (Number.isFinite(row.grams)&&row.grams>0?'<small>'+Number(row.grams).toLocaleString('de-DE')+' g</small>':'')+
+   actions+'</div>';
+ }).join('');
+ const assigned=sources.some(s=>(s.slots||[]).some(Boolean));
+ const activePalette=assigned?previewGroups:
+  '<p class="master-insight-missing">Noch keine Filamentbelegung gespeichert. Oben eine 3MF-Farbe zuordnen oder unten „+ Farbe suchen“ verwenden.</p>';
+ return '<div class="master-insight-palette pp-palette-inline">'+
+  (original?'<div class="master-original-box"><strong>Farben direkt aus der 3MF</strong>'+
+   '<p>Farbe dem passenden Druckkopf zuweisen. Die konkrete Lagerfarbe wird eindeutig erkannt oder über die Suche ausgewählt.</p>'+
+   '<div class="master-original-list">'+original+'</div></div>':
+   '<p class="master-original-empty">In dieser 3MF wurden keine eindeutigen Originalfarben gefunden. Du kannst die Filamente manuell zuordnen.</p>')+
+  '<div class="pp-palette-header"><strong>Deine Filament- und Düsenbelegung</strong>'+
+  (active?'<div class="master-workflow-color-actions">'+
+   '<button type="button" class="secondary small" data-master-color-add="'+esc(file.id)+'">+ Farbe suchen</button>'+
+   '<button type="button" class="pp-palette-edit-button" data-master-color-edit="'+esc(file.id)+'" aria-expanded="'+(masterColorEditFileId===file.id)+'">'+
+   (masterColorEditFileId===file.id?'Schließen':'AMS & Düsen bearbeiten')+'</button></div>':'')+'</div>'+
+  '<div class="pp-palette-live-preview" data-master-palette-preview="'+esc(file.id)+'">'+activePalette+'</div>'+
+  (active?'<div data-master-palette-mount="'+esc(file.id)+'"></div>':'')+'</div>';
 }
 function refreshMasterPalettePreview(){
  if(!masterColorEditFileId||!masterContext)return;
@@ -1901,12 +1916,12 @@ function renderMasterPickerResults(){
   (!spools.length?'<p class="master-picker-no-results">Keine Farbe gefunden. Bitte Suchbegriff ändern oder die Farbe zuerst in der Filamentbibliothek anlegen.</p>':''));
 }
 let masterColorFixTarget=null;
-function openMasterPicker(source,slot){
+function openMasterPicker(source,slot,search=''){
  if(!masterSources[source]||slot<0||slot>=masterSources[source].slots.length)return;
  masterColorFixTarget=null;$('master-color-correction').hidden=true;
  masterPickerTarget={source,slot};
  $('master-filament-picker-title').textContent=masterSources[source].label+' · '+(masterSources[source].type==='toolhead'?'Filament':'Platz '+(slot+1));
- $('master-filament-search').value='';
+ $('master-filament-search').value=search;
  $('master-filament-picker-overlay').hidden=false;
  renderMasterPickerResults();
  $('master-filament-search').focus();
@@ -1947,7 +1962,10 @@ function renderMasterFiles(){
    (index===0?'<span class="master-project-latest">Aktuell</span>':'')+'</div>'+
    '<div class="master-project-meta"><span>'+esc(printerLabel)+'</span><span>'+esc(stamp)+'</span><span>'+(f.bytes/1048576).toFixed(1)+' MB</span></div></div>'+
    '<button type="button" class="master-delete" data-master-delete="'+esc(f.id)+'" title="3MF löschen" aria-label="'+esc(f.filename)+' löschen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div>'+
-   (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f):'')+
+   '<section class="master-workflow-inner master-workflow-colors"><div class="master-workflow-heading"><span class="master-workflow-number">2</span><div><h3>Farben und Düsen zuordnen</h3><p>Originalfarben anklicken, Druckkopf zuordnen und bei Bedarf in deiner Filamentbibliothek suchen.</p></div></div>'+
+   masterPalettePreviewMarkup(f)+'</section>'+
+   '<section class="master-workflow-inner master-workflow-metrics"><div class="master-workflow-heading"><span class="master-workflow-number">3</span><div><h3>Gramm und Druckzeit</h3><p>Filamente aus Schritt 2 werden übernommen. Fehlende Mengen und Druckdauer ergänzen.</p></div></div>'+
+   (typeof masterInsightsMarkup==='function'?masterInsightsMarkup(f,false,'',true,index===0):'')+'</section>'+
    (f.needs_review?'<p class="master-verify-warning">Für diesen Drucker prüfen: Die H2D hat neuere Projekteinstellungen oder die Datei wurde nur als Vorlage kopiert. Erst nach Anpassung im Slicer freigeben.</p>'+
     ((base&&['P1S Old','P1S New'].includes(f.printer))?
       '<button type="button" class="secondary small" data-master-sync="'+esc(f.id)+'" data-master-source="'+esc(base.id)+'">Kompatible H2D-Einstellungen übernehmen</button>':'')+
@@ -2297,6 +2315,71 @@ $('master-files').addEventListener('click',event=>{
  masterColorEditFileId=masterColorEditFileId===id?null:id;
  renderMasterFiles();
 });
+// Assign recognized 3MF colors to a physical nozzle / toolhead.
+// An unambiguous stock match can be used directly; otherwise open the
+// existing searchable filament picker rather than guessing a material.
+function masterOriginalStockMatch(row){
+ const filaments=filamentData?.filaments||[];
+ const unique=filter=>{const matches=filaments.filter(filter);return matches.length===1?matches[0]:null;};
+ const id=Number(row?.filament_id);
+ if(Number.isSafeInteger(id)&&id>0){
+  const exact=unique(f=>Number(f.id)===id);if(exact)return exact;
+ }
+ const code=String(row?.code||'').trim().toLowerCase();
+ if(code){
+  const exact=unique(f=>[f.internal_code,f.manufacturer_code].some(x=>String(x||'').trim().toLowerCase()===code));
+  if(exact)return exact;
+ }
+ const name=String(row?.name||'').trim().toLowerCase();
+ if(name){
+  const exact=unique(f=>String(f.color||'').trim().toLowerCase()===name);
+  if(exact)return exact;
+ }
+ const hex=String(row?.color_hex||'').trim().toLowerCase();
+ if(/^#[0-9a-f]{6}$/.test(hex))return unique(f=>String(f.color_hex||'').toLowerCase()===hex);
+ return null;
+}
+function masterOriginalDestination(side){
+ const printer=$('master-printer').value;
+ if(printer==='Snapmaker U1'){
+  const source=masterSources.findIndex(s=>s.type==='toolhead'&&s.side===side);
+  return source<0?null:{source,slot:0};
+ }
+ const source=masterSources.findIndex(s=>(printer!=='H2D'||masterNozzleSide(s)===side)&&
+  (s.slots||[]).some(fid=>!fid));
+ if(source>=0)return {source,slot:masterSources[source].slots.findIndex(fid=>!fid)};
+ if(masterSources.length>=12)return null;
+ const type=printer==='H2D'&&side==='left'?'ams_ht':'ams';
+ const label=(type==='ams_ht'?'AMS HT ':'AMS ')+(masterSources.filter(s=>s.type===type).length+1);
+ masterSources.push({type,side:printer==='H2D'?side:'',label,slots:Array(type==='ams'?4:1).fill(null)});
+ return {source:masterSources.length-1,slot:0};
+}
+$('master-files').addEventListener('click',event=>{
+ const add=event.target.closest('[data-master-color-add]');
+ const original=event.target.closest('[data-master-original-assign]');
+ if(!add&&!original)return;
+ const fileId=add?.dataset.masterColorAdd||original?.dataset.masterOriginalFile;
+ const file=(printTools.files||[]).find(f=>String(f.id)===fileId);
+ if(!file||file.listing_id!==selectedMasterTarget().listing_id||file.printer!==$('master-printer').value)return;
+ masterColorEditFileId=file.id;
+ const index=original?Number(original.dataset.masterOriginalAssign):-1;
+ const row=index>=0?file.insights?.filaments?.[index]:null;
+ const side=original?.dataset.masterOriginalSide||
+  ($('master-printer').value==='Snapmaker U1'?'t0':$('master-printer').value==='H2D'?'left':'unassigned');
+ const dest=masterOriginalDestination(side);
+ if(!dest){flash('Kein freier Filamentplatz. Bitte Quellenbelegung prüfen.',true);return;}
+ const match=row?masterOriginalStockMatch(row):null;
+ if(match){
+  masterSources[dest.source].slots[dest.slot]=Number(match.id);
+  markMasterColorsDirty();renderMasterFiles();
+  flash('3MF-Farbe zugeordnet. Filamentbelegung noch speichern.');
+ }else{
+  renderMasterSources();renderMasterFiles();
+  const suggested=String(row?.name||'');
+  openMasterPicker(dest.source,dest.slot,/^(generic|pla|petg|abs|tpu)/i.test(suggested)?'':suggested);
+ }
+});
+
 $('master-add').addEventListener('click',()=>{
  if($('master-printer').value==='Snapmaker U1')return;
  const type=$('master-source-type').value;

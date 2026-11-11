@@ -3563,3 +3563,63 @@ html[data-theme="dark"] .pp-catalog-loading-edit{color:#9ce3c4;border-color:#60a
 }
 html[data-theme="dark"] .pp-insight-optional-masses>summary,
 html[data-theme="dark"] .pp-insight-optional-mode>summary{color:#8adbb5}
+
+
+/* 0.13.62 – Single, ordered 3MF workflow: file → nozzles/colors → grams/time. */
+.master-editor .master-workflow-step,
+.master-editor .master-workflow-inner{
+ min-width:0;padding:15px;margin:12px 0;border:1px solid var(--border-strong);
+ border-radius:13px;background:var(--surface)
+}
+.master-editor .master-workflow-upload{margin-top:13px;background:var(--surface-soft)}
+.master-editor .master-workflow-heading{display:flex;align-items:center;gap:11px;margin:0 0 13px}
+.master-workflow-number{display:grid;place-items:center;flex:0 0 31px;width:31px;height:31px;border-radius:50%;
+ background:#1b7c5b;color:#fff;font-weight:850;font-size:14px}
+.master-editor .master-workflow-heading h3{margin:0 0 3px;font-size:15px;color:var(--ink);line-height:1.25}
+.master-editor .master-workflow-heading p{margin:0;font-size:11px;color:var(--muted);line-height:1.45}
+.master-editor .master-workflow-upload>.master-context{margin-bottom:13px}
+.master-editor .master-workflow-inner{margin:14px 0 0;padding:13px;background:var(--surface-soft)}
+.master-editor .master-workflow-colors{border-color:#bdded0}
+.master-editor .master-workflow-metrics{border-color:#d2e3dc}
+.master-editor .master-workflow-inner .master-insight-card{margin:0;border:0;background:transparent;padding:0;box-shadow:none}
+.master-editor .master-workflow-inner .pp-insight-heading{display:none}
+.master-editor .master-workflow-inner .master-insight-stats{margin-top:0}
+.master-editor .master-workflow-colors .master-insight-palette{margin:0}
+.master-original-box{border:1px solid var(--border-strong);background:var(--surface);
+ border-radius:10px;padding:12px;margin:4px 0 13px}
+.master-original-box>strong{display:block;font-size:12px;color:var(--green);margin-bottom:3px}
+.master-original-box>p{font-size:10px;color:var(--muted);line-height:1.5;margin:0 0 10px}
+.master-original-list{display:grid;gap:7px}
+.master-original-row{display:flex;align-items:center;gap:9px;padding:8px 9px;
+ background:var(--surface-soft);border:1px solid var(--line);border-radius:9px;min-width:0;flex-wrap:wrap}
+.master-original-row>.master-insight-dot{flex:0 0 19px;width:19px;height:19px}
+.master-original-name{font-size:11px;font-weight:700;color:var(--ink);flex:1 1 115px;min-width:0;overflow-wrap:anywhere}
+.master-original-row>small{font-size:10px;color:var(--green);font-weight:700}
+.master-original-assign,.master-workflow-color-actions{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.master-original-assign button{min-height:31px;font-size:11px;padding:5px 9px}
+.master-original-assign button:hover{border-color:var(--green);color:var(--green);background:var(--surface)}
+.master-original-empty{font-size:11px;color:var(--muted);line-height:1.5}
+.master-workflow-color-actions{margin-left:auto;justify-content:flex-end}
+.master-workflow-color-actions button{font-size:11px;min-height:35px}
+.master-workflow-mass-title,.master-workflow-time-title{margin:12px 0 9px}
+.master-workflow-mass-title strong,.master-workflow-time-title strong{display:block;color:var(--ink);font-size:12px}
+.master-workflow-mass-title small{display:block;color:var(--muted);font-size:10px;margin-top:4px;line-height:1.5}
+.master-workflow-time-title{margin-top:17px;border-top:1px solid var(--line);padding-top:12px}
+.master-workflow-metrics .master-insight-edit{margin-top:13px}
+.master-workflow-metrics .pp-insight-assigned-row{background:var(--surface);padding:8px;border-radius:8px;margin:6px 0;border:1px solid var(--line)}
+@media(max-width:670px){
+ .master-editor .master-workflow-step,.master-editor .master-workflow-inner{padding:10px}
+ .master-editor .master-workflow-heading{gap:8px}
+ .master-workflow-number{width:27px;height:27px;flex-basis:27px}
+ .master-editor .master-workflow-heading h3{font-size:13px}
+ .master-original-row{padding:7px}
+ .master-original-assign{flex:1 1 100%;justify-content:flex-start}
+ .master-original-assign button{flex:1 1 auto}
+ .master-workflow-color-actions{width:100%;justify-content:flex-start}
+ .master-workflow-color-actions button{flex:1 1 40%}
+ .master-workflow-colors .pp-palette-header{flex-wrap:wrap}
+}
+html[data-theme="dark"] .master-editor .master-workflow-upload,
+html[data-theme="dark"] .master-editor .master-workflow-inner,
+html[data-theme="dark"] .master-original-row{background:#25372f}
+html[data-theme="dark"] .master-original-box{background:#203229}

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.60"><link rel="stylesheet" href="dashboard-order-cards.css?v=0.13.46"><script src="app.js?v=0.13.60" defer></script><script src="filament-quick-ui.js?v=0.13.55" defer></script><script src="filament-stats-ui.js?v=0.13.55" defer></script><script src="farm-ui.js?v=0.13.49" defer></script><link rel="stylesheet" href="farm-ui.css?v=0.13.46"><script src="master-insights-ui.js?v=0.13.60" defer></script><script src="components-ui.js?v=0.13.61" defer></script><script src="catalog-3mf-info.js?v=0.13.59" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.21" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.13.31" defer></script><script src="dialog-behavior.js?v=0.13.16" defer></script><script src="order-zoom-ui.js?v=0.13.53" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script><script src="filament-planner-ui.js?v=0.13.5" defer></script><script src="filament-purchases-ui.js?v=0.13.32" defer></script><link rel="stylesheet" href="filament-purchases.css?v=0.13.43"><link rel="stylesheet" href="filament-planner.css?v=0.13.5"></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.62"><link rel="stylesheet" href="dashboard-order-cards.css?v=0.13.46"><script src="app.js?v=0.13.62" defer></script><script src="filament-quick-ui.js?v=0.13.55" defer></script><script src="filament-stats-ui.js?v=0.13.55" defer></script><script src="farm-ui.js?v=0.13.49" defer></script><link rel="stylesheet" href="farm-ui.css?v=0.13.46"><script src="master-insights-ui.js?v=0.13.62" defer></script><script src="components-ui.js?v=0.13.61" defer></script><script src="catalog-3mf-info.js?v=0.13.59" defer></script><script src="priority-ui.js?v=0.13.0" defer></script><script src="economics-ui.js?v=0.13.21" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.13.31" defer></script><script src="dialog-behavior.js?v=0.13.16" defer></script><script src="order-zoom-ui.js?v=0.13.53" defer></script><script src="stock-orders-ui.js?v=0.12.11" defer></script><script src="filament-planner-ui.js?v=0.13.5" defer></script><script src="filament-purchases-ui.js?v=0.13.32" defer></script><link rel="stylesheet" href="filament-purchases.css?v=0.13.43"><link rel="stylesheet" href="filament-planner.css?v=0.13.5"></head>
 <body>
 <header><a class="brand" href="./" aria-label="Print &amp; Pulse Startseite"><img class="brand-logo" src="brand.svg" width="190" height="98" alt="Print &amp; Pulse – Designs mit Herz"></a><div class="theme-switch" role="group" aria-label="Darstellung wählen">
  <button type="button" class="theme-option" data-theme-mode="light" aria-label="Heller Modus" title="Hell" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
@@ -421,9 +421,47 @@
 <dialog id="master-editor" class="master-editor">
 <div class="dialog-heading"><h2 id="master-title">Masterdateien &amp; Farben</h2><button type="button" data-close="master-editor" class="icon-button" aria-label="Schließen">×</button></div>
 <p class="master-dialog-subtitle">Eine Datei reicht für alle Farbvarianten mit identischer Geometrie. Nur bei abweichendem Modell eine bestimmte Variante wählen.</p>
-<div class="master-context"><label>Datei gilt für<select id="master-variant" aria-label="Gültigkeit der 3MF-Druckdatei auswählen"></select></label><label>Drucker<select id="master-printer"></select></label></div>
+<section class="master-workflow-step master-workflow-upload" aria-label="Schritt 1: Masterdatei auswählen">
+ <div class="master-workflow-heading"><span class="master-workflow-number">1</span><div><h3>3MF-Datei auswählen</h3><p>Zuordnung wählen, vorhandenes Projekt verwenden oder eine neue Datei hinzufügen.</p></div></div>
+ <div class="master-context"><label>Datei gilt für<select id="master-variant" aria-label="Gültigkeit der 3MF-Druckdatei auswählen"></select></label><label>Drucker<select id="master-printer"></select></label></div>
+ <details id="master-upload-details" class="master-detail-group">
+ <summary><span>Neue Masterdatei speichern</span><small>3MF-Druckprojekt mit Profilen ablegen</small></summary>
+ <div class="master-detail-content">
+  <fieldset class="master-printer-targets" id="master-upload-printers">
+   <legend>Für welche Produktionsdrucker gilt diese 3MF?</legend>
+   <p>Ein Upload reicht für mehrere Zuordnungen. Die Kopie für einen anderen Drucker muss im jeweiligen Slicer angepasst und geprüft werden; das Tool konvertiert keine Druckprofile.</p>
+   <div class="master-printer-tiles" role="group" aria-label="3MF-Druckerzuordnung">
+    <label class="master-printer-tile"><input type="checkbox" value="H2D" checked><span class="master-printer-tile-title">H2D</span></label>
+    <label class="master-printer-tile"><input type="checkbox" value="P1S Old"><span class="master-printer-tile-title">P1S Old</span></label>
+    <label class="master-printer-tile"><input type="checkbox" value="P1S New"><span class="master-printer-tile-title">P1S New</span></label>
+    <label class="master-printer-tile"><input type="checkbox" value="Snapmaker U1"><span class="master-printer-tile-title">Snapmaker U1</span></label>
+    <label class="master-printer-tile master-printer-tile-new"><input type="checkbox" value="X2D"><span class="master-printer-tile-title">Bambu X2D</span><span class="master-printer-tile-badge" aria-label="Neuer Drucker">NEU</span></label>
+   </div>
+  </fieldset>
+  <section class="master-share-box" aria-label="3MF direkt aus Netzwerkordner übernehmen">
+   <h4>Aus Home Assistant übernehmen <span class="master-share-recommended">Empfohlen am Mac</span></h4>
+   <p>3MF im Finder in den gemeinsamen Eingangsordner kopieren und hier auswählen. Kein Browser-Upload und keine Wartezeit über den Home-Assistant-Proxy.</p>
+   <p class="master-share-path"><code id="master-share-path">smb://homeassistant.local/share/print-pulse/3mf-eingang</code></p>
+   <div class="master-upload-actions"><button type="button" id="master-share-folder" class="secondary">Netzwerkordner kopieren</button><button type="button" id="master-share-refresh" class="secondary">Dateiliste aktualisieren</button></div>
+   <label class="master-share-label" for="master-share-file">3MF-Datei im Eingangsordner</label>
+   <select id="master-share-file" aria-label="3MF-Datei aus dem Eingangsordner auswählen"><option value="">Dateiliste laden …</option></select>
+   <button type="button" id="master-share-import" class="primary" disabled>Ausgewählte 3MF übernehmen</button>
+   <p id="master-share-status" class="master-inline-status" role="status" aria-live="polite"></p>
+  </section>
+  <p id="master-upload-printers-status" class="master-inline-status" role="status"></p>
+  <section class="master-browser-fallback" aria-label="3MF alternativ im Browser hochladen">
+   <h4>Alternativ im Browser hochladen</h4>
+   <label class="master-upload">Neue Masterdatei (.3mf)<input id="master-upload-input" type="file" accept=".3mf" /></label>
+   <div class="master-upload-actions"><button type="button" id="master-upload" class="secondary">Datei sicher ablegen</button><button type="button" id="master-copy-path" class="secondary">Produktordner kopieren</button></div>
+   <progress id="master-upload-progress" class="master-upload-progress" value="0" max="100" aria-label="Upload-Fortschritt" hidden></progress>
+   <p class="hint">Browser-Upload als Alternative. Bereits gespeicherte Masterdateien bleiben in beiden Fällen erhalten.</p>
+  </section>
+ </div>
+</details>
+<p id="master-upload-status" class="master-inline-status" role="status" aria-live="polite"></p>
+</section>
 <section class="master-projects-section">
- <div class="master-section-heading"><div><h3>Master-3MF-Dateien</h3><p>Gemeinsame und gegebenenfalls variantenspezifische Druckdateien für den ausgewählten Drucker.</p></div><span id="master-file-count" class="master-files-count">0 Projektdateien</span></div>
+ <div class="master-section-heading"><div><h3>Gespeicherte 3MF-Projekte</h3><p>Bei jedem Projekt folgen direkt die Farbzuordnung und danach die Druckdaten.</p></div><span id="master-file-count" class="master-files-count">0 Projektdateien</span></div>
  <div id="master-files" class="master-project-list"></div>
  <p id="master-slicer-status" class="hint" role="status" aria-live="polite"></p>
  <details class="master-slicer-help master-detail-group">
@@ -461,41 +499,7 @@
 <select id="master-source-side" aria-label="Düse für neue Quelle"><option value="left">Düse links</option><option value="right">Düse rechts</option></select><button type="button" id="master-add" class="secondary">+ Quelle</button></div>
 <div class="pp-palette-save"><button type="button" id="master-save" class="primary">Belegung speichern</button><p id="master-profile-status" class="master-inline-status" role="status" aria-live="polite"></p></div>
 <p class="hint">Druckplanung: Die Original-3MF wird nicht verändert. Grammwerte und Druckzeit bleiben separat unter „Master &amp; Druckdaten bearbeiten“ erhalten.</p></section><span id="master-colors-summary" hidden></span>
-<details id="master-upload-details" class="master-detail-group">
- <summary><span>Neue Masterdatei speichern</span><small>3MF-Druckprojekt mit Profilen ablegen</small></summary>
- <div class="master-detail-content">
-  <fieldset class="master-printer-targets" id="master-upload-printers">
-   <legend>Für welche Produktionsdrucker gilt diese 3MF?</legend>
-   <p>Ein Upload reicht für mehrere Zuordnungen. Die Kopie für einen anderen Drucker muss im jeweiligen Slicer angepasst und geprüft werden; das Tool konvertiert keine Druckprofile.</p>
-   <div class="master-printer-tiles" role="group" aria-label="3MF-Druckerzuordnung">
-    <label class="master-printer-tile"><input type="checkbox" value="H2D" checked><span class="master-printer-tile-title">H2D</span></label>
-    <label class="master-printer-tile"><input type="checkbox" value="P1S Old"><span class="master-printer-tile-title">P1S Old</span></label>
-    <label class="master-printer-tile"><input type="checkbox" value="P1S New"><span class="master-printer-tile-title">P1S New</span></label>
-    <label class="master-printer-tile"><input type="checkbox" value="Snapmaker U1"><span class="master-printer-tile-title">Snapmaker U1</span></label>
-    <label class="master-printer-tile master-printer-tile-new"><input type="checkbox" value="X2D"><span class="master-printer-tile-title">Bambu X2D</span><span class="master-printer-tile-badge" aria-label="Neuer Drucker">NEU</span></label>
-   </div>
-  </fieldset>
-  <section class="master-share-box" aria-label="3MF direkt aus Netzwerkordner übernehmen">
-   <h4>Aus Home Assistant übernehmen <span class="master-share-recommended">Empfohlen am Mac</span></h4>
-   <p>3MF im Finder in den gemeinsamen Eingangsordner kopieren und hier auswählen. Kein Browser-Upload und keine Wartezeit über den Home-Assistant-Proxy.</p>
-   <p class="master-share-path"><code id="master-share-path">smb://homeassistant.local/share/print-pulse/3mf-eingang</code></p>
-   <div class="master-upload-actions"><button type="button" id="master-share-folder" class="secondary">Netzwerkordner kopieren</button><button type="button" id="master-share-refresh" class="secondary">Dateiliste aktualisieren</button></div>
-   <label class="master-share-label" for="master-share-file">3MF-Datei im Eingangsordner</label>
-   <select id="master-share-file" aria-label="3MF-Datei aus dem Eingangsordner auswählen"><option value="">Dateiliste laden …</option></select>
-   <button type="button" id="master-share-import" class="primary" disabled>Ausgewählte 3MF übernehmen</button>
-   <p id="master-share-status" class="master-inline-status" role="status" aria-live="polite"></p>
-  </section>
-  <p id="master-upload-printers-status" class="master-inline-status" role="status"></p>
-  <section class="master-browser-fallback" aria-label="3MF alternativ im Browser hochladen">
-   <h4>Alternativ im Browser hochladen</h4>
-   <label class="master-upload">Neue Masterdatei (.3mf)<input id="master-upload-input" type="file" accept=".3mf" /></label>
-   <div class="master-upload-actions"><button type="button" id="master-upload" class="secondary">Datei sicher ablegen</button><button type="button" id="master-copy-path" class="secondary">Produktordner kopieren</button></div>
-   <progress id="master-upload-progress" class="master-upload-progress" value="0" max="100" aria-label="Upload-Fortschritt" hidden></progress>
-   <p class="hint">Browser-Upload als Alternative. Bereits gespeicherte Masterdateien bleiben in beiden Fällen erhalten.</p>
-  </section>
- </div>
-</details>
-<p id="master-upload-status" class="master-inline-status" role="status" aria-live="polite"></p>
+
 </dialog>
 <dialog id="printer-config-dialog" class="printer-config-dialog"><div class="dialog-heading"><h2 id="printer-config-title">Drucker-Sensoren zuordnen</h2><button type="button" data-close="printer-config-dialog" class="icon-button" aria-label="Schließen">×</button></div>
  <p class="hint">Vorhandene Drucker werden automatisch erkannt. Nur wenn mehrere gleichartige Geräte nicht unterscheidbar sind, wähle bitte das richtige Gerät aus.</p>

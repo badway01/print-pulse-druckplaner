@@ -1,3 +1,10 @@
+## 0.13.62 – 3MF-Verwaltung in drei Arbeitsschritten (11.11.2026)
+
+- Schritt 1: Masterdatei, Gültigkeit und Drucker zuerst. Samba-Import, Browser-Upload, Mehrfachzuordnung und Dateiversionen bleiben erhalten.
+- Schritt 2: In der 3MF erkannte Originalfarben unmittelbar anklicken und H2D links/rechts oder U1 T0–T3 zuordnen; eindeutige Lagerfarben übernehmen, sonst vorhandene Filament-Suche verwenden. AMS-Quellen weiter einzeln editierbar.
+- Schritt 3: Gramm pro zugeordneter Farbe und Druckdauer zusammengefasst, aus der 3MF und dem vorhandenen Profil vorbefüllt; keine geschätzten Mengen.
+- Bestehende Datenbanken, 3MF-Dateien, Slicer-Verknüpfungen, Filamentbestände und Kostenberechnung bleiben erhalten.
+
 ## 0.13.61 – Infofenster beim Neuzeichnen sauber zurücksetzen (10.11.2026)
 
 - Produktkarten-Aktualisierungen räumen den geöffneten 3MF-Infozustand korrekt auf. Kein dauerhaftes Ausblenden anderer Info-Symbole bei periodischem Daten-Refresh.

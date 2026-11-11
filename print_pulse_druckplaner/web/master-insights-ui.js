@@ -180,7 +180,7 @@
      (Number.isFinite(item.grams) ? item.grams : '') + '"></label>' +
      '<button type="button" data-insight-remove aria-label="Filamentzeile entfernen" title="Zeile entfernen">×</button></div>';
  }
- function editHtml(file) {
+ function editHtml(file,expanded=false) {
    const rows=file.insights?.filaments||[];
    const assigned=assignedFilaments(file);
    const auto=assigned.length>0;
@@ -191,21 +191,22 @@
    const hours=Number.isFinite(seconds)?Math.floor(seconds/3600):'';
    const minutes=Number.isFinite(seconds)?Math.floor(seconds/60)%60:'';
    const mode=file.insights?.color_mode==='custom'?'custom':'fixed';
-   return '<details class="master-insight-edit"><summary>Master & Druckdaten bearbeiten</summary>'+
+   return '<details class="master-insight-edit"'+(expanded?' open':'')+'><summary>Gramm und Druckzeit bearbeiten</summary>'+
     '<form data-master-insight-form="'+esc(file.id)+'" class="master-insight-form"'+(auto?' data-insight-auto="true"':'')+'>'+
-    '<div class="master-insight-time"><label>Stunden laut Slicer<input type="number" data-insight-hours min="0" max="2400" inputmode="numeric" value="'+
+    '<div class="master-workflow-mass-title"><strong>Verbrauch pro Farbe</strong>'+
+    '<small>'+(auto?(complete?'Aus 3MF oder gespeicherten Daten übernommen. Bei Bedarf korrigieren.':
+      missing+' Farbe'+(missing===1?'':'n')+' benötigt noch einen Grammwert.'):'Noch keine AMS-Belegung gespeichert. Farben hier vorläufig manuell auswählbar.')+
+    '</small></div>'+
+    (auto?'<div data-insight-rows>'+assigned.map(assignedInputRow).join('')+'</div>':
+      '<div class="pp-insight-no-profile"><strong>Farben zuerst in Schritt 2 zuordnen.</strong>'+
+      '<small>Solange keine Belegung hinterlegt ist, kannst du bestehende Druckdaten weiterhin manuell erfassen.</small></div>'+
+      '<div data-insight-rows>'+(defaults.length?defaults.map(inputRow).join(''):inputRow())+'</div>'+
+      '<button type="button" class="secondary small" data-insight-add>+ Filament</button>')+
+    '<div class="master-workflow-time-title"><strong>Druckdauer laut Slicer</strong></div>'+
+    '<div class="master-insight-time"><label>Stunden<input type="number" data-insight-hours min="0" max="2400" inputmode="numeric" value="'+
     hours+'" placeholder="0"></label>'+
     '<label>Minuten<input type="number" data-insight-minutes min="0" max="59" inputmode="numeric" value="'+
     minutes+'" placeholder="0"></label></div>'+
-    (auto?'<details class="pp-insight-optional-masses"'+(complete?'':' open')+'><summary>'+
-      (complete?'Filamentverbrauch übernommen · bei Bedarf ändern':
-       'Verbrauch ergänzen: '+missing+' Farbe'+(missing===1?'':'n')+' ohne Grammwert')+'</summary>'+
-      '<p class="pp-insight-help">Farben und Steckplätze kommen automatisch von oben. Grammwerte werden aus der 3MF oder gespeicherten Druckdaten übernommen. Fehlende Mengen bitte einmal ergänzen.</p>'+
-      '<div data-insight-rows>'+assigned.map(assignedInputRow).join('')+'</div></details>':
-      '<div class="pp-insight-no-profile"><strong>Oben noch keine Filamentbelegung gespeichert.</strong>'+
-      '<small>Bitte die Farben und AMS-Slots zuordnen. Bis dahin bleibt die manuelle Eingabe verfügbar.</small></div>'+
-      '<div data-insight-rows>'+(defaults.length?defaults.map(inputRow).join(''):inputRow())+'</div>'+
-      '<button type="button" class="secondary small" data-insight-add>+ Filament</button>')+
     '<details class="pp-insight-optional-mode"'+(mode==='custom'?' open':'')+'><summary>Farbmodus / Wunschfarben (optional)</summary>'+
     '<label>Farbzuordnung<select data-insight-mode>'+
     '<option value="fixed"'+(mode==='fixed'?' selected':'')+'>Festfarben – immer gleiche Farben</option>'+
@@ -215,7 +216,7 @@
     '<small>Kosten werden aus den bekannten Grammwerten und Filamentpreisen berechnet. Unbekannte Mengen werden nicht geschätzt.</small>'+
     '</form></details>';
  }
- window.masterInsightsMarkup = function(file, compact=false, orderColor='') {
+ window.masterInsightsMarkup = function(file, compact=false, orderColor='', hidePalette=false, expandEditor=false) {
    if (!file) return '';
    const info = file.insights || {};
    const price = info.production_eur ?? info.material_eur;
@@ -230,8 +231,8 @@
        Number(info.total_grams).toLocaleString('de-DE') + ' g</strong></div>' : '') +
      '<div><small>' + moneyLabel + '</small><strong class="pp-insight-price">' + money(price) + '</strong></div>' +
      '</div>' +
-     paletteHtml(file,orderColor,compact) +
-     (!compact ? editHtml(file) : '') +
+     (hidePalette?'':paletteHtml(file,orderColor,compact)) +
+     (!compact ? editHtml(file,expandEditor) : '') +
      '</section>';
  };
  window.masterSlicerButtonsMarkup = function(file) {
