@@ -10,29 +10,40 @@ function localDate(days=3){
  return date.toLocaleDateString('sv-SE',{timeZone:'Europe/Berlin'});
 }
 function localEmptyLine(){
- return {listing_id:'',item_id:'',search:'',quantity:1,color:'',personalization:'',note:''};
+ return {kind:'catalog',listing_id:'',item_id:'',search:'',title:'',description:'',quantity:1,color:'',personalization:'',note:''};
 }
 function localIdempotencyKey(){
  return 'LOK-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)+
    '-'+Math.random().toString(36).slice(2);
 }
 function localLineHTML(line,index){
- const product=localProduct(line.listing_id);
+ const custom=line.kind!=='catalog';
+ const product=custom?null:localProduct(line.listing_id);
  const options=product?(product.items||[]).filter(i=>i.enabled):[];
- return '<section class="local-position" data-local-row="'+index+'">'+
-  '<div class="local-position-heading"><b>Position '+(index+1)+'</b>'+
-   (localDraft.length>1?'<button type="button" class="text-button" data-local-remove="'+index+'">Entfernen</button>':'')+'</div>'+
+ const types=[['catalog','Artikel aus Produktkatalog'],['custom_print','Eigenanfertigung · 3D-Druck'],['laser','Laserarbeit / Gravur']];
+ const selection='<label class="local-position-kind">Art der Position<select data-local-kind="'+index+'" aria-label="Art der Position '+(index+1)+'">'+
+  types.map(([value,label])=>'<option value="'+value+'" '+(line.kind===value?'selected':'')+'>'+label+'</option>').join('')+'</select></label>';
+ const itemFields=custom?
+  '<label>Bezeichnung der Sonderleistung<input data-local-title="'+index+'" maxlength="120" required placeholder="'+
+   (line.kind==='laser'?'z. B. Holzschild lasern':'z. B. Halterung nach Maß drucken')+'" value="'+esc(line.title)+'"></label>'+
+  '<label>Beschreibung / Vorgaben (optional)<textarea data-local-description="'+index+'" maxlength="600" rows="2" placeholder="Maße, Material, Dateivorgaben, Besonderheiten">'+esc(line.description)+'</textarea></label>':
   '<div class="local-search-wrap"><label for="local-search-'+index+'">Produkt suchen</label>'+
    '<input id="local-search-'+index+'" type="search" autocomplete="off" autocapitalize="off" spellcheck="false" data-local-search="'+index+'" placeholder="z. B. Vase …" value="'+esc(product?.title||line.search)+'" role="combobox" aria-autocomplete="list" aria-controls="local-suggestions-'+index+'" aria-expanded="false">'+
    '<div id="local-suggestions-'+index+'" class="local-suggestions" data-local-suggestions="'+index+'" role="listbox" hidden></div></div>'+
   (product?'<label>Variante / Größe<select data-local-variant="'+index+'" required>'+
-    options.map(i=>'<option value="'+esc(i.id)+'" '+(String(i.id)===String(line.item_id)?'selected':'')+'>'+esc(i.label||'Standard')+'</option>').join('')+
-    '</select></label>':'<p class="hint">Produkt aus den Vorschlägen auswählen, dann erscheinen die Varianten.</p>')+
-  '<div class="local-fields"><label>Stückzahl<input data-local-quantity="'+index+'" type="number" inputmode="numeric" min="1" max="1000" required value="'+esc(line.quantity)+'"></label>'+
-   '<label>Wunschfarbe / Sonderfarbe (optional)<input data-local-color="'+index+'" maxlength="100" placeholder="z. B. Jadeweiß" value="'+esc(line.color)+'"></label></div>'+
-  '<label>Gravur / Name / Personalisierung (optional)<textarea data-local-personalization="'+index+'" maxlength="600" rows="2" placeholder="z. B. Name, Gravurtext, Schriftart">'+esc(line.personalization)+'</textarea></label>'+
-  '<label>Hinweis zu dieser Position (optional)<textarea data-local-note="'+index+'" maxlength="600" rows="2" placeholder="z. B. Holzständer, Wunschdetails">'+esc(line.note)+'</textarea></label>'+
-  '</section>';
+   options.map(i=>'<option value="'+esc(i.id)+'" '+(String(i.id)===String(line.item_id)?'selected':'')+'>'+esc(i.label||'Standard')+'</option>').join('')+
+   '</select></label>':'<p class="hint">Produkt aus den Vorschlägen auswählen, dann erscheinen die Varianten.</p>');
+ return '<section class="local-position" data-local-row="'+index+'">'+
+   '<div class="local-position-heading"><b>Position '+(index+1)+'</b>'+
+    (localDraft.length>1?'<button type="button" class="text-button" data-local-remove="'+index+'">Entfernen</button>':'')+'</div>'+
+   selection+itemFields+
+   '<div class="local-fields"><label>Stückzahl<input data-local-quantity="'+index+'" type="number" inputmode="numeric" min="1" max="1000" required value="'+esc(line.quantity)+'"></label>'+
+   '<label>'+(custom?'Material / Farbe (optional)':'Wunschfarbe / Sonderfarbe (optional)')+
+   '<input data-local-color="'+index+'" maxlength="100" placeholder="'+(line.kind==='laser'?'z. B. Sperrholz 3 mm':'z. B. Jadeweiß')+'" value="'+esc(line.color)+'"></label></div>'+
+   '<label>'+(line.kind==='laser'?'Lasertext / Motiv (optional)':'Gravur / Name / Personalisierung (optional)')+
+   '<textarea data-local-personalization="'+index+'" maxlength="600" rows="2" placeholder="'+(line.kind==='laser'?'z. B. Text, Logo, Motiv':'z. B. Name, Gravurtext, Schriftart')+'">'+esc(line.personalization)+'</textarea></label>'+
+   '<label>Interner Positionshinweis (optional)<textarea data-local-note="'+index+'" maxlength="600" rows="2" placeholder="Nur für deine Werkstatt">'+esc(line.note)+'</textarea></label>'+
+   '</section>';
 }
 function localRenderLines(){
  $('local-order-lines').innerHTML=localDraft.map(localLineHTML).join('');
@@ -100,8 +111,8 @@ $('local-add-line').addEventListener('click',()=>{
 });
 $('local-order-lines').addEventListener('input',event=>{
  const field=event.target;
- const names={'localQuantity':'quantity','localColor':'color',
-   'localPersonalization':'personalization','localNote':'note'};
+ const names={'localQuantity':'quantity','localColor':'color','localTitle':'title',
+   'localDescription':'description','localPersonalization':'personalization','localNote':'note'};
  for(const [attribute,name] of Object.entries(names)){
   if(field.dataset[attribute]!==undefined){
    const i=Number(field.dataset[attribute]);if(!localDraft[i])return;
@@ -120,6 +131,16 @@ $('local-order-lines').addEventListener('input',event=>{
  }
 });
 $('local-order-lines').addEventListener('change',event=>{
+ if(event.target.dataset.localKind!==undefined){
+  const i=Number(event.target.dataset.localKind),line=localDraft[i];
+  if(!line)return;
+  line.kind=event.target.value;
+  line.listing_id='';line.item_id='';line.search='';
+  localRenderLines();
+  $('local-order-lines').querySelector(line.kind==='catalog'?
+   '[data-local-search="'+i+'"]':'[data-local-title="'+i+'"]')?.focus();
+  return;
+ }
  if(event.target.dataset.localVariant===undefined)return;
  const i=Number(event.target.dataset.localVariant);
  if(localDraft[i])localDraft[i].item_id=event.target.value;
@@ -185,18 +206,30 @@ $('local-order-form').addEventListener('submit',async event=>{
   due_date:$('local-due').value,notes:$('local-notes').value};
  let body;
  if(localMode==='create'){
-  const invalidIndex=localDraft.findIndex(line=>!localProduct(line.listing_id)||
-     !localProduct(line.listing_id)?.items.some(i=>String(i.id)===String(line.item_id)&&i.enabled));
+  const invalidIndex=localDraft.findIndex(line=>line.kind==='catalog'&&(!localProduct(line.listing_id)||
+     !localProduct(line.listing_id)?.items.some(i=>String(i.id)===String(line.item_id)&&i.enabled)));
    if(invalidIndex!==-1){
     error.textContent='Bitte für Position '+(invalidIndex+1)+' ein Produkt aus den Vorschlägen und die passende Variante auswählen.';
     error.hidden=false;
     $('local-order-lines').querySelector('[data-local-search="'+invalidIndex+'"]')?.focus();
     return;
    }
-   const direct=$('local-order-type').querySelector('input[name="local-kind"]:checked')?.value==='direct';
+   const invalidCustom=localDraft.findIndex(line=>line.kind!=='catalog'&&!line.title.trim());
+  if(invalidCustom!==-1){
+   error.textContent='Bitte für Position '+(invalidCustom+1)+' die Sonderleistung benennen.';
+   error.hidden=false;
+   $('local-order-lines').querySelector('[data-local-title="'+invalidCustom+'"]')?.focus();
+   return;
+  }
+  const direct=$('local-order-type').querySelector('input[name="local-kind"]:checked')?.value==='direct';
+  if(direct&&localDraft.some(line=>line.kind!=='catalog')){
+   error.textContent='Eigenanfertigungen und Laserarbeiten benötigen einen Produktionsauftrag.';
+   error.hidden=false;return;
+  }
   body={...meta,action:'create',request_key:localRequestKey,direct_sale:direct,
-   lines:localDraft.map(line=>({listing_id:line.listing_id,item_id:line.item_id,
-    quantity:line.quantity,color:line.color,personalization:line.personalization,note:line.note}))};
+   lines:localDraft.map(line=>({kind:line.kind,listing_id:line.listing_id,item_id:line.item_id,
+    title:line.title,description:line.description,quantity:line.quantity,color:line.color,
+    personalization:line.personalization,note:line.note}))};
  }else body={...meta,action:'update',id:localEditingId};
  localSaving=true;
  $('local-order-save').disabled=true;
@@ -230,13 +263,14 @@ async function localCustomProductionClick(action){
   const available=Number(action.dataset.localCustomQuantity);
   if(!Number.isSafeInteger(available)||available<1)return;
   const type=action.dataset.localType;
+  const laser=action.dataset.localCustomKind==='laser';
   // Mark only the units actually started/finished. On a 2-piece order,
   // printing one must never silently commit both pieces.
   let qty=available;
   if(available>1){
-   const question=type==='start'?'Wie viele Stück nimmst du jetzt in Druck?':
+   const question=type==='start'?(laser?'Wie viele Stück startest du zum Lasern?':'Wie viele Stück nimmst du jetzt in Druck?'):
     type==='finish'?'Wie viele Stück sind wirklich fertig?':
-    'Wie viele laufende Stücke möchtest du abbrechen?';
+    (laser?'Wie viele laufende Laserarbeiten möchtest du abbrechen?':'Wie viele laufende Stücke möchtest du abbrechen?');
    const answer=prompt(question+' (1–'+available+')','1');
    if(answer===null)return;
    qty=Number(answer);
@@ -359,7 +393,7 @@ function localHistoryCard(o){
    '<button type="button" class="secondary small" data-local-copy-tracking="'+esc(o.tracking_number)+'">Nummer kopieren</button>':
    '<span>Ohne hinterlegte Sendungsnummer</span>')+'</div>':'';
  return '<article class="local-history-item"><div><b>'+esc(o.id)+'</b><span>'+esc(status)+'</span></div>'+
-  '<strong>'+esc(o.customer)+'</strong><small>'+esc((o.items||[]).map(i=>i.quantity+' × '+i.variant).join(' · '))+'</small>'+
+  '<strong>'+esc(o.customer)+'</strong><small>'+esc((o.items||[]).map(i=>i.quantity+' × '+(i.custom_title||i.variant)).join(' · '))+'</small>'+
   '<small>Endtermin '+esc(shortDate(o.due))+(o.notes?' · '+esc(o.notes):'')+'</small>'+
   (details?'<small>'+esc(details)+'</small>':'')+shipping+
   (o.status==='completed'?'<div class="local-history-actions"><button type="button" class="secondary" data-local-pdf-id="'+esc(o.id)+'">A4 · PDF</button>'+
@@ -521,12 +555,13 @@ orderLineActions=function(line){
  if(!line.local_custom)return standardOrderLineActions(line);
  const remaining=Math.max(0,Number(line.remaining)||0);
  const printing=Math.max(0,Number(line.printing)||0);
- return '<div class="local-custom-work"><b>Individuelle Fertigung · ohne automatische Lagerentnahme</b>'+
+ const laser=line.custom_kind==='laser';
+ return '<div class="local-custom-work"><b>'+(laser?'Laserarbeit':'Individuelle Fertigung')+' · ohne automatische Lagerentnahme</b>'+
   '<small>'+Number(line.finished||0)+' fertig · '+printing+' im Druck · '+remaining+' noch offen</small>'+
   '<div class="component-order-buttons">'+
-   (remaining?'<button class="primary" type="button" data-local-custom-action="'+esc(line.transaction_id)+'" data-local-type="start" data-local-custom-quantity="'+remaining+'">'+remaining+' × Drucken</button>':'')+
-   (printing?'<button class="primary" type="button" data-local-custom-action="'+esc(line.transaction_id)+'" data-local-type="finish" data-local-custom-quantity="'+printing+'">'+printing+' × Fertig</button>'+
-    '<button class="secondary" type="button" data-local-custom-action="'+esc(line.transaction_id)+'" data-local-type="cancel" data-local-custom-quantity="'+printing+'">Druck abbrechen</button>':'')+
+   (remaining?'<button class="primary" type="button" data-local-custom-action="'+esc(line.transaction_id)+'" data-local-type="start" data-local-custom-kind="'+esc(line.custom_kind||'')+'" data-local-custom-quantity="'+remaining+'">'+remaining+' × '+(laser?'Lasern':'Drucken')+'</button>':'')+
+   (printing?'<button class="primary" type="button" data-local-custom-action="'+esc(line.transaction_id)+'" data-local-type="finish" data-local-custom-kind="'+esc(line.custom_kind||'')+'" data-local-custom-quantity="'+printing+'">'+printing+' × Fertig</button>'+
+    '<button class="secondary" type="button" data-local-custom-action="'+esc(line.transaction_id)+'" data-local-type="cancel" data-local-custom-kind="'+esc(line.custom_kind||'')+'" data-local-custom-quantity="'+printing+'">Druck abbrechen</button>':'')+
   '</div></div>';
 };
 const standardOrderProgress=orderPrintProgress;
@@ -557,7 +592,9 @@ showOrder=function(id){
   const detail=items[i]?.querySelector('.order-work-product');
   if(!detail)return;
   const details=[
-   line.color?'Wunschfarbe: '+line.color:'',
+   line.custom_kind?('Leistung: '+(line.custom_kind==='laser'?'Laserarbeit':'3D-Eigenanfertigung')):'',
+   line.description?'Beschreibung: '+line.description:'',
+   line.color?'Material / Farbe: '+line.color:'',
    line.personalization?'Gravur / Personalisierung: '+line.personalization:'',
    line.note?'Hinweis: '+line.note:''
   ].filter(Boolean);
