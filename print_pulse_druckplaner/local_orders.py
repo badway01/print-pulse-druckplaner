@@ -73,6 +73,24 @@ def _prepare_lines(db,lines):
     output=[]
     for index,entry in enumerate(lines):
         if not isinstance(entry,dict): raise ValueError('Ungültige Bestellposition.')
+        kind=entry.get('kind','catalog')
+        if kind not in ('catalog','custom_print','laser'):
+            raise ValueError('Ungültige Positionsart.')
+        qty=entry.get('quantity')
+        if type(qty) is not int or not 1<=qty<=1000:
+            raise ValueError('Stückzahl muss zwischen 1 und 1000 liegen.')
+        color=clean(entry.get('color',''),'Material / Wunschfarbe',100)
+        personalization=clean(entry.get('personalization',''),'Gravur / Personalisierung',600)
+        note=clean(entry.get('note',''),'Positionshinweis',600)
+        if kind!='catalog':
+            title=clean(entry.get('title',''),'Bezeichnung der Sonderleistung',120,True)
+            description=clean(entry.get('description',''),'Beschreibung der Sonderleistung',600)
+            output.append({'listing_id':'LOCAL-SPECIAL','selected_variant_id':'',
+              'quantity':qty,'variant':'Laserarbeit' if kind=='laser' else '3D-Eigenanfertigung',
+              'custom_kind':kind,'custom_title':title,'description':description,
+              'color':color,'personalization':personalization,'note':note,
+              'local_custom':True,'title':title})
+            continue
         listing_id=str(entry.get('listing_id') or '')
         item_id=str(entry.get('item_id') or '')
         found=db.execute("""SELECT i.*,l.title,l.state
@@ -80,12 +98,6 @@ def _prepare_lines(db,lines):
             WHERE i.id=? AND i.listing_id=?""",(item_id,listing_id)).fetchone()
         if not found or found['state'] not in ('active','sold_out') or not found['enabled']:
             raise ValueError('Gewählte Produktvariante ist nicht verfügbar. Bitte neu auswählen.')
-        qty=entry.get('quantity')
-        if type(qty) is not int or not 1<=qty<=1000:
-            raise ValueError('Stückzahl muss zwischen 1 und 1000 liegen.')
-        color=clean(entry.get('color',''),'Wunschfarbe',100)
-        personalization=clean(entry.get('personalization',''),'Gravur / Personalisierung',600)
-        note=clean(entry.get('note',''),'Positionshinweis',600)
         custom=bool(color or personalization)
         output.append({'listing_id':listing_id,'selected_variant_id':item_id,
           'quantity':qty,'variant':found['label'],'color':color,
@@ -99,7 +111,7 @@ def create(db,data):
     direct=data.get('direct_sale',False)
     if type(direct) is not bool: raise ValueError('Ungültiger Direktverkauf.')
     if direct and any(line['local_custom'] for line in lines):
-        raise ValueError('Direktverkauf nur ohne Gravur oder Sonderfarbe.')
+        raise ValueError('Direktverkauf nur für Katalogartikel ohne Gravur, Sonderfarbe oder Sonderleistung.')
     request_key=clean(data.get('request_key'),'Anfragekennung',120,True)
     if len(request_key)<12: raise ValueError('Anfragekennung ungültig.')
     previous=db.execute('SELECT id,status FROM pp_local_orders WHERE request_key=?',(request_key,)).fetchone()
