@@ -1590,6 +1590,12 @@ html[data-theme="dark"] .component-card-stock-inline button[type=submit]{
 .local-lines-heading h3{margin:10px 0;font-size:17px}
 .local-position{border:1px solid var(--line);background:#fff;border-radius:13px;padding:14px 18px;margin:14px 0}
 .local-position-heading b{font-size:13px;color:var(--green)}
+.local-position-kind{display:block;margin:12px 0 10px}
+.local-position-kind select{font-weight:650;background:#f3f7f3}
+.local-position [data-local-title]{font-weight:650}
+.local-add-bottom{display:flex;justify-content:flex-end;margin:8px 0 14px}
+.local-add-bottom button{min-height:44px;border-style:dashed}
+@media(max-width:600px){.local-add-bottom button{width:100%;min-height:48px}}
 .local-position label{font-size:12px}
 .local-search-wrap{position:relative}
 .local-search-wrap>label{margin:14px 0 5px}

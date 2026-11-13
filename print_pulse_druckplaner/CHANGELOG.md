@@ -1,3 +1,11 @@
+## 0.13.63 – Lokale Sonderleistungen und Plus-Button am Listenende (13.11.2026)
+
+- Jede lokale Position hat eine Auswahl: Katalogartikel, 3D-Eigenanfertigung oder Laserarbeit/Gravur.
+- Freie Aufträge haben eigene Bezeichnung, Beschreibung/Vorgaben, Stückzahl, Material/Farbe und Wunschtext, ohne künstliche Katalogartikel und ohne Etsy-Lagerentnahme.
+- 3D-Sonderfertigungen und Laserarbeiten nutzen den bestehenden individuellen Fertigstellungsstatus; Laserarbeiten sind als „Lasern“ gekennzeichnet.
+- Sonderleistungen werden in Bestellkarten, Details, Historie und beiden A4-PDFs mit ihrer tatsächlichen Bezeichnung angezeigt.
+- „Weitere Position hinzufügen“ steht unter der letzten Position, auch auf dem iPhone. Bestehende lokale Katalogaufträge bleiben unverändert.
+
 ## 0.13.62 – 3MF-Verwaltung in drei Arbeitsschritten (11.11.2026)
 
 - Schritt 1: Masterdatei, Gültigkeit und Drucker zuerst. Samba-Import, Browser-Upload, Mehrfachzuordnung und Dateiversionen bleiben erhalten.

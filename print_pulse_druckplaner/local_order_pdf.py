@@ -62,9 +62,10 @@ def customer_snapshot(db, order_id, include_internal=False):
             if type(qty) is not int or qty < 1:
                 raise ValueError('Ungültige Positionsmenge.')
             position = {
-                'title': titles[lid],
+                'title': str(line.get('custom_title') or titles[lid]) if line.get('custom_kind') else titles[lid],
                 'quantity': qty,
                 'variant': str(line.get('variant') or ''),
+                'description': str(line.get('description') or ''),
                 'color': str(line.get('color') or ''),
                 'personalization': str(line.get('personalization') or ''),
             }
@@ -236,7 +237,9 @@ def render_pdf(snapshot, kind='customer'):
         for item in order['items']:
             descriptions = []
             if item['variant']:
-                descriptions.append(('Variante', item['variant']))
+                descriptions.append(('Ausführung', item['variant']))
+            if item.get('description'):
+                descriptions.append(('Beschreibung', item['description']))
             if item['color']:
                 descriptions.append(('Farbe', item['color']))
             if item['personalization']:
@@ -272,7 +275,7 @@ def render_pdf(snapshot, kind='customer'):
                     Spacer(1, 3), p(order['notes']), Spacer(1, 12),
                 ])
             checks = Table([
-                [p('[  ] Gedruckt', 'small'), p('[  ] Qualität geprüft', 'small'),
+                [p('[  ] Gefertigt / gelasert', 'small'), p('[  ] Qualität geprüft', 'small'),
                  p('[  ] Verpackt', 'small')],
                 [p('[  ] Beileger dabei', 'small'), p('[  ] Versendet / übergeben', 'small'),
                  p('[  ] Auftrag erledigt', 'small')],

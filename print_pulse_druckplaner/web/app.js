@@ -493,10 +493,10 @@ function orderCardWorkLine(line,controlsOnly=false){
   state='ready';label='Fertig';
  }else if(line.local_custom){
   if(printing>0){
-   state='printing';label=finished?`${finished}/${qty} fertig · ${printing} im Druck`:`${printing}/${qty} im Druck`;
-   button=`<button type="button" class="primary order-card-work-button" data-local-custom-action="${esc(line.transaction_id)}" data-local-type="finish" data-local-custom-quantity="${printing}" aria-label="${printing} Stück ${esc(line.title)} fertigmelden">✓ Fertig</button>`;
+   state='printing';label=finished?`${finished}/${qty} fertig · ${printing} ${line.custom_kind==='laser'?'beim Lasern':'im Druck'}`:`${printing}/${qty} ${line.custom_kind==='laser'?'beim Lasern':'im Druck'}`;
+   button=`<button type="button" class="primary order-card-work-button" data-local-custom-action="${esc(line.transaction_id)}" data-local-type="finish" data-local-custom-kind="${esc(line.custom_kind||'')}" data-local-custom-quantity="${printing}" aria-label="${printing} Stück ${esc(line.title)} fertigmelden">✓ Fertig</button>`;
   }else if(remaining>0){
-   button=`<button type="button" class="primary order-card-work-button" data-local-custom-action="${esc(line.transaction_id)}" data-local-type="start" data-local-custom-quantity="${remaining}" aria-label="${remaining} Stück ${esc(line.title)} in Druck nehmen">Drucken</button>`;
+   button=`<button type="button" class="primary order-card-work-button" data-local-custom-action="${esc(line.transaction_id)}" data-local-type="start" data-local-custom-kind="${esc(line.custom_kind||'')}" data-local-custom-quantity="${remaining}" aria-label="${remaining} Stück ${esc(line.title)} bearbeiten">${line.custom_kind==='laser'?'Lasern':'Drucken'}</button>`;
   }
  }else if(isComponent){
   const ready=typeof componentReadyUnits==='function'?componentReadyUnits(line):0;
