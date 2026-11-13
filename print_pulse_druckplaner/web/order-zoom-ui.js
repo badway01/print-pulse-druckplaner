@@ -281,6 +281,7 @@
  }
  let masterOrderLoading='';
  async function ensureOrderMasterFiles(line){
+  if(line.custom_kind)return; // Laser- und freie Druckaufträge haben keine Katalog-3MF.
   const lid=listingOf(line);if(!lid||masterOrderLoading===lid)return;
   masterOrderLoading=lid;
   try{
