@@ -148,6 +148,42 @@ const assert=require('node:assert/strict');
   await page.locator('#local-history-dialog [data-close="local-history-dialog"]').click();
   await page.locator('#local-history-open').click();
   await page.waitForFunction(()=>document.querySelector('#local-history-list')?.textContent?.includes('Direktverkauf Test'));
+  // Workshop services can be mixed in the same local order without catalog products.
+  await page.locator('#local-history-dialog [data-close="local-history-dialog"]').click();
+  await page.locator('#local-order-new').click();
+  await page.locator('#local-customer').fill('Sonderarbeiten Test');
+  assert(await page.locator('#local-add-line').evaluate(el=>el.previousElementSibling?.id==='local-order-lines'),
+   'Add position must sit immediately after the final order row');
+  await page.locator('[data-local-kind="0"]').selectOption('custom_print');
+  await page.locator('[data-local-title="0"]').fill('Halterung nach Maß');
+  await page.locator('[data-local-description="0"]').fill('55 mm breit, PETG schwarz');
+  await page.locator('[data-local-quantity="0"]').fill('2');
+  await page.locator('#local-add-line').click();
+  await page.locator('[data-local-kind="1"]').selectOption('laser');
+  await page.locator('[data-local-title="1"]').fill('Holzschild gravieren');
+  await page.locator('[data-local-description="1"]').fill('Birke 3 mm, 10 × 15 cm');
+  await page.locator('[data-local-personalization="1"]').fill('Anna & Tom');
+  await page.locator('[data-local-color="1"]').fill('Naturholz');
+  await Promise.all([
+   page.waitForResponse(r=>r.url().endsWith('/api/local-order')&&r.request().method()==='POST'&&r.ok()),
+   page.locator('#local-order-save').click()
+  ]);
+  await page.locator('#local-order-dialog').waitFor({state:'hidden'});
+  state=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
+  const bespoke=state.orders.find(o=>o.customer==='Sonderarbeiten Test');
+  assert(bespoke,'Special services order must be saved');
+  assert.deepEqual(bespoke.items.map(i=>i.title),['Halterung nach Maß','Holzschild gravieren']);
+  assert.deepEqual(bespoke.items.map(i=>i.custom_kind),['custom_print','laser']);
+  assert(bespoke.items.every(i=>i.item_id===null&&i.local_custom));
+  const specialCard=page.locator('.order-card').filter({hasText:bespoke.id});
+  await specialCard.locator('[data-order-position]').nth(1).click();
+  assert((await page.locator('#order-position').textContent()).includes('Holzschild gravieren'));
+  await page.locator('#order-position [data-focus-action="start"]').click();
+  await page.waitForFunction(id=>model.orders.find(o=>o.id===id)?.items[1].printing===1,bespoke.id);
+  await page.locator('#order-position [data-focus-action="complete"]').click();
+  await page.waitForFunction(id=>model.orders.find(o=>o.id===id)?.items[1].finished===1,bespoke.id);
+  await page.locator('#order-position [data-focus-close]').click();
+
   assert.deepEqual(errors,[]);
   console.log('LOCAL UI PASS: search suggestions, variant rows, personalized production, due date, edit, direct sale, history');
  }finally{await browser.close();}
