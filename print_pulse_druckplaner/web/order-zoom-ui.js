@@ -18,7 +18,7 @@
   if(complete(line))return ['Fertig','ready'];
   const c=composed(line)?(line.components||[]).reduce((s,p)=>s+num(p.printing),0):0;
   if(c)return ['Bauteile im Druck','printing'];
-  if(num(line.printing))return [num(line.printing)+' im Druck'+(done(line)?' · '+done(line)+'/'+num(line.quantity)+' fertig':''),'printing'];
+  if(num(line.printing))return [num(line.printing)+(line.custom_kind==='laser'?' beim Lasern':' im Druck')+(done(line)?' · '+done(line)+'/'+num(line.quantity)+' fertig':''),'printing'];
   if(done(line))return [done(line)+'/'+num(line.quantity)+' fertig','partial'];
   return ['Offen','pending'];
  };
@@ -38,6 +38,7 @@
   };
   add('Wunschfarbe',line.color);
   add('Personalisierung',line.personalization);
+  add('Beschreibung',line.description);
   add('Hinweis',line.note);
   return options;
  }
@@ -53,7 +54,7 @@
   const attrs=orderCustomerOptions(line).map(option=>option.label+': '+option.value).join(' · ');
   return '<button type="button" class="simple-order-tile'+(large?' is-large':'')+'" data-order-position="'+esc(line.transaction_id)+'">'+
    (image?'<img class="simple-tile-image" src="'+esc(image)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':
-    '<span class="simple-tile-image pp-photo-missing" aria-hidden="true">Produktfoto</span>')+
+    '<span class="simple-tile-image pp-photo-missing" aria-hidden="true">'+(line.custom_kind?'Sonderauftrag':'Produktfoto')+'</span>')+
    '<span class="simple-tile-info">'+
    (large?'<span class="pp-order-tile-eyebrow">BESTELLTE POSITION · '+num(line.quantity)+' STÜCK</span>':'')+
    '<strong>'+num(line.quantity)+' × '+esc(orderShortProductTitle(line.title))+'</strong>'+
@@ -107,7 +108,7 @@
    '<button type="button" class="secondary" data-local-close="cancel" data-local-id="'+esc(o.id)+'">Stornieren</button>'+
    '<button type="button" class="primary" data-local-handover="'+esc(o.id)+'" '+
     (o.status==='ready'?'':'disabled title="Zuerst alle Positionen fertigstellen"')+'>Übergabe bestätigen</button></div>':'';
-  const orderInsights=(o.items||[]).map(line=>{
+  const orderInsights=(o.items||[]).filter(line=>!line.custom_kind).map(line=>{
     const selected=composed(line)&&(line.components||[]).length ?
       (line.components||[]).map(part=>({title:part.name,file:partMasterResolution(line,part).file}))
         : [{title:orderShortProductTitle(line.title),file:productOrderMaster(line).file}];
@@ -197,7 +198,7 @@
     '<a class="simple-part-master-open" href="api/master-download?id='+encodeURIComponent(file.id)+'" download>3MF herunterladen</a>';
  }
  function productMasterHtml(line){
-  if(!listingOf(line))return '';
+  if(line.custom_kind||!listingOf(line))return '';
   const {file,files,pinned}=productOrderMaster(line);
   if(!files.length)return '<div class="simple-pos-master-empty"><b>Druckprojekt</b><span>Noch keine Master-3MF hinterlegt.</span></div>';
   const open=slicerActions(file);
@@ -360,7 +361,8 @@
   const undoable=component?num(line.assembled):num(line.finished);
   const quantityMax=Math.max(1,start?open:0,finish?(component?q-num(line.assembled):open+printing):0,readyUnits,undoable);
   const image=thumbnail(line.image||'');
-  const labels=[line.color?'Wunschfarbe: '+line.color:'',line.personalization?'Personalisierung: '+line.personalization:'',line.note?'Hinweis: '+line.note:''].filter(Boolean);
+  const laser=line.custom_kind==='laser';
+  const labels=[line.description?'Beschreibung: '+line.description:'',line.color?'Wunschfarbe: '+line.color:'',line.personalization?'Personalisierung: '+line.personalization:'',line.note?'Hinweis: '+line.note:''].filter(Boolean);
   const unknown=eligible&&!component&&!line.local_custom&&findItem(line.item_id)?.i.on_hand===null;
   $('order-position-title').textContent=o.customer;
   $('order-position-body').innerHTML='<div class="simple-pos-item">'+
@@ -371,15 +373,15 @@
    (labels.length?'<div class="simple-pos-extras">'+labels.map(x=>'<strong>'+esc(x)+'</strong>').join('')+'</div>':'')+
    (partMode?componentPartRows(line):productMasterHtml(line))+
    '<div class="simple-pos-state '+st[1]+'"><strong>'+esc(st[0])+'</strong>'+
-   '<small>'+done(line)+' von '+q+' fertig'+(!component&&printing?' · '+printing+' im Druck':'')+'</small></div>'+
+   '<small>'+done(line)+' von '+q+' fertig'+(!component&&printing?' · '+printing+(laser?' beim Lasern':' im Druck'):'')+'</small></div>'+
    (start||finish||readyUnits>0||undoable>1?
     '<label class="simple-pos-quantity">Stückzahl <input type="number" id="simple-pos-qty" inputmode="numeric" min="1" max="'+quantityMax+'" value="1"></label>':'')+
    (start||finish||readyUnits>0?
     (unknown&&finish?'<label class="simple-pos-initial">Bisheriger fertiger Lagerbestand<input type="number" id="simple-pos-stock" min="0" inputmode="numeric" placeholder="Vorher zählen"></label>':'')+
-    '<div class="simple-pos-actions">'+(start?'<button type="button" class="secondary" data-focus-action="start">Drucken</button>':'')+
+    '<div class="simple-pos-actions">'+(start?'<button type="button" class="secondary" data-focus-action="start">'+(laser?'Lasern':'Drucken')+'</button>':'')+
     (finish?'<button type="button" class="primary" data-focus-action="complete">✓ Fertig</button>':'')+
     (readyUnits?'<button type="button" class="primary" data-focus-action="assemble">✓ Produkt fertig ('+readyUnits+' möglich)</button>':'')+'</div>'+
-    (partMode?'<p class="hint">Bauteile einzeln bestätigen, danach das vollständige Produkt als fertig markieren. Freies Lager bleibt unverändert.</p>':'<p class="hint">„Drucken“ merkt den Druckstart vor. „Fertig“ bestätigt die wirklich fertige Menge, auch ohne vorherigen Druckstart.</p>'):
+    (partMode?'<p class="hint">Bauteile einzeln bestätigen, danach das vollständige Produkt als fertig markieren. Freies Lager bleibt unverändert.</p>':'<p class="hint">'+(laser?'„Lasern“ markiert den Arbeitsbeginn. „Fertig“ bestätigt das fertige Werkstück.':'„Drucken“ merkt den Druckstart vor. „Fertig“ bestätigt die wirklich fertige Menge, auch ohne vorherigen Druckstart.')+'</p>'):
     '<p class="hint">'+(complete(line)?'Diese Position ist fertig.':partMode?'Du kannst jedes Bauteil oben separat drucken und fertigmelden.':'Bei dieser Position sind noch Angaben zu prüfen.')+'</p>')+
    (undoable?'<div class="simple-pos-undo"><button type="button" data-focus-action="reopen">↶ Fertig rückgängig</button><small>Setzt '+(undoable>1?'die gewählte Anzahl':'diese Position')+' wieder auf offen, ohne neue Lagerbuchung.</small></div>':'')+
    '<button type="button" class="simple-pos-advanced-link" data-focus-more>Weitere Funktionen / Lagerverwaltung</button>';
