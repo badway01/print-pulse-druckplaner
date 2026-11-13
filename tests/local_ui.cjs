@@ -152,7 +152,7 @@ const assert=require('node:assert/strict');
   await page.locator('#local-history-dialog [data-close="local-history-dialog"]').click();
   await page.locator('#local-order-new').click();
   await page.locator('#local-customer').fill('Sonderarbeiten Test');
-  assert(await page.locator('#local-add-line').evaluate(el=>el.previousElementSibling?.id==='local-order-lines'),
+  assert(await page.locator('#local-add-line').evaluate(el=>el.parentElement?.previousElementSibling?.id==='local-order-lines'),
    'Add position must sit immediately after the final order row');
   await page.locator('[data-local-kind="0"]').selectOption('custom_print');
   await page.locator('[data-local-title="0"]').fill('Halterung nach Maß');
