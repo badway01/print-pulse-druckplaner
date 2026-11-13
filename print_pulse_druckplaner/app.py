@@ -1074,7 +1074,7 @@ def overview():
                 line['remaining']=0
             line['image']=images.get(line['listing_id'],'')
             # Receipt titles follow the buyer's language. Use our cached shop title.
-            line['title']=titles.get(line['listing_id']) or 'Artikel '+line['listing_id']
+            line['title']=(line.get('custom_title') or 'Sonderleistung') if line.get('custom_kind') else (titles.get(line['listing_id']) or 'Artikel '+line['listing_id'])
         orders.append({'id':receipt['id'],'customer':receipt['customer'],
                        'created':receipt['created'],'ship_by':receipt['ship_by'],
                        'items':lines,'quantity':sum(line['quantity'] for line in lines)})
