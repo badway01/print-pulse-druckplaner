@@ -32,6 +32,13 @@ const assert=require('node:assert/strict');
   await page.locator('[data-local-color="1"]').fill('11 Pink-Pastell');
 
   assert.equal(await page.locator('[data-local-search="1"]').getAttribute('aria-expanded'),'false');
+  assert(await page.locator('#local-add-line').evaluate(el=>el.previousElementSibling?.id==='local-order-lines'),
+   'Bottom add button must remain immediately after the last position on iPhone');
+  await page.locator('#local-add-line').tap();
+  await page.locator('[data-local-kind="2"]').selectOption('laser');
+  await page.locator('[data-local-title="2"]').fill('Namensschild lasern');
+  await page.locator('[data-local-description="2"]').fill('3 mm Holz, Kundenmotiv');
+  await page.locator('[data-local-personalization="2"]').fill('Testname');
   await Promise.all([
    page.waitForResponse(r=>r.url().endsWith('/api/local-order')&&r.request().method()==='POST'&&r.ok()),
    page.locator('#local-order-save').tap()
@@ -42,8 +49,11 @@ const assert=require('node:assert/strict');
   const state=await response.json();
   const order=state.orders.find(o=>o.source==='local'&&o.customer===name);
   assert(order,'Mobile local order was not saved');
-  assert.equal(order.items.length,2);
-  assert.deepEqual(order.items.map(item=>item.selected_variant_id),['103-default','102-black']);
+  assert.equal(order.items.length,3);
+  assert.deepEqual(order.items.slice(0,2).map(item=>item.selected_variant_id),['103-default','102-black']);
+  assert.equal(order.items[2].title,'Namensschild lasern');
+  assert.equal(order.items[2].custom_kind,'laser');
+  assert.equal(order.items[2].item_id,null);
   assert.equal(order.items[1].color,'11 Pink-Pastell');
   assert.deepEqual(errors,[]);
   console.log('MOBILE LOCAL PASS: WebKit touch selections, two positions, persisted order');
