@@ -86,6 +86,54 @@ class LocalOrderTests(unittest.TestCase):
         self.assertEqual(app.overview()['orders'][0]['id'],oid)
         self.assertEqual(self.stock(),5)
 
+    def test_bespoke_3d_and_laser_jobs_without_catalog_or_stock_movements(self):
+        lines=[
+            {'kind':'custom_print','title':'Halterung nach Kundenskizze','description':'Breite 55 mm, PETG',
+             'quantity':2,'color':'Schwarz','personalization':'','note':'Zeichnung prüfen'},
+            {'kind':'laser','title':'Holzschild für Hochzeit','description':'10 × 15 cm, Birke 3 mm',
+             'quantity':1,'color':'Naturholz','personalization':'Anna & Tom','note':'Material testen'},
+        ]
+        oid=self.call(app.local_orders.create,self.payload(lines))['id']
+        shown=next(o for o in app.overview()['orders'] if o['id']==oid)
+        self.assertEqual([x['title'] for x in shown['items']],
+                         ['Halterung nach Kundenskizze','Holzschild für Hochzeit'])
+        self.assertEqual([x['custom_kind'] for x in shown['items']],['custom_print','laser'])
+        self.assertEqual([x['variant'] for x in shown['items']],['3D-Eigenanfertigung','Laserarbeit'])
+        self.assertTrue(all(x['local_custom'] and x['item_id'] is None for x in shown['items']))
+        self.assertEqual([x['description'] for x in shown['items']],
+                         ['Breite 55 mm, PETG','10 × 15 cm, Birke 3 mm'])
+        self.assertEqual({x['listing_id'] for x in self.jobs(oid)},{'LOCAL-SPECIAL'})
+        self.assertEqual(self.stock(),5)
+        with app.connect() as db:
+            public=app.local_order_pdf.customer_snapshot(db,oid)
+            internal=app.local_order_pdf.customer_snapshot(db,oid,include_internal=True)
+        self.assertIn('Holzschild für Hochzeit',str(public))
+        self.assertIn('10 × 15 cm',str(public))
+        self.assertNotIn('Material testen',str(public))
+        self.assertIn('Material testen',str(internal))
+        self.assertTrue(app.local_order_pdf.render_pdf(public).startswith(b'%PDF-'))
+        for item in shown['items']:
+            self.call(app.local_orders.custom_action,{
+                'transaction_id':item['transaction_id'],'action_type':'finish-direct',
+                'quantity':item['quantity']})
+        done=next(o for o in app.overview()['orders'] if o['id']==oid)
+        self.assertEqual(done['status'],'ready')
+        with app.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            app.local_orders.close(db,{'id':oid,'action':'complete'},app.components)
+        self.assertEqual(self.stock(),5)
+
+    def test_custom_jobs_reject_direct_sale_and_missing_title(self):
+        line={'kind':'laser','title':'','quantity':1}
+        with self.assertRaisesRegex(ValueError,'Bezeichnung'):
+            self.call(app.local_orders.create,self.payload([line]))
+        line['title']='Gravur auf Holz'
+        with self.assertRaisesRegex(ValueError,'Direktverkauf'):
+            self.call(app.local_orders.create,self.payload([line],direct=True))
+        line['kind']='unknown'
+        with self.assertRaisesRegex(ValueError,'Positionsart'):
+            self.call(app.local_orders.create,self.payload([line]))
+
     def test_custom_color_and_engraving_are_separate_from_inventory(self):
         line={'listing_id':'101','item_id':'large','quantity':2,
               'color':'Jadeweiß','personalization':'Für Alex','note':'Mit Holzständer'}
