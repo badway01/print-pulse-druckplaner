@@ -2320,6 +2320,35 @@ $('catalog-search').addEventListener('input',()=>renderCatalog());
 for(const box of ['products','catalog-rows'])$(box).addEventListener('click',event=>{
  const b=event.target.closest('[data-master-open]');if(b)openMasterEditor(b.dataset.masterOpen);
 });
+// A click on an unassigned printer immediately creates its independent
+// assignment and opens that printer's 3MF time/gram editor.
+$('master-files').addEventListener('change',async event=>{
+ const checkbox=event.target.closest('input[data-master-share-file]');
+ if(!checkbox||!checkbox.checked||masterBusy||!masterContext)return;
+ const fileId=checkbox.dataset.masterShareFile,printer=checkbox.value;
+ const source=printTools.files.find(f=>f.id===fileId&&!f.is_history);
+ if(!source||source.listing_id!==masterContext.id||!masterPrinters.includes(printer))return;
+ const status=checkbox.closest('.master-shared-printers')?.querySelector('[data-master-share-status]');
+ masterBusy=true;checkbox.disabled=true;
+ if(status){status.textContent=printer+' wird zugeordnet …';status.dataset.state='pending';}
+ try{
+  const result=await masterUploadApi('master-clone',{file_id:fileId,printers:[printer]},120000);
+  if(!result.ok||!result.files?.some(f=>f.printer===printer))throw Error('Druckerzuordnung nicht bestätigt.');
+  const next=await masterUploadApi('print-tools?listing_id='+encodeURIComponent(masterContext.id),undefined,12000);
+  if(!Array.isArray(next.files)||!Array.isArray(next.profiles))throw Error('Zuordnung gespeichert, aber die Dateiliste konnte nicht geladen werden.');
+  printTools.files=[...printTools.files.filter(f=>f.listing_id!==masterContext.id),...next.files];
+  printTools.profiles=[...printTools.profiles.filter(p=>p.listing_id!==masterContext.id),...next.profiles];
+  window.markDruckplanerDialogSaved?.('master-editor');
+  $('master-printer').value=printer;
+  masterSelectionChanged();
+  renderCatalog();render();
+  flash('3MF für '+printer+' zugeordnet. Jetzt Gramm und Druckzeit eintragen.');
+ }catch(error){
+  if(status){status.textContent=error.message;status.dataset.state='error';}
+  checkbox.checked=false;checkbox.disabled=false;
+  flash('3MF-Zuordnung: '+error.message,true);
+ }finally{masterBusy=false;}
+});
 $('master-printer').addEventListener('change',masterSelectionChanged);
 $('master-variant').addEventListener('change',masterSelectionChanged);
 function markMasterColorsDirty(){
