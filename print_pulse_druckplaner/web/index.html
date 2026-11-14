@@ -428,14 +428,17 @@
  <summary><span>Neue Masterdatei speichern</span><small>3MF-Druckprojekt mit Profilen ablegen</small></summary>
  <div class="master-detail-content">
   <fieldset class="master-printer-targets" id="master-upload-printers">
-   <legend>Für welche Produktionsdrucker gilt diese 3MF?</legend>
-   <p>Ein Upload reicht für mehrere Zuordnungen. Die Kopie für einen anderen Drucker muss im jeweiligen Slicer angepasst und geprüft werden; das Tool konvertiert keine Druckprofile.</p>
+   <legend>Für welche Drucker gilt diese 3MF?</legend>
+   <p>Ein Upload reicht für mehrere Drucker. Auch gespeicherte 3MF-Projekte können unten später per Häkchen erweitert werden. Zeit und Gramm sind je Drucker separat. Die Produktionslinie bleibt unverändert.</p>
    <div class="master-printer-tiles" role="group" aria-label="3MF-Druckerzuordnung">
     <label class="master-printer-tile"><input type="checkbox" value="H2D" checked><span class="master-printer-tile-title">H2D</span></label>
     <label class="master-printer-tile"><input type="checkbox" value="P1S Old"><span class="master-printer-tile-title">P1S Old</span></label>
     <label class="master-printer-tile"><input type="checkbox" value="P1S New"><span class="master-printer-tile-title">P1S New</span></label>
     <label class="master-printer-tile"><input type="checkbox" value="Snapmaker U1"><span class="master-printer-tile-title">Snapmaker U1</span></label>
-    <label class="master-printer-tile master-printer-tile-new"><input type="checkbox" value="X2D"><span class="master-printer-tile-title">Bambu X2D</span><span class="master-printer-tile-badge" aria-label="Neuer Drucker">NEU</span></label>
+    <label class="master-printer-tile master-printer-tile-new"><input type="checkbox" value="X2D"><span class="master-printer-tile-title">Bambu X2D</span></label>
+     <label class="master-printer-tile"><input type="checkbox" value="A1"><span class="master-printer-tile-title">Bambu A1</span></label>
+     <label class="master-printer-tile"><input type="checkbox" value="A1 mini"><span class="master-printer-tile-title">Bambu A1 mini</span></label>
+     <label class="master-printer-tile"><input type="checkbox" value="Prusa MK4"><span class="master-printer-tile-title">Prusa MK4</span></label>
    </div>
   </fieldset>
   <section class="master-share-box" aria-label="3MF direkt aus Netzwerkordner übernehmen">
@@ -461,7 +464,7 @@
 <p id="master-upload-status" class="master-inline-status" role="status" aria-live="polite"></p>
 </section>
 <section class="master-projects-section">
- <div class="master-section-heading"><div><h3>Gespeicherte 3MF-Projekte</h3><p>Bei jedem Projekt folgen direkt die Farbzuordnung und danach die Druckdaten.</p></div><span id="master-file-count" class="master-files-count">0 Projektdateien</span></div>
+ <div class="master-section-heading"><div><h3>Gespeicherte 3MF-Projekte</h3><p>Vorhandene Datei einmal anklicken, weitere Drucker zuordnen und je Drucker eigene Druckdaten hinterlegen.</p></div><span id="master-file-count" class="master-files-count">0 Projektdateien</span></div>
  <div id="master-files" class="master-project-list"></div>
  <p id="master-slicer-status" class="hint" role="status" aria-live="polite"></p>
  <details class="master-slicer-help master-detail-group">
