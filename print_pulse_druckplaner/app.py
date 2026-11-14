@@ -73,7 +73,7 @@ MASTER_IMPORT_ROOT = Path(os.environ.get("PP_MASTER_IMPORT_DIR", "/share/print-p
 MAX_MASTER_SIZE = 100 * 1024 * 1024
 MASTER_CHUNK_SIZE = 2 * 1024 * 1024  # Streaming ingress: fewer requests, adaptive fallback in client.
 MASTER_UPLOAD_LOCK = threading.RLock()
-PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","X2D","A1 mini","Prusa MK4")
+PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","X2D","A1","A1 mini","Prusa MK4")
 MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1")
 MONITOR_FIELDS = ("status","progress","remaining","filename","nozzle","nozzle_left","nozzle_right",
                   "bed","chamber","layer","total_layers","stage","active_tray",
@@ -1681,29 +1681,38 @@ def restore_master_revision(data):
 
 
 def clone_master_printers(data):
-    """Create printer-specific candidate copies from one uploaded source.
+    """Assign an existing 3MF to more printers without another browser upload.
 
-    Byte-identical copies are NOT slicer conversions: they are explicitly
-    unverified until each target profile has been configured and sliced.
-    Repeated requests return existing targets rather than duplicate files.
+    Target files and their filament/time metadata remain independent. Existing
+    assignments are never overwritten, and repeated requests are idempotent.
     """
     source_id=str(data.get('file_id') or '')
     printers=data.get('printers')
-    if not re.fullmatch(r'[a-f0-9]{24}',source_id) or not isinstance(printers,list) or len(printers)>5:
+    if not re.fullmatch(r'[a-f0-9]{24}',source_id) or not isinstance(printers,list) or len(printers)>len(PRINTERS):
         raise ValueError('Ungültige Datei oder Druckerauswahl.')
-    allowed=('H2D','P1S Old','P1S New','Snapmaker U1','X2D')
-    if any(p not in allowed for p in printers) or len(set(printers))!=len(printers):
-        raise ValueError('Nur bekannte Produktionsdrucker dürfen ausgewählt werden.')
-    source,path=master_download_record(source_id)
+    if any(p not in PRINTERS for p in printers) or len(set(printers))!=len(printers):
+        raise ValueError('Unbekannter oder mehrfach ausgewählter Drucker.')
+
+    # A previously assigned printer can itself be the starting point. Always
+    # extend the original group rather than creating groups of copied files.
+    with connect() as db:
+        parent=db.execute("""SELECT a.source_file_id FROM pp_master_clone_assignments a
+            JOIN master_files f ON f.id=a.source_file_id
+            WHERE a.file_id=?""",(source_id,)).fetchone()
+    original_id=parent['source_file_id'] if parent else source_id
+    source,path=master_download_record(original_id)
     if source['is_history']:
-        raise ValueError('Historische Versionen können nicht als aktuelle Druckdatei verteilt werden.')
+        raise ValueError('Historische Versionen können nicht neu zugeordnet werden.')
     results=[]
     for printer in printers:
         if printer==source['printer']:
+            results.append({'printer':printer,'id':original_id,'existing':True})
             continue
         with connect() as db:
-            prior=db.execute('SELECT file_id FROM pp_master_clone_assignments WHERE source_file_id=? AND printer=?',
-                             (source_id,printer)).fetchone()
+            prior=db.execute("""SELECT a.file_id FROM pp_master_clone_assignments a
+                JOIN master_files f ON f.id=a.file_id
+                WHERE a.source_file_id=? AND a.printer=?""",
+                (original_id,printer)).fetchone()
         if prior:
             results.append({'printer':printer,'id':prior['file_id'],'existing':True})
             continue
@@ -1711,11 +1720,22 @@ def clone_master_printers(data):
             saved=store_master_file({'listing_id':source['listing_id'],'variant_id':source['variant_id'],
                                      'printer':printer,'filename':source['filename'],'verified':0},
                                     inp,path.stat().st_size)
+        # Read original color swatches but do not mislabel H2D slice estimates
+        # as P1S/A1 print time or consumption. Both are entered per printer.
+        details=master_insights.extract(path)
+        details['time_seconds']=None
+        details['filaments']=[{**item,'grams':None} for item in details.get('filaments',[])
+                              if isinstance(item,dict)]
         with connect() as db:
-            db.execute('INSERT OR IGNORE INTO pp_master_clone_assignments(source_file_id,printer,file_id) VALUES(?,?,?)',
-                       (source_id,printer,saved['id']))
+            db.execute("""INSERT OR REPLACE INTO pp_master_file_insights
+                (file_id,details_json,updated) VALUES(?,?,?)""",
+                (saved['id'],json.dumps(details,ensure_ascii=False),int(time.time())))
+            db.execute('DELETE FROM pp_master_clone_assignments WHERE source_file_id=? AND printer=?',
+                       (original_id,printer))
+            db.execute("""INSERT INTO pp_master_clone_assignments(source_file_id,printer,file_id)
+                VALUES(?,?,?)""",(original_id,printer,saved['id']))
         results.append({'printer':printer,'id':saved['id'],'existing':False})
-    return {'ok':True,'files':results,'review_required':bool(results)}
+    return {'ok':True,'files':results,'review_required':any(not r['existing'] for r in results)}
 
 
 def verify_master_printer(data):
@@ -1742,6 +1762,26 @@ def print_tools_overview(listing_id=None):
         files=[dict(r) for r in db.execute(
             'SELECT id,listing_id,variant_id,printer,filename,bytes,created,relative_path,revision_no,is_history,modified,verified,origin_id FROM master_files'
             +where+' ORDER BY created DESC,id DESC',args)]
+        # Shared-printer labels for existing 3MF projects; no extra upload required.
+        # Clones retain their own file ID for independent gram/time data.
+        grouped={}
+        by_id={f['id']:f for f in files}
+        for link in db.execute("""SELECT a.source_file_id,a.printer,a.file_id
+            FROM pp_master_clone_assignments a
+            JOIN master_files original ON original.id=a.source_file_id
+            JOIN master_files target ON target.id=a.file_id"""):
+            root=link['source_file_id']
+            if root not in by_id or link['file_id'] not in by_id:
+                continue
+            grouped.setdefault(root,set()).update((by_id[root]['printer'],link['printer']))
+        origins={link['file_id']:link['source_file_id'] for link in db.execute(
+            """SELECT a.source_file_id,a.file_id FROM pp_master_clone_assignments a
+               JOIN master_files original ON original.id=a.source_file_id
+               JOIN master_files target ON target.id=a.file_id""")}
+        for file in files:
+            root=origins.get(file['id'],file['id'])
+            file['shared_source_id']=root
+            file['shared_printers']=sorted(grouped.get(root,{file['printer']}))
         links=[dict(r) for r in db.execute("""SELECT m.component_id,m.variant_id,m.printer,m.file_id,
             c.listing_id FROM pp_component_master_links m
             JOIN pp_components c ON c.id=m.component_id
@@ -2254,6 +2294,8 @@ def delete_master_file(data):
             db.execute('DELETE FROM pp_component_master_links WHERE file_id=?',(file_id,))
             db.execute('DELETE FROM pp_order_master_defaults WHERE file_id=?',(file_id,))
             db.execute('DELETE FROM pp_master_file_insights WHERE file_id=?',(file_id,))
+            db.execute('DELETE FROM pp_master_clone_assignments WHERE source_file_id=? OR file_id=?',
+                       (file_id,file_id))
             db.execute('DELETE FROM master_files WHERE id=?',(file_id,))
     except BaseException:
         if moved:

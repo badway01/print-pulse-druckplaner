@@ -3629,3 +3629,23 @@ html[data-theme="dark"] .master-editor .master-workflow-upload,
 html[data-theme="dark"] .master-editor .master-workflow-inner,
 html[data-theme="dark"] .master-original-row{background:#25372f}
 html[data-theme="dark"] .master-original-box{background:#203229}
+
+/* 0.13.64 – Existing 3MF projects: one-click sharing across printer profiles. */
+.master-shared-printers{margin:11px 0 3px;border:1px solid #c8ded2;border-radius:11px;background:var(--surface-soft);padding:0 11px}
+.master-shared-printers>summary{display:flex;justify-content:space-between;align-items:center;gap:9px;cursor:pointer;padding:11px 0;color:var(--green);font-weight:800;font-size:12px}
+.master-shared-printers>summary small{font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap}
+.master-shared-printers>p{font-size:11px;color:var(--muted);line-height:1.5;margin:2px 0 10px}
+.master-shared-printers>small{display:block;font-size:10px;color:var(--muted);line-height:1.45;margin:9px 0}
+.master-shared-printer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:7px;margin:6px 0 10px}
+.master-shared-printer-tile{display:flex;align-items:center;gap:7px;padding:9px 10px;border:1px solid var(--border-strong);border-radius:9px;background:var(--surface);cursor:pointer;min-width:0;min-height:43px}
+.master-shared-printer-tile input[type="checkbox"]{flex:0 0 17px;width:17px;height:17px;accent-color:#187a59;cursor:pointer}
+.master-shared-printer-tile span{font-size:11px;font-weight:650;color:var(--ink);overflow-wrap:anywhere}
+.master-shared-printer-tile.is-linked{border-color:#7ab99a;background:#e4f4e9;cursor:default}
+.master-shared-printer-tile.is-linked input{cursor:default}
+.master-shared-printer-tile:hover:not(.is-linked){border-color:#288b64;box-shadow:0 1px 5px #16805222}
+.master-shared-printer-tile:focus-within{outline:2px solid #288b64;outline-offset:1px}
+.master-shared-printers [data-master-share-status]:empty{display:none}
+html[data-theme="dark"] .master-shared-printer-tile.is-linked{background:#244b38;border-color:#458e65}
+html[data-theme="dark"] .master-shared-printers{border-color:#496d56}
+@media(max-width:540px){.master-shared-printer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.master-shared-printers>summary{flex-wrap:wrap}.master-shared-printers>summary small{white-space:normal}}

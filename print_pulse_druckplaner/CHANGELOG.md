@@ -1,3 +1,11 @@
+## 0.13.64 – Gespeicherte 3MF für weitere Drucker freigeben (14.11.2026)
+
+- Bereits gespeicherte 3MF-Projekte zeigen „Auch auf anderen Druckern verwenden“ mit direkt anklickbaren Häkchen. Die Datei muss nicht erneut vom Mac hochgeladen oder über Samba importiert werden.
+- Nach der Zuordnung wird der ausgewählte Drucker geöffnet. Seine eigene Filament-/Düsenbelegung sowie Druckzeit und Grammzahl können separat gepflegt werden, ohne die H2D-Daten zu überschreiben.
+- A1 und A1 mini sind für 3MF-Dateien auswählbar, ohne dadurch in die Produktionslinie aufgenommen zu werden. Prusa MK4 ist ebenfalls für die Dateiverwaltung verfügbar.
+- Bestehende Zuordnungen, Dateien, Zeit-/Grammwerte und Versionen bleiben erhalten; wiederholte Zuordnungen werden ohne Doppelanlage erkannt. Neue Druckervarianten übernehmen keine irreführenden Slicer-Zeit- und Grammwerte der Quelldatei.
+- Gedruckt wird weiterhin mit dem vom Nutzer selbst gewählten Slicer-/Masterprofil. Keine automatische Konvertierung.
+
 ## 0.13.63 – Lokale Sonderleistungen und Plus-Button am Listenende (13.11.2026)
 
 - Jede lokale Position hat eine Auswahl: Katalogartikel, 3D-Eigenanfertigung oder Laserarbeit/Gravur.

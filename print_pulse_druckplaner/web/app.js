@@ -1652,7 +1652,7 @@ $('filament-delete').addEventListener('click',async()=>{
 setInterval(()=>{if(workspace==='filament'&&!document.hidden)loadFilaments();},30000);
 
 
-const masterPrinters=['H2D','P1S Old','P1S New','Snapmaker U1','X2D','A1 mini','Prusa MK4'];
+const masterPrinters=['H2D','P1S Old','P1S New','Snapmaker U1','X2D','A1','A1 mini','Prusa MK4'];
 function toolSummary(p){
  const profiles=printTools.profiles.filter(r=>r.listing_id===p.id);
  const files=printTools.files.filter(r=>!r.is_history&&r.listing_id===p.id);
@@ -1707,9 +1707,9 @@ function selectedMasterTarget(){
 }
 function selectedUploadPrinterTargets(){
  const values=[...document.querySelectorAll('#master-upload-printers input[type="checkbox"]:checked')].map(i=>i.value);
- const allowed=['H2D','P1S Old','P1S New','Snapmaker U1','X2D'];
+ const allowed=masterPrinters;
  const choices=values.filter(value=>allowed.includes(value));
- if(!choices.length)throw Error('Wähle mindestens einen Produktionsdrucker aus.');
+ if(!choices.length)throw Error('Wähle mindestens einen Drucker aus.');
  return choices;
 }
 function syncUploadPrinterTargets(){
@@ -1936,6 +1936,24 @@ function masterSlicerUrl(file,slicer='bambu'){
  const host=/^(10\.(\d{1,3}\.){2}\d{1,3}|192\.168\.(\d{1,3}\.)\d{1,3}|172\.(1[6-9]|2\d|3[01])\.(\d{1,3}\.)\d{1,3}|[a-z0-9-]+\.local)$/.test(candidate)?candidate:'';
  return 'printpulse3mf://'+slicer+'/'+file.id+(host?'?server='+encodeURIComponent(host):'');
 }
+function masterExistingPrinterMarkup(file){
+ const assigned=new Set((Array.isArray(file.shared_printers)?file.shared_printers:[file.printer])
+  .filter(name=>masterPrinters.includes(name)));
+ assigned.add(file.printer);
+ const chips=masterPrinters.map(printer=>{
+  const linked=assigned.has(printer);
+  return '<label class="master-shared-printer-tile'+(linked?' is-linked':'')+'">'+
+   '<input type="checkbox" value="'+esc(printer)+'" data-master-share-file="'+esc(file.id)+'"'+
+   (linked?' checked disabled':'')+' aria-label="'+esc(printer)+(linked?' bereits zugeordnet':' zuordnen')+'">'+
+   '<span>'+esc(printer==='X2D'?'Bambu X2D':printer)+'</span></label>';
+ }).join('');
+ return '<details class="master-shared-printers"><summary>Auch auf anderen Druckern verwenden'+
+  '<small>'+assigned.size+' von '+masterPrinters.length+' zugeordnet</small></summary>'+
+  '<p>Weitere Drucker einfach anklicken – kein erneuter 3MF-Upload. Druckzeit und Grammzahl bleiben je Drucker getrennt.</p>'+
+  '<div class="master-shared-printer-grid" role="group" aria-label="Zusätzliche Drucker für '+esc(file.filename)+'">'+chips+'</div>'+
+  '<small>Grüne Häkchen sind bereits gespeichert. Drucker oben auswählen, um dessen Daten zu bearbeiten.</small>'+
+  '<p class="master-inline-status" data-master-share-status="'+esc(file.id)+'" role="status"></p></details>';
+}
 function renderMasterFiles(){
  const panel=$('master-color-editor-panel'),home=$('master-color-editor-home');
  if(panel&&home&&panel.parentElement!==home)home.appendChild(panel);
@@ -1962,6 +1980,7 @@ function renderMasterFiles(){
    (index===0?'<span class="master-project-latest">Aktuell</span>':'')+'</div>'+
    '<div class="master-project-meta"><span>'+esc(printerLabel)+'</span><span>'+esc(stamp)+'</span><span>'+(f.bytes/1048576).toFixed(1)+' MB</span></div></div>'+
    '<button type="button" class="master-delete" data-master-delete="'+esc(f.id)+'" title="3MF löschen" aria-label="'+esc(f.filename)+' löschen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div>'+
+   masterExistingPrinterMarkup(f)+
    '<section class="master-workflow-inner master-workflow-colors"><div class="master-workflow-heading"><span class="master-workflow-number">2</span><div><h3>Farben und Düsen zuordnen</h3><p>Originalfarben anklicken, Druckkopf zuordnen und bei Bedarf in deiner Filamentbibliothek suchen.</p></div></div>'+
    masterPalettePreviewMarkup(f)+'</section>'+
    '<section class="master-workflow-inner master-workflow-metrics"><div class="master-workflow-heading"><span class="master-workflow-number">3</span><div><h3>Gramm und Druckzeit</h3><p>Filamente aus Schritt 2 werden übernommen. Fehlende Mengen und Druckdauer ergänzen.</p></div></div>'+
@@ -2300,6 +2319,35 @@ async function copyMasterPath(){
 $('catalog-search').addEventListener('input',()=>renderCatalog());
 for(const box of ['products','catalog-rows'])$(box).addEventListener('click',event=>{
  const b=event.target.closest('[data-master-open]');if(b)openMasterEditor(b.dataset.masterOpen);
+});
+// A click on an unassigned printer immediately creates its independent
+// assignment and opens that printer's 3MF time/gram editor.
+$('master-files').addEventListener('change',async event=>{
+ const checkbox=event.target.closest('input[data-master-share-file]');
+ if(!checkbox||!checkbox.checked||masterBusy||!masterContext)return;
+ const fileId=checkbox.dataset.masterShareFile,printer=checkbox.value;
+ const source=printTools.files.find(f=>f.id===fileId&&!f.is_history);
+ if(!source||source.listing_id!==masterContext.id||!masterPrinters.includes(printer))return;
+ const status=checkbox.closest('.master-shared-printers')?.querySelector('[data-master-share-status]');
+ masterBusy=true;checkbox.disabled=true;
+ if(status){status.textContent=printer+' wird zugeordnet …';status.dataset.state='pending';}
+ try{
+  const result=await masterUploadApi('master-clone',{file_id:fileId,printers:[printer]},120000);
+  if(!result.ok||!result.files?.some(f=>f.printer===printer))throw Error('Druckerzuordnung nicht bestätigt.');
+  const next=await masterUploadApi('print-tools?listing_id='+encodeURIComponent(masterContext.id),undefined,12000);
+  if(!Array.isArray(next.files)||!Array.isArray(next.profiles))throw Error('Zuordnung gespeichert, aber die Dateiliste konnte nicht geladen werden.');
+  printTools.files=[...printTools.files.filter(f=>f.listing_id!==masterContext.id),...next.files];
+  printTools.profiles=[...printTools.profiles.filter(p=>p.listing_id!==masterContext.id),...next.profiles];
+  window.markDruckplanerDialogSaved?.('master-editor');
+  $('master-printer').value=printer;
+  masterSelectionChanged();
+  renderCatalog();render();
+  flash('3MF für '+printer+' zugeordnet. Jetzt Gramm und Druckzeit eintragen.');
+ }catch(error){
+  if(status){status.textContent=error.message;status.dataset.state='error';}
+  checkbox.checked=false;checkbox.disabled=false;
+  flash('3MF-Zuordnung: '+error.message,true);
+ }finally{masterBusy=false;}
 });
 $('master-printer').addEventListener('change',masterSelectionChanged);
 $('master-variant').addEventListener('change',masterSelectionChanged);
