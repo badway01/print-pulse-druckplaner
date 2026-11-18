@@ -64,7 +64,7 @@ except ImportError:
     _filament_stats_spec.loader.exec_module(filament_stats)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.57'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.65'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -411,6 +411,103 @@ def receipt_status(receipt):
     if receipt.get('is_paid') is False or status not in ('paid','completed'):
         return 'review'
     return 'shipped' if receipt.get('is_shipped') or receipt.get('was_shipped') or status=='completed' else 'open'
+
+
+# Private Hermes account: official semicolon-separated address import only.
+# Keep addresses out of the database, logs and ordinary dashboard polling.
+HERMES_COUNTRIES = dict(zip(
+    'AT BE BG HR CZ DK EE FI FR DE GR HU IE IT LV LT LU NL PL PT RO SK SI ES SE'.split(),
+    'AUT BEL BGR HRV CZE DNK EST FIN FRA DEU GRC HUN IRL ITA LVA LTU LUX NLD POL PRT ROU SVK SVN ESP SWE'.split()))
+HERMES_FIELDS = ('first_name','last_name','extra','street','number','zip','city','district','country','phone_prefix','phone','email')
+HERMES_LIMITS = (20,30,20,27,5,10,30,50,3,6,15,80)
+
+
+def shipping_ready(order):
+    if order.get('source')=='local' and order.get('fulfillment')!='shipping':
+        return False
+    lines=order.get('items') or []
+    return bool(lines) and all(
+        (line.get('item_id') or (order.get('source')=='local' and line.get('local_custom')))
+        and int(line.get('quantity') or 0)>0
+        and int(line.get('finished') or 0)+int(line.get('allocated') or 0)+int(line.get('assembled') or 0)>=int(line['quantity'])
+        and not int(line.get('printing') or 0) and not int(line.get('remaining') or 0)
+        for line in lines)
+
+
+def shipping_orders(ids):
+    if not isinstance(ids,list) or not 1<=len(ids)<=500 or any(not isinstance(x,str) or len(x)>64 for x in ids) or len(set(ids))!=len(ids):
+        raise ValueError('Bitte 1 bis 500 unterschiedliche Bestellungen auswählen.')
+    ready={str(o['id']):o for o in overview()['orders'] if shipping_ready(o)}
+    if any(rid not in ready for rid in ids):
+        raise ValueError('Mindestens eine Bestellung ist nicht mehr versandbereit. Bitte aktualisieren.')
+    return [ready[rid] for rid in ids]
+
+
+def hermes_address(receipt, customer=''):
+    def val(key):
+        return html.unescape(str(receipt.get(key) or '')).strip()
+    name=(val('name') or customer).split()
+    first=' '.join(name[:-1]) if len(name)>1 else ''
+    last=name[-1] if name else ''
+    street=val('first_line')
+    number=''
+    # A conservative split: anything ambiguous stays editable, not guessed.
+    match=re.fullmatch(r'(.+?)\s+(\d+[\w/-]*)',street)
+    if match:
+        street,number=match.groups()
+    return dict(first_name=first,last_name=last,extra=val('second_line'),street=street,number=number,
+                zip=val('zip'),city=val('city'),district='',country=HERMES_COUNTRIES.get(val('country_iso').upper(),''))
+
+
+def shipping_address(rid):
+    order=shipping_orders([rid])[0]
+    if order.get('source')=='local':
+        return {'address':hermes_address({},order['customer']),'notice':'Adresse für den lokalen Auftrag manuell ergänzen.'}
+    if not rid.isascii() or not rid.isdecimal():
+        raise ValueError('Ungültige Etsy-Bestellung.')
+    with connect() as db:
+        shop=cfg(db,'shop_id')
+    if not shop.isdigit():
+        raise ValueError('Bitte Etsy unter Einstellungen verbinden.')
+    receipt=api_request(f'/application/shops/{shop}/receipts/{rid}')
+    if str(receipt.get('receipt_id'))!=rid or receipt_status(receipt)!='open':
+        raise ValueError('Bestellung bei Etsy nicht mehr offen. Bitte aktualisieren.')
+    address=hermes_address(receipt,order['customer'])
+    notice='' if all(address[k] for k in ('street','city','country')) else 'Etsy liefert die Lieferadresse nicht vollständig. Bitte in Etsy prüfen und manuell ergänzen.'
+    return {'address':address,'notice':notice}
+
+
+def hermes_csv(rows):
+    if not isinstance(rows,list) or not 1<=len(rows)<=500 or any(not isinstance(r,dict) for r in rows):
+        raise ValueError('Bitte 1 bis 500 Adressen auswählen.')
+    shipping_orders([r.get('id') for r in rows])
+    result=[]
+    for row in rows:
+        if row.get('confirmed') is not True or not isinstance(row.get('address'),dict):
+            raise ValueError('Bitte alle ausgewählten Lieferadressen prüfen und bestätigen.')
+        address=row['address']
+        values=[]
+        for key,limit in zip(HERMES_FIELDS,HERMES_LIMITS):
+            # Do not export contact details that are not needed for shipping.
+            field=address.get(key,'') if key not in ('phone_prefix','phone','email') else ''
+            if not isinstance(field,str): raise ValueError('Ungültiges Adressfeld.')
+            field=field.strip()
+            if len(field)>limit:
+                raise ValueError(f'Adressfeld {key} darf höchstens {limit} Zeichen enthalten. Bitte korrigieren.')
+            if any(ord(c)<32 or ord(c)==127 or c in ';"' for c in field) or field.startswith(('=','+','@','-')):
+                raise ValueError('Unzulässiges Zeichen in einer Adresse. Bitte korrigieren.')
+            values.append(field)
+        if not all(values[i] for i in (0,1,3,4,6,8)) or (values[8]!='IRL' and not values[5]):
+            raise ValueError('Name, Straße, Hausnummer, PLZ, Ort und Land müssen vollständig sein.')
+        if values[8] not in HERMES_COUNTRIES.values() or (values[8]!='IRL' and values[7]):
+            raise ValueError('Ungültiges Land oder Bezirk. Bezirk ist nur für Irland vorgesehen.')
+        if values[8]=='DEU' and not re.fullmatch(r'[0-9]{5}',values[5]):
+            raise ValueError('Deutsche Postleitzahl muss fünfstellig sein.')
+        if re.search(r'\b(?:postfach|packstation)\b',values[3],re.I):
+            raise ValueError('Postfach und Packstation sind für diesen Hermes-Import ungeeignet.')
+        result.append(';'.join(values)+';\r\n')
+    try: return ''.join(result).encode('cp1252')
+    except UnicodeEncodeError: raise ValueError('Eine Adresse enthält Zeichen, die Hermes nicht importieren kann. Bitte passende Schreibweise prüfen.') from None
 
 
 def fetch_listing_details(listings, include_images=True):
@@ -2804,6 +2901,8 @@ def max_ingress_post_body(path):
         return 12*1024*1024
     if path=='/api/filament-import-text':
         return 128000
+    if path=='/api/hermes-export':
+        return 1024*1024
     return 60000
 
 
@@ -3204,12 +3303,18 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(403,{'error':'Ungültiger Ursprung.'})
         try:
             length=int(self.headers.get('Content-Length','0'))
-            max_length=128000 if urllib.parse.urlsplit(self.path).path=='/api/filament-import-text' else 60000
+            request_path=urllib.parse.urlsplit(self.path).path
+            max_length=128000 if request_path=='/api/filament-import-text' else 1024*1024 if request_path=='/api/hermes-export' else 60000
             if not 1<=length<=max_length: raise ValueError('Ungültige Eingabegröße.')
             self.connection.settimeout(15)
             data=json.loads(self.rfile.read(length))
             if not isinstance(data,dict): raise ValueError('JSON-Objekt erforderlich.')
             path=urllib.parse.urlsplit(self.path).path
+            if path=='/api/shipping-address':
+                return self.send(200,shipping_address(data.get('id')))
+            if path=='/api/hermes-export':
+                csv=hermes_csv(data.get('rows'))
+                return self.send(200,{'content':base64.b64encode(csv).decode('ascii'),'count':len(data['rows'])})
             if path=='/api/local-order':
                 action=data.get('action')
                 with connect() as db:

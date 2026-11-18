@@ -29,6 +29,7 @@
 <nav class="workspace-tabs" aria-label="Druckplaner-Bereiche – auf Mobilgeräten seitlich wischbar">
  <button type="button" data-workspace="production" class="selected" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20V9l6 4V9l6 4V4h5v16H3Z"/><path d="M8 17h2m4 0h2"/></svg><span>Dashboard</span></button>
  <button type="button" data-workspace="orders" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 4h13v16H7zM4 8h3M4 13h3M4 18h3M10 9h7M10 13h7"/></svg><span>Bestellungen</span></button>
+ <button type="button" data-workspace="shipping" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 5h12v12H2zM14 9h4l4 4v4h-8"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg><span>Versand</span></button>
  <button type="button" data-workspace="stock" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 7 9-4 9 4v13H3zM3 7l9 5 9-5M12 12v8"/></svg><span>Lagerbestand</span></button>
  <button type="button" data-workspace="catalog" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z"/><path d="m3 7 9 5 9-5m-9 5v10"/></svg><span>Modelle</span></button>
  <button type="button" data-workspace="filament" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg><span>Filament</span> <span id="filament-tab-count" class="workspace-count" hidden></span></button>
@@ -46,6 +47,14 @@
  </div>
  <div id="full-orders-count" class="board-count" aria-live="polite"></div>
  <div id="full-orders-grid" class="board-order-grid as-grid"></div>
+</section>
+<section id="shipping-shell" class="board-page" hidden aria-label="Versandcenter">
+ <div class="board-heading"><div><span class="eyebrow">ETSY &amp; LOKAL · HERMES</span><h2>Versandcenter</h2><p>Fertige Aufträge auswählen, Adressen prüfen und gesammelt bei Hermes importieren.</p></div><a class="secondary pp-shipping-link" href="https://www.myhermes.de/konto/" target="_blank" rel="noopener noreferrer">myHermes öffnen ↗</a></div>
+ <div class="board-statistics"><div><small>Versandbereit</small><strong id="shipping-ready-count">0</strong></div><div><small>Ausgewählt</small><strong id="shipping-selected-count">0</strong></div><div><small>CSV exportiert · diese Sitzung</small><strong id="shipping-exported-count">0</strong></div></div>
+ <div class="board-toolbar"><button id="shipping-select-all" type="button" class="secondary">Alle auswählen</button><button id="shipping-deselect-all" type="button" class="secondary">Auswahl aufheben</button><span class="hint">Adressen werden nur für ausgewählte Aufträge geladen.</span></div>
+ <div id="shipping-cards" class="pp-shipping-cards"></div>
+ <div class="pp-shipping-export"><div><strong>Hermes Sammelversand</strong><p class="hint">Die Importdatei enthält nur die benötigten Adressdaten. Paketklasse, Zahlung und Label erstellst du anschließend bei myHermes.</p></div><button type="button" id="shipping-export" class="primary" disabled>Hermes CSV herunterladen</button></div>
+ <p id="shipping-status" class="hint" role="status" aria-live="polite"></p><p class="board-note">Bei myHermes unter „Import Adressdaten“ hochladen. Der Export ändert weder den Etsy-Versandstatus noch deinen Lagerbestand. <a href="https://www.myhermes.de/service/fragen/technische-hilfe/datenimport.html" target="_blank" rel="noopener noreferrer">Hermes-Anleitung ↗</a></p>
 </section>
 <section id="stock-shell" class="board-page" hidden aria-label="Dein Lagerbestand">
  <div class="board-heading"><div><span class="eyebrow">DEIN REGAL · FERTIGE ARTIKEL &amp; BAUTEILE</span><h2>Mein Lagerbestand</h2><p>Was im Regal liegt – nach Artikel, Farbe und Variante. Schon fest zugewiesene Auftragsstücke sind nicht mehr frei.</p></div></div>

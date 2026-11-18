@@ -218,6 +218,7 @@ function setModel(data,resort=false){
    ...data.products.filter(p=>!order.includes(p.id)).map(p=>p.id)];
  }
  render();
+ if(workspace==='shipping')renderShipping();
 }
 // Count the component production need for one listing, using the same rules
 // as the complete dashboard. This lets a stock-only patch update its summary.
@@ -1332,6 +1333,8 @@ async function filamentAction(data,trigger=null){
 }
 function showWorkspace(value){
  workspace=value;
+ $('shipping-shell').hidden=value!=='shipping';
+ if(value==='shipping')renderShipping();
  for(const b of document.querySelectorAll('[data-workspace]')){const chosen=b.dataset.workspace===value;b.classList.toggle('selected',chosen);b.setAttribute('aria-pressed',String(chosen));}
  // Keep the selected tab in view without scrolling the entire page vertically.
  if(window.matchMedia('(max-width:759px)').matches){
@@ -2799,3 +2802,73 @@ load(true);loadPrintTools();loadPrinters();setInterval(()=>load(false),15000);
 setInterval(()=>loadPrinters(),20000);
 setInterval(refreshShippingDay,30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){refreshShippingDay();load(false);if(themeMode==='auto')updateAutomaticTheme();}});
+
+// Shipping data remains in memory only. Never put customer addresses into
+// localStorage, the general overview, or the public source repository.
+const shippingState=new Map(),shippingExported=new Set();
+let shippingBusy=false,shippingSignature='';
+const shippingFields=[['first_name','Vorname',20],['last_name','Nachname / Firma',30],['extra','Adresszusatz',20],['street','Straße',27],['number','Hausnummer',5],['zip','PLZ',10],['city','Ort',30],['district','Bezirk (nur Irland)',50]];
+const shippingCountries={DEU:'Deutschland',AUT:'Österreich',BEL:'Belgien',BGR:'Bulgarien',HRV:'Kroatien',CZE:'Tschechien',DNK:'Dänemark',EST:'Estland',FIN:'Finnland',FRA:'Frankreich',GRC:'Griechenland',HUN:'Ungarn',IRL:'Irland',ITA:'Italien',LVA:'Lettland',LTU:'Litauen',LUX:'Luxemburg',NLD:'Niederlande',POL:'Polen',PRT:'Portugal',ROU:'Rumänien',SVK:'Slowakei',SVN:'Slowenien',ESP:'Spanien',SWE:'Schweden'};
+function shippingReadyOrders(){
+ return (model?.orders||[]).filter(o=>(o.source!=='local'||o.fulfillment==='shipping')&&(o.items||[]).length&&o.items.every(l=>(l.item_id||(o.source==='local'&&l.local_custom))&&Number(l.quantity)>0&&Number(l.finished||0)+Number(l.allocated||0)+Number(l.assembled||0)>=Number(l.quantity)&&!Number(l.printing||0)&&!Number(l.remaining||0))).sort((a,b)=>(a.ship_by||Infinity)-(b.ship_by||Infinity));
+}
+function shippingEntry(id){if(!shippingState.has(id))shippingState.set(id,{selected:false,confirmed:false,loading:false,loaded:false,address:{},notice:''});return shippingState.get(id);}
+function shippingControls(){
+ const ids=shippingReadyOrders().map(o=>String(o.id)), selected=ids.filter(id=>shippingEntry(id).selected);
+ $('shipping-ready-count').textContent=ids.length;$('shipping-selected-count').textContent=selected.length;$('shipping-exported-count').textContent=shippingExported.size;
+ $('shipping-export').disabled=shippingBusy||!selected.length||selected.some(id=>!shippingEntry(id).confirmed||shippingEntry(id).loading);
+ $('shipping-select-all').disabled=shippingBusy||!ids.length;$('shipping-deselect-all').disabled=shippingBusy||!selected.length;
+}
+function renderShipping(force=false){
+ if(workspace!=='shipping')return;
+ const orders=shippingReadyOrders(),ids=new Set(orders.map(o=>String(o.id)));
+ for(const id of shippingState.keys())if(!ids.has(id))shippingState.delete(id);
+ const signature=JSON.stringify(orders.map(o=>[o.id,o.customer,o.ship_by,o.items.map(l=>[l.title,l.quantity])]));
+ if(!force&&signature===shippingSignature){shippingControls();return;}
+ shippingSignature=signature;
+ $('shipping-cards').innerHTML=orders.length?orders.map(o=>{
+  const id=String(o.id),s=shippingEntry(id),a=s.address;
+  const input=([key,label,limit])=>'<label>'+esc(label)+'<input data-shipping-field="'+key+'" autocomplete="off" maxlength="'+limit+'" value="'+esc(a[key]||'')+'" '+(s.loading||shippingBusy?'disabled':'')+'></label>';
+  return '<article class="pp-shipping-card" data-shipping-id="'+esc(id)+'"><div class="pp-shipping-head"><label class="pp-shipping-select"><input type="checkbox" data-shipping-select '+(s.selected?'checked':'')+' '+(shippingBusy?'disabled':'')+'><span><strong>'+esc(o.customer)+'</strong><small>'+ (o.source==='local'?'Lokal':'Etsy')+' · #'+esc(id)+'</small></span></label><span class="board-status ready">Fertig</span></div><div class="pp-shipping-products">'+o.items.map(l=>esc(l.quantity+' × '+l.title)).join(' · ')+'</div><div class="pp-shipping-meta"><span>'+esc(shipInfo(o).date)+'</span><span>'+(shippingExported.has(id)?'CSV exportiert':'Hermes · Adresse '+(s.confirmed?'geprüft':'offen'))+'</span></div>'+
+    (s.selected?'<div class="pp-shipping-form"><div class="pp-shipping-form-title"><strong>Lieferadresse</strong><button type="button" data-shipping-reload class="secondary small" '+(s.loading||shippingBusy?'disabled':'')+'>'+(s.loaded?'Erneut aus Quelle laden':'Adresse laden')+'</button></div>'+(s.loading?'<p class="hint">Adresse wird geladen …</p>':'')+(s.notice?'<p class="hint" role="status">'+esc(s.notice)+'</p>':'')+'<div class="pp-shipping-fields">'+shippingFields.map(input).join('')+'<label>Land<select data-shipping-field="country" '+(s.loading||shippingBusy?'disabled':'')+'><option value="">Bitte auswählen</option>'+Object.entries(shippingCountries).map(([key,label])=>'<option value="'+key+'" '+(a.country===key?'selected':'')+'>'+esc(label)+'</option>').join('')+'</select></label></div><label class="pp-shipping-check"><input type="checkbox" data-shipping-confirm '+(s.confirmed?'checked':'')+' '+(s.loading||shippingBusy?'disabled':'')+'> Adresse mit Bestellung abgeglichen</label></div>':'')+'</article>';
+ }).join(''):'<p class="board-no-results">Keine fertigen Versandbestellungen vorhanden.</p>';
+ shippingControls();
+}
+async function loadShippingAddress(id){
+ const s=shippingEntry(id);if(s.loading)return;
+ s.loading=true;s.confirmed=false;s.notice='';renderShipping(true);
+ try{const response=await api('shipping-address',{id});if(shippingState.get(id)!==s)return;s.address=response.address||{};s.notice=response.notice||'';s.loaded=true;}
+ catch(err){if(shippingState.get(id)!==s)return;s.notice='Adresse konnte nicht geladen werden. Bitte Etsy prüfen und die Felder manuell ergänzen. '+err.message;s.loaded=true;}
+ finally{s.loading=false;renderShipping(true);}
+}
+$('shipping-cards').addEventListener('change',event=>{
+ const card=event.target.closest('[data-shipping-id]');if(!card)return;
+ const id=card.dataset.shippingId,s=shippingEntry(id);
+ if(event.target.matches('[data-shipping-select]')){s.selected=event.target.checked;renderShipping(true);if(s.selected&&!s.loaded)loadShippingAddress(id);}
+ if(event.target.matches('[data-shipping-confirm]')){s.confirmed=event.target.checked;shippingControls();}
+ if(event.target.matches('[data-shipping-field]')){s.address[event.target.dataset.shippingField]=event.target.value;s.confirmed=false;const confirmation=card.querySelector('[data-shipping-confirm]');if(confirmation)confirmation.checked=false;shippingControls();}
+});
+$('shipping-cards').addEventListener('input',event=>{
+ if(!event.target.matches('[data-shipping-field]'))return;
+ const card=event.target.closest('[data-shipping-id]'),s=shippingEntry(card.dataset.shippingId);
+ s.address[event.target.dataset.shippingField]=event.target.value;s.confirmed=false;card.querySelector('[data-shipping-confirm]').checked=false;shippingControls();
+});
+$('shipping-cards').addEventListener('click',event=>{const button=event.target.closest('[data-shipping-reload]');if(button)loadShippingAddress(button.closest('[data-shipping-id]').dataset.shippingId);});
+$('shipping-select-all').addEventListener('click',async()=>{
+ const ids=shippingReadyOrders().map(o=>String(o.id));for(const id of ids)shippingEntry(id).selected=true;renderShipping(true);
+ for(const id of ids){const s=shippingState.get(id);if(s?.selected&&!s.loaded&&!s.loading)await loadShippingAddress(id);}
+});
+$('shipping-deselect-all').addEventListener('click',()=>{for(const s of shippingState.values())s.selected=false;renderShipping(true);});
+$('shipping-export').addEventListener('click',async()=>{
+ if(shippingBusy)return;
+ const rows=shippingReadyOrders().map(o=>String(o.id)).filter(id=>shippingEntry(id).selected).map(id=>({id,address:shippingEntry(id).address,confirmed:shippingEntry(id).confirmed}));
+ if(!rows.length||rows.some(r=>!r.confirmed))return;
+ shippingBusy=true;renderShipping(true);$('shipping-status').textContent='Hermes-Datei wird vorbereitet …';
+ try{
+  const result=await api('hermes-export',{rows});const bytes=Uint8Array.from(atob(result.content),c=>c.charCodeAt(0));
+  const url=URL.createObjectURL(new Blob([bytes],{type:'text/csv;charset=windows-1252'}));const link=document.createElement('a');link.href=url;link.download='Hermes-Adressen-'+new Date().toISOString().slice(0,10)+'.csv';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  for(const row of rows)shippingExported.add(row.id);
+  $('shipping-status').textContent=result.count+' Adressen exportiert. Datei bei myHermes importieren und Paketklassen auswählen.';
+ }catch(err){$('shipping-status').textContent=err.message;flash(err.message,true);}
+ finally{shippingBusy=false;renderShipping(true);}
+});

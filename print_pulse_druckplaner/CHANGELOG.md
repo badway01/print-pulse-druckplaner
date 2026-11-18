@@ -1,3 +1,10 @@
+## 0.13.65 – Versandcenter für Hermes Privatkunden (18.11.2026)
+
+- Neuer Reiter **Versand** mit allen vollständig fertiggestellten Etsy- und lokalen Versandaufträgen. Abholaufträge bleiben in der Bestellverwaltung.
+- Lieferadressen aus der vorhandenen Etsy-Verbindung nur auf Auswahl abrufen, bearbeiten und ausdrücklich prüfen. Bei fehlender Etsy-Adressfreigabe manuell ergänzen.
+- Sammel-CSV nach dem offiziellen myHermes-Adressimport (Windows-1252, zwölf Felder, Semikolon/CRLF), ohne unnötige Kontaktdaten. Zeichengrenzen, Pflichtfelder, PLZ und Dubletten werden geprüft.
+- Paketklassen, Bezahlung und Etiketten weiterhin im privaten myHermes-Konto. Keine automatische Etsy-Versandmeldung, keine Änderungen an Beständen und keine zusätzliche Speicherung der Lieferadressen.
+
 ## 0.13.64 – Gespeicherte 3MF für weitere Drucker freigeben (14.11.2026)
 
 - Bereits gespeicherte 3MF-Projekte zeigen „Auch auf anderen Druckern verwenden“ mit direkt anklickbaren Häkchen. Die Datei muss nicht erneut vom Mac hochgeladen oder über Samba importiert werden.

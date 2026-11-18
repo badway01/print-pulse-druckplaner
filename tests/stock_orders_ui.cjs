@@ -2,7 +2,7 @@
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 (async()=>{
- const browser=await chromium.launch({headless:true});
+ const browser=await chromium.launch({headless:true,...(process.env.PP_TEST_CHROMIUM?{executablePath:process.env.PP_TEST_CHROMIUM}: {})});
  try{
   const page=await browser.newPage({viewport:{width:1280,height:900}});
   const errors=[];page.on('pageerror',err=>errors.push(err.message));
@@ -22,6 +22,12 @@ const assert=require('node:assert/strict');
    ];
    await route.fulfill({response:reply,json:data});
   });
+  await page.route('**/api/shipping-address',route=>route.fulfill({json:{address:{first_name:'Test',last_name:'Blau',street:'Testweg',number:'2',zip:'12345',city:'Teststadt',country:'DEU'},notice:''}}));
+  await page.route('**/api/hermes-export',async route=>{
+   const rows=route.request().postDataJSON().rows;
+   assert.equal(rows.length,1);assert.equal(rows[0].id,'order-b');assert.equal(rows[0].confirmed,true);assert.equal(rows[0].address.number,'2a');
+   await route.fulfill({json:{count:1,content:Buffer.from('Test;Blau;;Testweg;2a;12345;Teststadt;;DEU;;;;\r\n').toString('base64')}});
+  });
   await page.goto('http://127.0.0.1:8099/');
   await page.locator('.product').first().waitFor();
   assert.equal(await page.locator('[data-workspace="production"] span').textContent(),'Dashboard');
@@ -38,6 +44,19 @@ const assert=require('node:assert/strict');
   await page.locator('[data-full-orders-filter="ready"]').click();
   assert.equal(await page.locator('#full-orders-grid .board-order').count(),1);
   await page.locator('[data-full-orders-filter="all"]').click();
+  await page.locator('[data-workspace="shipping"]').click();
+  assert(await page.locator('#shipping-shell').isVisible());
+  assert.equal(await page.locator('#shipping-cards .pp-shipping-card').count(),1);
+  await page.locator('[data-shipping-select]').check();
+  await page.waitForFunction(()=>document.querySelector('[data-shipping-field="zip"]')?.value==='12345');
+  await page.locator('[data-shipping-confirm]').check();
+  assert(!(await page.locator('#shipping-export').isDisabled()));
+  await page.locator('[data-shipping-field="number"]').fill('2a');
+  assert(await page.locator('#shipping-export').isDisabled());
+  await page.locator('[data-shipping-confirm]').check();
+  const download=page.waitForEvent('download');await page.locator('#shipping-export').click();
+  assert((await download).suggestedFilename().startsWith('Hermes-Adressen-'));
+  await page.locator('[data-workspace="orders"]').click();
   await page.locator('[data-full-order="order-a"]').click();
   assert.equal(await page.locator('#order-details').isVisible(),true);
   assert.equal(await page.locator('#order-details .simple-order-zoom-tiles .simple-order-tile').count(),2);

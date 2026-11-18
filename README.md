@@ -1,3 +1,7 @@
+## Version 0.13.65 · Versandcenter
+
+Unter **Versand** erscheinen vollständig produzierte Versandaufträge. Auswahl lädt bei Etsy die Lieferadresse, sofern die bestehende App dafür berechtigt ist. Bei fehlender Freigabe und privaten Aufträgen können die Felder manuell ergänzt werden. Adressen abgleichen und bestätigen, anschließend die Hermes-CSV herunterladen und bei [myHermes](https://www.myhermes.de/) unter **Import Adressdaten** hochladen. Paketklasse, Zahlung und Paketschein werden dort erledigt. Der Export versendet keine Bestellungen, bucht keinen Bestand und speichert keine Lieferadressen dauerhaft. Die Datei enthält persönliche Daten und sollte nach dem Import gelöscht werden.
+
 ## Version 0.13.12 · Manuelle Filamentbestellungen
 
 **Filament → Filamentbestellungen → + Bestellung erfassen**: Händler, Datum und optional Gesamtbetrag eingeben. Jede Position per Farbe, Bambu-Herstellercode oder internem Farbcode suchen und aus der Bibliothek auswählen; fehlende Farben direkt mit Material und Farbname neu anlegen. Rollenanzahl, Spule/Refill und Positionsgesamtpreis ergänzen. Über **Weiteres Filament hinzufügen** alle Farben in derselben Bestellung sammeln; danach **Bestellung speichern**. Erst bei tatsächlicher Lieferung über **Lieferung erfassen** den Lagerbestand erhöhen. Der bisherige Bild-/Textimport ist unter **Foto / Text (optional)** weiter erreichbar.
