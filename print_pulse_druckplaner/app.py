@@ -64,7 +64,7 @@ except ImportError:
     _filament_stats_spec.loader.exec_module(filament_stats)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.65'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.66'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2843,7 +2843,7 @@ def version_history():
     except OSError:
         lines=[]
     for line in lines:
-        heading=re.fullmatch(r'#\s+(\d+\.\d+\.\d+)\s*[·–-]\s*(.+)',line.strip())
+        heading=re.fullmatch(r'#{1,2}\s+v?(\d+\.\d+\.\d+)\s*(?:[·–-]\s*|(?=\())(.+)',line.strip())
         if heading:
             if len(entries)>=16:
                 break

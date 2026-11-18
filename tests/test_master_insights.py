@@ -151,6 +151,35 @@ class MasterInsightsTests(unittest.TestCase):
         self.assertEqual(result["filaments"], [])
         self.assertIsNone(result["production_eur"])
 
+    def test_batch_units_divide_costs_without_changing_print_totals(self):
+        self.path.write_bytes(b"PK-corrupt")
+        payload = {"action": "save", "hours": 2, "minutes": 0,
+                   "filaments": [{"filament_id": 1, "grams": 90.0},
+                                 {"filament_id": 2, "grams": 30.0}]}
+        insights.change(self.db, self.root, self.fid, payload)
+        single = insights.summarize(self.db, self.row(), self.root, self.spools())
+        self.assertEqual(single["batch_units"], 1)
+        self.assertEqual(single["production_eur"], single["production_per_unit_eur"])
+        insights.change(self.db, self.root, self.fid, {**payload, "batch_units": 3})
+        result = insights.summarize(self.db, self.row(), self.root, self.spools())
+        self.assertEqual(result["batch_units"], 3)
+        for key in ("total_grams", "time_seconds", "material_eur", "production_eur"):
+            self.assertEqual(result[key], single[key])
+        self.assertEqual(result["grams_per_unit"], 40)
+        self.assertEqual(result["time_per_unit_seconds"], 2400)
+        self.assertEqual(result["material_per_unit_eur"], .58)
+        self.assertEqual(result["filaments"][0]["grams_per_unit"], 30)
+        self.assertAlmostEqual(result["production_per_unit_eur"], single["production_eur"]/3, delta=.01)
+        insights.change(self.db, self.root, self.fid, payload)
+        self.assertEqual(insights.summarize(self.db, self.row(), self.root, self.spools())["batch_units"], 3)
+        for invalid in (0, -1, 1.5, True, 1001, "3"):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                insights.change(self.db, self.root, self.fid, {**payload, "batch_units": invalid})
+        insights.change(self.db, self.root, self.fid, {"action": "count"})
+        logged = insights.summarize(self.db, self.row(), self.root, self.spools())
+        self.assertEqual(logged["print_count"], 1)
+        self.assertEqual(logged["total_spend_eur"], result["production_eur"])
+
 
 if __name__ == "__main__":
     unittest.main()

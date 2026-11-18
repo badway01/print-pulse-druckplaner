@@ -80,6 +80,23 @@ function econSuggestionMaterials(){
   filament_id:id,grams:0,spool_g:economyData.filaments.find(f=>f.id===id).spool_g||1000,search:''
  }));
 }
+function econMasterData(file){
+ const info=file?.insights;
+ if(!info||file.is_history||info.material_eur==null||!Number.isFinite(info.time_seconds)||!info.filaments?.length)return null;
+ const materials=info.filaments.map(row=>{
+  const spool=economyData?.filaments.find(f=>Number(f.id)===Number(row.filament_id));
+  return spool&&row.grams>0?{filament_id:spool.id,grams:row.grams,spool_g:spool.spool_g||1000,search:''}:null;
+ });
+ if(materials.some(m=>!m))return null;
+ return {batch_units:info.batch_units||1,minutes:Math.round(info.time_seconds/60),materials};
+}
+function econMasterSuggestion(){
+ const lid=$('econ-product').value,v=$('econ-variant').value,p=$('econ-printer').value;
+ const files=(printTools.files||[]).filter(f=>!f.is_history&&String(f.listing_id)===lid&&f.printer===p);
+ const exact=files.filter(f=>String(f.variant_id||'')===v);
+ const candidates=exact.length?exact:files.filter(f=>!f.variant_id);
+ return candidates.length===1?econMasterData(candidates[0]):null;
+}
 function econRenderPrinterChecklist(){
  const el=$('econ-printer-checklist');if(!el||!economyData)return;
  const lid=$('econ-product').value,v=$('econ-variant').value;
@@ -101,7 +118,8 @@ function econRenderFeeRates(){
  '<span>EUR/USD: <b>'+econNum(econSetting().eur_per_usd,.92)+' € je USD (einstellbar)</b></span>';
 }
 function econLoadProfile(){
- economyProfile=econPick();const fields={...econDefaults,...(economyProfile?.fields||{})},form=$('econ-form');
+ economyProfile=econPick();const master=economyProfile?null:econMasterSuggestion();
+ const fields={...econDefaults,...(economyProfile?.fields||{}),...(master?{batch_units:master.batch_units,minutes:master.minutes}:{})},form=$('econ-form');
  for(const [key,value] of Object.entries(fields)){
   let el=form.elements.namedItem(key);if(el&&el.type!=='checkbox')el.value=value;
  }
@@ -112,10 +130,10 @@ function econLoadProfile(){
  $('econ-channel').value=fields.etsy_enabled?'etsy':'direct';
  form.elements.status.value=economyProfile?.status||'untested';
  form.elements.notes.value=economyProfile?.notes||'';
- economyMaterials=economyProfile?.materials.map(m=>({...m,search:''}))||econSuggestionMaterials();
+ economyMaterials=economyProfile?.materials.map(m=>({...m,search:''}))||master?.materials||econSuggestionMaterials();
  if(!economyMaterials.length)economyMaterials=[{filament_id:0,grams:0,spool_g:1000,search:''}];
  econRenderMaterials();econRenderFeeRates();econRenderPrinterChecklist();econPreview();
- $('econ-record').textContent=economyProfile?'Gespeichert '+new Date(economyProfile.updated*1000).toLocaleString('de-DE'):'Noch keine Kalkulation gespeichert';
+ $('econ-record').textContent=economyProfile?'Gespeichert '+new Date(economyProfile.updated*1000).toLocaleString('de-DE'):master?'Druckdaten aus Masterdatei übernommen':'Noch keine Kalkulation gespeichert';
 }
 function econFields(){
  const form=$('econ-form'),f={...econDefaults};
@@ -309,6 +327,26 @@ function openEconomicsForProduct(id,variant=''){
    econLoadProfile();econShowTab('cost');
   }
  });
+}
+async function openEconomicsForMaster(file){
+ await loadEconomics();
+ const data=econMasterData(file);
+ if(!data||!economyData?.printers.includes(file.printer)||!model?.products?.some(p=>String(p.id)===String(file.listing_id)&&p.state==='active')){
+  flash('Druckdaten oder Drucker sind im Preisrechner nicht verfügbar.',true);return;
+ }
+ $('master-editor').close();
+ showWorkspace('calculator');
+ $('econ-product').value=String(file.listing_id);
+ econRenderSelects();
+ $('econ-variant').value=String(file.variant_id||'');
+ $('econ-printer').value=file.printer;
+ econLoadProfile();
+ $('econ-form').elements.batch_units.value=data.batch_units;
+ $('econ-hours').value=Math.floor(data.minutes/60);
+ $('econ-minutes').value=data.minutes%60;
+ economyMaterials=data.materials;
+ econRenderMaterials();econPreview();econShowTab('cost');
+ $('econ-record').textContent='3MF übernommen · Kalkulation noch nicht gespeichert';
 }
 $('econ-product').addEventListener('change',()=>{ $('econ-variant').value='';econRenderSelects();econLoadProfile(); });
 for(const id of ['econ-variant','econ-printer'])$(id).addEventListener('change',econLoadProfile);

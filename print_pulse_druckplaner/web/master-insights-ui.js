@@ -7,6 +7,7 @@
    Math.floor(seconds / 3600) + ' h ' + String(Math.floor(seconds / 60) % 60).padStart(2,'0') + ' min' : '—';
  const date = seconds => seconds ? new Date(seconds * 1000).toLocaleDateString('de-DE') : 'Noch kein Druck protokolliert';
  const safeColor = value => /^#[a-f\d]{6}$/i.test(value || '') ? value : '#d5dadd';
+ const gramsText = n => Number(n).toLocaleString('de-DE',{maximumFractionDigits:3})+' g';
  function profileColors(file) {
    const rows = (printTools.profiles || []).filter(row => row.listing_id === file.listing_id &&
      row.printer === file.printer && (row.variant_id === file.variant_id || !row.variant_id));
@@ -142,6 +143,7 @@
      const details=form.closest('.master-insight-edit');
      if(!details)return;
      const hours=form.querySelector('[data-insight-hours]')?.value||'';
+     const units=form.querySelector('[data-insight-units]')?.value||'1';
      const minutes=form.querySelector('[data-insight-minutes]')?.value||'';
      const mode=form.querySelector('[data-insight-mode]')?.value||'fixed';
      const masses=new Map([...form.querySelectorAll('.master-insight-input-row')].map(row=>[
@@ -154,6 +156,7 @@
      next.open=details.open;
      const nextForm=next.querySelector('form');
      nextForm.querySelector('[data-insight-hours]').value=hours;
+     nextForm.querySelector('[data-insight-units]').value=units;
      nextForm.querySelector('[data-insight-minutes]').value=minutes;
      nextForm.querySelector('[data-insight-mode]').value=mode;
      nextForm.querySelectorAll('.master-insight-input-row').forEach(row=>{
@@ -193,7 +196,9 @@
    const mode=file.insights?.color_mode==='custom'?'custom':'fixed';
    return '<details class="master-insight-edit"'+(expanded?' open':'')+'><summary>Gramm und Druckzeit bearbeiten</summary>'+
     '<form data-master-insight-form="'+esc(file.id)+'" class="master-insight-form"'+(auto?' data-insight-auto="true"':'')+'>'+
-    '<div class="master-workflow-mass-title"><strong>Verbrauch pro Farbe</strong>'+
+    '<label>Stückzahl pro Druckauftrag<input type="number" data-insight-units min="1" max="1000" step="1" required inputmode="numeric" value="'+(file.insights?.batch_units||1)+'"></label>'+
+    '<small>Wie viele identische Stücke entstehen mit diesen Slicer-Daten? Verbrauch und Zeit immer für den gesamten Druck eingeben.</small>'+
+    '<div class="master-workflow-mass-title"><strong>Gesamtverbrauch pro Farbe (inkl. Filamentabfall)</strong>'+
     '<small>'+(auto?(complete?'Aus 3MF oder gespeicherten Daten übernommen. Bei Bedarf korrigieren.':
       missing+' Farbe'+(missing===1?'':'n')+' benötigt noch einen Grammwert.'):'Noch keine AMS-Belegung gespeichert. Farben hier vorläufig manuell auswählbar.')+
     '</small></div>'+
@@ -202,7 +207,7 @@
       '<small>Solange keine Belegung hinterlegt ist, kannst du bestehende Druckdaten weiterhin manuell erfassen.</small></div>'+
       '<div data-insight-rows>'+(defaults.length?defaults.map(inputRow).join(''):inputRow())+'</div>'+
       '<button type="button" class="secondary small" data-insight-add>+ Filament</button>')+
-    '<div class="master-workflow-time-title"><strong>Druckdauer laut Slicer</strong></div>'+
+    '<div class="master-workflow-time-title"><strong>Druckdauer der gesamten Charge laut Slicer</strong></div>'+
     '<div class="master-insight-time"><label>Stunden<input type="number" data-insight-hours min="0" max="2400" inputmode="numeric" value="'+
     hours+'" placeholder="0"></label>'+
     '<label>Minuten<input type="number" data-insight-minutes min="0" max="59" inputmode="numeric" value="'+
@@ -219,20 +224,26 @@
  window.masterInsightsMarkup = function(file, compact=false, orderColor='', hidePalette=false, expandEditor=false) {
    if (!file) return '';
    const info = file.insights || {};
+   const units = info.batch_units || 1;
    const price = info.production_eur ?? info.material_eur;
+   const unitPrice = info.production_per_unit_eur ?? info.material_per_unit_eur ?? (units===1?price:null);
    const moneyLabel = info.production_eur != null ? 'Druckkosten / Platte' :
      info.material_eur != null ? 'Materialkosten / Platte' : 'Druckkosten fehlen';
    return '<section class="master-insight-card pp-master-summary' + (compact ? ' is-compact' : '') +
      '" aria-label="Druckdaten zu ' + esc(file.filename) + '">' +
      (!compact ? '<strong class="pp-insight-heading">Druckdaten</strong>' : '') +
      '<div class="pp-insight-stats">' +
-     '<div><small>Druckzeit laut Slicer</small><strong>' + duration(info.time_seconds) + '</strong></div>' +
+     '<div><small>Stückzahl / Druck</small><strong>' + units + '</strong></div>' +
+     '<div><small>Druckzeit gesamt</small><strong>' + duration(info.time_seconds) + '</strong></div>' +
      (info.total_grams != null ? '<div><small>Filament / Platte</small><strong>' +
-       Number(info.total_grams).toLocaleString('de-DE') + ' g</strong></div>' : '') +
+       gramsText(info.total_grams) + '</strong></div>' : '') +
      '<div><small>' + moneyLabel + '</small><strong class="pp-insight-price">' + money(price) + '</strong></div>' +
+     '<div><small>'+(info.production_eur!=null?'Druckkosten':'Materialkosten')+' / Stück</small><strong class="pp-insight-price" style="color:#197759">'+money(unitPrice)+'</strong></div>'+
+     (units>1&&info.grams_per_unit!=null?'<div><small>Filament / Stück</small><strong>'+gramsText(info.grams_per_unit)+'</strong></div>':'')+
      '</div>' +
      (hidePalette?'':paletteHtml(file,orderColor,compact)) +
      (!compact ? editHtml(file,expandEditor) : '') +
+     (!compact && !file.is_history && typeof openEconomicsForMaster==='function' && info.material_eur!=null && info.time_seconds!=null && info.filaments?.every(f=>f.filament_id&&f.grams>0) ? '<button type="button" class="secondary small" data-insight-calculator="'+esc(file.id)+'">Druckdaten in Preisrechner übernehmen</button>' : '')+
      '</section>';
  };
  window.masterSlicerButtonsMarkup = function(file) {
@@ -260,6 +271,12 @@
    if (typeof render === 'function') render();
  }
  document.addEventListener('click', async event => {
+   const calc=event.target.closest('[data-insight-calculator]');
+   if(calc){
+     const file=(printTools.files||[]).find(f=>String(f.id)===calc.dataset.insightCalculator);
+     if(file)await openEconomicsForMaster(file);
+     return;
+   }
    const add=event.target.closest('[data-insight-add]');
    if (add) {
      const rows=add.closest('form')?.querySelector('[data-insight-rows]');
@@ -300,10 +317,12 @@
    }
    const hours=Number(form.querySelector('[data-insight-hours]').value || 0);
    const minutes=Number(form.querySelector('[data-insight-minutes]').value || 0);
+   const batch_units=Number(form.querySelector('[data-insight-units]').value);
+   if(!Number.isInteger(batch_units)||batch_units<1||batch_units>1000){flash('Bitte eine Stückzahl von 1 bis 1000 eingeben.',true);return;}
    const button=form.querySelector('[type="submit"]');
    button.disabled=true;
    try {
-     await api('master-insights',{id,action:'save',hours,minutes,filaments,clear_filaments:rows.length===0,color_mode:form.querySelector('[data-insight-mode]').value});
+     await api('master-insights',{id,action:'save',hours,minutes,batch_units,filaments,clear_filaments:rows.length===0,color_mode:form.querySelector('[data-insight-mode]').value});
      await refreshFile(id);
      flash('Druckdaten gespeichert. Bekannte Grammwerte und Kosten aktualisiert.');
    } catch(error) { flash('Druckdaten nicht gespeichert: ' + error.message,true);button.disabled=false; }

@@ -1,3 +1,7 @@
+## Version 0.13.66 · Stückkosten im 3MF-Master
+
+Im Produktkatalog unter **3MF & Farben → Schritt 3** die Anzahl identischer Stücke pro Druckauftrag eintragen. Gramm pro Farbe und Dauer weiterhin für den gesamten Auftrag aus dem Slicer übernehmen. Das Tool zeigt Gesamt- und Stückkosten separat an. Über **Druckdaten in Preisrechner übernehmen** werden die Chargendaten in die Kalkulation geladen; dauerhaft gespeichert werden diese erst durch deren Speichern-Schaltfläche.
+
 ## Version 0.13.65 · Versandcenter
 
 Unter **Versand** erscheinen vollständig produzierte Versandaufträge. Auswahl lädt bei Etsy die Lieferadresse, sofern die bestehende App dafür berechtigt ist. Bei fehlender Freigabe und privaten Aufträgen können die Felder manuell ergänzt werden. Adressen abgleichen und bestätigen, anschließend die Hermes-CSV herunterladen und bei [myHermes](https://www.myhermes.de/) unter **Import Adressdaten** hochladen. Paketklasse, Zahlung und Paketschein werden dort erledigt. Der Export versendet keine Bestellungen, bucht keinen Bestand und speichert keine Lieferadressen dauerhaft. Die Datei enthält persönliche Daten und sollte nach dem Import gelöscht werden.

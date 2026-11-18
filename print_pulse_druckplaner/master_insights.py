@@ -14,7 +14,13 @@ import zipfile
 log = logging.getLogger(__name__)
 MAX_META_BYTES = 2 * 1024 * 1024
 MAX_FILAMENTS = 16
+MAX_BATCH_UNITS = 1000
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _batch_units(details):
+    value = details.get("batch_units", 1)
+    return value if type(value) is int and 1 <= value <= MAX_BATCH_UNITS else 1
 
 
 def schema(db):
@@ -161,6 +167,7 @@ def _record(db, file, root):
 
 def summarize(db, file, root, spool_rows):
     details = _record(db, file, root)
+    units = _batch_units(details)
     filaments = []
     total_grams = 0.
     material_cost = 0.
@@ -198,6 +205,7 @@ def summarize(db, file, root, spool_rows):
             "code": spool.get("internal_code", "") if spool else "",
             "color_hex": _color(spool.get("color_hex")) if spool else _color(item.get("color_hex")),
             "grams": round(g, 2) if g is not None else None,
+            "grams_per_unit": round(g / units, 3) if g is not None else None,
         })
     for item in filaments:
         item["percent"] = round(item["grams"] * 100 / total_grams) if total_grams and item["grams"] is not None else None
@@ -205,6 +213,7 @@ def summarize(db, file, root, spool_rows):
     seconds = int(seconds) if type(seconds) is int and 0 <= seconds <= 8640000 else None
     material_eur = round(material_cost, 2) if complete and total_grams > 0 else None
     production_eur = None
+    production_per_unit_eur = None
     if material_eur is not None and seconds is not None:
         row = db.execute("SELECT data_json FROM pp_cost_settings WHERE id=1").fetchone()
         try:
@@ -223,6 +232,7 @@ def summarize(db, file, root, spool_rows):
         base = material_cost + hours * watts / 1000 * energy
         base += hours * (purchase / (years * annual_hours) + maintenance / annual_hours)
         production_eur = round(base * (1 + failure / 100), 2)
+        production_per_unit_eur = round(base * (1 + failure / 100) / units, 2)
     print_count = max(0, int(details.get("print_count") or 0))
     priced_count = max(0, int(details.get("history_cost_count") or 0))
     timed_count = max(0, int(details.get("history_time_count") or 0))
@@ -234,7 +244,9 @@ def summarize(db, file, root, spool_rows):
     avg_cost_eur = round(cost_sum / priced_count, 2) if print_count and priced_count == print_count else None
     avg_time_seconds = round(time_sum / timed_count) if print_count and timed_count == print_count else None
     return {
+        "batch_units": units,
         "time_seconds": seconds,
+        "time_per_unit_seconds": round(seconds / units) if seconds is not None else None,
         "color_mode": details.get("color_mode") if details.get("color_mode") in ("fixed", "custom") else "fixed",
         "print_count": print_count,
         "last_print": details.get("last_print"),
@@ -243,8 +255,11 @@ def summarize(db, file, root, spool_rows):
         "avg_time_seconds": avg_time_seconds,
         "filaments": filaments,
         "total_grams": round(total_grams, 2) if total_grams else None,
+        "grams_per_unit": round(total_grams / units, 3) if total_grams else None,
         "material_eur": material_eur,
+        "material_per_unit_eur": round(material_cost / units, 2) if material_eur is not None else None,
         "production_eur": production_eur,
+        "production_per_unit_eur": production_per_unit_eur,
         "cost_label": "Druckkosten je Charge" if production_eur is not None else "Materialkosten je Charge",
     }
 
@@ -285,6 +300,10 @@ def change(db, root, file_id, payload, on_count=None):
         if on_count is not None:
             on_count(db, file, estimated)
     elif payload.get("action") == "save":
+        units = payload.get("batch_units", _batch_units(details))
+        if type(units) is not int or not 1 <= units <= MAX_BATCH_UNITS:
+            raise ValueError("Bitte eine Stückzahl von 1 bis 1000 eingeben.")
+        details["batch_units"] = units
         mode = payload.get("color_mode", details.get("color_mode", "fixed"))
         if mode not in ("fixed", "custom"):
             raise ValueError("Ungültige Farbzuordnung.")

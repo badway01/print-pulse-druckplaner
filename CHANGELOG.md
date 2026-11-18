@@ -1,3 +1,9 @@
+## 0.13.66 – Stückkosten je 3MF-Druckcharge (18.11.2026)
+
+- Stückzahl je Masterdatei und Drucker in Schritt 3; bestehende Dateien starten mit 1 Stück.
+- Gesamtverbrauch und Gesamtdruckzeit bleiben unverändert, Material- und Druckkosten werden zusätzlich je Stück berechnet.
+- Druckdaten inklusive Stückzahl, Gramm und Zeit in den Preisrechner übernehmen, ohne gespeicherte Kalkulationen automatisch zu überschreiben.
+
 ## 0.13.65 – Versandcenter für Hermes Privatkunden (18.11.2026)
 
 - Neuer Reiter **Versand** mit allen vollständig fertiggestellten Etsy- und lokalen Versandaufträgen. Abholaufträge bleiben in der Bestellverwaltung.
