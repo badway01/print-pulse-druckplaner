@@ -3674,23 +3674,3 @@ html[data-theme="dark"] .master-shared-printer-tile.is-linked{background:#244b38
 html[data-theme="dark"] .master-shared-printers{border-color:#496d56}
 @media(max-width:540px){.master-shared-printer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 .master-shared-printers>summary{flex-wrap:wrap}.master-shared-printers>summary small{white-space:normal}}
-
-/* Versandcenter: separate, read-only order workflow, mobile friendly. */
-.pp-shipping-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px 14px;font-weight:650;white-space:nowrap}
-.pp-shipping-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px;margin:15px 0;align-items:start}
-.pp-shipping-card{border:1px solid var(--line);background:var(--surface);border-radius:13px;padding:16px;min-width:0}
-.pp-shipping-head,.pp-shipping-form-title,.pp-shipping-meta,.pp-shipping-export{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.pp-shipping-select{display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;min-width:0}
-.pp-shipping-select input,.pp-shipping-check input{width:20px;height:20px;flex:none;accent-color:var(--green)}
-.pp-shipping-select span{display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}
-.pp-shipping-select small,.pp-shipping-meta{font-size:12px;color:var(--muted)}
-.pp-shipping-products{font-size:14px;margin:12px 0;overflow-wrap:anywhere}
-.pp-shipping-meta{border-top:1px solid var(--line);padding-top:9px;flex-wrap:wrap}
-.pp-shipping-form{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
-.pp-shipping-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
-.pp-shipping-fields label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px;min-width:0}
-.pp-shipping-fields input,.pp-shipping-fields select{width:100%;min-width:0;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px;font:inherit;font-size:16px}
-.pp-shipping-check{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
-.pp-shipping-export{padding:17px;border:1px solid var(--line);border-radius:13px;background:var(--surface);margin-top:16px}
-.pp-shipping-export button{flex:none}.pp-shipping-export p{margin:3px 0 0}
-@media(max-width:600px){.pp-shipping-export{align-items:stretch;flex-direction:column}.pp-shipping-export button{width:100%}.pp-shipping-fields{gap:8px}.pp-shipping-card{padding:12px}}

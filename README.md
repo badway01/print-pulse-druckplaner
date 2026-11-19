@@ -1,3 +1,7 @@
+## Version 0.13.70 · Versandcenter entfernt
+
+Der separate Versand-Reiter und der Hermes-CSV-Export wurden entfernt. Bestellungen, lokaler Versandstatus und Tracking bleiben unverändert verfügbar.
+
 ## Version 0.13.69 · HA-Druckerfarm im Reiter Drucker
 
 Der Reiter Drucker bindet die bereits in Home Assistant installierte Print-&-Pulse-Druckerfarm ein. Die Karte nutzt die Konfiguration und Berechtigungen der angemeldeten HA-Sitzung; bei fehlender Karte bleibt der bisherige Monitor verfügbar.
@@ -14,7 +18,7 @@ Das Dashboard zeigt nur noch die Anzahl der Bestellungen heute, in der laufenden
 
 Im Produktkatalog unter **3MF & Farben → Schritt 3** die Anzahl identischer Stücke pro Druckauftrag eintragen. Gramm pro Farbe und Dauer weiterhin für den gesamten Auftrag aus dem Slicer übernehmen. Das Tool zeigt Gesamt- und Stückkosten separat an. Über **Druckdaten in Preisrechner übernehmen** werden die Chargendaten in die Kalkulation geladen; dauerhaft gespeichert werden diese erst durch deren Speichern-Schaltfläche.
 
-## Version 0.13.65 · Versandcenter
+## Version 0.13.65 · Versandcenter (bis 0.13.69)
 
 Unter **Versand** erscheinen vollständig produzierte Versandaufträge. Auswahl lädt bei Etsy die Lieferadresse, sofern die bestehende App dafür berechtigt ist. Bei fehlender Freigabe und privaten Aufträgen können die Felder manuell ergänzt werden. Adressen abgleichen und bestätigen, anschließend die Hermes-CSV herunterladen und bei [myHermes](https://www.myhermes.de/) unter **Import Adressdaten** hochladen. Paketklasse, Zahlung und Paketschein werden dort erledigt. Der Export versendet keine Bestellungen, bucht keinen Bestand und speichert keine Lieferadressen dauerhaft. Die Datei enthält persönliche Daten und sollte nach dem Import gelöscht werden.
 

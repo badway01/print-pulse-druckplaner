@@ -1,3 +1,7 @@
+## 0.13.70 – Versandcenter entfernt (19.11.2026)
+
+- Separaten Versand-Reiter und Hermes-CSV-Export einschließlich separatem Adressabruf entfernt. Bestehende Bestellungen, Versandstatus und Tracking bleiben unverändert.
+
 ## 0.13.69 – Druckerfarm im Drucker-Reiter (19.11.2026)
 
 - Vorhandene HA-Druckerfarm (Ressource v0.2.2) mit ihrer eigenen Dashboard-Konfiguration im Drucker-Reiter anzeigen.
