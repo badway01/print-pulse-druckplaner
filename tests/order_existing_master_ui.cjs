@@ -32,6 +32,8 @@ const assert=require('node:assert/strict');
    return route.fulfill({json:{files,profiles:[],component_links:[],order_master_defaults:defaults}});
   });
   await page.goto('http://127.0.0.1:8099/');
+  await page.locator('#dashboard-orders-open').click();
+  await page.locator('[data-full-orders-view="cards"]').click();
   await page.locator('[data-order-position="old-order-line"]').first().click();
   await page.waitForFunction(()=>document.querySelector('#order-position .simple-pos-master-product .simple-part-master-open')!==null);
   const dialog=page.locator('#order-position');
@@ -54,8 +56,8 @@ const assert=require('node:assert/strict');
   assert(full.width>800,'Einzelposition muss die volle Dialogbreite nutzen');
 
   await page.locator('#order-details [data-close="order-details"]').click();
-  // Dashboard and separate Bestellungen tab must share this same position workflow.
-  await page.locator('[data-workspace="orders"]').click();
+  // Detail cards and the grid in Bestellungen share the same position workflow.
+  await page.locator('[data-full-orders-view="grid"]').click();
   await page.locator('#full-orders-grid [data-order-position="old-order-line"]').first().click();
   assert.match(await link.getAttribute('href'),new RegExp('bambu/'+first));
   assert.match(await dialog.locator('.simple-pos-master-product .simple-part-master-open').nth(1).getAttribute('href'),new RegExp('orca/'+first));

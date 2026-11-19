@@ -28,7 +28,8 @@ const assert=require('node:assert/strict');
   await settings.waitFor({state:'hidden'});
 
   // An unsaved local order is protected on backdrop, X and Escape.
-  await page.locator('#local-order-new').click();
+  await page.locator('[data-workspace="orders"]').click();
+  await page.locator('#full-orders-new').click();
   const local=page.locator('#local-order-dialog');
   await page.locator('#local-customer').fill('Nur ein Testentwurf');
   let confirmation=0;
@@ -48,7 +49,7 @@ const assert=require('node:assert/strict');
   assert.equal(confirmation,3,'Close X also honors the edit guard');
 
   // A clean local order closes immediately on backdrop.
-  await page.locator('#local-order-new').click();
+  await page.locator('#full-orders-new').click();
   await page.mouse.click(8,8);
   await local.waitFor({state:'hidden'});
 

@@ -40,6 +40,7 @@ const assert=require('node:assert/strict');
    return route.fulfill({json:{files,profiles:[],component_links:links,order_master_defaults:[]}});
   });
   await page.goto('http://127.0.0.1:8099/');
+  await page.locator('#dashboard-orders-open').click();
   await page.locator('[data-order-position="test-part-line"]').first().click();
   await page.waitForFunction(()=>document.querySelectorAll('#order-position .simple-part-master-open').length===4);
   const rows=page.locator('#order-position .simple-pos-part');

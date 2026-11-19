@@ -1,3 +1,9 @@
+## 0.13.67 – Schlankes Dashboard mit Bestellzahlen (19.11.2026)
+
+- Kompakte anklickbare Bestellübersicht statt Bestellkarten im Dashboard: heute, Kalenderwoche und Kalendermonat (Etsy und lokal).
+- Ein Auftrag zählt einmal, auch nach Versand oder Abholung; stornierte Aufträge zählen nicht. Kalendergrenzen gelten in Europe/Berlin.
+- Die Bestellverwaltung bleibt im Reiter Bestellungen; bisherige Detailkarten sind dort optional auswählbar. Auch „Versand kritisch“ führt direkt dorthin.
+
 ## 0.13.66 – Stückkosten je 3MF-Druckcharge (18.11.2026)
 
 - Stückzahl je Masterdatei und Drucker in Schritt 3; bestehende Dateien starten mit 1 Stück.

@@ -64,7 +64,7 @@ except ImportError:
     _filament_stats_spec.loader.exec_module(filament_stats)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.66'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.67'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -689,7 +689,10 @@ def import_new_listings(ids):
 
 
 def fetch_receipts(shop, include_orders=False):
-    since=int(time.time())-30*86400
+    # A calendar month may have 31 days (and a DST change).
+    now=int(time.time())
+    today=dt.datetime.fromtimestamp(now,ZoneInfo('Europe/Berlin'))
+    since=min(now-30*86400,int(today.replace(day=1,hour=0,minute=0,second=0,microsecond=0).timestamp()))
     base=f'/application/shops/{shop}/receipts'
     recent=pages(base,{'min_created':since,'was_paid':'true'})
     opened=pages(base,{'was_paid':'true','was_shipped':'false'})
@@ -832,8 +835,9 @@ def apply_snapshot(catalog, transactions, receipt_ids, warning='', orders=None, 
                 db.execute('DELETE FROM stock_receipts WHERE id=?',(rid,))
             for row in orders:
                 db.execute('INSERT INTO stock_receipts(id,created,ship_by,customer,lines_json) VALUES(?,?,?,?,?)',row)
+        month_start=int(dt.datetime.fromtimestamp(now,ZoneInfo('Europe/Berlin')).replace(day=1,hour=0,minute=0,second=0,microsecond=0).timestamp())
         db.execute("""DELETE FROM stock_transactions WHERE status!='open' AND created<?
-          AND id NOT IN (SELECT transaction_id FROM stock_order_prints WHERE printing>0)""",(now-31*86400,))
+          AND id NOT IN (SELECT transaction_id FROM stock_order_prints WHERE printing>0)""",(min(now-31*86400,month_start),))
         # Retain running jobs even when their orders disappear from the open list.
         db.execute("""DELETE FROM stock_order_prints WHERE printing=0 AND updated<?
           AND transaction_id NOT IN (SELECT id FROM stock_transactions)""",(now-90*86400,))
@@ -1037,12 +1041,34 @@ def etsy_stock_alerts(listings, percent=25):
                               x['title'].casefold()))
     return result
 
+def order_period_counts(db, now):
+    """Count receipts, not individual positions, including completed orders."""
+    berlin=ZoneInfo('Europe/Berlin')
+    today=dt.datetime.fromtimestamp(now,berlin).date()
+    day,week,month=today,today-dt.timedelta(days=today.weekday()),today.replace(day=1)
+    starts={key:int(dt.datetime.combine(date,dt.time(),berlin).timestamp())
+            for key,date in [('today',day),('week',week),('month',month)]}
+    rows=db.execute('''SELECT t.receipt_id AS id,MIN(t.created) AS created
+        FROM stock_transactions t LEFT JOIN pp_local_orders l ON l.id=t.receipt_id
+        WHERE l.id IS NULL AND t.status IN ('open','shipped') AND t.created BETWEEN ? AND ?
+        GROUP BY t.receipt_id
+        UNION ALL
+        SELECT id,created FROM pp_local_orders WHERE status IN ('open','completed')
+        AND created BETWEEN ? AND ?''',(min(starts.values()),now,min(starts.values()),now))
+    counts=dict.fromkeys(starts,0)
+    for row in rows:
+        for key,start in starts.items():
+            if row['created']>=start: counts[key]+=1
+    return counts
+
+
 def overview():
     now=int(time.time())
     with connect() as db:
         listings=[dict(r) for r in db.execute('SELECT * FROM stock_listings')]
         items=[dict(r) for r in db.execute('SELECT * FROM stock_items')]
         txs=[dict(r) for r in db.execute('SELECT * FROM stock_transactions')]
+        order_counts=order_period_counts(db,now)
         receipt_rows=[dict(r) for r in db.execute('''SELECT r.* FROM stock_receipts r
           LEFT JOIN pp_local_orders o ON o.id=r.id
           WHERE o.id IS NULL OR o.status='open' ''')]
@@ -1179,7 +1205,7 @@ def overview():
         components.snapshot(db,listings,orders)
         local_orders.enrich(db,orders)
     with STATUS_LOCK: status=dict(STATUS)
-    return {'orders':orders,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'last_availability_sync':availability_at,'etsy_alert_percent':etsy_percent,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'priority_dismissed':priority_dismissed,'version':'0.1'}
+    return {'orders':orders,'order_counts':order_counts,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'last_availability_sync':availability_at,'etsy_alert_percent':etsy_percent,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'priority_dismissed':priority_dismissed,'version':'0.1'}
 
 
 def mutate_stock(data):

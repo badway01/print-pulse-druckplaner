@@ -3,7 +3,7 @@
 (() => {
  const pref=(key,fallback)=>{try{return localStorage.getItem(key)||fallback;}catch{return fallback;}};
  const save=(key,value)=>{try{localStorage.setItem(key,value);}catch{}};
- let orderView=['grid','list'].includes(pref('pp-order-board','grid'))?pref('pp-order-board','grid'):'grid';
+ let orderView=['grid','list','cards'].includes(pref('pp-order-board','grid'))?pref('pp-order-board','grid'):'grid';
  let stockView=['grid','list'].includes(pref('pp-stock-board','grid'))?pref('pp-stock-board','grid'):'grid';
  let sort='ship',orderFilter='all',stockFilter='all',onlyPositive=true;
  const count=value=>Math.max(0,Number(value)||0);
@@ -62,7 +62,11 @@
   }).sort((a,b)=>sort==='new'?(b.created-a.created):((a.ship_by||Infinity)-(b.ship_by||Infinity)||b.created-a.created));
   $('full-orders-count').textContent=(model.orders||[]).length+' offene Bestellungen · '+rows.length+' angezeigt';
   const host=$('full-orders-grid');host.className='board-order-grid as-'+orderView;
-  host.innerHTML=rows.length?rows.map(orderCardFull).join(''):'<p class="board-no-results">Keine passenden Bestellungen gefunden.</p>';
+  const cards=orderView==='cards';
+  host.hidden=cards;
+  $('orders-shell').hidden=!cards;
+  if(cards){host.innerHTML='';renderOrderCards(rows);}
+  else{updateHTML($('orders'),'');updateHTML(host,rows.length?rows.map(orderCardFull).join(''):'<p class="board-no-results">Keine passenden Bestellungen gefunden.</p>');}
   selectButtons('data-full-orders-view',orderView);
   selectButtons('data-full-orders-sort',sort);
   selectButtons('data-full-orders-filter',orderFilter);
@@ -133,15 +137,17 @@
   previousShow(value);
   $('full-orders-shell').hidden=value!=='orders';
   $('stock-shell').hidden=value!=='stock';
+  if(value!=='orders'){$('orders-shell').hidden=true;updateHTML($('orders'),'');updateHTML($('full-orders-grid'),'');}
   if(value==='orders')renderFullOrders();
   if(value==='stock')renderStock();
  };
  const previousRender=render;
  render=function(){
   previousRender();
-  if(workspace==='orders')renderFullOrders();
   if(workspace==='stock')renderStock();
  };
+ const previousOrdersRender=renderOrders;
+ renderOrders=function(){previousOrdersRender();if(workspace==='orders')renderFullOrders();};
  $('full-orders-search').addEventListener('input',renderFullOrders);
  $('full-orders-tools').addEventListener('click',event=>{
   const view=event.target.closest('[data-full-orders-view]'),
@@ -151,9 +157,8 @@
   else if(sorting)sort=sorting.dataset.fullOrdersSort;
   else if(filtering)orderFilter=filtering.dataset.fullOrdersFilter;
   else return;
-  renderFullOrders();
+  renderFullOrders();$('orders').scrollLeft=0;
  });
- $('full-orders-new').addEventListener('click',()=>$('local-order-new').click());
  $('full-orders-grid').addEventListener('click',async event=>{
   const quick=event.target.closest('[data-order-quick]');
   if(quick){event.stopPropagation();await runOrderQuick(quick);return;}

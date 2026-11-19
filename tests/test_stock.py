@@ -1,5 +1,6 @@
 """Synthetic inventory, sync, migration and ingress tests. No live shop data."""
 import importlib.util
+import datetime as dt
 import json
 import io
 import zipfile
@@ -12,6 +13,7 @@ import unittest
 import urllib.request
 import urllib.error
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 BOOT=tempfile.TemporaryDirectory()
 os.environ['PP_DATA_DIR']=BOOT.name
@@ -42,6 +44,35 @@ class StockTests(unittest.TestCase):
     def tearDown(self): self.temp.cleanup()
 
     def item(self): return app.overview()['products'][0]['items'][0]
+
+    def test_dashboard_order_counts_calendar_periods_and_completed_orders(self):
+        berlin=ZoneInfo('Europe/Berlin')
+        def at(month,day,hour=0,minute=0):
+            return int(dt.datetime(2026,month,day,hour,minute,tzinfo=berlin).timestamp())
+        now=at(11,19,13)
+        with app.connect() as db:
+            # Several items and multiple units must still count as one receipt.
+            for tid,rid,created,status in [
+                ('a','1001',at(11,19),'open'),('b','1001',at(11,19),'open'),
+                ('c','1002',at(11,19,9),'shipped'),('d','1003',at(11,18),'shipped'),
+                ('e','1004',at(11,16),'open'),('f','1005',at(11,1),'shipped'),
+                ('g','1006',at(10,31,23,59),'shipped'),('h','1007',at(11,19),'excluded'),
+                ('i','1008',at(11,19),'review'),('j','1009',at(11,20),'open'),
+                ('k','LOK-1',at(11,19),'shipped')]:
+                db.execute('INSERT INTO stock_transactions VALUES(?,?,?,?,?,?,?)',
+                           (tid,rid,'101',None,5,created,status))
+            db.executemany('''INSERT INTO pp_local_orders(id,customer,fulfillment,created,due,status)
+                              VALUES(?,?,?,?,?,?)''',[
+                ('LOK-1','Test','pickup',at(11,19),now,'completed'),
+                ('LOK-2','Test','shipping',at(11,17),now,'open'),
+                ('LOK-3','Test','pickup',at(11,19),now,'cancelled'),
+                ('LOK-4','Test','pickup',at(11,3),now,'completed')])
+            self.assertEqual(app.order_period_counts(db,now),{'today':3,'week':6,'month':8})
+            # On the first of a month the Monday-based week also includes October.
+            self.assertEqual(app.order_period_counts(db,at(11,1,12)),
+                             {'today':1,'week':2,'month':1})
+        with patch.object(app.time,'time',return_value=now):
+            self.assertEqual(app.overview()['order_counts'],{'today':3,'week':6,'month':8})
 
     def act(self,action,quantity=None,**more):
         data={'id':'101-default','action':action,**more}

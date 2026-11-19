@@ -11,7 +11,8 @@ const assert=require('node:assert/strict');
  try{
   await page.goto('http://127.0.0.1:8099/');
   await page.locator('[data-product="102"]').waitFor();
-  await page.locator('#local-order-new').tap();
+  await page.locator('#dashboard-orders-open').tap();
+  await page.locator('#full-orders-new').tap();
   const name='Mobile Auswahl '+Date.now();
   await page.locator('#local-customer').fill(name);
   await page.locator('[data-local-search="0"]').fill('Buchstaben');

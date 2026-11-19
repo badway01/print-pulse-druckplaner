@@ -1,3 +1,7 @@
+## Version 0.13.67 · Kompakte Bestellübersicht
+
+Das Dashboard zeigt nur noch die Anzahl der Bestellungen heute, in der laufenden Kalenderwoche (ab Montag) und im laufenden Kalendermonat. Ein Klick öffnet den Reiter Bestellungen. Dort bleiben Kacheln, Liste und die bisherigen Detailkarten verfügbar. Die Zahlen basieren auf den zuletzt synchronisierten bezahlten Etsy- und nicht stornierten lokalen Aufträgen, einschließlich abgeschlossener Aufträge.
+
 ## Version 0.13.66 · Stückkosten im 3MF-Master
 
 Im Produktkatalog unter **3MF & Farben → Schritt 3** die Anzahl identischer Stücke pro Druckauftrag eintragen. Gramm pro Farbe und Dauer weiterhin für den gesamten Auftrag aus dem Slicer übernehmen. Das Tool zeigt Gesamt- und Stückkosten separat an. Über **Druckdaten in Preisrechner übernehmen** werden die Chargendaten in die Kalkulation geladen; dauerhaft gespeichert werden diese erst durch deren Speichern-Schaltfläche.

@@ -873,6 +873,19 @@ html[data-theme="dark"] .filament-stock-amount strong{color:#c1e1ce}
 .orders-heading h2{color:#315240}
 .orders-count{background:#d7e9dc;border-color:#b9d5c4;color:#315e46}
 .orders-shell .order-card{border-color:#d1ded2;box-shadow:0 3px 11px #37533d14}
+/* Dashboard: one compact entry point, no duplicate customer/order cards. */
+#dashboard-orders-summary{margin:0 0 16px;min-width:0}
+.dashboard-orders-open{display:block;width:100%;padding:13px 15px;text-align:left;background:var(--surface);border:1px solid var(--line);border-left:4px solid #477663;border-radius:13px;color:var(--ink);box-shadow:0 3px 12px #2d533e10}
+.dashboard-orders-open:hover{border-color:#477663;background:var(--surface-soft)}
+.dashboard-orders-title{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px}
+.dashboard-orders-title>span:first-child{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.dashboard-orders-title strong{font-size:17px}.dashboard-orders-title small,.dashboard-orders-metrics small{color:var(--muted);font-size:12px;font-weight:500}
+.dashboard-orders-title>span:last-child{font-size:25px;line-height:1;color:var(--green)}
+.dashboard-orders-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dashboard-orders-metrics>span{display:flex;flex-direction:column;gap:3px;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft)}
+.dashboard-orders-metrics strong{font-size:25px;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--green)}
+html[data-theme="dark"] .dashboard-orders-metrics strong{color:#c1e1ce}
+@media(max-width:420px){.dashboard-orders-open{padding:11px 10px}.dashboard-orders-metrics{gap:5px}.dashboard-orders-metrics>span{padding:8px 6px}.dashboard-orders-metrics small{font-size:11px}}
 html[data-theme="dark"] .orders-shell{
  background:linear-gradient(135deg,#2c4738,#253a2e);
  border-color:#719b80;

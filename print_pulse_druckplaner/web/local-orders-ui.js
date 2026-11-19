@@ -102,7 +102,7 @@ function localEdit(id){
  $('order-details').close();
  $('local-order-dialog').showModal();
 }
-$('local-order-new').addEventListener('click',localNew);
+$('full-orders-new').addEventListener('click',localNew);
 $('local-add-line').addEventListener('click',()=>{
  if(localDraft.length>=25){flash('Maximal 25 Positionen je Auftrag.',true);return;}
  localDraft.push(localEmptyLine());localRenderLines();
@@ -441,7 +441,6 @@ async function localHistory(refresh=false,append=false){
   if(request===localHistoryRequest){localHistoryLoading=false;$('local-history-more').disabled=false;}
  }
 }
-$('local-history-open').addEventListener('click',()=>localHistory());
 $('full-orders-history').addEventListener('click',()=>localHistory());
 $('local-history-more').addEventListener('click',()=>localHistory(true,true));
 $('local-history-search').addEventListener('input',()=>{

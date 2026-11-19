@@ -3,14 +3,12 @@ const $=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let model=null,filter='all',busy=false,polling=false,sortTimer=null,quantityContext=null;
 let order=[];
-let orderSort='ship';
 let workspace='production',filamentView='colors',filamentData=null,filamentBusy=false,filamentLoading=false;
 let filamentSort='default';
 try{const saved=localStorage.getItem('pp-filament-sort');if(['default','stock-desc','stock-asc','internal-code','manufacturer-code','hex-code'].includes(saved))filamentSort=saved;}catch{}
 let printTools={profiles:[],files:[],component_links:[],order_master_defaults:[],filaments_library:[]}, masterContext=null,masterSources=[],masterColorEditFileId=null,masterBusy=false,masterUploadPending=null;
 let printerLive=null,printerLoading=false,printerEntities=[],printerConfigId=null,printerConfigBusy=false;
 let etsyAlertExpanded=false,etsyAlertFocused=null,etsyAlertPreviousSeverity='none';
-try{if(localStorage.getItem('pp-order-sort')==='new')orderSort='new';}catch{}
 
 /* Theme choice is local to this browser; Auto follows HA sun.sun, then OS theme. */
 const THEME_KEY='pp-theme-mode';
@@ -170,13 +168,19 @@ $('summary').addEventListener('click',event=>{
   render();
   $('product-toolbar').scrollIntoView({behavior:'smooth',block:'start'});
  }else if(jump==='critical'){
-  showWorkspace('production');
-  orderSort='ship';
-  try{localStorage.setItem('pp-order-sort','ship');}catch{}
-  renderOrders();
-  $('orders-shell').scrollIntoView({behavior:'smooth',block:'start'});
+  openOrdersWorkspace(true);
  }
 });
+$('dashboard-orders-open').addEventListener('click',()=>openOrdersWorkspace());
+function openOrdersWorkspace(critical=false){
+ showWorkspace('orders');
+ if(critical){
+  $('full-orders-search').value='';
+  document.querySelector('[data-full-orders-filter="all"]').click();
+  document.querySelector('[data-full-orders-sort="ship"]').click();
+ }
+ $('full-orders-shell').scrollIntoView({behavior:'smooth',block:'start'});
+}
 const stateNames={active:'Aktiv',sold_out:'Bei Etsy ausverkauft',inactive:'Inaktiv',draft:'Entwurf',expired:'Abgelaufen'};
 function flash(message,error=false){$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;clearTimeout(flash.timer);flash.timer=setTimeout(()=>$('toast').hidden=true,error?9000:3500);}
 async function api(path,body,signal){
@@ -548,11 +552,14 @@ function orderCard(o){
  </article>`;
 }
 function renderOrders(){
- const orders=model.orders||[];
- const sorted=[...orders].sort((a,b)=>orderSort==='new'?(b.created-a.created||b.id.localeCompare(a.id)):( (a.ship_by||Infinity)-(b.ship_by||Infinity)||b.created-a.created));
- $('order-count').textContent=orders.length+' offen';
- document.querySelectorAll('[data-order-sort]').forEach(b=>{b.classList.toggle('selected',b.dataset.orderSort===orderSort);b.setAttribute('aria-pressed',String(b.dataset.orderSort===orderSort));});
- updateHTML($('orders'),sorted.length?sorted.map(orderCard).join(''):'<p class="orders-empty">Keine offenen, bezahlten Bestellungen vorhanden.</p>');
+ for(const key of ['today','week','month']){
+  const value=model?.order_counts?.[key];
+  $('orders-'+key).textContent=Number.isSafeInteger(value)&&value>=0?String(value):'–';
+ }
+}
+function renderOrderCards(orders){
+ $('order-count').textContent=orders.length+' angezeigt';
+ updateHTML($('orders'),orders.length?orders.map(orderCard).join(''):'<p class="orders-empty">Keine passenden offenen Bestellungen vorhanden.</p>');
  $('orders-prev').disabled=!orders.length;
  $('orders-next').disabled=!orders.length;
 }
@@ -1346,7 +1353,7 @@ function showWorkspace(value){
   }
  }
  const production=value==='production';
- for(const id of ['orders-shell','priority-shell','product-toolbar','product-sort-note','products'])$(id).hidden=!production;
+ for(const id of ['dashboard-orders-summary','priority-shell','product-toolbar','product-sort-note','products'])$(id).hidden=!production;
  renderEtsyStockBanner();
  $('printer-strip').hidden=!production;
  $('filament-shell').hidden=value!=='filament';
@@ -1485,13 +1492,6 @@ $('order-details-content').addEventListener('click',async event=>{
  if(quick){await runOrderQuick(quick);return;}
  const button=event.target.closest('[data-order-line]');
  if(button&&!busy)orderPrintDialog(button.dataset.orderLine,button.dataset.jobAction);
-});
-for(const button of document.querySelectorAll('[data-order-sort]'))button.addEventListener('click',()=>{
- if(orderSort===button.dataset.orderSort)return;
- orderSort=button.dataset.orderSort;
- try{localStorage.setItem('pp-order-sort',orderSort);}catch{}
- renderOrders();
- $('orders').scrollLeft=0;
 });
 for(const dir of ['prev','next'])$('orders-'+dir).addEventListener('click',()=>$('orders').scrollBy({left:(dir==='prev'?-1:1)*Math.max(260,$('orders').clientWidth*.75),behavior:'smooth'}));
 $('products').addEventListener('click',async event=>{

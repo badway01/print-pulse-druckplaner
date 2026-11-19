@@ -10,7 +10,9 @@ const assert=require('node:assert/strict');
  try{
   await page.goto('http://127.0.0.1:8099/');
   await page.locator('[data-product="102"]').waitFor();
-  await page.locator('#local-order-new').click();
+  await page.locator('#dashboard-orders-open').click();
+  await page.locator('[data-full-orders-view="cards"]').click();
+  await page.locator('#full-orders-new').click();
   await page.locator('#local-customer').fill('Kundin Vasen');
   const due=new Date(Date.now()+5*86400000).toLocaleDateString('sv-SE',{timeZone:'Europe/Berlin'});
   await page.locator('#local-due').fill(due);
@@ -48,6 +50,8 @@ const assert=require('node:assert/strict');
   assert.equal(absent.status(),404,'unknown local orders must not leak customer data');
 
   await page.reload();
+  await page.locator('#dashboard-orders-open').click();
+  await page.locator('.order-card').first().waitFor();
   const card=page.locator('.order-card').filter({hasText:local.id});
   assert.equal(await card.locator('button.local-order-pdf[data-local-pdf-id]').count(),1,
    'local card must offer the A4 template selection');
@@ -101,7 +105,7 @@ const assert=require('node:assert/strict');
   state=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
   const before=state.products.find(p=>p.id==='103').items.find(i=>i.id==='103-default').on_hand;
   assert(before>=1);
-  await page.locator('#local-order-new').click();
+  await page.locator('#full-orders-new').click();
   await page.locator('#local-customer').fill('Direktverkauf Test');
   await page.locator('#local-order-type input[value="direct"]').check();
   await page.locator('[data-local-search="0"]').fill('Buchstaben');
@@ -123,6 +127,8 @@ const assert=require('node:assert/strict');
   });
   assert.equal(printResult.status(),200,'finishing the remaining local order position must work');
   await page.reload();
+  await page.locator('#dashboard-orders-open').click();
+  await page.locator('.order-card').first().waitFor();
   state=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
   assert.equal(state.orders.find(o=>o.id===local.id).status,'ready');
   const readyCard=page.locator('.order-card').filter({hasText:local.id});
@@ -137,7 +143,7 @@ const assert=require('node:assert/strict');
   state=await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json());
   assert(!state.orders.some(o=>o.id===local.id),'handed over local order must leave active cards');
 
-  await page.locator('#local-history-open').click();
+  await page.locator('#full-orders-history').click();
   await page.locator('.local-history-item').filter({hasText:local.id}).waitFor();
   const archived=page.locator('.local-history-item').filter({hasText:local.id});
   assert((await archived.textContent()).includes('Nachbarin'));
@@ -146,11 +152,11 @@ const assert=require('node:assert/strict');
   await archived.locator('[data-local-undo-handover]').click();
   await page.waitForFunction(id=>model.orders.find(o=>o.id===id)?.status==='ready',local.id);
   await page.locator('#local-history-dialog [data-close="local-history-dialog"]').click();
-  await page.locator('#local-history-open').click();
+  await page.locator('#full-orders-history').click();
   await page.waitForFunction(()=>document.querySelector('#local-history-list')?.textContent?.includes('Direktverkauf Test'));
   // Workshop services can be mixed in the same local order without catalog products.
   await page.locator('#local-history-dialog [data-close="local-history-dialog"]').click();
-  await page.locator('#local-order-new').click();
+  await page.locator('#full-orders-new').click();
   await page.locator('#local-customer').fill('Sonderarbeiten Test');
   assert(await page.locator('#local-add-line').evaluate(el=>el.parentElement?.previousElementSibling?.id==='local-order-lines'),
    'Add position must sit immediately after the final order row');

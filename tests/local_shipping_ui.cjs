@@ -10,7 +10,8 @@ const assert=require('node:assert/strict');
  try{
   await page.goto('http://127.0.0.1:8099/');
   await page.locator('[data-product="103"]').waitFor();
-  await page.locator('#local-order-new').click();
+  await page.locator('#dashboard-orders-open').click();
+  await page.locator('#full-orders-new').click();
   await page.locator('#local-customer').fill('Versand Kundin Hermes');
   await page.locator('#local-fulfillment').selectOption('shipping');
   const due=new Date(Date.now()+5*86400000).toLocaleDateString('sv-SE',{timeZone:'Europe/Berlin'});
@@ -31,6 +32,8 @@ const assert=require('node:assert/strict');
   });
   assert.equal(response.status(),200,'order must be finishable');
   await page.reload();
+  await page.locator('#dashboard-orders-open').click();
+  await page.locator('[data-full-orders-view="cards"]').click();
   const card=page.locator('.order-card').filter({hasText:o.id});
   await card.locator('[data-local-handover]').click();
   await page.locator('#local-handover-dialog').waitFor({state:'visible'});
