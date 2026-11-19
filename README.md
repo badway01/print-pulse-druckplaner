@@ -1,3 +1,7 @@
+## Version 0.13.68 · Kompakter Dashboard-Kopf
+
+Unter der Navigation stehen direkt der kurze Titel „Dashboard“, die Bestellzahlen und der Druckerstatus. Der Abgleich lässt sich bei Bedarf aufklappen. Nachdruckbedarf, kritische Versandtermine und Bestandswarnungen bleiben verfügbar.
+
 ## Version 0.13.67 · Kompakte Bestellübersicht
 
 Das Dashboard zeigt nur noch die Anzahl der Bestellungen heute, in der laufenden Kalenderwoche (ab Montag) und im laufenden Kalendermonat. Ein Klick öffnet den Reiter Bestellungen. Dort bleiben Kacheln, Liste und die bisherigen Detailkarten verfügbar. Die Zahlen basieren auf den zuletzt synchronisierten bezahlten Etsy- und nicht stornierten lokalen Aufträgen, einschließlich abgeschlossener Aufträge.

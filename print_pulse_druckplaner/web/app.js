@@ -1353,7 +1353,7 @@ function showWorkspace(value){
   }
  }
  const production=value==='production';
- for(const id of ['dashboard-orders-summary','priority-shell','product-toolbar','product-sort-note','products'])$(id).hidden=!production;
+ for(const id of ['dashboard-title','dashboard-orders-summary','summary','priority-shell','product-toolbar','product-sort-note','products'])$(id).hidden=!production;
  renderEtsyStockBanner();
  $('printer-strip').hidden=!production;
  $('filament-shell').hidden=value!=='filament';

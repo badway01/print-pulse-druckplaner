@@ -1,3 +1,8 @@
+## 0.13.68 – Kompakter Dashboard-Kopf (19.11.2026)
+
+- Kurzer Titel „Dashboard“, Bestellzahlen direkt am Anfang und unmittelbar danach der Druckerstatus.
+- Ausführliche Abgleichinformationen sind aufklappbar; Nachdruckbedarf und kritischer Versand bleiben unter dem Druckerstatus, Etsy-Bestandswarnungen bleiben oben sichtbar.
+
 ## 0.13.67 – Schlankes Dashboard mit Bestellzahlen (19.11.2026)
 
 - Kompakte anklickbare Bestellübersicht statt Bestellkarten im Dashboard: heute, Kalenderwoche und Kalendermonat (Etsy und lokal).

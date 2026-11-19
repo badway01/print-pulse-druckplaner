@@ -874,6 +874,14 @@ html[data-theme="dark"] .filament-stock-amount strong{color:#c1e1ce}
 .orders-count{background:#d7e9dc;border-color:#b9d5c4;color:#315e46}
 .orders-shell .order-card{border-color:#d1ded2;box-shadow:0 3px 11px #37533d14}
 /* Dashboard: one compact entry point, no duplicate customer/order cards. */
+.dashboard-heading{display:flex;align-items:flex-start;gap:10px;justify-content:space-between;margin:0 0 10px;min-width:0}
+.dashboard-heading h1{font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.2;margin:0;letter-spacing:-.5px;color:var(--ink)}
+.dashboard-sync-details{margin-left:auto;min-width:0;text-align:right}
+.dashboard-sync-details>summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--muted);font-size:12px;font-weight:650;list-style:none;white-space:nowrap;min-height:34px}
+.dashboard-sync-details>summary::-webkit-details-marker{display:none}
+.dashboard-sync-details>summary::before{content:'↻';font-size:15px;color:var(--green)}
+.dashboard-sync-details[open]{flex:1;max-width:600px}
+.dashboard-sync-details .dashboard-sync-line{justify-content:flex-end;text-align:left;margin-top:8px;padding:9px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
 #dashboard-orders-summary{margin:0 0 16px;min-width:0}
 .dashboard-orders-open{display:block;width:100%;padding:13px 15px;text-align:left;background:var(--surface);border:1px solid var(--line);border-left:4px solid #477663;border-radius:13px;color:var(--ink);box-shadow:0 3px 12px #2d533e10}
 .dashboard-orders-open:hover{border-color:#477663;background:var(--surface-soft)}
@@ -1694,6 +1702,7 @@ html[data-theme="dark"] .filament-action-status{background:#244537;color:#d0edda
  gap:10px;margin:0;border:0;border-radius:0;background:transparent;
  box-shadow:none;min-width:0;
 }
+#summary.dashboard-kpis{margin:0 0 16px}
 .dashboard-kpi{
  position:relative;display:flex;align-items:center;gap:10px;min-width:0;min-height:102px;
  text-align:left;padding:12px;border-radius:13px;border:1px solid #e7d6b9;
