@@ -1,3 +1,7 @@
+## Version 0.13.69 · HA-Druckerfarm im Reiter Drucker
+
+Der Reiter Drucker bindet die bereits in Home Assistant installierte Print-&-Pulse-Druckerfarm ein. Die Karte nutzt die Konfiguration und Berechtigungen der angemeldeten HA-Sitzung; bei fehlender Karte bleibt der bisherige Monitor verfügbar.
+
 ## Version 0.13.68 · Kompakter Dashboard-Kopf
 
 Unter der Navigation stehen direkt der kurze Titel „Dashboard“, die Bestellzahlen und der Druckerstatus. Der Abgleich lässt sich bei Bedarf aufklappen. Nachdruckbedarf, kritische Versandtermine und Bestandswarnungen bleiben verfügbar.

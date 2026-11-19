@@ -1364,6 +1364,7 @@ function showWorkspace(value){
  if(value==='calculator'){if(typeof economyLoaded!=='undefined'&&economyLoaded)econRefresh();else loadEconomics();}
  if(value==='catalog'){renderCatalog();loadPrintTools();}
  if(value==='filament')loadFilaments();
+ syncPrinterFarm(value==='printers');
  if(value==='printers'){renderPrinterMonitor();loadPrinters();}
  if(value==='farm'&&typeof loadFarmStats==='function')loadFarmStats();
 }
@@ -2772,6 +2773,58 @@ async function openPrinterConfig(id){
   else if(!saved.status&&!availablePrinterCandidates(id).length)$('printer-config-info').textContent='Kein passender Druckstatus gefunden. Prüfe die HA-Druckerintegration.';
  }catch(err){$('printer-config-info').textContent='Sensorliste nicht erreichbar: '+err.message;}
 }
+let printerFarmTimeout=null,printerFarmReady=false;
+function resetPrinterFarm(){
+ clearTimeout(printerFarmTimeout);
+ printerFarmReady=false;
+ $('printer-farm-frame').hidden=true;
+ $('printer-farm-frame').removeAttribute('src');
+ $('printer-farm-area').hidden=true;
+ $('printer-farm-toggle').hidden=true;
+ $('printer-farm-toggle').textContent='Sensorzuordnung / bisherige Ansicht';
+ $('printer-monitor-fallback').hidden=false;
+}
+function printerFarmUnavailable(){
+ resetPrinterFarm();
+ $('printer-farm-area').hidden=false;
+ $('printer-farm-status').hidden=false;
+ $('printer-farm-status').textContent='HA-Druckerfarm nicht verfügbar. Bisherige Druckeransicht wird angezeigt.';
+}
+function syncPrinterFarm(active){
+ if(!active){resetPrinterFarm();return;}
+ if(window.parent===window||$('printer-farm-frame').hasAttribute('src'))return;
+ $('printer-farm-area').hidden=false;
+ $('printer-farm-status').hidden=false;
+ $('printer-farm-status').textContent='Druckerfarm wird geladen …';
+ $('printer-monitor-fallback').hidden=true;
+ $('printer-farm-frame').src='printer-farm-frame.html?v=0.13.69';
+ // A nonzero viewport is required for responsive card layout, even while loading.
+ $('printer-farm-frame').hidden=false;
+ $('printer-farm-frame').height='1';
+ printerFarmTimeout=setTimeout(printerFarmUnavailable,12000);
+}
+window.addEventListener('message',event=>{
+ const frame=$('printer-farm-frame');
+ if(event.origin!==location.origin||event.source!==frame.contentWindow||workspace!=='printers'||!frame.hasAttribute('src'))return;
+ const data=event.data;
+ if(!data||data.kind!=='pp-printer-farm')return;
+ if(data.status==='unavailable'){printerFarmUnavailable();return;}
+ if(data.status!=='ready'&&data.status!=='height')return;
+ if(!Number.isFinite(data.height)||data.height<1||data.height>50000)return;
+ frame.height=String(Math.ceil(data.height));
+ if(data.status==='ready'){
+  clearTimeout(printerFarmTimeout);
+  printerFarmReady=true;
+  $('printer-farm-status').hidden=true;
+  $('printer-farm-toggle').hidden=false;
+ }
+});
+$('printer-farm-toggle').addEventListener('click',()=>{
+ if(!printerFarmReady)return;
+ const fallback=$('printer-monitor-fallback');
+ fallback.hidden=!fallback.hidden;
+ $('printer-farm-toggle').textContent=fallback.hidden?'Sensorzuordnung / bisherige Ansicht':'Bisherige Ansicht ausblenden';
+});
 $('printer-strip-more').addEventListener('click',()=>showWorkspace('printers'));
 $('printer-strip-row').addEventListener('click',event=>{
  const b=event.target.closest('[data-printer-focus]');

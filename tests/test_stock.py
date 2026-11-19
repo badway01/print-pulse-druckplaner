@@ -452,6 +452,11 @@ class StockTests(unittest.TestCase):
             with patch.object(app,'INGRESS_PEER','127.0.0.1'):
                 response=urllib.request.urlopen(base+'/')
                 self.assertIn("script-src 'self'",response.headers['Content-Security-Policy'])
+                self.assertNotIn("'unsafe-inline'",response.headers['Content-Security-Policy'])
+                with urllib.request.urlopen(base+'/printer-farm-frame.html') as farm_frame:
+                    self.assertIn("style-src 'self' 'unsafe-inline'",farm_frame.headers['Content-Security-Policy'])
+                    self.assertIn("script-src 'self';",farm_frame.headers['Content-Security-Policy'])
+                    self.assertIn(b'printer-farm-frame.js',farm_frame.read())
                 logo=urllib.request.urlopen(base+'/brand.svg')
                 self.assertEqual(logo.headers.get_content_type(),'image/svg+xml')
                 self.assertIn(b'data:image/webp;base64,',logo.read())

@@ -23,6 +23,14 @@ class FakeRequest:
 
 
 class StaticAssetsTests(unittest.TestCase):
+    def test_printer_farm_frame_assets(self):
+        for asset, mime in [('printer-farm-frame.html', 'text/html'), ('printer-farm-frame.js', 'application/javascript')]:
+            with self.subTest(asset=asset):
+                code, body, content_type = app.Handler.do_GET(FakeRequest('/' + asset))
+                self.assertEqual(code, 200)
+                self.assertTrue(body)
+                self.assertIn(mime, content_type)
+
     def test_every_index_script_and_stylesheet_is_served(self):
         html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
         urls = re.findall(r'(?:src|href)="([^"]+)"', html)

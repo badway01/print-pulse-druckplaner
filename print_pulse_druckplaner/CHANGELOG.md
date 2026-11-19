@@ -1,3 +1,9 @@
+## 0.13.69 – Druckerfarm im Drucker-Reiter (19.11.2026)
+
+- Vorhandene HA-Druckerfarm (Ressource v0.2.2) mit ihrer eigenen Dashboard-Konfiguration im Drucker-Reiter anzeigen.
+- Live-Daten und vorhandene Bedienelemente über die angemeldete HA-Sitzung nutzen; kein neuer serverseitiger Schaltzugriff.
+- Bisherigen Monitor als Rückfall und Sensorzuordnung erhalten. Druckfarm-Statistik unverändert.
+
 ## 0.13.68 – Kompakter Dashboard-Kopf (19.11.2026)
 
 - Kurzer Titel „Dashboard“, Bestellzahlen direkt am Anfang und unmittelbar danach der Druckerstatus.

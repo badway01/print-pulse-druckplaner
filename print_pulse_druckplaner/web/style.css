@@ -391,6 +391,9 @@ footer{color:#84786a}
 .printer-gauge.compact::before{inset:7px}
 .printer-gauge.compact span{font-size:15px;letter-spacing:0}
 .printers-shell{margin:15px 0}
+#printer-farm-frame{display:block;width:100%;border:0;background:transparent}
+#printer-farm-frame[hidden],#printer-farm-area[hidden],#printer-monitor-fallback[hidden],#printer-farm-toggle[hidden]{display:none!important}
+#printer-farm-toggle{margin:12px 0;color:var(--muted)}
 .printer-connection{font-size:12px;color:var(--muted);margin:10px 0 16px}
 .printer-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch;margin-bottom:16px}
 .printer-panel{min-width:0;display:flex;flex-direction:column;background:#fffefa;border:1px solid #e2dacd;border-top:4px solid #9ebbac;border-radius:14px;padding:18px;box-shadow:0 4px 16px #585f4809}

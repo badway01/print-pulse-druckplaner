@@ -64,7 +64,7 @@ except ImportError:
     _filament_stats_spec.loader.exec_module(filament_stats)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.68'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.69'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2949,7 +2949,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Cache-Control','no-store')
         self.send_header('X-Content-Type-Options','nosniff')
         self.send_header('Referrer-Policy','no-referrer')
-        self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://*.etsystatic.com; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'")
+        # The existing HA card renders its own shadow DOM styles. Allow inline
+        # styles only in the dedicated card frame; keep all other pages strict.
+        farm_frame = urllib.parse.urlsplit(self.path).path == '/printer-farm-frame.html' and mime.startswith('text/html')
+        style_policy = "'self' 'unsafe-inline'" if farm_frame else "'self'"
+        self.send_header('Content-Security-Policy',f"default-src 'self'; script-src 'self'; style-src {style_policy}; img-src 'self' data: https://*.etsystatic.com; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'")
         self.end_headers()
         self.wfile.write(body)
 
@@ -3149,7 +3153,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except (ValueError,FileNotFoundError):
                 return self.send(404,{'error':'Datei nicht verfügbar.'})
-        assets={'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/filament-quick-ui.js':('filament-quick-ui.js','application/javascript'),'/filament-stats-ui.js':('filament-stats-ui.js','application/javascript'),'/farm-ui.js':('farm-ui.js','application/javascript'),'/farm-ui.css':('farm-ui.css','text/css'),'/dashboard-order-cards.css':('dashboard-order-cards.css','text/css'),'/master-insights-ui.js':('master-insights-ui.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/catalog-3mf-info.js':('catalog-3mf-info.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
+        assets={'/printer-farm-frame.html':('printer-farm-frame.html','text/html'),'/printer-farm-frame.js':('printer-farm-frame.js','application/javascript'),'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/filament-quick-ui.js':('filament-quick-ui.js','application/javascript'),'/filament-stats-ui.js':('filament-stats-ui.js','application/javascript'),'/farm-ui.js':('farm-ui.js','application/javascript'),'/farm-ui.css':('farm-ui.css','text/css'),'/dashboard-order-cards.css':('dashboard-order-cards.css','text/css'),'/master-insights-ui.js':('master-insights-ui.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/catalog-3mf-info.js':('catalog-3mf-info.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
