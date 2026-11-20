@@ -12,7 +12,7 @@ const assert=require('node:assert/strict');
    page.waitForResponse(res=>res.url().includes('/api/print-tools') && res.ok()),
    page.goto('http://127.0.0.1:8099')
   ]);
-  await page.locator('.product').first().waitFor();
+  await page.waitForFunction(()=>model?.products?.length);
   await page.waitForFunction(()=>!masterToolsLoading);
   const saved=await page.request.post('http://127.0.0.1:8099/api/print-profile',{
    data:{listing_id:'101',variant_id:'',printer:'H2D',sources:[]}

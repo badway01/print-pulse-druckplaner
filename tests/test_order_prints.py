@@ -52,6 +52,40 @@ class OrderPrintTests(unittest.TestCase):
         self.assertEqual(line['item_id'],'101-white')
         self.assertEqual(line['remaining'],2)
 
+    def test_bulk_complete_without_counting_then_reopen(self):
+        with app.connect() as db:
+            db.execute("UPDATE stock_items SET on_hand=NULL WHERE id='101-white'")
+        self.action('printing',1)
+        app.mutate_order_bulk({'receipt_id':'401','action':'complete'})
+        self.assertEqual((self.line()['remaining'],self.line()['printing'],self.line()['assembled']),(0,0,2))
+        self.assertIsNone(self.item()['on_hand'])
+        self.assertEqual(self.item()['in_print'],0)
+        self.assertTrue(app.overview()['orders'][0]['bulk_completed'])
+        app.mutate_order_bulk({'receipt_id':'401','action':'complete'})
+        self.assertEqual(self.line()['assembled'],2)
+        app.mutate_order_bulk({'receipt_id':'401','action':'reopen'})
+        self.assertEqual(self.line()['remaining'],2)
+        self.assertIsNone(self.item()['on_hand'])
+
+    def test_bulk_complete_keeps_count_and_preexisting_finish(self):
+        self.set_stock(5)
+        self.action('printing',1)
+        self.action('finish',1)
+        app.mutate_order_bulk({'receipt_id':'401','action':'complete'})
+        self.assertEqual((self.line()['finished'],self.line()['assembled']),(1,1))
+        self.assertEqual(self.item()['on_hand'],6)
+        app.apply_snapshot(None,self.tx('shipped'),{'401'},orders=[])
+        self.assertEqual(self.item()['on_hand'],5)
+
+    def test_bulk_complete_is_atomic_if_a_variant_is_unmapped(self):
+        rows=json.loads(self.orders[0][4])
+        rows.append({'transaction_id':'302','listing_id':'999','quantity':1,'title':'Unbekannt','variant':''})
+        app.apply_snapshot(None,self.tx()+[('302','401','999','999','[]',1,self.now,'open')],{'401'},
+                           orders=[(*self.orders[0][:4],json.dumps(rows))])
+        with self.assertRaises(ValueError): app.mutate_order_bulk({'receipt_id':'401','action':'complete'})
+        self.assertEqual(self.line()['remaining'],2)
+        self.assertFalse(app.overview()['orders'][0]['bulk_completed'])
+
     def test_start_reduces_recommendation_not_physical_inventory(self):
         before=self.item()
         self.action('printing',1)

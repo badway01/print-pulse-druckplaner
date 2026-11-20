@@ -49,7 +49,8 @@
     (details.countdown?'<span>'+esc(details.countdown)+'</span>':'')+'</div>'+
     '<div class="board-order-products">'+rows+'</div>'+
     (lines.length>6?'<small>+ '+(lines.length-6)+' weitere Positionen</small>':'')+
-    '<div class="board-order-foot"><span>'+lines.length+' Positionen · '+(total-done)+' Stück offen</span><b>Groß ansehen ↗</b></div></article>';
+    '<div class="board-order-foot"><span>'+lines.length+' Positionen · '+(total-done)+' Stück offen</span><b>Groß ansehen ↗</b></div>'+
+    '<div class="board-order-complete">'+orderBulkButton(order)+'</div></article>';
  }
  function renderFullOrders(){
   if(workspace!=='orders'||!model)return;
@@ -160,6 +161,8 @@
   renderFullOrders();$('orders').scrollLeft=0;
  });
  $('full-orders-grid').addEventListener('click',async event=>{
+  const bulk=event.target.closest('[data-bulk-order]');
+  if(bulk){event.stopPropagation();await handleOrderBulk(bulk);return;}
   const quick=event.target.closest('[data-order-quick]');
   if(quick){event.stopPropagation();await runOrderQuick(quick);return;}
   const local=event.target.closest('[data-local-custom-action]');

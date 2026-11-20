@@ -64,7 +64,7 @@ except ImportError:
     _filament_stats_spec.loader.exec_module(filament_stats)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.70'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.71'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -74,7 +74,7 @@ MAX_MASTER_SIZE = 100 * 1024 * 1024
 MASTER_CHUNK_SIZE = 2 * 1024 * 1024  # Streaming ingress: fewer requests, adaptive fallback in client.
 MASTER_UPLOAD_LOCK = threading.RLock()
 PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","X2D","A1","A1 mini","Prusa MK4")
-MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1")
+MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","X2D")
 MONITOR_FIELDS = ("status","progress","remaining","filename","nozzle","nozzle_left","nozzle_right",
                   "bed","chamber","layer","total_layers","stage","active_tray",
                   "head0","head1","head2","head3","ams1","ams2","ams3","ams4")
@@ -305,6 +305,12 @@ def init_db():
         -- removed from Etsy orders, product stock or print reservations.
         CREATE TABLE IF NOT EXISTS priority_dismissals(
           key TEXT PRIMARY KEY, dismissed_at INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS pp_order_bulk_completion(
+          receipt_id TEXT PRIMARY KEY, lines_json TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS pp_sales_amounts(
+          receipt_id TEXT PRIMARY KEY, amount_eur REAL, updated INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS pp_sales_line_amounts(
+          transaction_id TEXT PRIMARY KEY, amount_eur REAL);
         """)
         components.schema(db)
         local_orders.schema(db)
@@ -591,6 +597,30 @@ def import_new_listings(ids):
         IMPORT_LOCK.release()
 
 
+def money_eur(value):
+    if not isinstance(value,dict) or value.get('currency_code')!='EUR':
+        return None
+    amount,divisor=value.get('amount'),value.get('divisor')
+    if type(amount) is not int or type(divisor) is not int or divisor<=0 or amount<0:
+        return None
+    return amount/divisor
+
+
+def record_sales_amounts(db,receipt,transactions):
+    rid=str(receipt.get('receipt_id') or '')
+    if not rid.isdecimal(): return
+    db.execute("""INSERT INTO pp_sales_amounts VALUES(?,?,?) ON CONFLICT(receipt_id)
+        DO UPDATE SET amount_eur=COALESCE(excluded.amount_eur,amount_eur),updated=excluded.updated""",
+        (rid,money_eur(receipt.get('grandtotal')),int(time.time())))
+    for tx in transactions:
+        tid=str(tx.get('transaction_id') or '')
+        price=money_eur(tx.get('price'))
+        qty=tx.get('quantity')
+        if tid.isdecimal() and price is not None and type(qty) is int and qty>0:
+            db.execute("""INSERT INTO pp_sales_line_amounts VALUES(?,?) ON CONFLICT(transaction_id)
+                DO UPDATE SET amount_eur=excluded.amount_eur""",(tid,price*qty))
+
+
 def fetch_receipts(shop, include_orders=False):
     # A calendar month may have 31 days (and a DST change).
     now=int(time.time())
@@ -616,6 +646,7 @@ def fetch_receipts(shop, include_orders=False):
         receipts[rid]=api_request(base+'/'+rid)
         time.sleep(.3)
     result=[]
+    amounts=[]
     orders=[]
     for rid,r in receipts.items():
         status=receipt_status(r)
@@ -624,6 +655,7 @@ def fetch_receipts(shop, include_orders=False):
             txs=pages(base+'/'+rid+'/transactions')
         if status in ('open','shipped') and not txs:
             raise ValueError('Eine bezahlte Bestellung enthält keine Positionen. Abgleich abgebrochen.')
+        amounts.append((r,txs))
         lines=[]
         ship_dates=[value for value in [r.get('expected_ship_date'),r.get('ship_by_date')]
                     + [t.get('expected_ship_date') for t in txs]
@@ -649,6 +681,9 @@ def fetch_receipts(shop, include_orders=False):
             orders.append((rid,int(r.get('create_timestamp') or r.get('created_timestamp') or 0),
                            min(ship_dates) if ship_dates else 0,customer,
                            json.dumps(lines,ensure_ascii=False)))
+    with connect() as db:
+        for receipt,txs in amounts:
+            record_sales_amounts(db,receipt,txs)
     return (result,set(receipts),orders) if include_orders else (result,set(receipts))
 
 
@@ -844,6 +879,14 @@ def synchronize(force_availability=False):
     if not shop.isdigit(): raise ValueError('Bitte Etsy unter Einstellungen verbinden.')
     with STATUS_LOCK: STATUS['message']='Offene Bestellungen abrufen …'
     transactions,receipts,orders=fetch_receipts(shop,include_orders=True)
+    # Etsy's own lifetime counter (not an estimate from recent receipts).
+    try:
+        shop_data=api_request('/application/shops/'+shop)
+        sold=shop_data.get('transaction_sold_count')
+        if type(sold) is int and sold>=0:
+            with connect() as db: put_cfg(db,'etsy_sales_total',str(sold))
+    except Exception as exc:
+        log.warning('Etsy-Verkaufszähler derzeit nicht verfügbar: %s',type(exc).__name__)
     due=not existing or not catalog_at or time.time()-catalog_at>=CATALOG_INTERVAL
     if not due:
         try:
@@ -965,6 +1008,35 @@ def order_period_counts(db, now):
     return counts
 
 
+def sales_statistics(db,period):
+    now=dt.datetime.now(ZoneInfo('Europe/Berlin'))
+    start=filament_stats._period_start(period,now)
+    since=int(start.timestamp()) if start else 0
+    rows=db.execute("""SELECT s.receipt_id,s.listing_id,s.quantity,
+        COALESCE(l.title,'Artikel '+s.listing_id) AS title,a.amount_eur
+        FROM pp_filament_sales s LEFT JOIN stock_listings l ON l.id=s.listing_id
+        LEFT JOIN pp_sales_line_amounts a ON a.transaction_id=s.transaction_id
+        WHERE s.created>=? AND s.created<=? AND s.status IN ('open','shipped')""",
+        (since,int(now.timestamp()))).fetchall()
+    receipts={r['receipt_id'] for r in rows}
+    amounts={r['receipt_id']:r['amount_eur'] for r in db.execute('SELECT receipt_id,amount_eur FROM pp_sales_amounts')
+             if r['receipt_id'] in receipts and r['amount_eur'] is not None}
+    products={}
+    for r in rows:
+        p=products.setdefault(r['listing_id'],{'title':r['title'],'quantity':0,'revenue':0,'missing':0})
+        p['quantity']+=r['quantity']
+        if r['amount_eur'] is None: p['missing']+=1
+        else: p['revenue']+=r['amount_eur']
+    local_count=db.execute("""SELECT COUNT(*) FROM pp_local_orders WHERE status IN ('open','completed')
+        AND created BETWEEN ? AND ?""",(since,int(now.timestamp()))).fetchone()[0]
+    history=db.execute('SELECT checked_at FROM pp_filament_history_state WHERE id=1').fetchone()
+    return {'orders':len(receipts),'local_orders':local_count,'items':sum(r['quantity'] for r in rows),
+            'revenue':round(sum(amounts.values()),2),'revenue_missing':len(receipts)-len(amounts),
+            'top_quantity':sorted(products.values(),key=lambda p:-p['quantity'])[:5],
+            'top_revenue':sorted((p for p in products.values() if not p['missing']),key=lambda p:-p['revenue'])[:5],
+            'history_imported':bool(history and history['checked_at'])}
+
+
 def overview():
     now=int(time.time())
     with connect() as db:
@@ -972,6 +1044,8 @@ def overview():
         items=[dict(r) for r in db.execute('SELECT * FROM stock_items')]
         txs=[dict(r) for r in db.execute('SELECT * FROM stock_transactions')]
         order_counts=order_period_counts(db,now)
+        sales_total=cfg(db,'etsy_sales_total')
+        bulk_ids={r['receipt_id'] for r in db.execute('SELECT receipt_id FROM pp_order_bulk_completion')}
         receipt_rows=[dict(r) for r in db.execute('''SELECT r.* FROM stock_receipts r
           LEFT JOIN pp_local_orders o ON o.id=r.id
           WHERE o.id IS NULL OR o.status='open' ''')]
@@ -1101,14 +1175,14 @@ def overview():
             line['image']=images.get(line['listing_id'],'')
             # Receipt titles follow the buyer's language. Use our cached shop title.
             line['title']=(line.get('custom_title') or 'Sonderleistung') if line.get('custom_kind') else (titles.get(line['listing_id']) or 'Artikel '+line['listing_id'])
-        orders.append({'id':receipt['id'],'customer':receipt['customer'],
+        orders.append({'id':receipt['id'],'bulk_completed':receipt['id'] in bulk_ids,'customer':receipt['customer'],
                        'created':receipt['created'],'ship_by':receipt['ship_by'],
                        'items':lines,'quantity':sum(line['quantity'] for line in lines)})
     with connect() as db:
         components.snapshot(db,listings,orders)
         local_orders.enrich(db,orders)
     with STATUS_LOCK: status=dict(STATUS)
-    return {'orders':orders,'order_counts':order_counts,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'last_availability_sync':availability_at,'etsy_alert_percent':etsy_percent,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'priority_dismissed':priority_dismissed,'version':'0.1'}
+    return {'orders':orders,'order_counts':order_counts,'etsy_sales_total':int(sales_total) if sales_total.isdigit() else None,'products':listings,'days':days,'last_sync':sync_at,'last_catalog_sync':catalog_at,'last_availability_sync':availability_at,'etsy_alert_percent':etsy_percent,'etsy_stock_alerts':low_etsy,'cooldown_until':cooldown,'sync':status,'configured':configured,'authorized':authorized,'warning':warning,'undo':undo,'priority_dismissed':priority_dismissed,'version':'0.1'}
 
 
 def mutate_stock(data):
@@ -1148,6 +1222,86 @@ def mutate_stock(data):
         db.execute('UPDATE stock_items SET on_hand=?,in_print=?,minimum=?,notice=?,revision=? WHERE id=?',(*after.values(),revision,iid))
         db.execute('INSERT INTO stock_actions VALUES(?,?,?,?,?,0)',(secrets.token_hex(12),iid,json.dumps(before),revision,int(time.time())))
 
+
+
+def mutate_order_bulk(data):
+    """Confirm physical order completion without counting or creating shelf stock.
+    This never marks Etsy shipped or a local order handed over."""
+    rid=str(data.get('receipt_id') or '')
+    action=data.get('action')
+    if action not in ('complete','reopen'): raise ValueError('Ungültige Aktion.')
+    with connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        receipt=db.execute('SELECT lines_json FROM stock_receipts WHERE id=?',(rid,)).fetchone()
+        if not receipt: raise ValueError('Bestellung nicht mehr offen.')
+        lines=json.loads(receipt['lines_json'])
+        txs={r['id']:r for r in db.execute("SELECT * FROM stock_transactions WHERE receipt_id=? AND status='open'",(rid,))}
+        if not lines or {str(l['transaction_id']) for l in lines}!=set(txs):
+            raise ValueError('Bestellpositionen haben sich geändert. Bitte aktualisieren.')
+        if data.get('expected') is not None:
+            expected=data['expected']
+            if not isinstance(expected,dict) or expected!={tid:tx['qty'] for tid,tx in txs.items()}:
+                raise ValueError('Bestellmenge hat sich geändert. Bitte neu prüfen.')
+        previous_bulk=db.execute('SELECT lines_json FROM pp_order_bulk_completion WHERE receipt_id=?',(rid,)).fetchone()
+        if action=='reopen':
+            if not previous_bulk: raise ValueError('Keine gemeinsame Fertigmeldung zum Rückgängigmachen.')
+            for tid,mode,qty in json.loads(previous_bulk['lines_json']):
+                if tid not in txs: raise ValueError('Bestellung wurde inzwischen geändert.')
+                if mode=='custom':
+                    local_orders.custom_action(db,{'transaction_id':tid,'action_type':'reopen','quantity':qty})
+                elif mode=='component':
+                    components.mutate(db,{'transaction_id':tid,'action':'quick-reopen','quantity':qty},integer)
+                else:
+                    changed=db.execute('UPDATE stock_order_prints SET assembled=assembled-?,updated=? WHERE transaction_id=? AND assembled>=?',
+                                       (qty,int(time.time()),tid,qty))
+                    if not changed.rowcount: raise ValueError('Position wurde inzwischen geändert.')
+            db.execute('DELETE FROM pp_order_bulk_completion WHERE receipt_id=?',(rid,))
+            return
+        if previous_bulk:
+            # A later individual correction or a changed quantity allows a
+            # new completion. Never silently ignore a newly open position.
+            db.execute('DELETE FROM pp_order_bulk_completion WHERE receipt_id=?',(rid,))
+        changes=[]
+        for line in lines:
+            tid=str(line['transaction_id'])
+            tx=txs[tid]
+            if line.get('local_custom'):
+                job=db.execute('SELECT * FROM pp_local_custom_jobs WHERE transaction_id=?',(tid,)).fetchone()
+                qty=tx['qty']-(job['finished'] if job else 0)
+                if qty>0:
+                    local_orders.custom_action(db,{'transaction_id':tid,'action_type':'finish-direct','quantity':qty})
+                    changes.append((tid,'custom',qty))
+                continue
+            job=db.execute('SELECT * FROM stock_order_prints WHERE transaction_id=?',(tid,)).fetchone()
+            item_id=job['item_id'] if job else tx['item_id']
+            if not item_id: raise ValueError('Eine Bestellvariante ist noch nicht zugeordnet. Bitte im Auftrag prüfen.')
+            finished,allocated,assembled,printing=(job[k] if job else 0 for k in ('finished','allocated','assembled','printing'))
+            qty=tx['qty']-finished-allocated-assembled
+            if qty<=0: continue
+            listing=db.execute('SELECT components_enabled FROM stock_listings WHERE id=?',(tx['listing_id'],)).fetchone()
+            if listing and listing['components_enabled'] and not (printing or finished or allocated):
+                components.mutate(db,{'transaction_id':tid,'action':'quick-complete','quantity':qty},integer)
+                # A bad optional component definition must not leave obsolete running jobs.
+                db.execute('UPDATE pp_component_orders SET printing=0 WHERE transaction_id=?',(tid,))
+                changes.append((tid,'component',qty))
+            else:
+                # assembled denotes customer-assigned goods, not inventory.
+                # Consume previously recorded running quantities without inventing
+                # a stock count, and retain pre-existing finishes/allocations.
+                if printing:
+                    changed=db.execute('UPDATE stock_items SET in_print=in_print-?,revision=revision+1 WHERE id=? AND in_print>=?',
+                                       (printing,item_id,printing))
+                    if not changed.rowcount: raise ValueError('Druckbestand nicht konsistent.')
+                db.execute("""INSERT INTO stock_order_prints
+                    (transaction_id,receipt_id,item_id,printing,finished,allocated,assembled,updated)
+                    VALUES(?,?,?,0,0,0,?,?) ON CONFLICT(transaction_id) DO UPDATE
+                    SET printing=0,assembled=assembled+excluded.assembled,updated=excluded.updated""",
+                    (tid,rid,item_id,qty,int(time.time())))
+                changes.append((tid,'direct',qty))
+        if changes:
+            db.execute('INSERT INTO pp_order_bulk_completion VALUES(?,?)',(rid,json.dumps(changes)))
+        elif previous_bulk:
+            db.execute('INSERT INTO pp_order_bulk_completion VALUES(?,?)',(rid,previous_bulk['lines_json']))
 
 
 def mutate_order_print(data):
@@ -1330,6 +1484,7 @@ def filament_history_import():
                 db.execute('BEGIN IMMEDIATE')
                 for r in complete:
                     seen+=filament_planner.record_history_receipt(db,r,signature,receipt_status)
+                    record_sales_amounts(db,r,r.get('transactions') or [])
                 db.execute("""INSERT INTO pp_filament_history_state(id,checked_at,count)
                   VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET
                   checked_at=excluded.checked_at,count=excluded.count""",
@@ -2405,6 +2560,7 @@ PRINTER_ENTITY_SUFFIXES = {
 
 def printer_model_for_slug(slug):
     if re.search(r'(?:^|_)h2d(?:_|$)',slug): return 'H2D'
+    if re.search(r'(?:^|_)x2d(?:_|$)',slug): return 'X2D'
     if re.search(r'(?:^|_)p1s(?:_|$)',slug): return 'P1S'
     if re.search(r'(?:^|_)a1_?mini(?:_|$)',slug): return 'A1 mini'
     if re.search(r'(?:^|_)snapmaker(?:_|$)',slug) or re.search(r'(?:^|_)u1(?:_|$)',slug):
@@ -2764,6 +2920,46 @@ def theme_sun_state():
     return {'theme':None,'source':'system'}
 
 
+def energy_settings():
+    try: states=homeassistant_states()
+    except RuntimeError: states={}
+    with connect() as db:
+        bindings={r['printer']:r['entity'] for r in db.execute('SELECT * FROM pp_farm_energy_config')}
+        tariff=cfg(db,'farm_energy_tariff')
+    sensors=[{'id':key,'name':str((state.get('attributes') or {}).get('friendly_name') or key)}
+             for key,state in states.items() if key.startswith('sensor.') and farm_stats.energy_value(state) is not None]
+    return {'printers':list(farm_stats.PRODUCTION_PRINTERS),'bindings':bindings,'tariff':tariff,'sensors':sorted(sensors,key=lambda x:x['name'])}
+
+
+def save_energy_settings(data):
+    bindings=data.get('bindings')
+    raw=data.get('tariff','')
+    if not isinstance(bindings,dict) or set(bindings)-set(farm_stats.PRODUCTION_PRINTERS):
+        raise ValueError('Ungültige Druckerzuordnung.')
+    try: tariff=float(raw) if raw!='' else None
+    except (TypeError,ValueError): raise ValueError('Ungültiger Strompreis.')
+    if tariff is not None and (not math.isfinite(tariff) or not 0<=tariff<=10):
+        raise ValueError('Strompreis muss zwischen 0 und 10 €/kWh liegen.')
+    states=homeassistant_states()
+    selected=[entity for entity in bindings.values() if entity]
+    if any(not isinstance(entity,str) or not entity.startswith('sensor.') or farm_stats.energy_value(states.get(entity)) is None for entity in selected):
+        raise ValueError('Bitte einen verfügbaren kumulativen Energiesensor (kWh/Wh) wählen.')
+    if len(set(selected))!=len(selected): raise ValueError('Ein Energiesensor darf nur einem Drucker zugeordnet werden.')
+    with connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        for printer in farm_stats.PRODUCTION_PRINTERS:
+            entity=bindings.get(printer,'')
+            old=db.execute('SELECT entity FROM pp_farm_energy_config WHERE printer=?',(printer,)).fetchone()
+            if old and old['entity']!=entity:
+                db.execute('DELETE FROM pp_farm_energy_last WHERE printer=?',(printer,))
+            if entity:
+                db.execute('INSERT INTO pp_farm_energy_config VALUES(?,?) ON CONFLICT(printer) DO UPDATE SET entity=excluded.entity',(printer,entity))
+            else:
+                db.execute('DELETE FROM pp_farm_energy_config WHERE printer=?',(printer,))
+        put_cfg(db,'farm_energy_tariff','' if tariff is None else str(tariff))
+    return energy_settings()
+
+
 def version_history():
     """Read only the packaged, public changelog; return compact release notes."""
     entries=[]
@@ -2969,6 +3165,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(400,{'error':'Ungültiger Statistikzeitraum.'})
             with connect() as db:
                 return self.send(200,filament_stats.summary(db,period))
+        if path=='/api/sales-statistics':
+            query=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            period=(query.get('period') or ['month'])[0]
+            if period not in ('week','month','year','all'):
+                return self.send(400,{'error':'Ungültiger Statistikzeitraum.'})
+            with connect() as db:
+                return self.send(200,sales_statistics(db,period))
         if path=='/api/filament-orders':
             with connect() as db: return self.send(200,filament_purchases.overview(db))
         if path=='/api/filament-plan':
@@ -2990,10 +3193,24 @@ class Handler(BaseHTTPRequestHandler):
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             try:
                 days=int((params.get('days') or ['7'])[0])
+                period=(params.get('period') or [''])[0]
+                since=None
+                if period:
+                    if period not in ('week','month','year','all'): raise ValueError('Ungültiger Zeitraum.')
+                    start=filament_stats._period_start(period,dt.datetime.now(ZoneInfo('Europe/Berlin')))
+                    since=int(start.timestamp()) if start else 0
                 with connect() as db:
-                    return self.send(200,farm_stats.summary(db,days))
+                    result=farm_stats.summary(db,days,since=since)
+                    measured=farm_stats.energy_summary(db,since if since is not None else result['start'])
+                    tariff=cfg(db,'farm_energy_tariff')
+                    for printer in result['printers']:
+                        reading=measured.get(printer['printer'])
+                        printer['energy_kwh']=reading['kwh'] if reading else None
+                        printer['energy_cost']=round(reading['kwh']*float(tariff),2) if reading and tariff else None
+                    return self.send(200,result)
             except (ValueError,sqlite3.Error):
                 return self.send(400,{'error':'Druckfarm-Auswertung konnte nicht geladen werden.'})
+        if path=='/api/farm-energy-settings': return self.send(200,energy_settings())
         if path=='/api/printer-entities': return self.send(200,ha_entity_choices())
         if path=='/api/print-tools':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
@@ -3380,6 +3597,11 @@ class Handler(BaseHTTPRequestHandler):
             if path=='/api/order-print':
                 mutate_order_print(data)
                 return self.send(200,overview())
+            if path=='/api/order-bulk':
+                mutate_order_bulk(data)
+                return self.send(200,overview())
+            if path=='/api/farm-energy-settings':
+                return self.send(200,save_energy_settings(data))
             if path=='/api/undo':
                 undo_action(str(data.get('id') or ''))
                 return self.send(200,overview())
@@ -3485,6 +3707,8 @@ def farm_poll_loop():
             with connect() as db:
                 db.execute('BEGIN IMMEDIATE')
                 farm_stats.record_poll(db,current['printers'])
+                if current['connected']:
+                    farm_stats.record_energy(db,homeassistant_states())
         except Exception:
             log.exception('Druckfarm-Messung konnte nicht gespeichert werden')
         time.sleep(60)

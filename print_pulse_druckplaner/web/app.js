@@ -531,6 +531,23 @@ ${controlsOnly?'':`  <div class="order-card-work-name" title="${esc(line.title+(
   </div>
  </div>`;
 }
+function orderBulkButton(o){
+ const complete=orderPrintProgress(o).complete;
+ if(o.bulk_completed&&complete)return '<button type="button" class="secondary small" data-bulk-order="'+esc(o.id)+'" data-bulk-action="reopen">↶ Wieder öffnen</button>';
+ if(complete)return '';
+ return '<button type="button" class="primary small" data-bulk-order="'+esc(o.id)+'" data-bulk-action="complete">✓ Bestellung fertig</button>';
+}
+async function handleOrderBulk(button){
+ if(busy)return;
+ const action=button.dataset.bulkAction,id=button.dataset.bulkOrder;
+ if(action==='complete'&&!window.confirm('Sind wirklich alle Artikel dieser Bestellung fertig? Der Auftrag bleibt bis Versand oder Übergabe offen.'))return;
+ if(action==='reopen'&&!window.confirm('Gemeinsame Fertigmeldung rückgängig machen?'))return;
+ const order=(model?.orders||[]).find(o=>String(o.id)===id);
+ if(!order)return;
+ button.disabled=true;
+ await mutate('order-bulk',{receipt_id:id,action,expected:Object.fromEntries(order.items.map(l=>[String(l.transaction_id),Number(l.quantity)]))});
+ button.disabled=false;
+}
 function orderCard(o){
  const shipping=shipInfo(o);
  const printProgress=orderPrintProgress(o);
@@ -547,10 +564,19 @@ function orderCard(o){
    ${lines.length>shown.length?`<small class="order-card-work-more">+ ${lines.length-shown.length} weitere Positionen in Details</small>`:''}
   </div>
   <div class="order-card-foot"><span class="order-deadline ${shipping.level}">${shippingMarkup(shipping)}</span>
-   <div class="order-card-actions"><button type="button" class="order-open order-open-only" data-order-open="${esc(o.id)}" aria-label="Bestellung ${esc(o.id)} öffnen">Details ›</button></div></div>
+   <div class="order-card-actions">${orderBulkButton(o)}<button type="button" class="order-open order-open-only" data-order-open="${esc(o.id)}" aria-label="Bestellung ${esc(o.id)} öffnen">Details ›</button></div></div>
  </article>`;
 }
 function renderOrders(){
+ const total=model?.etsy_sales_total;
+ if($('etsy-sales-total'))$('etsy-sales-total').textContent=Number.isSafeInteger(total)?total.toLocaleString('de-DE'):'–';
+ const time=new Date();
+ const day=berlinDay(time.getTime());
+ const hour=Number(new Intl.DateTimeFormat('de-DE',{hour:'numeric',hourCycle:'h23',timeZone:'Europe/Berlin'}).format(time));
+ const greetings=['Hallo','Moin','Schön, dass du da bist','Hallo','Moin','Hallo','Moin'];
+ const messages=['Ein neuer Tag, neue Möglichkeiten.','Alles im Blick für deine Produktion.','Bereit für die nächsten Aufträge.','Heute läuft die Druckfarm.','Deine Werkstatt wartet.','Zeit für neue Ideen.','Schritt für Schritt zum nächsten Auftrag.'];
+ if($('dashboard-greeting'))$('dashboard-greeting').textContent=(day%2===0?(hour<10?'Guten Morgen':hour>=18?'Guten Abend':greetings[day%7]):greetings[day%7])+', Marco!';
+ if($('dashboard-greeting-sub'))$('dashboard-greeting-sub').textContent=messages[day%7];
  for(const key of ['today','week','month']){
   const value=model?.order_counts?.[key];
   $('orders-'+key).textContent=Number.isSafeInteger(value)&&value>=0?String(value):'–';
@@ -832,17 +858,17 @@ function goToEtsyAlertListing(listingId,variantId){
   if(/^[0-9]+$/.test(String(listingId)))window.open('https://www.etsy.com/listing/'+encodeURIComponent(listingId),'_blank','noopener,noreferrer');
   return;
  }
- etsyAlertFocused=listingId;
- filter='all';
- $('search').value='';
- if(variantId)selectedVariants.set(listingId,variantId);
- if(product.items.length>1)expanded.add(listingId);
- render();
- const card=[...document.querySelectorAll('[data-product]')].find(el=>el.dataset.product===listingId);
- if(!card)return;
- card.scrollIntoView({behavior:'smooth',block:'center'});
- card.classList.add('etsy-alert-highlight');
- setTimeout(()=>card.classList.remove('etsy-alert-highlight'),3500);
+ showWorkspace('catalog');
+ $('catalog-search').value='';
+ renderCatalog();
+ const catalogCard=[...document.querySelectorAll('[data-catalog-item]')].find(el=>el.dataset.catalogItem===listingId);
+ if(catalogCard){
+  const toggle=catalogCard.querySelector('[data-catalog-expand]');
+  if(toggle&&toggle.getAttribute('aria-expanded')!=='true')toggle.click();
+  catalogCard.scrollIntoView({behavior:'smooth',block:'center'});
+  return;
+ }
+ if(/^[0-9]+$/.test(String(listingId)))window.open('https://www.etsy.com/listing/'+encodeURIComponent(listingId),'_blank','noopener,noreferrer');
 }
 $('etsy-alert-toggle').addEventListener('click',()=>{
  if(!model?.etsy_stock_alerts?.length){$('sync').click();return;}
@@ -914,6 +940,7 @@ function render(){if(!model)return;
   '<span class="dashboard-kpi-icon" aria-hidden="true">!</span><span class="dashboard-kpi-copy"><span>Versand kritisch</span><b class="dashboard-kpi-value">'+critical+' Aufträge</b></span><span class="dashboard-kpi-arrow" aria-hidden="true">›</span></button>');
  renderOrders();
  renderCatalog();
+ if(workspace!=='stock'){updateHTML($('products'),'');return;}
  const filterCounts={
   all:products.length,
   need:products.filter(p=>dueFor(p)>0||p.unmatched>0).length,
@@ -1237,9 +1264,9 @@ function renderFilaments(){
  const inventory=filamentStockValue(rows);
  const opened=rows.reduce((sum,f)=>sum+Math.max(0,Number(f.open_qty)||0),0);
  $('filament-stock-summary').hidden=filamentView!=='colors';
- $('filament-statistics').hidden=filamentView!=='colors';
+ $('filament-statistics').hidden=workspace!=='farm';
  $('fp-panel').hidden=filamentView!=='cart';
- if(filamentView==='colors')window.ppFilamentStats?.refresh?.();
+ if(workspace==='farm')window.ppFilamentStats?.refresh?.();
  $('filament-stock-spools').textContent=inventory.spools+' '+(inventory.spools===1?'volle Spule':'volle Spulen')+' · '+opened+' angebrochen';
  $('filament-stock-value').textContent=filamentMoney(inventory.known_total_cents);
  $('filament-stock-missing').textContent=inventory.missing_qty
@@ -1350,20 +1377,29 @@ function showWorkspace(value){
   }
  }
  const production=value==='production';
- for(const id of ['dashboard-title','dashboard-orders-summary','summary','priority-shell','product-toolbar','product-sort-note','products'])$(id).hidden=!production;
+ for(const id of ['dashboard-title','dashboard-orders-summary'])$(id).hidden=!production;
+ $('summary').hidden=true;
+ $('priority-shell').hidden=value!=='queue';
+ for(const id of ['product-toolbar','product-sort-note','products'])$(id).hidden=value!=='stock';
+ if(model){if(value==='stock')render();else updateHTML($('products'),'');}
+ if(value==='queue'&&typeof renderPriorityUI==='function'){priorityExpanded=true;renderPriorityUI();}
  renderEtsyStockBanner();
  $('printer-strip').hidden=!production;
  $('filament-shell').hidden=value!=='filament';
  $('catalog-shell').hidden=value!=='catalog';
  $('printers-shell').hidden=value!=='printers';
  $('farm-shell').hidden=value!=='farm';
+ $('filament-statistics').hidden=value!=='farm';
  $('calculator-shell').hidden=value!=='calculator';
  if(value==='calculator'){if(typeof economyLoaded!=='undefined'&&economyLoaded)econRefresh();else loadEconomics();}
  if(value==='catalog'){renderCatalog();loadPrintTools();}
  if(value==='filament')loadFilaments();
  syncPrinterFarm(value==='printers');
  if(value==='printers'){renderPrinterMonitor();loadPrinters();}
- if(value==='farm'&&typeof loadFarmStats==='function')loadFarmStats();
+ if(value==='farm'&&typeof loadFarmStats==='function'){
+  loadFarmStats();window.ppFilamentStats?.refresh?.(true);
+  if(typeof loadSalesStatistics==='function')loadSalesStatistics();
+ }
 }
 function renderFilamentRolls(){
  const d=$('filament-rolls');
@@ -1480,6 +1516,8 @@ async function runOrderQuick(button){
  if(saved&&$('order-details').open&&$('order-details').dataset.orderId===job.receiptId)showOrder(job.receiptId);
 }
 $('orders').addEventListener('click',async event=>{
+ const bulk=event.target.closest('[data-bulk-order]');
+ if(bulk){await handleOrderBulk(bulk);return;}
  const quick=event.target.closest('[data-order-quick]');
  if(quick){await runOrderQuick(quick);return;}
  const button=event.target.closest('[data-order-open]');
@@ -2848,6 +2886,10 @@ $('printer-config-form').addEventListener('submit',async event=>{
  finally{printerConfigBusy=false;$('printer-config-save').disabled=false;}
 });
 
+$('dashboard-orders-summary').after($('etsy-stock-banner'));
+$('stats-filament-mount').append($('filament-statistics'));
+$('optional-stock-open').addEventListener('click',()=>{$('settings').close();showWorkspace('stock');});
+showWorkspace('production');
 load(true);loadPrintTools();loadPrinters();setInterval(()=>load(false),15000);
 setInterval(()=>loadPrinters(),20000);
 setInterval(refreshShippingDay,30000);

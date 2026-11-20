@@ -9,7 +9,7 @@ const assert=require('node:assert/strict');
  page.on('pageerror',error=>errors.push(error.message));
  try{
   await page.goto('http://127.0.0.1:8099/');
-  await page.locator('[data-product="102"]').waitFor();
+  await page.waitForFunction(()=>model?.products?.length);
   await page.locator('#dashboard-orders-open').click();
   await page.locator('[data-full-orders-view="cards"]').click();
   await page.locator('#full-orders-new').click();

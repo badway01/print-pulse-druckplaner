@@ -1,3 +1,7 @@
+## Version 0.13.71 · Schlanker Produktionsablauf
+
+Dashboard mit Begrüßung, Etsy-Verkaufszähler, Bestellungen und Warnungen. In Bestellungen lässt sich die gesamte Bestellung direkt fertigmelden, ohne ungezählte Lagerbestände zu erfinden. Die Druckwarteschlange zeigt offene Aufträge und optionalen Bauteilvorrat. Bisherige Lagerdaten sind unter Einstellungen erreichbar. Der Statistik-Reiter vereint Verkäufe, Material und Druckfarm. Für historische Umsätze die Etsy-Historie bei Bedarf einlesen; für Stromverbrauch unter Statistik einmal die kumulativen Energiezähler und den Tarif zuordnen.
+
 ## Version 0.13.70 · Versandcenter entfernt
 
 Der separate Versand-Reiter und der Hermes-CSV-Export wurden entfernt. Bestellungen, lokaler Versandstatus und Tracking bleiben unverändert verfügbar.

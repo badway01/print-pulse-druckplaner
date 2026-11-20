@@ -4,7 +4,7 @@
 let priorityExpanded=false;
 function priorityCandidates(snapshot){
  if(!snapshot)return [];
- const products=(snapshot.products||[]).filter(p=>p.state==='active');
+ const products=(snapshot.products||[]).filter(p=>p.state==='active'||p.state==='sold_out');
  const listings=new Map(products.map(p=>[String(p.id),p]));
  const itemIndex=new Map();
  for(const product of products)for(const item of product.items||[]){
@@ -29,7 +29,7 @@ function priorityCandidates(snapshot){
  }
  for(const order of orders){
   for(const line of order.items||[]){
-   if(Number(line.remaining)<=0)continue;
+   if(Number(line.remaining)<=0&&(line.item_id||line.local_custom||Number(line.finished||0)+Number(line.allocated||0)+Number(line.assembled||0)>=Number(line.quantity||0)))continue;
    if(line.local_custom){
     const product=listings.get(String(line.listing_id));
     if(!product)continue;
@@ -43,7 +43,12 @@ function priorityCandidates(snapshot){
      Number(line.remaining));
     continue;
    }
-   if(!line.item_id)continue;
+   if(!line.item_id){
+    add(unmapped,String(line.transaction_id),{tier:1,type:'check',listingId:String(line.listing_id),orderId:String(order.id),
+     lineId:String(line.transaction_id),shipBy:Number(order.ship_by)||Infinity,title:line.title||'Artikel',
+     note:[line.variant,'Variante prüfen'].filter(Boolean).join(' · ')},Number(line.remaining)||Number(line.quantity)||0);
+    continue;
+   }
    const product=listings.get(String(line.listing_id));
    if(!product)continue;
    const common={listingId:String(product.id),productTitle:product.title,
@@ -72,17 +77,10 @@ function priorityCandidates(snapshot){
     const indexed=itemIndex.get(String(line.item_id));
     if(!indexed)continue;
     const item=indexed.item,key=String(item.id),remaining=Math.max(0,Number(line.remaining)||0);
-    if(item.on_hand===null||item.on_hand===undefined){
-     add(unmapped,key,{...common,tier:1,type:'check',itemId:key,
-      title:product.title,note:String(line.variant||item.label)+' · Bestand noch nicht gezählt'},remaining);
-     continue;
-    }
-    if(!available.has(key))available.set(key,Math.max(0,Number(item.allocatable)||0));
-    const free=Math.min(remaining,available.get(key));
-    available.set(key,available.get(key)-free);
-    const shortage=remaining-free;
-    add(classic,key,{...common,tier:1,type:'order',itemId:key,
-     title:product.title,note:String(line.variant||item.label)},shortage);
+    // Production is based on open order units, not unverified shelf counts.
+    const identity=key+'::'+String(line.personalization||'')+'::'+String(line.color||'');
+    add(classic,identity,{...common,tier:1,type:'order',itemId:key,
+     title:product.title,note:[line.variant||item.label,line.color,line.personalization].filter(Boolean).join(' · ')},remaining);
    }
   }
  }
@@ -148,7 +146,7 @@ function priorityCandidates(snapshot){
   b.approvedPrinters.length-a.approvedPrinters.length||
   (b.sold7||0)-(a.sold7||0)||(b.sold30||0)-(a.sold30||0)||
   String(a.title).localeCompare(String(b.title),'de'));
- return out;
+ return out.filter(entry=>entry.tier!==3);
 }
 // Keep product/variant identities stable when quantities or rankings change.
  // Customer orders are intentionally not dismissible: they must never be hidden.
@@ -165,17 +163,26 @@ function priorityCard(item,index){
   item.tier===2?'Vorrat nach deinem Auffüllziel ergänzen':'Bestand nach Verkäufen auffüllen';
  const button=item.type==='part'?'Bauteil öffnen':item.type==='variant'?'Druck vorbereiten':
   'Auftrag öffnen';
+ const files=(typeof printTools!=='undefined'?printTools.files:[]).filter(f=>!f.is_history&&String(f.listing_id)===item.listingId&&
+  (!f.variant_id||String(f.variant_id)===item.itemId)&&(!item.partId||String(f.component_id||'')===item.partId));
+ const timed=files.filter(f=>Number(f.insights?.time_seconds)>0);
+ const selected=(priorityPrinterFilter==='all'?timed:timed.filter(f=>f.printer===priorityPrinterFilter));
+ const timing=selected.length===1?selected[0]:null;
+ const direct=isOrder&&item.type==='order'&&!item.partId&&item.orders.size===1&&item.lineId;
  return '<article class="priority-item priority-'+item.tier+'">'+
   '<div class="priority-number" aria-hidden="true">'+(index+1)+'</div>'+
+  (typeof thumbnail==='function'&&thumbnail(model?.products?.find(p=>String(p.id)===item.listingId)?.image||'')?'<img class="queue-photo" src="'+esc(thumbnail(model.products.find(p=>String(p.id)===item.listingId).image))+'" alt="" loading="lazy">':'<span class="queue-photo queue-placeholder">P+P</span>')+
   '<div class="priority-description">'+
    '<div class="priority-meta"><span>'+esc(group)+'</span>'+
    (item.orders.size>1?'<span>'+item.orders.size+' Aufträge</span>':'')+'</div>'+
    '<b title="'+esc(item.title)+'">'+esc(item.qty)+' × '+esc(item.title)+'</b>'+
    '<small>'+esc(item.note||'')+'</small>'+
    '<small class="priority-reason">'+esc(details)+'</small>'+ 
+   (files.length?'<small>'+files.length+' hinterlegte 3MF'+(timing?' · '+Math.round(timing.insights.time_seconds/60)+' min / Druckplatte · '+esc(timing.printer):'')+'</small>':'')+
    (typeof economicsApprovedFor==='function'&&economyLoaded?'<small class="priority-printers '+(item.approvedPrinters.length?'approved':'unverified')+'">'+
     esc(item.approvedPrinters.length?'✓ Drucker: '+item.approvedPrinters.join(' · ')+(item.readyPrinters.length?' · frei: '+item.readyPrinters.join(' / '):''):'! Druckerfreigabe fehlt – zuerst testen')+'</small>':'')+'</div>'+
    '<div class="priority-actions">'+
+   (direct?'<button type="button" class="primary small" data-priority-start="'+index+'">In Druck</button>':'')+
    '<button type="button" class="secondary priority-jump" data-priority-index="'+index+'" aria-label="'+esc(button+' für '+item.title)+'">'+esc(button)+' ↗</button>'+
    (priorityKey(item)?'<button type="button" class="priority-dismiss" data-priority-remove="'+index+'" title="Empfehlung entfernen" aria-label="'+esc('Empfehlung entfernen: '+item.title+' · '+(item.note||''))+'">'+
     '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m5 4v6m4-6v6"/></svg></button>':'')+
@@ -230,7 +237,7 @@ async function changePriorityDismissal(key,action){
 }
 function openPriority(item){
  if(!item)return;
- showWorkspace('production');
+ showWorkspace('queue');
  if(item.type==='part'){
   if(!model.products.some(p=>String(p.id)===item.listingId))return;
   componentOpen(item.listingId);
@@ -259,6 +266,12 @@ $('priority-more').addEventListener('click',()=>{
  priorityExpanded=!priorityExpanded;renderPriorityUI();
 });
 $('priority-list').addEventListener('click',event=>{
+ const start=event.target.closest('[data-priority-start]');
+ if(start){
+  const item=currentPriorities[Number(start.dataset.priorityStart)];
+  if(item&&item.lineId&&!busy)orderPrintDialog(item.lineId,'printing');
+  return;
+ }
  const remove=event.target.closest('[data-priority-remove]');
  if(remove){
   const index=Number(remove.dataset.priorityRemove);

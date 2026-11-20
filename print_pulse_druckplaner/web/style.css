@@ -879,6 +879,19 @@ html[data-theme="dark"] .filament-stock-amount strong{color:#c1e1ce}
 /* Dashboard: one compact entry point, no duplicate customer/order cards. */
 .dashboard-heading{display:flex;align-items:flex-start;gap:10px;justify-content:space-between;margin:0 0 10px;min-width:0}
 .dashboard-heading h1{font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.2;margin:0;letter-spacing:-.5px;color:var(--ink)}
+.dashboard-total{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;margin-bottom:10px;border-radius:14px;background:var(--surface-soft);border:1px solid var(--line);color:var(--ink)}
+.dashboard-total span{display:grid;gap:4px}.dashboard-total small{font-size:10px;letter-spacing:.08em}.dashboard-total b{font-size:32px;font-variant-numeric:tabular-nums}
+.board-order-complete{display:flex;justify-content:flex-end;padding:10px 0 0}.board-order-complete:empty{display:none}
+.stats-period{margin:12px 0 20px}.statistics-sales{margin-bottom:20px}.stats-ranking{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.stats-ranking section{padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.stats-ranking h4{margin:0 0 10px}.stats-rank{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--line)}.stats-rank b{white-space:nowrap}
+#farm-energy-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+#farm-energy-form{padding:14px}#farm-energy-form label{display:grid;gap:5px;min-width:0;font-size:12px;margin-bottom:10px}#farm-energy-form select{max-width:100%;width:100%;min-width:0}
+#farm-shell .filament-stats-controls,#farm-shell .farm-periods,#farm-invest{display:none!important}
+#farm-shell #filament-statistics{margin:18px 0}
+#priority-shell .priority-item{grid-template-columns:26px 64px minmax(0,1fr) auto;align-items:center;gap:12px}
+.queue-photo{width:64px;height:64px;border-radius:10px;object-fit:cover;display:grid;place-items:center;background:var(--surface-soft);font-weight:700}
+@media(max-width:759px){#priority-shell .priority-item{grid-template-columns:22px 50px minmax(0,1fr);gap:7px}#priority-shell .priority-actions{grid-column:3}.queue-photo{width:50px;height:50px}}
 .dashboard-sync-details{margin-left:auto;min-width:0;text-align:right}
 .dashboard-sync-details>summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--muted);font-size:12px;font-weight:650;list-style:none;white-space:nowrap;min-height:34px}
 .dashboard-sync-details>summary::-webkit-details-marker{display:none}

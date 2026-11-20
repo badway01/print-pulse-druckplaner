@@ -39,7 +39,7 @@ await page.route('**/api/printers*',async route=>{
  }}];
  await route.fulfill({response,json:data});
 });
-await page.goto('http://127.0.0.1:8099');await page.locator('.product').first().waitFor();assert.equal(await page.locator('.brand-logo').count(),1);await page.waitForFunction(()=>{const image=document.querySelector('.brand-logo');return image&&image.complete&&image.naturalWidth>0;},{timeout:10000});assert.equal(await page.locator('.product').count(),4);
+await page.goto('http://127.0.0.1:8099');await page.waitForFunction(()=>model?.products?.length);await page.evaluate(()=>showWorkspace('stock'));await page.locator('.product').first().waitFor();assert.equal(await page.locator('.brand-logo').count(),1);await page.waitForFunction(()=>{const image=document.querySelector('.brand-logo');return image&&image.complete&&image.naturalWidth>0;},{timeout:10000});assert.equal(await page.locator('.product').count(),4);
 const logoPixels=await page.locator('.brand-logo').evaluate(img=>{
  const canvas=document.createElement('canvas');canvas.width=440;canvas.height=228;
  const context=canvas.getContext('2d',{willReadFrequently:true});context.drawImage(img,0,0,440,228);
@@ -156,6 +156,7 @@ assert(!onDemandPreview.details.includes('noch zählen'));
 assert(onDemandPreview.details.includes('—'));
 assert(onDemandPreview.variant.includes('Eintragen'),'manual stock entry must remain available');
 assert(onDemandPreview.variant.includes('Bestand optional'));
+await page.locator('[data-workspace="production"]').click();
 const ordersAccent=await page.locator('#dashboard-orders-open').evaluate(el=>{
  const css=getComputedStyle(el);
  return {left:parseFloat(css.borderLeftWidth),shadow:css.boxShadow};
@@ -182,8 +183,7 @@ assert.deepEqual(dashboardStructure.labels,['Nachdrucken','Versand kritisch'],
  'top summary must only show actionable production/shipping figures');
 assert(dashboardStructure.title.bottom<=dashboardStructure.orders.y,
  'order figures belong directly under the dashboard title');
-assert(dashboardStructure.summary.y>=dashboardStructure.printers.bottom,
- 'actionable figures belong below printer status');
+assert.equal(await page.locator('#summary').isVisible(),false,'legacy stock KPI hidden on dashboard');
 assert(dashboardStructure.alertPrecedesTabs,
  'warning container must precede the navigation independently of viewport scroll');
 assert(dashboardStructure.tabsPrecedePrinters,
@@ -200,7 +200,7 @@ const navCheck=await page.locator('.workspace-tabs').evaluate(nav=>{
   scrollWidth:nav.scrollWidth,clientWidth:nav.clientWidth};
 });
 assert.deepEqual(navCheck.labels,
- ['Dashboard','Bestellungen','Versand','Lagerbestand','Modelle','Filament','Drucker','Druckfarm','Rechner'],
+ ['Dashboard','Bestellungen','Druckwarteschlange','Modelle','Filament','Drucker','Statistik','Rechner'],
  'short labels stay readable');
 assert.equal(navCheck.wrap,'nowrap','navigation never wraps to a second row');
 assert.equal(new Set(navCheck.tops).size,1,'all tabs are in one horizontal row');
@@ -237,13 +237,11 @@ assert((await page.locator('#sync-state').textContent()).includes('Bestellungen:
 assert((await page.locator('#sync-state').textContent()).includes('alle 15 Minuten'));
 assert((await page.locator('#sync-state').textContent()).includes('Produktkatalog:'));
 assert.equal(await page.locator('html').getAttribute('lang'),'de');
-assert.equal(await page.locator('.printer-mini').count(),4);
-assert.equal(await page.locator('#priority-shell').isVisible(),true,'priority board belongs to production');
-await page.locator('[data-dashboard-jump="need"]').click();
-assert.equal(await page.locator('[data-filter="need"]').getAttribute('class').then(x=>x.includes('selected')),true,
- 'nachdrucken KPI should open actual print-needs filter');
-await page.locator('[data-filter="all"]').click();
-await page.locator('[data-dashboard-jump="critical"]').click();
+assert.equal(await page.locator('.printer-mini').count(),5);
+assert.equal(await page.locator('#priority-shell').isVisible(),false,'priority board is separate from dashboard');
+await page.locator('[data-workspace="queue"]').click();
+assert.equal(await page.locator('#priority-shell').isVisible(),true);
+await page.locator('[data-workspace="orders"]').click();
 assert.equal(await page.locator('[data-full-orders-sort="ship"]').getAttribute('aria-pressed'),'true',
  'critical shipments KPI should focus earliest shipments');
 assert(await page.locator('#full-orders-shell').isVisible());
@@ -272,7 +270,7 @@ const priorityChecks=await page.evaluate(()=>{
   oldVariant:items.some(x=>x.tier===3&&x.title==='Geldkarte')
  };
 });
-assert.equal(priorityChecks.customer,1,'available finished stock is used before a print suggestion');
+assert.equal(priorityChecks.customer,2,'open orders do not rely on manually counted stock');
 assert.equal(priorityChecks.reserve,5,'shared part refill subtracts orders and active printing');
 assert.equal(priorityChecks.duplicate,false,'in-progress part batches are not recommended again');
 assert.equal(priorityChecks.orderFirst,1,'customer work sorts before warehouse refills');
@@ -288,7 +286,7 @@ assert.equal(await page.evaluate(()=>localStorage.getItem('pp-theme-mode')),'dar
 assert.equal(await page.locator('[data-theme-mode="dark"]').getAttribute('aria-pressed'),'true');
 const darkBackground=await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundImage);
 assert(darkBackground.includes('gradient'),'dark theme must style the whole page');
-await page.reload();await page.locator('.product').first().waitFor();
+await page.reload();await page.waitForFunction(()=>model?.products?.length);
 assert.equal(await page.locator('html').getAttribute('data-theme'),'dark','persist on refresh');
 await page.route('**/api/theme',route=>route.fulfill({json:{theme:'light',source:'sun.sun'}}));
 await page.locator('[data-theme-mode="auto"]').click();
@@ -357,7 +355,8 @@ assert((await page.locator('#etsy-alert-list').textContent()).includes('Farbe: B
 assert((await page.locator('#etsy-alert-list').textContent()).includes('Warnung bis 2'));
 assert((await page.locator('#etsy-alert-subtitle').textContent()).includes('Betroffene Artikel'));
 await page.locator('[data-etsy-alert-to="101"]').click();
-assert.equal(await page.locator('[data-product="101"]').isVisible(),true);
+assert.equal(await page.locator('[data-catalog-item="101"]').isVisible(),true);
+await page.locator('[data-workspace="production"]').click();
 await page.locator('#etsy-alert-toggle').click();
 assert.equal(await page.locator('#etsy-alert-list').isVisible(),false);
 const criticalCompactHeight=await page.locator('#etsy-stock-banner').evaluate(el=>el.getBoundingClientRect().height);
@@ -368,7 +367,7 @@ await page.locator('#printer-strip-more').click();
 assert.equal(await page.locator('#printer-strip').isVisible(),false);
 assert.equal(await page.locator('#etsy-stock-banner').isVisible(),false);
 assert.equal(await page.locator('[data-workspace="printers"]').getAttribute('aria-pressed'),'true');
-assert.equal(await page.locator('.printer-panel').count(),4);
+assert.equal(await page.locator('.printer-panel').count(),5);
 await page.locator('[data-printer-config="H2D"]').click();
 assert.equal(await page.locator('#printer-config-dialog').isVisible(),true);
 assert.equal(await page.locator('[data-printer-field="status"]').count(),1);
@@ -425,6 +424,7 @@ await page.evaluate(()=>{
 });
 await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('#printer-strip').isVisible(),true);
+await page.evaluate(()=>showWorkspace('stock'));
 // With component mode enabled, even a product with 784 variant combinations
 // shows only physical components and never 784 "Noch zählen" entries.
 const variantNeedsBefore=await page.evaluate(()=>{
@@ -466,7 +466,7 @@ await page.evaluate(()=>{
 });
 assert.equal(await componentCard.locator('.stock-quick-toggle').count(),1,'normal variant inventory returns when switch off');
 
-await page.locator('#dashboard-orders-open').click();
+await page.locator('[data-workspace="orders"]').click();
 await page.locator('[data-full-orders-view="cards"]').click();
 assert.equal((await page.locator('#order-count').textContent()).trim(),'3 angezeigt');
 assert.equal((await page.locator('[data-summary="critical"] .dashboard-kpi-value').textContent()).trim(),'2 Aufträge');
@@ -625,16 +625,19 @@ const dayChange=await page.evaluate(()=>{
 assert.notEqual(dayChange.before,dayChange.after);
 await page.locator('[data-workspace="filament"]').click();
 assert.equal(await page.locator('#filament-stock-summary').isVisible(),true);
+assert.equal(await page.locator('#filament-statistics').isVisible(),false);
+await page.locator('[data-workspace="farm"]').click();
 await page.locator('#filament-statistics').waitFor({state:'visible'});
 await page.waitForFunction(()=>document.querySelector('#filament-stats-tiles').children.length===6);
 assert.equal(await page.locator('.filament-stats-tile').count(),6);
 assert.equal(await page.locator('.filament-stats-bar-col').count(),12);
 assert.match(await page.locator('#filament-stats-tiles').innerText(),/Materialkosten \(GLD\)/);
-await page.locator('[data-filament-stats-period="week"]').click();
+await page.locator('[data-stats-period="week"]').click();
 await page.waitForFunction(()=>document.querySelector('#filament-stats-chart').children.length===8);
 assert.equal(await page.locator('[data-filament-stats-period="week"]').getAttribute('aria-pressed'),'true');
-await page.locator('[data-filament-stats-period="month"]').click();
+await page.locator('[data-stats-period="month"]').click();
 await page.waitForFunction(()=>document.querySelector('#filament-stats-chart').children.length===12);
+await page.locator('[data-workspace="filament"]').click();
 assert.equal(await page.locator('#filament-stock-spools').textContent(),'0 volle Spulen · 0 angebrochen');
 assert((await page.locator('#filament-stock-value').textContent()).includes('0,00'));
 await page.locator('#filament-add').click();
@@ -899,8 +902,9 @@ assert.equal(await page.evaluate(()=>filamentData.filaments.some(f=>f.brand==='B
 
 await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('#filament-statistics').isVisible(),false);
-assert.equal(await page.locator('.product').count(),4);
+assert.equal(await page.locator('.product').count(),0);
 await page.locator('#dashboard-orders-open').click();
+await page.locator('[data-full-orders-view="cards"]').click();
 await page.locator('[data-full-orders-sort="new"]').click();
 assert.equal(await page.locator('.order-card').first().getAttribute('data-order-card'),'503');
 assert.equal(await page.locator('[data-order-card="503"] [data-order-expand]').count(),1,'every card has an enlarge control');
@@ -931,6 +935,7 @@ await page.waitForTimeout(600);
 assert(await page.locator('#orders').evaluate(el=>el.scrollLeft>0));
 await page.setViewportSize({width:1440,height:1100});
 await page.locator('[data-workspace="production"]').click();
+await page.evaluate(()=>showWorkspace('stock'));
 
 assert.equal(await page.locator('[data-product="inactive-cat"]').count(),0);
 assert.equal(await page.locator('#summary .dashboard-kpi').count(),2);
@@ -1007,7 +1012,7 @@ assert.equal(await manyCard.locator('.variant').count(),1);
 assert((await manyCard.boundingBox()).height<1750);
 await equalRows();
 await page.locator('#search').fill('Wunschfarbe');assert.equal(await page.locator('.product').count(),1);await page.locator('[data-action="set"]').click();await page.locator('#quantity-value').fill('8');await page.locator('#quantity-form [type="submit"]').click();await page.waitForFunction(()=>document.querySelector('.stock-number').textContent==='8');
-await page.reload();await page.locator('.product').first().waitFor();assert.equal(await page.locator('[data-product="104"] .stock-number').textContent(),'8');
+await page.reload();await page.waitForFunction(()=>model?.products?.length);await page.evaluate(()=>showWorkspace('stock'));await page.locator('.product').first().waitFor();assert.equal(await page.locator('[data-product="104"] .stock-number').textContent(),'8');
 await page.locator('#settings-open').click();await page.locator('#days').fill('10');await page.locator('#etsy-alert-percent').fill('50');await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/settings')&&r.request().method()==='POST'),page.locator('#settings-form [type="submit"]').click()]);assert.equal((await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json())).days,10);
 assert.equal((await page.request.get('http://127.0.0.1:8099/api/status').then(r=>r.json())).etsy_alert_percent,50);
 await page.setViewportSize({width:1280,height:800});
@@ -1033,6 +1038,7 @@ await page.waitForFunction(()=>document.querySelector('.workspace-tabs').scrollL
 assert.equal(await page.locator('[data-workspace="printers"]').getAttribute('aria-pressed'),'true');
 await page.locator('[data-workspace="production"]').click();
 assert.equal(await page.locator('[data-workspace="production"]').getAttribute('aria-pressed'),'true');
+await page.evaluate(()=>showWorkspace('stock'));
 // The small inventory button must stay inside the photo and outside Etsy's badge.
 const badgeGeometry=await page.locator('[data-product="102"] .product-photo').evaluate(photo=>{
  const a=photo.querySelector('.etsy-total').getBoundingClientRect();
@@ -1047,7 +1053,7 @@ assert(badgeGeometry.width<160,'stock control must remain visually compact');
 await page.screenshot({path:'/tmp/lager-mobile.png',fullPage:true});
 assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));// Exercise real multi-variant stock writes via the new card buttons.
 await page.unroute('**/api/status');
-await page.reload();await page.locator('[data-product="102"]').waitFor();
+await page.reload();await page.waitForFunction(()=>model?.products?.length);await page.evaluate(()=>showWorkspace('stock'));await page.locator('[data-product="102"]').waitFor();
 const realCard=page.locator('[data-product="102"]');
 assert.equal(await realCard.locator('.stock-overview').count(),0);
 await realCard.locator('.photo-stock-toggle').click();
@@ -1078,6 +1084,7 @@ assert.equal(await page.locator('#quantity-initial-stock').evaluate(el=>el.requi
 await page.locator('[data-close="quantity"]').click();
 await page.request.post('http://127.0.0.1:8099/api/stock',{data:{id:black.id,action:'set',quantity:2,revision:black.revision}});
 await page.reload();
+await page.waitForFunction(()=>model?.products?.length);await page.evaluate(()=>showWorkspace('stock'));
 await realCard.locator('.photo-stock-toggle').click();
 assert((await realCard.locator('.stock-overview').textContent()).includes('2 ×Schwarz'));
 await realCard.locator('[data-print-action="finish"]').click();
@@ -1143,6 +1150,7 @@ for(const name of ['Grundplatte','Figur'])
  await componentRequest({action:'save',listing_id:'104',name,kind:'stock',units:1,
   property_name:'',quantity_property:''});
 await page.reload();
+await page.waitForFunction(()=>model?.products?.length);await page.evaluate(()=>showWorkspace('stock'));
 const partsCard=page.locator('[data-product="104"]');
 await partsCard.locator('.component-card-stock-value').first().waitFor();
 assert.equal(await partsCard.locator('[data-component-stock-open]').count(),2);

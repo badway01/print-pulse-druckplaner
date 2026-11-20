@@ -1,3 +1,10 @@
+## 0.13.71 – Schlanker Produktionsablauf (20.11.2026)
+
+- Dashboard mit täglicher Begrüßung, Etsy-Gesamtverkäufen, Bestellzahlen, Etsy-Warnungen und Druckerstatus.
+- Alle Positionen einer Bestellung direkt auf der Karte fertigmelden oder die gemeinsame Fertigmeldung rückgängig machen. Versand und Übergabe bleiben separat.
+- Druckwarteschlange nach Frist und Variante, ohne Pflicht zur Fertigwarenzählung. Bestehende Lagerdaten bleiben optional in den Einstellungen erreichbar.
+- Statistik vereint Etsy-Verkäufe, Bestseller, Filamentverbrauch, Wareneingänge und Druckzeiten inklusive X2D. Shelly-Energiezähler und Strompreis lassen sich einmalig zuordnen.
+
 ## 0.13.70 – Versandcenter entfernt (19.11.2026)
 
 - Separaten Versand-Reiter und Hermes-CSV-Export einschließlich separatem Adressabruf entfernt. Bestehende Bestellungen, Versandstatus und Tracking bleiben unverändert.

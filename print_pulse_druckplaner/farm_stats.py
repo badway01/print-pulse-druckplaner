@@ -4,11 +4,14 @@ Only observed HA sensor intervals are measured. Gaps and unconfigured printers
 are never silently treated as idle; manual runs are clearly identified.
 """
 import time
+import math
+import datetime as dt
+from zoneinfo import ZoneInfo
 
-PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "A1 mini", "Prusa MK4")
-# Only these four printers count toward the production fleet statistics.
+PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "X2D", "A1 mini", "Prusa MK4")
+# Only the production printers count toward fleet statistics.
 # The two manual printers and their existing history remain intact.
-PRODUCTION_PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1")
+PRODUCTION_PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "X2D")
 MANUAL_PRINTERS = ("A1 mini", "Prusa MK4")
 KNOWN_STATES = {"printing", "paused", "idle", "finished", "error", "preparing"}
 MAX_GAP_SECONDS = 100
@@ -38,7 +41,52 @@ def schema(db):
       ON pp_farm_manual(printer) WHERE ended IS NULL;
     CREATE INDEX IF NOT EXISTS pp_farm_manual_period
       ON pp_farm_manual(started, ended, printer);
+    CREATE TABLE IF NOT EXISTS pp_farm_energy_config(
+      printer TEXT PRIMARY KEY, entity TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS pp_farm_energy_last(
+      printer TEXT PRIMARY KEY, entity TEXT NOT NULL, at INTEGER NOT NULL, kwh REAL NOT NULL);
+    CREATE TABLE IF NOT EXISTS pp_farm_energy_daily(
+      printer TEXT NOT NULL, day TEXT NOT NULL, kwh REAL NOT NULL, samples INTEGER NOT NULL,
+      PRIMARY KEY(printer,day));
     """)
+
+
+def energy_value(state):
+    """Read only cumulative HA energy sensors, never instantaneous power."""
+    if not isinstance(state,dict): return None
+    attrs=state.get('attributes') or {}
+    if attrs.get('device_class')!='energy' or attrs.get('state_class') not in ('total','total_increasing'):
+        return None
+    unit=attrs.get('unit_of_measurement')
+    try: value=float(state.get('state'))
+    except (TypeError,ValueError): return None
+    if not math.isfinite(value) or value<0 or unit not in ('Wh','kWh'): return None
+    return value/1000 if unit=='Wh' else value
+
+
+def record_energy(db,states,now=None):
+    now=int(time.time() if now is None else now)
+    tz=ZoneInfo('Europe/Berlin')
+    day=dt.datetime.fromtimestamp(now,tz).date().isoformat()
+    for row in db.execute('SELECT printer,entity FROM pp_farm_energy_config').fetchall():
+        printer,entity=row['printer'],row['entity']
+        value=energy_value(states.get(entity))
+        if value is None: continue
+        old=db.execute('SELECT * FROM pp_farm_energy_last WHERE printer=?',(printer,)).fetchone()
+        if old and old['entity']==entity and old['at']<now and value>=old['kwh']:
+            # Never invent an allocation across a calendar-day boundary.
+            if dt.datetime.fromtimestamp(old['at'],tz).date().isoformat()==day:
+                db.execute("""INSERT INTO pp_farm_energy_daily VALUES(?,?,?,1)
+                    ON CONFLICT(printer,day) DO UPDATE SET kwh=kwh+excluded.kwh,samples=samples+1""",
+                    (printer,day,value-old['kwh']))
+        db.execute("""INSERT INTO pp_farm_energy_last VALUES(?,?,?,?) ON CONFLICT(printer)
+            DO UPDATE SET entity=excluded.entity,at=excluded.at,kwh=excluded.kwh""",(printer,entity,now,value))
+
+
+def energy_summary(db,since):
+    day=dt.datetime.fromtimestamp(max(0,since),ZoneInfo('Europe/Berlin')).date().isoformat()
+    rows=db.execute('SELECT printer,SUM(kwh) AS kwh,SUM(samples) AS samples FROM pp_farm_energy_daily WHERE day>=? GROUP BY printer',(day,))
+    return {r['printer']:{'kwh':round(r['kwh'],3),'samples':r['samples']} for r in rows}
 
 
 def record_poll(db, rows, now=None):
@@ -113,13 +161,13 @@ def manual_action(db, printer, action, now=None):
     return {"ok":True, "printer":printer, "action":action}
 
 
-def summary(db, days=7, now=None):
+def summary(db, days=7, now=None, since=None):
     """Rolling window; separate 24h capacity from actually observed coverage."""
-    if days not in (1,7,30):
+    if since is None and days not in (1,7,30):
         raise ValueError("Ungültiger Zeitraum.")
     now=int(time.time() if now is None else now)
-    start=now-days*86400
-    capacity=days*86400
+    start=now-days*86400 if since is None else max(int(since),now-RETENTION_DAYS*86400)
+    capacity=max(1,now-start)
     records={name:{
         "printer":name,"source":"manual" if name in MANUAL_PRINTERS else "ha",
         "printing_seconds":0,"idle_seconds":0,"paused_seconds":0,

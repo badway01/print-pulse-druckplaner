@@ -1,5 +1,26 @@
 /* Druckfarm: no fictitious readings; all calculations come from the HA backend. */
 let farmDays=7, farmBusy=false, farmStats=null;
+let statsPeriod='month',statsSerial=0;
+const statsPeriodName={week:'Kalenderwoche',month:'Kalendermonat',year:'Kalenderjahr',all:'Gesamt'};
+async function loadSalesStatistics(){
+ const serial=++statsSerial,host=document.getElementById('stats-sales-content');
+ if(!host)return;
+ host.textContent='Verkaufsdaten werden geladen …';
+ try{
+  const d=await api('sales-statistics?period='+statsPeriod);
+  if(serial!==statsSerial)return;
+  const euro=n=>Number(n||0).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+  const rank=(rows,key,format)=>rows.length?rows.map((p,i)=>'<div class="stats-rank"><span>'+ (i+1)+'. '+farmSafe(p.title)+'</span><b>'+farmSafe(format(p[key]))+'</b></div>').join(''):'<p class="hint">Noch keine Daten.</p>';
+  host.innerHTML='<div class="farm-kpis">'+
+   farmKpi('Bestellungen',String(d.orders+d.local_orders),d.orders+' Etsy · '+d.local_orders+' lokal')+
+   farmKpi('Verkaufte Artikel',String(d.items),'Etsy · Stückzahl')+
+   farmKpi('Etsy-Bestellwert',d.revenue_missing===d.orders&&d.orders?'–':euro(d.revenue)+(d.revenue_missing?' *':''),'Inkl. Versand/Steuern, vor Gebühren')+
+   '</div><div class="stats-ranking"><section><h4>Top 5 nach Stückzahl</h4>'+rank(d.top_quantity,'quantity',n=>n+' Stk.')+'</section>'+
+   '<section><h4>Top 5 nach Artikelwert</h4>'+rank(d.top_revenue,'revenue',euro)+'</section></div>'+
+   '<p class="hint">'+(d.history_imported?'Historische Etsy-Positionen eingelesen.':'Ältere Verkäufe können fehlen. Etsy-Historie einmal einlesen.')+
+   (d.revenue_missing?' * '+d.revenue_missing+' Bestellungen ohne erfassten Euro-Betrag.':'')+' Kein Nettogewinn; Rückerstattungen und Etsy-Gebühren sind nicht verrechnet.</p>';
+ }catch(e){if(serial===statsSerial)host.textContent='Verkaufsdaten nicht verfügbar: '+e.message;}
+}
 
 function farmSafe(value){
  return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -42,6 +63,7 @@ function farmPrinterCard(r,data){
    '<div class="farm-card-bottom"><span>Erfasst: '+farmHours(recorded)+'</span><span>Druck-Anteil der erfassten Zeit: '+farmSafe(measured)+'</span></div>'+
    '<div class="farm-card-bottom"><span>Leerlauf: '+farmHours(r.idle_seconds)+'</span><span>Pausen: '+farmHours(r.paused_seconds)+'</span><span>Vorbereitung: '+farmHours(r.preparing_seconds)+'</span><span>Störung: '+farmHours(r.fault_seconds)+'</span></div>'+
    '<div class="farm-card-bottom"><span>Erkannte Fertigstellungen: '+Number(r.successes||0)+'</span><span>Fehldrucke erkannt: '+Number(r.failures||0)+'</span></div>'+
+   '<div class="farm-card-bottom"><span>Strom: '+(r.energy_kwh==null?'keine Messung':Number(r.energy_kwh).toLocaleString('de-DE',{maximumFractionDigits:3})+' kWh')+'</span><span>Kosten: '+(r.energy_cost==null?'–':Number(r.energy_cost).toLocaleString('de-DE',{style:'currency',currency:'EUR'}))+'</span></div>'+
    (manual?'<p class="farm-card-hint">Nur die manuell gestartete Druckzeit wird erfasst. Fehlende Stunden bleiben unbekannt.</p>':
     '<p class="farm-card-hint">Letzter protokollierter HA-Status: '+farmSafe(last)+'</p>')+
    actionHtml+'</article>';
@@ -58,7 +80,7 @@ function renderFarmStats(){
    farmKpi('Erfasste Druckzeit',farmHours(d.printing_seconds),'Über alle '+String(d.printer_count)+' Produktionsdrucker'),
    farmKpi('24/7-Auslastung',farmPercent(d.capacity_percent).toLocaleString('de-DE',{maximumFractionDigits:1})+' %','Bezogen auf '+farmHours(total)+' maximal mögliche Zeit'),
    farmKpi('Messabdeckung',farmPercent(d.coverage_percent).toLocaleString('de-DE',{maximumFractionDigits:1})+' %','Fehlende Sensordaten zählen nicht als Leerlauf'),
-   farmKpi('Produktionsdrucker',String(d.printer_count),'P1S Old · P1S New · H2D · U1')
+   farmKpi('Produktionsdrucker',String(d.printer_count),'P1S Old · P1S New · H2D · U1 · X2D')
  ].join('');
  root.innerHTML=(d.printers||[]).map(r=>farmPrinterCard(r,d)).join('');
  const h2d=(d.printers||[]).find(p=>p.printer==='H2D');
@@ -80,21 +102,23 @@ function renderFarmStats(){
 }
 async function loadFarmStats(force=false){
  if(farmBusy || document.hidden)return;
+ const requested=statsPeriod;
  farmBusy=true;
  const label=document.getElementById('farm-status');
  const refresh=document.getElementById('farm-refresh');
  if(refresh)refresh.disabled=true;
  if(label)label.textContent='Messdaten werden aktualisiert …';
  try{
-   farmStats=await api('farm-stats?days='+farmDays);
+   farmStats=await api('farm-stats?period='+requested);
    renderFarmStats();
-   if(label)label.textContent='Zeitraum: '+(farmDays===1?'letzte 24 Stunden':'letzte '+farmDays+' Tage')+
-     ' · Daten werden im Home-Assistant-Add-on gespeichert, auch über Nacht.';
+   if(label)label.textContent='Zeitraum: '+statsPeriodName[requested]+
+     ' · Druckzeit: vorhandene Messhistorie (max. 95 Tage). Stromkosten nach eingetragenem Tarif.';
  }catch(err){
    if(label)label.textContent='Druckfarm derzeit nicht erreichbar: '+err.message;
  }finally{
    if(refresh)refresh.disabled=false;
    farmBusy=false;
+   if(requested!==statsPeriod)loadFarmStats();
  }
 }
 document.querySelectorAll('[data-farm-days]').forEach(btn=>btn.addEventListener('click',()=>{
@@ -109,6 +133,51 @@ document.querySelectorAll('[data-farm-days]').forEach(btn=>btn.addEventListener(
  loadFarmStats();
 }));
 document.getElementById('farm-refresh')?.addEventListener('click',()=>loadFarmStats(true));
+document.querySelectorAll('[data-filament-stats-period]').forEach(btn=>btn.addEventListener('click',()=>{
+ statsPeriod=btn.dataset.filamentStatsPeriod;
+ loadSalesStatistics();
+ loadFarmStats();
+}));
+document.querySelectorAll('[data-stats-period]').forEach(btn=>btn.addEventListener('click',()=>{
+ document.querySelectorAll('[data-stats-period]').forEach(b=>{b.classList.toggle('selected',b===btn);b.setAttribute('aria-pressed',String(b===btn));});
+ document.querySelector('[data-filament-stats-period="'+btn.dataset.statsPeriod+'"]').click();
+}));
+document.getElementById('stats-history')?.addEventListener('click',async event=>{
+ const b=event.currentTarget;b.disabled=true;
+ try{
+  await api('filament-history',{action:'start'});
+  flash('Etsy-Historie wird eingelesen. Das kann einige Minuten dauern.');
+ }catch(e){flash(e.message,true);}
+ finally{b.disabled=false;}
+});
+const energyDetails=document.getElementById('farm-energy-config');
+async function loadEnergySettings(){
+ const status=document.getElementById('farm-energy-status');
+ status.textContent='Sensoren werden geladen …';
+ try{
+  const d=await api('farm-energy-settings');
+  document.getElementById('farm-energy-tariff').value=d.tariff;
+  document.getElementById('farm-energy-fields').innerHTML=d.printers.map(name=>{
+   const saved=d.bindings[name]||'';
+   const sensors=d.sensors.slice();
+   if(saved&&!sensors.some(s=>s.id===saved))sensors.push({id:saved,name:'Gespeichert, derzeit nicht verfügbar'});
+   return '<label>'+farmSafe(name)+'<select data-energy-printer="'+farmSafe(name)+'"><option value="">Nicht zugeordnet</option>'+sensors.map(s=>'<option value="'+farmSafe(s.id)+'" '+(s.id===saved?'selected':'')+'>'+farmSafe(s.name+' · '+s.id)+'</option>').join('')+'</select></label>';
+  }).join('');
+  status.textContent=d.sensors.length?'Nur kumulative Energiezähler werden angeboten.':'Keine passenden HA-Energiezähler verfügbar.';
+ }catch(e){status.textContent=e.message;}
+}
+energyDetails?.addEventListener('toggle',()=>{if(energyDetails.open)loadEnergySettings();});
+document.getElementById('farm-energy-form')?.addEventListener('submit',async event=>{
+ event.preventDefault();
+ const form=event.currentTarget,btn=form.querySelector('button[type="submit"]'),status=document.getElementById('farm-energy-status');
+ const bindings=Object.fromEntries([...form.querySelectorAll('[data-energy-printer]')].map(el=>[el.dataset.energyPrinter,el.value]));
+ btn.disabled=true;
+ try{
+  await api('farm-energy-settings',{bindings,tariff:document.getElementById('farm-energy-tariff').value});
+  status.textContent='Gespeichert. Messung startet mit der nächsten HA-Abfrage.';loadFarmStats(true);
+ }catch(e){status.textContent=e.message;}
+ finally{btn.disabled=false;}
+});
 document.getElementById('farm-printer-grid')?.addEventListener('click',async event=>{
  const btn=event.target.closest('[data-farm-action]');
  if(!btn||farmBusy)return;

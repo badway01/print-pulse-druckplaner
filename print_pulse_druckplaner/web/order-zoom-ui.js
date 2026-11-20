@@ -79,6 +79,7 @@
    '<button type="button" class="order-card-customer-open" data-order-open="'+esc(o.id)+'" aria-label="Bestellung '+esc(o.id)+' öffnen">Auftrag öffnen ›</button></div>'+
    '<div class="simple-order-tiles"><span class="pp-order-items-heading">'+(lines.length===1?'BESTELLTER ARTIKEL':lines.length+' BESTELLTE POSITIONEN')+'</span>'+visible.map(line=>tile(line)).join('')+toggle+'</div>'+
    '<div class="order-card-foot"><span class="order-deadline '+ship.level+'">'+shippingMarkup(ship)+'</span>'+
+   (typeof orderBulkButton==='function'?orderBulkButton(o):'')+
    (o.source==='local'&&o.status==='ready'?'<button type="button" class="primary local-card-handover" data-local-handover="'+esc(o.id)+'">Übergabe bestätigen</button>':'')+'</div>'+
    (o.source==='local'?'<div class="local-order-pdf-row">'+localPdfLink(o,'Auftrag A4 · PDF')+'</div>':'')+'</article>';
  };

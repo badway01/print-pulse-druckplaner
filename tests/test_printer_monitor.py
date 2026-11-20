@@ -37,7 +37,7 @@ class PrinterMonitorTests(unittest.TestCase):
     def test_four_printers_start_unconfigured_without_fake_values(self):
         with patch.object(app,'homeassistant_states',return_value={}):
             data=app.printer_dashboard()
-        self.assertEqual(len(data['printers']),4)
+        self.assertEqual(len(data['printers']),5)
         self.assertTrue(all(p['state']=='setup' and p['progress'] is None for p in data['printers']))
         self.assertEqual([p['id'] for p in data['printers']],list(app.MONITOR_PRINTERS))
 
@@ -91,11 +91,12 @@ class PrinterMonitorTests(unittest.TestCase):
         with patch.object(app,'homeassistant_states',return_value=states):
             result=app.printer_dashboard()
         self.assertEqual([p['id'] for p in result['printers']],
-            ['H2D','P1S Old','P1S New','Snapmaker U1'])
+            ['H2D','P1S Old','P1S New','Snapmaker U1','X2D'])
         self.assertIn('H2D',result['auto_assigned'])
         self.assertIn('P1S Old',result['auto_assigned'])
         self.assertIn('Snapmaker U1',result['auto_assigned'])
-        h2d,old,new,u1=result['printers']
+        h2d,old,new,u1,x2d=result['printers']
+        self.assertEqual(x2d['state'],'setup')
         self.assertEqual((h2d['state'],h2d['progress'],h2d['remaining_seconds']),('printing',72,5400))
         self.assertEqual((h2d['temps']['nozzle_left'],h2d['temps']['nozzle_right']),(210,215))
         self.assertEqual(h2d['ams'][0]['name'],'Bambu PLA Matte')

@@ -90,7 +90,7 @@ class FarmTests(unittest.TestCase):
     def test_production_kpis_exclude_manual_printers(self):
         start = 10000
         end = start + 60
-        production = ("H2D", "P1S Old", "P1S New", "Snapmaker U1")
+        production = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "X2D")
         for name in production:
             self.poll(name, "printing", start)
             self.poll(name, "printing", end)
@@ -100,25 +100,38 @@ class FarmTests(unittest.TestCase):
 
         result = farm.summary(self.db, days=7, now=end)
         self.assertEqual([p["printer"] for p in result["printers"]], list(production))
-        self.assertEqual(result["printer_count"], 4)
-        self.assertEqual(result["capacity_seconds"], 4 * 7 * 24 * 3600)
-        self.assertEqual(result["printing_seconds"], 4 * 60)
-        self.assertEqual(result["observed_seconds"], 4 * 60)
+        self.assertEqual(result["printer_count"], 5)
+        self.assertEqual(result["capacity_seconds"], 5 * 7 * 24 * 3600)
+        self.assertEqual(result["printing_seconds"], 5 * 60)
+        self.assertEqual(result["observed_seconds"], 5 * 60)
         self.assertAlmostEqual(
             result["capacity_percent"],
-            round(100 * (4 * 60) / (4 * 7 * 24 * 3600), 1)
+            round(100 * (5 * 60) / (5 * 7 * 24 * 3600), 1)
         )
         self.assertAlmostEqual(
             result["coverage_percent"],
-            round(100 * (4 * 60) / (4 * 7 * 24 * 3600), 1)
+            round(100 * (5 * 60) / (5 * 7 * 24 * 3600), 1)
         )
 
-    def test_capacity_for_each_period_uses_four_printers(self):
+    def test_capacity_for_each_period_uses_five_printers(self):
         for days in (1, 7, 30):
             result = farm.summary(self.db, days=days, now=20000)
-            self.assertEqual(result["printer_count"], 4)
-            self.assertEqual(result["capacity_seconds"], 4 * days * 24 * 3600)
+            self.assertEqual(result["printer_count"], 5)
+            self.assertEqual(result["capacity_seconds"], 5 * days * 24 * 3600)
             self.assertEqual(result["printing_seconds"], 0)
+
+    def test_energy_measures_delta_and_skips_reset(self):
+        self.db.execute("INSERT INTO pp_farm_energy_config VALUES('H2D','sensor.energy')")
+        def sample(value,at):
+            farm.record_energy(self.db,{'sensor.energy':{'state':str(value),'attributes':{
+                'device_class':'energy','state_class':'total_increasing','unit_of_measurement':'kWh'}}},now=at)
+        sample(100,10000)
+        sample(100.5,10060)
+        sample(0,10120)
+        sample(0.25,10180)
+        result=farm.energy_summary(self.db,0)
+        self.assertEqual(result['H2D']['kwh'],0.75)
+        self.assertNotIn('X2D',result)
 
     def test_window_clips_old_intervals(self):
         t=10*86400

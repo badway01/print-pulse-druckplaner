@@ -9,7 +9,7 @@ const assert=require('node:assert/strict');
  page.on('pageerror',e=>errors.push(e.message));
  try{
   await page.goto('http://127.0.0.1:8099/');
-  await page.locator('[data-product="103"]').waitFor();
+  await page.waitForFunction(()=>model?.products?.length);
   await page.locator('#dashboard-orders-open').click();
   await page.locator('#full-orders-new').click();
   await page.locator('#local-customer').fill('Versand Kundin Hermes');
