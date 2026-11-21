@@ -13,7 +13,7 @@ const assert=require('node:assert/strict');
    item.on_hand=7;item.allocatable=5;item.free=4;item.reserved=3;item.label='Farbe: Beige';
    const now=Math.floor(Date.now()/1000);
    const first={listing_id:'103',item_id:item.id,transaction_id:'line-a',image:'',
-    title:'Regal aus Druck',variant:'Farbe: Beige',quantity:2,printing:0,finished:0,allocated:0,assembled:0,remaining:2};
+    title:'Regal aus Druck',variant:'Buchfarbe: Beige · Setgröße: 2er-Set',personalization:'Bitte mit Gruß',quantity:2,printing:0,finished:0,allocated:0,assembled:0,remaining:2};
    data.orders=[
     {id:'order-a',customer:'Testkunde Beige',created:now-7200,ship_by:now+36000,
       quantity:3,items:[first,{...first,transaction_id:'line-b',title:'Zweiter Artikel',quantity:1,remaining:1}]},
@@ -52,6 +52,18 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('#dashboard-title').isVisible(),false);
   assert.equal(await page.locator('#full-orders-grid .board-order').count(),2);
   assert.equal(await page.locator('#full-orders-grid .board-order-product').count(),3);
+  const options=page.locator('[data-order-position="line-a"] .pp-order-option');
+  assert.deepEqual(await options.locator('small').allTextContents(),['Buchfarbe','Setgröße','Personalisierung']);
+  assert.deepEqual(await options.locator('strong').allTextContents(),['Beige','2er-Set','Bitte mit Gruß']);
+  assert.equal(await options.locator('strong').first().evaluate(el=>getComputedStyle(el).fontSize),'18px');
+  const gridColumns=()=>page.locator('#full-orders-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length);
+  assert.equal(await gridColumns(),2,'only two cards on desktop');
+  await page.setViewportSize({width:1024,height:768});
+  assert.equal(await gridColumns(),2,'two cards on landscape tablet');
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await gridColumns(),1,'one card on a phone');
+  assert(await options.first().isVisible(),'customer options remain visible on a phone');
+  await page.setViewportSize({width:1280,height:900});
   assert.equal(await page.locator('[data-full-order="order-a"] [data-bulk-action="complete"]').count(),1);
   assert.equal(await page.locator('[data-full-order="order-b"] [data-bulk-action="complete"]').count(),0);
   await page.locator('[data-full-orders-view="list"]').click();

@@ -36,11 +36,10 @@
   const rows=lines.slice(0,6).map(line=>{
    const qty=count(line.quantity),finished=Math.min(qty,count(line.finished)+count(line.allocated)+count(line.assembled));
    return '<button type="button" class="board-order-product" data-order-position="'+esc(line.transaction_id)+'" aria-label="'+esc(line.title)+' bearbeiten">'+
-    picture(line.image,line.title)+'<span class="board-order-product-copy"><strong>'+qty+' × '+esc(line.title)+'</strong>'+
-    (line.variant?'<small>'+esc(line.variant)+'</small>':'')+
-    (line.color?'<small>Farbe: '+esc(line.color)+'</small>':'')+
-    (line.personalization?'<small>Wunsch: '+esc(line.personalization)+'</small>':'')+
-    '<small>'+finished+'/'+qty+' erledigt</small><b>Position öffnen ›</b></span></button>';
+    picture(line.image,line.title)+'<span class="board-order-product-copy"><strong title="'+esc(line.title)+'">'+qty+' × '+esc(orderShortProductTitle(line.title))+'</strong>'+
+    '<small>'+finished+'/'+qty+' erledigt</small></span>'+
+    window.orderCustomerOptionsMarkup(line)+
+    '<span class="board-order-product-open">Position öffnen ›</span></button>';
   }).join('');
   return '<article class="board-order" data-full-order="'+esc(order.id)+'" tabindex="0" role="button" '+
     'aria-label="Bestellung '+esc(order.id)+' groß anzeigen"><div class="board-order-head">'+

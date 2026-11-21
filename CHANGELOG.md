@@ -1,3 +1,8 @@
+## 0.13.72 – Bestellungen auf einen Blick (21.11.2026)
+
+- Maximal zwei Bestellkarten nebeneinander, auf schmalen Bildschirmen eine.
+- Varianten, Farben, Setgrößen und Kundenwünsche direkt auf der Bestellkarte als große, getrennte Felder. Produktbild und Fertigmeldung bleiben sichtbar.
+
 ## 0.13.71 – Schlanker Produktionsablauf (20.11.2026)
 
 - Dashboard mit täglicher Begrüßung, Etsy-Gesamtverkäufen, Bestellzahlen, Etsy-Warnungen und Druckerstatus.

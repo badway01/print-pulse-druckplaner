@@ -49,6 +49,8 @@
    '<span class="pp-order-option"><small>'+esc(option.label)+'</small><strong>'+esc(option.value)+'</strong></span>'
   ).join('')+'</span>';
  }
+ // The order board uses the same structured customer options as the detail view.
+ window.orderCustomerOptionsMarkup=orderCustomerOptionsMarkup;
  function tile(line,large=false){
   const st=status(line),image=thumbnail(line.image||'');
   const attrs=orderCustomerOptions(line).map(option=>option.label+': '+option.value).join(' · ');
