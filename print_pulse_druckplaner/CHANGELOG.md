@@ -1,3 +1,9 @@
+## 0.13.73 – Drucker-Auslastung verständlich dargestellt (22.11.2026)
+
+- Große gemessene Auslastung je Drucker und für die gesamte Farm: Grün für Druckzeit, Beige für übrige erfasste Zeit.
+- Messabdeckung separat, unbekannte Stunden bleiben unbekannt. Der nachgewiesene 24/7-Anteil steht unter weiteren Messwerten.
+- Die unabhängigen Filter für die letzten 24 Stunden, 7 und 30 Tage funktionieren wieder. Balken funktionieren auch mit der strengen Sicherheitsrichtlinie des Add-ons.
+
 ## 0.13.72 – Bestellungen auf einen Blick (21.11.2026)
 
 - Maximal zwei Bestellkarten nebeneinander, auf schmalen Bildschirmen eine.

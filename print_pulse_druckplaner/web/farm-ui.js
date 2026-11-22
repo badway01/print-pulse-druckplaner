@@ -30,6 +30,25 @@ function farmHours(seconds){
  return (n/3600).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+' h';
 }
 function farmPercent(n){return Math.max(0,Math.min(100,Number(n)||0));}
+function farmPctLabel(n){return n==null?'–':farmPercent(n).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';}
+function farmMeasured(printing,recorded){
+ return recorded>=3600?farmPercent(100*printing/recorded):null;
+}
+function farmUtilization(printing,recorded){
+ const measured=farmMeasured(printing,recorded);
+ return '<div class="farm-utilization"><div class="farm-utilization-head"><div><small>Gemessene Auslastung</small><strong>'+farmPctLabel(measured)+'</strong></div><span>'+farmHours(recorded)+' erfasst</span></div>'+
+  (measured===null?'<div class="farm-utilization-track is-unknown" role="img" aria-label="Noch zu wenig Messdaten"></div>':
+   '<progress class="farm-utilization-track" max="100" value="'+measured+'" aria-label="'+farmSafe(farmPctLabel(measured)+' gedruckt, '+farmPctLabel(100-measured)+' ohne Druck')+'"></progress>')+
+  '<div class="farm-utilization-key"><span><i class="farm-dot-print"></i>'+farmHours(printing)+' Druckzeit</span><span><i class="farm-dot-other"></i>'+farmHours(Math.max(0,recorded-printing))+' ohne Druck</span></div>'+
+  (measured===null?'<p class="farm-card-hint">Mindestens eine Stunde Messdaten erforderlich.</p>':'')+'</div>';
+}
+function farmCoverage(recorded,capacity,percent){
+ const cover=farmPercent(percent);
+ return '<div class="farm-coverage"><div class="farm-bar-title"><span>Messabdeckung</span><b>'+farmPctLabel(cover)+'</b></div>'+
+  '<progress class="farm-coverage-track" max="100" value="'+cover+'" aria-label="'+farmSafe(farmPctLabel(cover)+' des Zeitraums erfasst')+'"></progress>'+
+  '<div class="farm-coverage-caption">'+farmHours(recorded)+' von '+farmHours(capacity)+' erfasst'+
+  (cover<75?' · Noch wenig Messdaten':'')+'</div></div>';
+}
 function farmKpi(title,value,sub){
  return '<div class="farm-kpi"><small>'+farmSafe(title)+'</small><strong>'+farmSafe(value)+'</strong><span>'+farmSafe(sub)+'</span></div>';
 }
@@ -39,10 +58,8 @@ function farmButton(printer,action,label,tone){
 function farmPrinterCard(r,data){
  const recorded=Math.max(0,Number(r.observed_seconds)||0);
  const printing=Math.max(0,Number(r.printing_seconds)||0);
- const cover=farmPercent(r.coverage_percent),capacity=farmPercent(r.capacity_percent);
- const goodSample=recorded>=3600;
- const measured=goodSample&&r.measured_utilization_percent!==null
-  ?Number(r.measured_utilization_percent).toLocaleString('de-DE',{maximumFractionDigits:0})+' %':'noch offen';
+ const cover=farmPercent(r.coverage_percent);
+ const capacity=Math.max(0,Number(data.end)-Number(data.start))||0;
  const manual=r.source==='manual',running=!!r.manual_active_since;
  const last=r.last_sample_at?new Date(r.last_sample_at*1000).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'}):'keine';
  let actionHtml='';
@@ -54,19 +71,15 @@ function farmPrinterCard(r,data){
  let status=manual?(running?'Manueller Druck läuft':'Manuelle Zeiterfassung'):(r.last_sample_at?'HA-Erfassung':'Noch keine Statusdaten');
  return '<article class="farm-card'+(running?' is-running':'')+'">'+
    '<div class="farm-card-head"><div><small>'+farmSafe(manual?'MANUELL · STOPPUHR':'HOME ASSISTANT · STATUS')+'</small><h3>'+farmSafe(r.printer)+'</h3></div><span class="farm-card-status">'+farmSafe(status)+'</span></div>'+
-   '<div class="farm-card-numbers"><div><small>Gedruckt</small><b>'+farmHours(printing)+'</b></div>'+
-   '<div><small>24/7-Auslastung</small><b>'+capacity.toLocaleString('de-DE',{maximumFractionDigits:1})+' %</b></div></div>'+
-   '<div class="farm-bar-title"><span>Druckzeit</span><b>'+capacity.toLocaleString('de-DE',{maximumFractionDigits:1})+' % der möglichen Zeit</b></div>'+
-   '<div class="farm-bar" role="img" aria-label="'+farmSafe(r.printer+': '+capacity.toFixed(1)+' Prozent der theoretischen Zeit gedruckt')+'"><span style="width:'+capacity+'%"></span></div>'+
-   '<div class="farm-bar-title muted"><span>Messabdeckung</span><b>'+cover.toLocaleString('de-DE',{maximumFractionDigits:1})+' %</b></div>'+
-   '<div class="farm-bar is-coverage"><span style="width:'+cover+'%"></span></div>'+
-   '<div class="farm-card-bottom"><span>Erfasst: '+farmHours(recorded)+'</span><span>Druck-Anteil der erfassten Zeit: '+farmSafe(measured)+'</span></div>'+
+   farmUtilization(printing,recorded)+farmCoverage(recorded,capacity,cover)+
+   '<details class="farm-card-details"><summary>Weitere Messwerte</summary>'+
+   '<div class="farm-card-bottom"><span>Nachgewiesener Anteil der 24/7-Kapazität: '+farmPctLabel(r.capacity_percent)+'</span></div>'+
    '<div class="farm-card-bottom"><span>Leerlauf: '+farmHours(r.idle_seconds)+'</span><span>Pausen: '+farmHours(r.paused_seconds)+'</span><span>Vorbereitung: '+farmHours(r.preparing_seconds)+'</span><span>Störung: '+farmHours(r.fault_seconds)+'</span></div>'+
    '<div class="farm-card-bottom"><span>Erkannte Fertigstellungen: '+Number(r.successes||0)+'</span><span>Fehldrucke erkannt: '+Number(r.failures||0)+'</span></div>'+
    '<div class="farm-card-bottom"><span>Strom: '+(r.energy_kwh==null?'keine Messung':Number(r.energy_kwh).toLocaleString('de-DE',{maximumFractionDigits:3})+' kWh')+'</span><span>Kosten: '+(r.energy_cost==null?'–':Number(r.energy_cost).toLocaleString('de-DE',{style:'currency',currency:'EUR'}))+'</span></div>'+
    (manual?'<p class="farm-card-hint">Nur die manuell gestartete Druckzeit wird erfasst. Fehlende Stunden bleiben unbekannt.</p>':
     '<p class="farm-card-hint">Letzter protokollierter HA-Status: '+farmSafe(last)+'</p>')+
-   actionHtml+'</article>';
+   '</details>'+actionHtml+'</article>';
 }
 function renderFarmStats(){
  const root=document.getElementById('farm-printer-grid');
@@ -76,10 +89,12 @@ function renderFarmStats(){
  if(!farmStats){root.innerHTML='';kpis.innerHTML='';invest.innerHTML='';return;}
  const d=farmStats;
  const total=Math.max(0,Number(d.capacity_seconds)||0);
+ const recorded=Math.max(0,Number(d.observed_seconds)||0);
+ const printing=Math.max(0,Number(d.printing_seconds)||0);
  kpis.innerHTML=[
-   farmKpi('Erfasste Druckzeit',farmHours(d.printing_seconds),'Über alle '+String(d.printer_count)+' Produktionsdrucker'),
-   farmKpi('24/7-Auslastung',farmPercent(d.capacity_percent).toLocaleString('de-DE',{maximumFractionDigits:1})+' %','Bezogen auf '+farmHours(total)+' maximal mögliche Zeit'),
-   farmKpi('Messabdeckung',farmPercent(d.coverage_percent).toLocaleString('de-DE',{maximumFractionDigits:1})+' %','Fehlende Sensordaten zählen nicht als Leerlauf'),
+   '<div class="farm-overview-utilization">'+farmUtilization(printing,recorded)+farmCoverage(recorded,total,d.coverage_percent)+'</div>',
+   farmKpi('Erfasste Druckzeit',farmHours(printing),'Über alle '+String(d.printer_count)+' Produktionsdrucker'),
+   farmKpi('Ohne Druck',farmHours(Math.max(0,recorded-printing)),'Nur gemessene Zeit, keine unbekannten Stunden'),
    farmKpi('Produktionsdrucker',String(d.printer_count),'P1S Old · P1S New · H2D · U1 · X2D')
  ].join('');
  root.innerHTML=(d.printers||[]).map(r=>farmPrinterCard(r,d)).join('');
@@ -102,23 +117,26 @@ function renderFarmStats(){
 }
 async function loadFarmStats(force=false){
  if(farmBusy || document.hidden)return;
- const requested=statsPeriod;
+ const requested=farmDays;
  farmBusy=true;
  const label=document.getElementById('farm-status');
  const refresh=document.getElementById('farm-refresh');
  if(refresh)refresh.disabled=true;
  if(label)label.textContent='Messdaten werden aktualisiert …';
  try{
-   farmStats=await api('farm-stats?period='+requested);
-   renderFarmStats();
-   if(label)label.textContent='Zeitraum: '+statsPeriodName[requested]+
-     ' · Druckzeit: vorhandene Messhistorie (max. 95 Tage). Stromkosten nach eingetragenem Tarif.';
+   const result=await api('farm-stats?days='+requested);
+   if(requested===farmDays){
+    farmStats=result;
+    renderFarmStats();
+    if(label)label.textContent='Letzte '+(requested===1?'24 Stunden':requested+' Tage')+
+      ' · Unbekannte Zeiten werden nicht als Leerlauf gewertet.';
+   }
  }catch(err){
    if(label)label.textContent='Druckfarm derzeit nicht erreichbar: '+err.message;
  }finally{
    if(refresh)refresh.disabled=false;
    farmBusy=false;
-   if(requested!==statsPeriod)loadFarmStats();
+   if(requested!==farmDays)loadFarmStats();
  }
 }
 document.querySelectorAll('[data-farm-days]').forEach(btn=>btn.addEventListener('click',()=>{
@@ -136,7 +154,6 @@ document.getElementById('farm-refresh')?.addEventListener('click',()=>loadFarmSt
 document.querySelectorAll('[data-filament-stats-period]').forEach(btn=>btn.addEventListener('click',()=>{
  statsPeriod=btn.dataset.filamentStatsPeriod;
  loadSalesStatistics();
- loadFarmStats();
 }));
 document.querySelectorAll('[data-stats-period]').forEach(btn=>btn.addEventListener('click',()=>{
  document.querySelectorAll('[data-stats-period]').forEach(b=>{b.classList.toggle('selected',b===btn);b.setAttribute('aria-pressed',String(b===btn));});

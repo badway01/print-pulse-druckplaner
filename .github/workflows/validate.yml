@@ -92,6 +92,7 @@ jobs:
             sleep 1
           done
           node tests/dashboard_card_ui.cjs
+          node tests/farm_utilization_ui.cjs
           node tests/dialog_ui.cjs
           node tests/stock_orders_ui.cjs
           node tests/master_picker_ui.cjs

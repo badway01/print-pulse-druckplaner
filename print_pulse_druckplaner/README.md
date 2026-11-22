@@ -1,3 +1,7 @@
+## Druckfarm-Auslastung (ab 0.13.73)
+
+Unter **Statistik → Druckerfarm** zeigt die große Prozentzahl den Druckanteil der tatsächlich erfassten Zeit. Grün steht für Druckzeit, Beige für sonstige erfasste Zeit. Die separate Messabdeckung zeigt, wie viel des ausgewählten Zeitraums überhaupt bekannt ist. Fehlende Messdaten zählen nicht als Leerlauf. Die Filter 24 Stunden, 7 und 30 Tage sind unabhängig von den Verkaufs- und Filamentstatistiken. Der nachgewiesene Anteil der theoretischen 24/7-Kapazität bleibt unter „Weitere Messwerte“ verfügbar.
+
 ## Eindeutige Dashboard-Bestellkarten (ab 0.13.44)
 
 Im Dashboard enthält jede Bestellkarte einen schmalen Kopf mit Kunde und Auftragszugriff. Jeder bestellte Artikel mit Foto, Menge, Farbe/Variante und Status wird nur **einmal** als auswählbare Position dargestellt. Bestellnummer, Fälligkeit, Vergrößerung und bestehende Positionssteuerung bleiben erhalten.
