@@ -89,6 +89,15 @@ function ppPoolPartDisplay(part,line){
   unknown?'Farbe nicht eindeutig der Etsy-Variante zugeordnet. Bauteile konfigurieren.':'';
  return {label,identity,warning,color:choice.color,source:choice.source};
 }
+function ppPoolExplicitColor(part){
+ const named=String(part?.name||'').match(/[-–]\s*(weiss|weiß|schwarz|beige|gold|rot|blau|grün|gruen|rosa|pink|silber)\s*$/i);
+ return String(part?.color||named?.[1]||'').trim();
+}
+function ppPoolHasBetterPart(line,part,orderedColor){
+ return !!orderedColor&&(line.components||[]).some(other=>other.id!==part.id&&
+  ppPoolRole(other.name)===ppPoolRole(part.name)&&
+  ppPoolColorsMatch(ppPoolExplicitColor(other),orderedColor));
+}
 function ppPoolBuild(snapshot){
  const products=new Map((snapshot?.products||[]).map(p=>[String(p.id),p]));
  const groups=new Map(),rows=new Map();
@@ -172,6 +181,11 @@ function ppPoolBuild(snapshot){
      if(part.error)needsReview+=amount;
      const stock=part.kind==='stock';
      const detail=ppPoolPartDisplay(part,line);
+     // If an older setup has separate fixed-color components, exclude the
+     // wrong-color component when another one explicitly matches this order.
+     if(detail.color&&ppPoolExplicitColor(part)&&
+       !ppPoolColorsMatch(ppPoolExplicitColor(part),detail.color)&&
+       ppPoolHasBetterPart(line,part,detail.color))continue;
      const key=(stock?'stock:':'demand:')+String(part.id)+'|'+detail.identity;
      // Unverified per-color stock is never silently applied to another color.
      // A common stock component without a color choice remains shared.
