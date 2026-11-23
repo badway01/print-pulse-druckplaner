@@ -1,23 +1,23 @@
 /* Produktionspool · Print & Pulse v0.13.74 */
-.production-pool{margin:0 0 28px;padding:24px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 4px 22px #223d2a08}
+.production-pool{margin:0 0 28px;padding:24px;border:1px solid var(--line);border-radius:18px;background:var(--surface,#fff);box-shadow:0 4px 22px #223d2a08}
 .pp-pool-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:17px}
 .pp-pool-head h2{font-size:24px;letter-spacing:-.5px;margin:3px 0 4px}
 .pp-pool-head p{font-size:12px;color:var(--muted);max-width:700px;margin:0}
 .pp-pool-status{flex-shrink:0;background:#e5f1e8;color:#3d6f53;padding:6px 10px;font-weight:700;border-radius:20px;font-size:11px}
 .pp-pool-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
-.pp-pool-kpis>div{border:1px solid var(--line);border-radius:12px;background:#f8f7f2;padding:15px;display:flex;flex-direction:column;gap:5px}
+.pp-pool-kpis>div{border:1px solid var(--line);border-radius:12px;background:var(--surface-soft,#f8f7f2);padding:15px;display:flex;flex-direction:column;gap:5px}
 .pp-pool-kpis strong{font-size:27px;letter-spacing:-.8px;line-height:1.1;font-weight:750}
 .pp-pool-kpis small{font-size:11px;color:var(--muted)}
 .pp-pool-kpis>div:nth-child(3){background:#edf5ef;border-color:#cce0d0}
 .pp-pool-tools{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-bottom:10px}
-.pp-pool-tools input[type=search]{min-width:185px;flex:1;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:#fff;font-size:13px}
-.pp-pool-tools select{background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px;color:var(--ink);font-size:12px}
+.pp-pool-tools input[type=search]{min-width:185px;flex:1;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--surface,#fff);font-size:13px}
+.pp-pool-tools select{background:var(--surface,#fff);border:1px solid var(--line);border-radius:9px;padding:10px;color:var(--ink);font-size:12px}
 .pp-pool-only{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap}
 .pp-pool-only input{width:17px;height:17px;accent-color:var(--green)}
 .pp-pool-result{font-size:11px;color:var(--muted);margin:5px 0 12px}
 .pp-pool-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
-.pp-pool-card{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:#fff;min-width:0}
-.pp-pool-card-head{display:flex;align-items:center;gap:11px;padding:12px 13px;background:#faf9f5;border-bottom:1px solid var(--line)}
+.pp-pool-card{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:var(--surface,#fff);min-width:0}
+.pp-pool-card-head{display:flex;align-items:center;gap:11px;padding:12px 13px;background:var(--surface-soft,#faf9f5);border-bottom:1px solid var(--line)}
 .pp-pool-card-head img,.pp-pool-card-placeholder{width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#e6ece5}
 .pp-pool-card-placeholder{display:flex;align-items:center;justify-content:center;color:var(--green);font-size:12px;font-weight:800}
 .pp-pool-card-text{flex:1;min-width:0}
@@ -46,3 +46,11 @@
 .pp-pool-footnote{color:var(--muted);font-size:10px;line-height:1.5;margin:13px 0 0}
 @media(max-width:920px){.pp-pool-grid{grid-template-columns:1fr}.production-pool{padding:16px}}
 @media(max-width:600px){.pp-pool-head h2{font-size:21px}.pp-pool-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.pp-pool-kpis>div{padding:11px}.pp-pool-kpis strong{font-size:24px}.pp-pool-tools input[type=search]{flex-basis:100%}.pp-pool-tools select{flex:1}.pp-pool-variant{grid-template-columns:1fr}.pp-pool-variant-side{justify-content:flex-start;max-width:none}.pp-pool-card-count{font-size:20px}}
+
+html[data-theme="dark"] .pp-pool-kpis>div:nth-child(3){background:#284c3a;border-color:#49705a}
+html[data-theme="dark"] .pp-pool-status{background:#284c3a;color:#bce4ca}
+html[data-theme="dark"] .pp-pool-pill.is-needed{background:#28533e;color:#c7e9d0}
+html[data-theme="dark"] .pp-pool-pill.is-stock{background:#283d53;color:#b9d9fb}
+html[data-theme="dark"] .pp-pool-pill.is-printing{background:#56451d;color:#f6dda2}
+html[data-theme="dark"] .pp-pool-pill.is-warning{background:#5b302b;color:#ffc8bd}
+html[data-theme="dark"] .pp-pool-card-count{color:#9fcbb2}
