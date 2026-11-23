@@ -16,6 +16,79 @@ function ppPoolTitle(line,item){
  if(custom)label.push('Wunsch: '+custom);
  return label.filter(Boolean).join(' · ')||'Standard';
 }
+/* Etsy order variations are the authoritative color selection.
+ * A fixed component name ("Katze - weiß") is not the ordered color. */
+function ppPoolNormalize(value){
+ return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+  .toLocaleLowerCase('de').replace(/ß/g,'ss').trim();
+}
+function ppPoolVariantFields(line){
+ return String(line?.variant||'').split(/\s+[·|]\s+/).map(raw=>{
+  const sep=raw.indexOf(':');
+  return sep<0?null:{name:raw.slice(0,sep).trim(),value:raw.slice(sep+1).trim()};
+ }).filter(x=>x&&x.name&&x.value);
+}
+function ppPoolRole(value){
+ const name=ppPoolNormalize(value).split(/\s*[-–]\s*/)[0];
+ return name.replace(/[^a-z0-9]/g,'').replace(/(?:farben?|farbwahl)/g,'')
+  .replace(/(?:en|e|n|s)$/,'');
+}
+function ppPoolPropertyRole(name){
+ return ppPoolNormalize(name).replace(/(?:farbe|farbwahl|wunschfarbe|der|des|die|das|von|fur|für)/g,'')
+  .replace(/[^a-z0-9]/g,'').replace(/(?:en|e|n|s)$/,'');
+}
+function ppPoolColorsMatch(a,b){
+ const left=ppPoolNormalize(a).replace(/ß/g,'ss').replace(/[^a-z0-9]/g,'');
+ const right=ppPoolNormalize(b).replace(/ß/g,'ss').replace(/[^a-z0-9]/g,'');
+ return !!left&&left===right;
+}
+function ppPoolColorChoice(part,line){
+ const fields=ppPoolVariantFields(line);
+ const fixed=String(part?.color||'').trim();
+ const required=String(part?.property_name||'').trim();
+ if(required){
+  const match=fields.find(x=>ppPoolNormalize(x.name)===ppPoolNormalize(required));
+  if(match)return {color:match.value,source:'mapped'};
+  if(part.label)return {color:String(part.label),source:'mapped'};
+  return {color:'',source:'unknown'};
+ }
+ const role=ppPoolRole(part?.name||'');
+ const matched=fields.filter(x=>{
+  const key=ppPoolPropertyRole(x.name);
+  return role.length>=3&&key.length>=3&&(role===key||key.includes(role)||role.includes(key));
+ });
+ if(matched.length===1)return {color:matched[0].value,source:'inferred'};
+ if(matched.length>1)return {color:'',source:'unknown'};
+ // A lone color property is safe only for one single part; otherwise the
+ // "Farbe" field could refer to the lantern rather than to the cat.
+ const generic=fields.filter(x=>/farbe|color/i.test(x.name));
+ const allParts=(line.components||[]).filter(p=>p.kind==='demand'&&p.id!==part.id);
+ if(generic.length===1&&fields.length===1&&!allParts.length)
+  return {color:generic[0].value,source:'inferred'};
+ if(fields.length&&(/(?:weiss|weiß|schwarz|beige|rot|blau|grun|grün)/i.test(part.name||'')||fixed))
+  return {color:'',source:'unknown'};
+ return {color:fixed,source:'fixed'};
+}
+function ppPoolPartDisplay(part,line){
+ const choice=ppPoolColorChoice(part,line);
+ const raw=String(part.name||'Bauteil').trim();
+ const stripped=raw.replace(/\s*[-–]\s*(?:weiss|weiß|schwarz|beige|gold|rot|blau|grün|gruen|rosa|pink|silber)\s*$/i,'').trim()||raw;
+ const label=choice.color?stripped+' · '+choice.color:
+  (choice.source==='unknown'?stripped+' · Farbe prüfen':raw);
+ // Where the parts list says "Katze - weiß" but the customer chose black,
+ // display the actual choice AND highlight the incorrect model configuration.
+ const fixedName=raw.match(/[-–]\s*(weiss|weiß|schwarz|beige|gold|rot|blau|grün|gruen|rosa|pink|silber)\s*$/i);
+ const conflict=!!choice.color&&
+  ((fixedName&&!ppPoolColorsMatch(fixedName[1],choice.color))||
+   (part.color&&!ppPoolColorsMatch(part.color,choice.color)));
+ const unknown=choice.source==='unknown';
+ // Never merge unknown-color parts from distinct Etsy option signatures.
+ const identity=choice.color?'color:'+ppPoolNormalize(choice.color):
+  unknown?'check:'+ppPoolNormalize(line.variant)+'|'+String(line.transaction_id||''):'common';
+ const warning=conflict?'Bauteilfarbe widerspricht der Bestellung. Bauteilzuordnung prüfen.':
+  unknown?'Farbe nicht eindeutig der Etsy-Variante zugeordnet. Bauteile konfigurieren.':'';
+ return {label,identity,warning,color:choice.color,source:choice.source};
+}
 function ppPoolBuild(snapshot){
  const products=new Map((snapshot?.products||[]).map(p=>[String(p.id),p]));
  const groups=new Map(),rows=new Map();
@@ -40,7 +113,7 @@ function ppPoolBuild(snapshot){
   let row=rows.get(rowKey);
   if(!row){
    row={key:rowKey,group,kind:options.kind,label:options.label||'Standard',
-    itemId:options.itemId||'',partId:options.partId||'',personalized:!!options.personalized,
+    itemId:options.itemId||'',partId:options.partId||'',personalized:!!options.personalized,warning:options.warning||'',
     pending:0,inPrint:0,ordered:0,fromStock:0,toPrint:0,earliest:Infinity,stock:0,
     stockRunning:0,review:!!options.review,orders:new Map()};
    rows.set(rowKey,row);
@@ -50,6 +123,7 @@ function ppPoolBuild(snapshot){
   row.inPrint+=running;
   row.ordered+=ppPoolNumber(line.quantity);
   row.review=row.review||!!options.review;
+  if(options.warning)row.warning=options.warning;
   const due=Number(order.ship_by)||Infinity;
   row.earliest=Math.min(row.earliest,due);
   group.earliest=Math.min(group.earliest,due);
@@ -97,16 +171,19 @@ function ppPoolBuild(snapshot){
       (typeof orderComponentOutstanding==='function'?orderComponentOutstanding(line,part):0);
      if(part.error)needsReview+=amount;
      const stock=part.kind==='stock';
-     const color=String(part.color||'').trim();
-     const label=[part.name||'Bauteil',part.label,color&&!String(part.label||'').includes(color)?'Farbe: '+color:'']
-      .filter(Boolean).join(' · ');
-     // Stock components have a single shared pool per component ID; demand
-     // components may vary by variant label and must be grouped separately.
-     const key=(stock?'stock:':'demand:')+String(part.id)+':'+(stock?'':String(part.label||''))+':'+color;
-     add(order,line,{kind:part.error?'review':stock?'stock':'demand',
-      key:part.error?'error:'+line.transaction_id+':'+key:key,label,partId:String(part.id),
-      stock:stock?(product?.components||[]).find(p=>String(p.id)===String(part.id))?.stock:0,
-      stockRunning:stock?(product?.components||[]).find(p=>String(p.id)===String(part.id))?.printing_stock:0,
+     const detail=ppPoolPartDisplay(part,line);
+     const key=(stock?'stock:':'demand:')+String(part.id)+'|'+detail.identity;
+     // Unverified per-color stock is never silently applied to another color.
+     // A common stock component without a color choice remains shared.
+     const colorStockUnverified=stock&&detail.source!=='fixed'&&
+      !(part.color&&ppPoolColorsMatch(part.color,detail.color));
+     const rowKind=part.error?'review':stock?'stock':'demand';
+     add(order,line,{kind:rowKind,
+      key:part.error?'error:'+line.transaction_id+':'+key:key,label:detail.label,
+      partId:String(part.id),warning:detail.warning||
+       (colorStockUnverified?'Farbspezifischen Bauteilvorrat prüfen.':''),
+      stock:stock&&!colorStockUnverified?(product?.components||[]).find(p=>String(p.id)===String(part.id))?.stock:0,
+      stockRunning:stock&&!colorStockUnverified?(product?.components||[]).find(p=>String(p.id)===String(part.id))?.printing_stock:0,
       review:!!part.error},amount,ppPoolNumber(part.printing));
     }
     continue;
