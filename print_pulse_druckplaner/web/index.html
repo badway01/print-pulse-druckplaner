@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.72"><link rel="stylesheet" href="dashboard-order-cards.css?v=0.13.46"><script src="app.js?v=0.13.72" defer></script><script src="filament-quick-ui.js?v=0.13.55" defer></script><script src="filament-stats-ui.js?v=0.13.55" defer></script><script src="farm-ui.js?v=0.13.73" defer></script><link rel="stylesheet" href="farm-ui.css?v=0.13.73"><script src="master-insights-ui.js?v=0.13.66" defer></script><script src="components-ui.js?v=0.13.61" defer></script><script src="catalog-3mf-info.js?v=0.13.59" defer></script><script src="priority-ui.js?v=0.13.72" defer></script><script src="economics-ui.js?v=0.13.66" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.13.67" defer></script><script src="dialog-behavior.js?v=0.13.16" defer></script><script src="order-zoom-ui.js?v=0.13.72" defer></script><script src="stock-orders-ui.js?v=0.13.72" defer></script><script src="filament-planner-ui.js?v=0.13.5" defer></script><script src="filament-purchases-ui.js?v=0.13.32" defer></script><link rel="stylesheet" href="filament-purchases.css?v=0.13.43"><link rel="stylesheet" href="filament-planner.css?v=0.13.5"></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print &amp; Pulse · Lager</title><link rel="stylesheet" href="style.css?v=0.13.72"><link rel="stylesheet" href="dashboard-order-cards.css?v=0.13.46"><script src="app.js?v=0.13.72" defer></script><script src="filament-quick-ui.js?v=0.13.55" defer></script><script src="filament-stats-ui.js?v=0.13.55" defer></script><script src="farm-ui.js?v=0.13.73" defer></script><link rel="stylesheet" href="farm-ui.css?v=0.13.73"><script src="master-insights-ui.js?v=0.13.66" defer></script><script src="components-ui.js?v=0.13.61" defer></script><script src="catalog-3mf-info.js?v=0.13.59" defer></script><script src="priority-ui.js?v=0.13.72" defer></script><script src="production-pool-ui.js?v=0.13.74" defer></script><link rel="stylesheet" href="production-pool.css?v=0.13.74"><script src="economics-ui.js?v=0.13.66" defer></script><script src="import-ui.js" defer></script><script src="local-orders-ui.js?v=0.13.67" defer></script><script src="dialog-behavior.js?v=0.13.16" defer></script><script src="order-zoom-ui.js?v=0.13.72" defer></script><script src="stock-orders-ui.js?v=0.13.72" defer></script><script src="filament-planner-ui.js?v=0.13.5" defer></script><script src="filament-purchases-ui.js?v=0.13.32" defer></script><link rel="stylesheet" href="filament-purchases.css?v=0.13.43"><link rel="stylesheet" href="filament-planner.css?v=0.13.5"></head>
 <body>
 <header><a class="brand" href="./" aria-label="Print &amp; Pulse Startseite"><img class="brand-logo" src="brand.svg" width="190" height="98" alt="Print &amp; Pulse – Designs mit Herz"></a><div class="theme-switch" role="group" aria-label="Darstellung wählen">
  <button type="button" class="theme-option" data-theme-mode="light" aria-label="Heller Modus" title="Hell" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></button>
@@ -20,7 +20,7 @@
 <nav class="workspace-tabs" aria-label="Druckplaner-Bereiche – auf Mobilgeräten seitlich wischbar">
  <button type="button" data-workspace="production" class="selected" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20V9l6 4V9l6 4V4h5v16H3Z"/><path d="M8 17h2m4 0h2"/></svg><span>Dashboard</span></button>
  <button type="button" data-workspace="orders" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 4h13v16H7zM4 8h3M4 13h3M4 18h3M10 9h7M10 13h7"/></svg><span>Bestellungen</span></button>
- <button type="button" data-workspace="queue" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Druckwarteschlange</span></button>
+ <button type="button" data-workspace="queue" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Nächste Drucke</span></button>
  <button type="button" data-workspace="catalog" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z"/><path d="m3 7 9 5 9-5m-9 5v10"/></svg><span>Modelle</span></button>
  <button type="button" data-workspace="filament" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg><span>Filament</span> <span id="filament-tab-count" class="workspace-count" hidden></span></button>
  <button type="button" data-workspace="printers" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6zM18 12h1"/></svg><span>Drucker</span></button>
@@ -72,6 +72,29 @@
  <div id="orders" class="orders-carousel" tabindex="0" aria-label="Offene Bestellungen seitlich wischen"></div>
 </section>
 <section id="priority-shell" class="priority-shell" aria-label="Nächste sinnvolle Drucke" hidden>
+ <section class="production-pool" id="production-pool" aria-labelledby="pp-pool-title">
+  <div class="pp-pool-head">
+   <div><span class="eyebrow">BESTELLUNGEN GEBÜNDELT · ALLE TERMINE</span><h2 id="pp-pool-title">Produktionspool</h2>
+    <p>Gleiche Artikel und Ausführungen aus sämtlichen offenen Aufträgen zusammengefasst. Lagerbestand, laufende Drucke und frühester Liefertermin bleiben sichtbar.</p>
+   </div><span class="pp-pool-status">Live aus Aufträgen</span>
+  </div>
+  <div class="pp-pool-kpis" aria-label="Produktionsbedarf">
+   <div><strong id="pp-pool-orders">0</strong><small>Offene Aufträge</small></div>
+   <div><strong id="pp-pool-ordered">0</strong><small>Stück bestellt</small></div>
+   <div><strong id="pp-pool-needed">0</strong><small>Teile zu drucken</small></div>
+   <div><strong id="pp-pool-printing">0</strong><small>Bereits im Druck</small></div>
+  </div>
+  <div class="pp-pool-tools">
+   <input type="search" id="pp-pool-search" autocomplete="off" placeholder="Artikel, Farbe oder Ausführung suchen" aria-label="Produktionspool durchsuchen">
+   <select id="pp-pool-sort" aria-label="Produktionspool sortieren">
+    <option value="due">Früheste Fälligkeit</option><option value="qty">Größter Druckbedarf</option><option value="name">Artikelname</option>
+   </select>
+   <label class="pp-pool-only"><input type="checkbox" id="pp-pool-only-needed" checked> Nur offene Fertigung</label>
+  </div>
+  <div id="pp-pool-result" class="pp-pool-result" aria-live="polite"></div>
+  <div id="pp-pool-list" class="pp-pool-grid"></div>
+  <p class="pp-pool-footnote">Die Mengen sind eine Planungshilfe. Eine 3MF-Druckplatte wird nicht automatisch gestartet oder fertiggemeldet. Bereits laufende und erledigte Stücke werden nicht erneut als Druckbedarf gezählt.</p>
+ </section>
  <div class="priority-head"><div><span class="eyebrow">DEIN DRUCKPLAN</span><h2>Als Nächstes drucken</h2>
  <p>Offene Kundenaufträge nach Frist, gleiche Varianten zusammengefasst. Ohne Pflicht zur Lagerzählung.</p></div>
  <label class="priority-printer-select">Drucker <select id="priority-printer-filter" aria-label="Druckempfehlungen nach Drucker filtern"><option value="all">Alle Drucker</option><option>H2D</option><option>P1S Old</option><option>P1S New</option><option>Snapmaker U1</option><option>X2D</option></select></label><span id="priority-count" class="priority-count" aria-live="polite"></span></div>
