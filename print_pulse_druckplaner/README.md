@@ -1,3 +1,17 @@
+## Produktionspool in „Nächste Drucke“ (ab 0.13.74)
+
+Die Druckwarteschlange heißt jetzt **Nächste Drucke**. Ganz oben steht der neue **Produktionspool**:
+- Alle aktuell offenen Etsy- und lokalen Bestellungen bilden die Datenbasis; es wird nicht nach einzelnen Tagen getrennt.
+- Gleiche Artikel und tatsächlich identische Ausführungen werden zusammengefasst. Verschiedene Farben, Stückzahl-Varianten und Personalisierungen bleiben getrennt.
+- Je Ausführung: rechnerischer offener Druckbedarf, eindeutig zuordenbarer Fertigwaren-/Bauteilvorrat, laufender Druck, früheste Fälligkeit und die betroffenen Bestellungen.
+- Für Bauteile werden gemeinsame Vorräte nur einmal gegen die Summe der benötigten Teile verrechnet. Unklare Artikelzuordnungen erscheinen als Prüfbedarf, nicht als druckfähige 3MF-Empfehlung.
+- Freitextsuche, Sortierung nach Termin, Druckmenge oder Namen sowie direkte Buttons zu den Bestellungen und zum 3MF-Editor.
+- Die bisherige Fristen-/Prioritätenliste bleibt unter dem Produktionspool erhalten.
+
+**Wichtig:** Die Übersicht ist lesend; sie verbucht **keine** Druckplatte automatisch als fertig und verändert weder Etsy noch den Lagerbestand. Drucke und fertige Mengen weiter über die bestehenden Auftragsfunktionen melden. Nur eine bei Etsy eindeutig dem Inventar zugeordnete Farbvariante darf von vorhandenem Lagerbestand abgezogen werden. Die Kennzahl „Teile zu drucken“ kann bei mehrteiligen Artikeln größer als die bestellte Artikelmenge sein.
+
+Für das Home-Assistant-Update die App nach Aktualisierung des Add-on-Repositories auf Version 0.13.74 aktualisieren; nicht deinstallieren. Bestehende SQLite-Daten werden nicht migriert.
+
 ## Druckfarm-Auslastung (ab 0.13.73)
 
 Unter **Statistik → Druckerfarm** zeigt die große Prozentzahl den Druckanteil der tatsächlich erfassten Zeit. Grün steht für Druckzeit, Beige für sonstige erfasste Zeit. Die separate Messabdeckung zeigt, wie viel des ausgewählten Zeitraums überhaupt bekannt ist. Fehlende Messdaten zählen nicht als Leerlauf. Die Filter 24 Stunden, 7 und 30 Tage sind unabhängig von den Verkaufs- und Filamentstatistiken. Der nachgewiesene Anteil der theoretischen 24/7-Kapazität bleibt unter „Weitere Messwerte“ verfügbar.
