@@ -11,7 +11,7 @@ const ctx={
  shortDate:()=>'',esc:s=>String(s),model:null
 };
 vm.createContext(ctx);
-vm.runInContext(source+'\nthis.build=ppPoolBuild;',ctx);
+vm.runInContext(source+'\nthis.build=ppPoolBuild;this.rowHtml=ppPoolRowHTML;',ctx);
 const build=ctx.build;
 function item(id,label,stock=0){return {id,label,allocatable:stock,on_hand:stock};}
 function row(id,itemId,color,pending,printing=0,quantity=pending+printing,personalization=''){
@@ -59,4 +59,51 @@ result=build({products:[compProduct],orders:[
 ]});
 assert.equal(result.toPrint,2);
 assert.equal(result.groups[0].rows[0].orders.size,2);
+
+// Regression: The old pool labelled every cat "Katze - weiß" because that
+// was a fixed component name. Etsy orders actually select distinct cat colors.
+const coloredProduct={id:'cat',title:'Katze mit Laterne',image:'',components_enabled:true,
+ items:[item('white','Standard')],components:[
+ {id:'body',name:'Katze - weiß',kind:'demand',color:'',property_name:''},
+ {id:'light',name:'Laterne',kind:'demand',color:'',property_name:'Laternenfarbe'}
+ ]};
+function coloredOrder(id,catColor,lanternColor,units=1){
+ return {id,ship_by:100,items:[{
+  transaction_id:id+'color',listing_id:'cat',item_id:'white',quantity:units,
+  remaining:units,variant:'Katzenfarbe: '+catColor+' · Laternenfarbe: '+lanternColor,
+  components_enabled:true,components:[
+   {id:'body',name:'Katze - weiß',kind:'demand',required:units,printing:0,
+    property_name:'',color:'',label:''},
+   {id:'light',name:'Laterne',kind:'demand',required:units,printing:0,
+    property_name:'Laternenfarbe',color:'',label:lanternColor}
+  ]
+ }]};
+}
+result=build({products:[coloredProduct],orders:[
+ coloredOrder('a','Weiß','Weiß',1),coloredOrder('b','Schwarz','Weiß',2),
+ coloredOrder('c','Schwarz','Schwarz',3)
+]});
+const coloredRows=result.groups[0].rows;
+const qtyOf=(title)=>coloredRows.find(r=>r.label===title)?.toPrint||0;
+assert.equal(qtyOf('Katze · Weiß'),1);
+assert.equal(qtyOf('Katze · Schwarz'),5);
+assert.equal(qtyOf('Laterne · Weiß'),3);
+assert.equal(qtyOf('Laterne · Schwarz'),3);
+assert.equal(result.toPrint,12);
+assert(coloredRows.find(r=>r.label==='Katze · Schwarz').warning);
+assert.match(ctx.rowHtml(coloredRows[0]),/class="pp-pool-line"/);
+assert.doesNotMatch(ctx.rowHtml(coloredRows[0]),/class="pp-pool-card"/);
+// Two old fixed-color components must not both claim the same colored order.
+coloredProduct.components.push({id:'bodyblack',name:'Katze - schwarz',kind:'demand',color:'',property_name:''});
+const blackOrder=coloredOrder('d','Schwarz','Weiß');
+blackOrder.items[0].components.push({...blackOrder.items[0].components[0],
+ id:'bodyblack',name:'Katze - schwarz'});
+result=build({products:[coloredProduct],orders:[blackOrder]});
+assert.equal(result.groups[0].rows.filter(r=>r.label.startsWith('Katze')).length,1);
+assert.equal(result.groups[0].rows.find(r=>r.label==='Katze · Schwarz').toPrint,1);
+// If there is no unambiguous cat-color property, never assert "white".
+const unclear=coloredOrder('e','Weiß','Weiß');
+unclear.items[0].variant='Farbe: Beige · Laternenfarbe: Weiß';
+result=build({products:[coloredProduct],orders:[unclear]});
+assert(result.groups[0].rows.some(r=>r.label==='Katze · Farbe prüfen'));
 console.log('Production pool tests passed');
