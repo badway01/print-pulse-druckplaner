@@ -246,18 +246,43 @@ function ppPoolOrderLinks(row){
   entries.map(o=>'<button type="button" class="secondary small" data-pp-order="'+esc(o.orderId)+
    '">#'+esc(o.orderId)+' · '+esc(ppPoolDeadline(o.shipBy))+'</button>').join('')+'</div></details>';
 }
+function ppPoolShortTitle(title){
+ const value=String(title||'Artikel').trim();
+ return value.split(/\s+[–|]\s+/)[0].trim()||value;
+}
 function ppPoolRowHTML(row){
  const urgency=Number.isFinite(row.earliest)?ppPoolDeadline(row.earliest):'Frist prüfen';
- const state=row.review?'<span class="pp-pool-pill is-warning">Zuordnung prüfen</span>':
-  '<span class="pp-pool-pill is-needed">'+row.toPrint+' × drucken</span>';
- return '<div class="pp-pool-variant">'+
-  '<div class="pp-pool-variant-main"><strong>'+esc(row.label)+'</strong>'+
-   '<small>'+esc(urgency)+'</small></div>'+
-  '<div class="pp-pool-variant-side">'+state+
-   (row.fromStock?'<span class="pp-pool-pill is-stock">'+row.fromStock+' × aus Lager</span>':'')+
-   (row.inPrint||row.stockRunning?'<span class="pp-pool-pill is-printing">'+
-     (row.inPrint+row.stockRunning)+' × im Druck</span>':'')+
-   '</div>'+ppPoolOrderLinks(row)+'</div>';
+ const quantity=row.toPrint;
+ const status=row.review?'<span class="pp-pool-pill is-warning">Zuordnung prüfen</span>':
+  quantity?'<span class="pp-pool-pill is-needed">'+quantity+' × drucken</span>':
+  '<span class="pp-pool-pill is-stock">Gedeckt</span>';
+ const orderCount=row.orders.size;
+ const showParts=row.kind==='stock'||row.kind==='demand';
+ const title=showParts?row.label:
+  ppPoolShortTitle(row.group.title)+(row.label==='Standard'?'':' · '+row.label);
+ const picture=typeof thumbnail==='function'?thumbnail(row.group.image):'';
+ return '<article class="pp-pool-line">'+
+  '<div class="pp-pool-line-count">'+quantity+'<small>×</small></div>'+
+  (picture?'<img class="pp-pool-line-image" loading="lazy" src="'+esc(picture)+'" alt="">':'')+
+  '<div class="pp-pool-line-content">'+
+   '<strong title="'+esc(title)+'">'+esc(title)+'</strong>'+
+   '<div class="pp-pool-line-meta">'+
+    '<span>'+esc(ppPoolShortTitle(row.group.title))+'</span>'+
+    '<span>'+esc(urgency)+'</span>'+
+    '<span>'+orderCount+' '+(orderCount===1?'Auftrag':'Aufträge')+'</span>'+
+   '</div>'+
+   (row.warning?'<span class="pp-pool-line-warning">⚠ '+esc(row.warning)+'</span>':'')+
+  '</div>'+
+  '<div class="pp-pool-line-status">'+status+
+    (row.fromStock?'<span class="pp-pool-pill is-stock">'+row.fromStock+' × Lager</span>':'')+
+    (row.inPrint||row.stockRunning?'<span class="pp-pool-pill is-printing">'+
+      (row.inPrint+row.stockRunning)+' × im Druck</span>':'')+
+  '</div>'+
+  '<details class="pp-pool-line-details"><summary aria-label="Details und Aufträge für '+esc(title)+' anzeigen">Details</summary>'+
+   '<div class="pp-pool-line-detail-content">'+ppPoolOrderLinks(row)+
+   (row.group.listingId?'<button type="button" class="secondary small" data-pp-master="'+esc(row.group.listingId)+
+   '">3MF & Belegung öffnen</button>':'')+'</div></details>'+
+ '</article>';
 }
 function renderProductionPoolUI(){
  const box=$('production-pool');
@@ -268,32 +293,19 @@ function renderProductionPoolUI(){
  $('pp-pool-needed').textContent=data.toPrint;
  $('pp-pool-printing').textContent=data.inPrint;
  const search=String($('pp-pool-search').value||'').trim().toLocaleLowerCase('de');
- let groups=data.groups.map(g=>({...g,rows:g.rows.filter(r=>
-   (!ppPoolOnlyNeeded||r.pending>0||r.inPrint>0||r.review)&&
-   (!search||(g.title+' '+r.label).toLocaleLowerCase('de').includes(search)))}))
-  .filter(g=>g.rows.length);
- const sortRow=(a,b)=>ppPoolSort==='qty'?b.toPrint-a.toPrint||a.earliest-b.earliest:
-   ppPoolSort==='name'?a.label.localeCompare(b.label,'de'):a.earliest-b.earliest||b.toPrint-a.toPrint;
- groups.forEach(g=>g.rows.sort(sortRow));
- groups.sort((a,b)=>ppPoolSort==='name'?a.title.localeCompare(b.title,'de'):
-  ppPoolSort==='qty'?b.rows.reduce((n,r)=>n+r.toPrint,0)-a.rows.reduce((n,r)=>n+r.toPrint,0):
-   a.earliest-b.earliest||a.title.localeCompare(b.title,'de'));
- ppPoolRows=groups;
- $('pp-pool-result').textContent=groups.length+' Artikelgruppen'+
-  (data.needsReview?' · '+data.needsReview+' Stück Zuordnung prüfen':'');
- updateHTML($('pp-pool-list'),groups.length?groups.map(g=>{
-  const needed=g.rows.reduce((n,r)=>n+r.toPrint,0);
-  const photo=typeof thumbnail==='function'?thumbnail(g.image):'';
-  return '<article class="pp-pool-card"><div class="pp-pool-card-head">'+
-   (photo?'<img src="'+esc(photo)+'" loading="lazy" alt="">':'<span class="pp-pool-card-placeholder">P+P</span>')+
-   '<div class="pp-pool-card-text"><b>'+esc(g.title)+'</b><small>'+g.rows.length+
-   (g.rows.length===1?' Ausführung':' Ausführungen')+' · '+g.orders.size+
-   (g.orders.size===1?' Auftrag':' Aufträge')+'</small></div>'+
-   '<span class="pp-pool-card-count">'+needed+' <small>zu drucken</small></span></div>'+
-   '<div class="pp-pool-variants">'+g.rows.map(ppPoolRowHTML).join('')+'</div>'+
-   (g.listingId?'<div class="pp-pool-card-foot"><button type="button" class="secondary small" data-pp-master="'+esc(g.listingId)+
-   '">3MF & Belegung öffnen</button></div>':'')+'</article>';
- }).join(''):'<p class="pp-pool-empty">Kein offener Produktionsbedarf für diesen Filter.</p>');
+ let rows=data.groups.flatMap(g=>g.rows).filter(r=>
+   (!ppPoolOnlyNeeded||r.toPrint>0||r.inPrint>0||r.stockRunning>0||r.review)&&
+   (!search||(r.group.title+' '+r.label).toLocaleLowerCase('de').includes(search)));
+ const compare=(a,b)=>ppPoolSort==='qty'?b.toPrint-a.toPrint||a.earliest-b.earliest:
+  ppPoolSort==='name'?a.label.localeCompare(b.label,'de'):
+  a.earliest-b.earliest||b.toPrint-a.toPrint||a.label.localeCompare(b.label,'de');
+ rows.sort(compare);
+ ppPoolRows=rows;
+ const warningCount=rows.filter(r=>r.review||r.warning).length;
+ $('pp-pool-result').textContent=rows.length+' Druckpositionen'+
+  (warningCount?' · '+warningCount+' Zuordnung'+(warningCount===1?'':'en')+' prüfen':'');
+ updateHTML($('pp-pool-list'),rows.length?rows.map(ppPoolRowHTML).join(''):
+  '<p class="pp-pool-empty">Kein offener Produktionsbedarf für diesen Filter.</p>');
 }
 $('pp-pool-search').addEventListener('input',renderProductionPoolUI);
 $('pp-pool-sort').addEventListener('change',event=>{
