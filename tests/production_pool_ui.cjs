@@ -18,8 +18,8 @@ function row(id,itemId,color,pending,printing=0,quantity=pending+printing,person
  return {transaction_id:id,listing_id:'cat',item_id:itemId,color,variant:'Farbe: '+color,quantity,remaining:pending,printing,personalization};
 }
 const cat={id:'cat',title:'Katze',image:'',items:[item('white','Weiß'),item('black','Schwarz')]};
-const orderA={id:'a',ship_by:1795564800,items:[row('a1','white','Weiß',1),row('a2','black','Schwarz',2)]};
-const orderB={id:'b',ship_by:1795651200,items:[row('b1','white','Weiß',3),row('b2','black','Schwarz',3)]};
+const orderA={id:'a',ship_by:100,items:[row('a1','white','Weiß',1),row('a2','black','Schwarz',2)]};
+const orderB={id:'b',ship_by:200,items:[row('b1','white','Weiß',3),row('b2','black','Schwarz',3)]};
 let result=build({products:[cat],orders:[orderA,orderB]});
 assert.equal(result.orders,2);
 assert.equal(result.totalOrdered,9);
@@ -32,18 +32,18 @@ assert.equal(result.groups[0].rows.find(r=>r.label.includes('Weiß')).orders.siz
 cat.items[0].allocatable=2;
 result=build({products:[cat],orders:[orderA,orderB]});
 assert.equal(result.toPrint,7);
-const weird={id:'special',ship_by:1795564800,items:[
+const weird={id:'special',ship_by:100,items:[
  row('c1','white','Weiß',2),row('c2','white','Naturweiß',2)
 ]};
 result=build({products:[cat],orders:[weird]});
 assert.equal(result.groups[0].rows.length,2);
 assert.equal(result.toPrint,2);
-result=build({products:[cat],orders:[{id:'printing',ship_by:1795564800,
+result=build({products:[cat],orders:[{id:'printing',ship_by:100,
  items:[row('p1','white','Weiß',1,2,3)]}]});
 assert.equal(result.toPrint,0);
 assert.equal(result.inPrint,2);
 // Personalized goods are not subtracted from generic shelf inventory.
-result=build({products:[cat],orders:[{id:'person',ship_by:1795564800,
+result=build({products:[cat],orders:[{id:'person',ship_by:100,
  items:[row('personal','white','Weiß',1,0,1,'Anna')]}]});
 assert.equal(result.toPrint,1);
 // Component stock is shared across multiple order dates.
@@ -55,7 +55,7 @@ const makePart=(id,due,need)=>({id,ship_by:due,items:[{
  kind:'stock',required:need,booked:0,printing:0,finished:0}]
 }]});
 result=build({products:[compProduct],orders:[
- makePart('p1',1795564800,2),makePart('p2',1795651200,3)
+ makePart('p1',100,2),makePart('p2',200,3)
 ]});
 assert.equal(result.toPrint,2);
 assert.equal(result.groups[0].rows[0].orders.size,2);
