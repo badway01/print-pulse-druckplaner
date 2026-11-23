@@ -8,6 +8,7 @@ allowed={'print_pulse_druckplaner/web/brand.svg', 'tests/ui.cjs', 'tests/ui_safa
 allowed.add('tests/master_batch_ui.cjs')
 allowed.add('tests/farm_utilization_ui.cjs')
 allowed.update({'print_pulse_druckplaner/web/printer-farm-frame.html','print_pulse_druckplaner/web/printer-farm-frame.js','tests/printer_farm_bridge.cjs'})
+allowed.update({'print_pulse_druckplaner/web/production-pool-ui.js','print_pulse_druckplaner/web/production-pool.css','tests/production_pool_ui.cjs'})
 files={str(p.relative_to(root)) for p in root.rglob('*') if p.is_file() and '__pycache__' not in str(p) and '.git/' not in str(p)}
 errors=[]
 if files!=allowed:
