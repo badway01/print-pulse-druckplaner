@@ -1,3 +1,11 @@
+## 0.13.75 · Produktionspool als kompakte Druckliste
+
+Im Reiter **Nächste Drucke** steht direkt unter den Kennzahlen eine einzige, flache Liste sämtlicher noch zu druckender Artikel/Bauteile, ohne Artikelkarten. Die Bestellungen eines identischen Druckbedarfs werden über ein einklappbares „Details“ aufgerufen.
+
+**Wichtige Korrektur:** Bei farbabhängigen Bauteilen wird die tatsächliche Etsy-Bestellvariation ausgewertet, statt einen festen Bauteilnamen wie „Katze - weiß“ für alle Aufträge zu übernehmen. Bekannte Bauteileigenschaften werden direkt genutzt, eindeutige Farbangaben mit passendem Bauteilnamen (z. B. Katzenfarbe → Katze, Laternenfarbe → Laterne) können zugeordnet werden. Ist die Zuordnung nicht belastbar, wird **„Farbe prüfen“** angezeigt; widersprechen sich Bauteilnamen und Kundenfarbe, erscheint ein Hinweis zur Bauteilkonfiguration. Es werden keine unbekannten Farben geraten.
+
+Zusammengefasst werden nur technisch gleiche Artikel- und Farbvarianten. Die Dringlichkeitsliste darunter bleibt erhalten. Lager- und Druckbuchungen ändern sich nicht. Neue Version **0.13.75** über Home Assistant aktualisieren, nicht deinstallieren.
+
 ## Produktionspool in „Nächste Drucke“ (ab 0.13.74)
 
 Die Druckwarteschlange heißt jetzt **Nächste Drucke**. Ganz oben steht der neue **Produktionspool**:
