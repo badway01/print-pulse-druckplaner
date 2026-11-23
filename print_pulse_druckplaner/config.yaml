@@ -1,7 +1,7 @@
 name: "Print & Pulse Druckplaner"
-version: "0.13.73"
+version: "0.13.74"
 slug: "print_pulse_druckplaner"
-description: "Lager und Bestellungen: Etsy-Aufträge, Bestände und Nachdruckbedarf"
+description: "Lager und Bestellungen: Produktionspool, Druckplanung und Etsy-Aufträge"
 arch:
   - aarch64
 startup: application
