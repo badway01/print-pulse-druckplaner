@@ -116,8 +116,14 @@ function ppPoolBuild(snapshot){
    // in order properties rather than in the Etsy stock-keeping variant.
    const key='classic:'+String(line.item_id)+'|'+String(line.variant||'')+'|'+
     String(line.color||'')+'|'+String(line.personalization||'');
+   const selectedColor=String(line.color||'').replace(/^\s*(?:farbe|farbwahl)\s*:\s*/i,'')
+    .trim().toLocaleLowerCase('de');
+   const stockVariant=String(item?.label||'').toLocaleLowerCase('de');
+   // A generic Etsy variation is not proof that its shelf inventory matches
+   // a separately supplied colour. In that case err on the safe side.
+   const colorMatchesStock=!selectedColor||stockVariant.includes(selectedColor);
    add(order,line,{kind:'classic',key,label,itemId:String(line.item_id),
-    personalized:!!String(line.personalization||'').trim()},remaining,printing);
+    personalized:!!String(line.personalization||'').trim()||!colorMatchesStock},remaining,printing);
   }
  }
  const result=[...groups.values()];
@@ -145,7 +151,7 @@ function ppPoolBuild(snapshot){
  for(const group of result){
   group.qty=group.rows.reduce((n,r)=>n+r.pending+r.inPrint,0);
   group.toPrint=group.rows.reduce((n,r)=>n+r.toPrint,0);
-  group.inPrint=group.rows.reduce((n,r)=>n+r.inPrint,0);
+  group.inPrint=group.rows.reduce((n,r)=>n+r.inPrint+(r.kind==='stock'?r.stockRunning:0),0);
   group.review=group.rows.some(r=>r.review);
  }
  return {orders:orders.length,totalOrdered,needsReview,
