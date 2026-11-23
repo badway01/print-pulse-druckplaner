@@ -165,6 +165,7 @@ def snapshot(db,products,orders):
                 available=(state['booked']+state['finished'] if part['kind']=='stock' else state['finished'])-state['consumed']
                 line['components'].append({
                     'id':part['id'],'name':part['name'],'color':part['color'],'kind':part['kind'],'label':label,
+                    'property_name':part['property_name'],'quantity_property':part['quantity_property'],
                     'stock':part['stock'],'required':total,'error':error,
                     'available':max(0,available),**state})
     return products,orders
