@@ -288,6 +288,25 @@ def total_peak(db):
             if row else None)
 
 
+def ensure_total_amps_peak_table(db):
+    """Store the highest complete, directly observed Shelly current sum."""
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_power_total_amps_peak(
+        id INTEGER PRIMARY KEY CHECK(id=1),
+        max_amps REAL NOT NULL CHECK(max_amps>=0),
+        at INTEGER NOT NULL,
+        measured INTEGER NOT NULL,
+        expected INTEGER NOT NULL)""")
+
+
+def total_amps_peak(db):
+    ensure_total_amps_peak_table(db)
+    row = db.execute("""SELECT max_amps,at,measured,expected
+        FROM pp_power_total_amps_peak WHERE id=1""").fetchone()
+    return ({"amps":round(row["max_amps"],3),"at":row["at"],
+             "measured":row["measured"],"expected":row["expected"]}
+            if row else None)
+
+
 def ensure_peak_table(db):
     """Maintain permanent peak power readings, keyed by the HA power sensor.
 
@@ -331,6 +350,31 @@ def record_sample(db, snapshot, now=None):
         (at INTEGER PRIMARY KEY, watts REAL, measured INTEGER NOT NULL,
          expected INTEGER NOT NULL)""")
     ensure_total_peak_table(db)
+    ensure_total_amps_peak_table(db)
+    # Record only a COMPLETE all-real-Shelly sum. A partial reading or
+    # W/230 substitute must never be presented as a verified current peak.
+    devices = snapshot.get("devices") or []
+    amps_total = snapshot.get("amps")
+    fully_measured = (bool(devices)
+        and all(isinstance(x,dict) and x.get("amps_source") == "shelly"
+                and isinstance(x.get("amps"),(int,float))
+                and not isinstance(x.get("amps"),bool)
+                and math.isfinite(x["amps"]) and x["amps"] >= 0
+                for x in devices))
+    if (fully_measured and isinstance(amps_total,(int,float))
+            and not isinstance(amps_total,bool)
+            and math.isfinite(amps_total) and amps_total >= 0):
+        db.execute("""INSERT INTO pp_power_total_amps_peak
+            (id,max_amps,at,measured,expected) VALUES (1,?,?,?,?)
+            ON CONFLICT(id) DO UPDATE SET
+                at=CASE WHEN excluded.max_amps > pp_power_total_amps_peak.max_amps
+                        THEN excluded.at ELSE pp_power_total_amps_peak.at END,
+                measured=CASE WHEN excluded.max_amps > pp_power_total_amps_peak.max_amps
+                        THEN excluded.measured ELSE pp_power_total_amps_peak.measured END,
+                expected=CASE WHEN excluded.max_amps > pp_power_total_amps_peak.max_amps
+                        THEN excluded.expected ELSE pp_power_total_amps_peak.expected END,
+                max_amps=MAX(pp_power_total_amps_peak.max_amps,excluded.max_amps)""",
+            (amps_total,now,len(devices),len(devices)))
     combined = snapshot.get("watts")
     if isinstance(combined, (int, float)) and not isinstance(combined, bool) \
             and math.isfinite(combined) and combined >= 0:
