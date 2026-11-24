@@ -31,6 +31,8 @@ HEADERS = [
     "leistungswerte", "messintervalle", "abdeckung_prozent",
     "ampere_direkt_prozent", "drucker_erfasst_mittel",
     "drucker_erwartet_mittel",
+    "datensatztyp", "max_a_vor_reset", "max_a_alter_messzeitpunkt",
+    "max_a_reset_zeitpunkt", "max_a_peak_herkunft",
 ]
 
 
@@ -187,12 +189,28 @@ def _safe_cell(value):
     return "'" + text if text.lstrip().startswith(("=","+","-","@")) else text
 
 
+def reset_events(db, period, now=None):
+    """Include permanent Max-A reset events alongside the measured trend."""
+    if period not in PERIODS:
+        raise ValueError("Ungültiger Exportzeitraum.")
+    exists = db.execute("""SELECT 1 FROM sqlite_master
+        WHERE type='table' AND name='pp_power_peak_reset_log'""").fetchone()
+    if not exists:
+        return []
+    now = int(time.time() if now is None else now)
+    return db.execute("""SELECT at,device_key,device_name,previous_amps,
+        previous_source,previous_peak_at,scope
+        FROM pp_power_peak_reset_log WHERE at>=? AND at<=?
+        ORDER BY at,id""",(now-PERIODS[period][0],now)).fetchall()
+
+
 def export_csv(db, period, now=None):
     """German Excel-compatible UTF-8 CSV, machine-readable by ChatGPT."""
     if period not in PERIODS:
         raise ValueError("Ungültiger Exportzeitraum.")
     rows = collect(db, period, now=now)
-    if not rows:
+    events = reset_events(db, period, now=now)
+    if not rows and not events:
         raise LookupError("Für diesen Zeitraum liegen noch keine Messdaten vor.")
     _duration, spacing, label = PERIODS[period]
     out = io.StringIO(newline="")
@@ -232,5 +250,25 @@ def export_csv(db, period, now=None):
             val(row["energy_est_kwh"],5),
             wc,samples,val(coverage,1),val(direct,1),
             val(measured_mean,2),val(expected_mean,2),
+            "Messwerte","","","","",
         ])
+    # Same CSV structure throughout. Peak reset events are ordinary rows with
+    # an explicit dataset type so ChatGPT/Excel can filter them reliably.
+    for event in events:
+        stamp = datetime.fromtimestamp(event["at"], TZ).isoformat(timespec="seconds")
+        previous_at = (datetime.fromtimestamp(event["previous_peak_at"], TZ)
+                       .isoformat(timespec="seconds")
+                       if event["previous_peak_at"] is not None else "")
+        cells = [""] * len(HEADERS)
+        cells[0] = label
+        cells[1] = stamp
+        cells[2] = stamp
+        cells[3] = _safe_cell(event["device_name"])
+        cells[4] = _safe_cell(event["device_key"])
+        cells[16] = "Max-A-Reset"
+        cells[17] = val(event["previous_amps"],3)
+        cells[18] = previous_at
+        cells[19] = stamp
+        cells[20] = event["previous_source"] or ""
+        writer.writerow(cells)
     return ("\ufeff"+out.getvalue()).encode("utf-8")
