@@ -69,6 +69,49 @@
  }
  byId('export-period').addEventListener('change',updateExportLink);
  updateExportLink();
+ const resetBase=new URL(exportBase.href);
+ resetBase.pathname=resetBase.pathname.replace(/\/api\/tablet-history-export$/, '/api/tablet-reset-peaks');
+ resetBase.search='';
+ let peakResetBusy=false;
+ byId('reset-amps-peaks').addEventListener('click',async()=>{
+  if(peakResetBusy)return;
+  if(!window.confirm(
+   'Alle aktuellen Max-A-Werte der Drucker und den Gesamt-Ampere-Peak zurücksetzen? '+
+   'Die bisherigen Werte mit Datum bleiben im Protokoll und im CSV-Export erhalten.'))return;
+  peakResetBusy=true;
+  const button=byId('reset-amps-peaks');
+  button.disabled=true;
+  button.textContent='Setze zurück …';
+  byId('peak-reset-feedback').textContent='';
+  try{
+   const resp=await fetch(resetBase.href,{
+    method:'POST',credentials:'same-origin',cache:'no-store',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'reset_all_amperes'})
+   });
+   let output={};
+   try{output=await resp.json()}catch(_){}
+   if(!resp.ok||!output.ok)
+    throw new Error(output.error||'Zurücksetzen fehlgeschlagen');
+   byId('peak-reset-feedback').textContent=
+    output.reset_count+' Max-A-Werte zurückgesetzt. Frühere Spitzen bleiben gespeichert.';
+   if(current){
+    current.total_amps_peak=null;
+    current.peak_reset_history=output.history||[];
+    (current.devices||[]).forEach(item=>{
+     item.max_amps=null;item.max_amps_source=null;item.max_amps_at=null;
+    });
+    render(current);
+   }
+   await refresh();
+  }catch(e){
+   byId('peak-reset-feedback').textContent='Nicht zurückgesetzt: '+e.message;
+  }finally{
+   peakResetBusy=false;
+   button.disabled=false;
+   button.textContent='Max A zurücksetzen';
+  }
+ });
  async function fetchData(){
   const response=await fetch('api/tablet-monitor?minutes='+range,
    {credentials:'same-origin',cache:'no-store'});
@@ -224,6 +267,37 @@
   if(item.watts==null)return {label:'Nicht erreichbar',state:'missing'};
   return {label:'Misst',state:'idle'};
  }
+ function renderPeakHistory(d){
+  const list=Array.isArray(d.peak_reset_history)?d.peak_reset_history:[];
+  const batches=new Map();
+  list.forEach(event=>{
+   const key=String(event.batch_id||event.at);
+   if(!batches.has(key))batches.set(key,{time:event.at,items:[]});
+   batches.get(key).items.push(event);
+  });
+  const groups=[...batches.values()];
+  byId('peak-reset-count').textContent=groups.length?'('+groups.length+' letzte Vorgänge)':'';
+  if(!groups.length){
+   byId('peak-reset-log').innerHTML=
+    '<p class="peak-reset-empty">Noch kein Max-A-Reset durchgeführt.</p>';
+   return;
+  }
+  const when=seconds=>seconds?
+   new Date(seconds*1000).toLocaleString('de-DE',{
+    day:'2-digit',month:'2-digit',year:'numeric',
+    hour:'2-digit',minute:'2-digit'}):'';
+  byId('peak-reset-log').innerHTML=groups.slice(0,10).map(group=>
+   '<div class="peak-reset-batch"><strong>Zurückgesetzt am '+
+   esc(when(group.time))+'</strong><ul>'+
+   group.items.map(event=>
+    '<li><span>'+esc(event.name)+'</span><b>'+
+    (event.previous_amps==null?'Noch kein vorheriger Spitzenwert':
+      (event.source==='calculated'?'≈ ':'')+fmt(event.previous_amps,3)+' A')+
+    '</b>'+(event.previous_at?
+     '<small>Gemessen am '+esc(when(event.previous_at))+'</small>':'')+'</li>'
+   ).join('')+'</ul></div>'
+  ).join('');
+ }
  function renderDevices(d){
   const rows=(d.devices||[]);
   byId('device-summary').textContent=rows.length+' Geräte · '+d.measured+' mit Leistungsmessung';
@@ -337,7 +411,7 @@
   byId('measured').textContent=(d.printers_measured??0)+' / '+(d.printers_total??0);
   byId('warning').textContent=power(d.warning_w);
   byId('critical').textContent=power(d.critical_w);
-  status(d);loadBar(d);renderDevices(d);renderFaults(d);chart(d);
+  status(d);loadBar(d);renderDevices(d);renderPeakHistory(d);renderFaults(d);chart(d);
   const t=d.updated?new Date(d.updated*1000):new Date();
   byId('updated').textContent='Letzte Aktualisierung: '+t.toLocaleTimeString('de-DE')+
    (d.complete?'':' · Messung teilweise unvollständig');
