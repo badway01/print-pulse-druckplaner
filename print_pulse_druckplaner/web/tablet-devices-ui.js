@@ -90,7 +90,7 @@
   if(!btn)return;
   const row=btn.closest('.pp-device-edit');
   const name=row?.querySelector('.pp-device-name')?.value||'Gerät';
-  if(!confirm(name+' aus der Live-Überwachung entfernen? Historische Messwerte bleiben erhalten.'))return;
+  if(!confirm(name+' aus der Live-Überwachung entfernen? Der bisherige Gesamtleistungsverlauf bleibt erhalten.'))return;
   items=collect().filter(x=>x.id!==btn.dataset.remove);
   draw();info.textContent='Noch nicht gespeichert. Mit „Änderungen speichern“ übernehmen.';
  });
