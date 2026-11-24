@@ -3744,6 +3744,11 @@ def power_alarm_loop():
     """Background notifications without an open browser, never switches off power."""
     while True:
         try:
+            with connect() as db:
+                enabled=bool(power_monitor.config(db,cfg)['ntfy_topic'])
+            if not enabled:
+                time.sleep(15)
+                continue
             states=homeassistant_states()
             with connect() as db:
                 message=power_monitor.poll_alert(db,cfg,put_cfg,states)
