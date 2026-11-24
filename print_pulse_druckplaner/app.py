@@ -77,7 +77,7 @@ MAX_MASTER_SIZE = 100 * 1024 * 1024
 MASTER_CHUNK_SIZE = 2 * 1024 * 1024  # Streaming ingress: fewer requests, adaptive fallback in client.
 MASTER_UPLOAD_LOCK = threading.RLock()
 PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","X2D","A1","A1 mini","Prusa MK4")
-MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","X2D")
+MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","X2D","A1")
 MONITOR_FIELDS = ("status","progress","remaining","filename","nozzle","nozzle_left","nozzle_right",
                   "bed","chamber","layer","total_layers","stage","active_tray",
                   "head0","head1","head2","head3","ams1","ams2","ams3","ams4")
@@ -2566,6 +2566,7 @@ def printer_model_for_slug(slug):
     if re.search(r'(?:^|_)x2d(?:_|$)',slug): return 'X2D'
     if re.search(r'(?:^|_)p1s(?:_|$)',slug): return 'P1S'
     if re.search(r'(?:^|_)a1_?mini(?:_|$)',slug): return 'A1 mini'
+    if re.search(r'(?:^|_)a1(?:_|$)',slug): return 'A1'
     if re.search(r'(?:^|_)snapmaker(?:_|$)',slug) or re.search(r'(?:^|_)u1(?:_|$)',slug):
         return 'Snapmaker U1'
     return None
@@ -2786,7 +2787,7 @@ def ha_entity_choices():
         # can still be entered manually as an entity ID.
         haystack=(entity_id+' '+friendly).casefold()
         if not any(term in haystack for term in (
-            'bambu','snapmaker','h2d','p1s','a1_mini','a1 mini','u1',
+            'bambu','snapmaker','h2d','p1s','a1','a1_mini','a1 mini','u1',
             'nozzle','druck','printer','print_progress','print_status',
             'remaining_time','filament','ams_','toolhead')):
             continue
@@ -2923,10 +2924,22 @@ def theme_sun_state():
     return {'theme':None,'source':'system'}
 
 
+A1_SHELLY_ENERGY = 'sensor.shellyplugsg3_48f6eeb64e1c_energie'
+A1_SHELLY_SWITCH = 'switch.shellyplugsg3_48f6eeb64e1c'
+
+
+def ensure_a1_energy_binding(db, states):
+    """Add only the verified A1 energy entity, preserving existing manual mappings."""
+    if A1_SHELLY_ENERGY in states and farm_stats.energy_value(states[A1_SHELLY_ENERGY]) is not None:
+        db.execute('INSERT OR IGNORE INTO pp_farm_energy_config(printer,entity) VALUES(?,?)',
+                   ('A1', A1_SHELLY_ENERGY))
+
+
 def energy_settings():
     try: states=homeassistant_states()
     except RuntimeError: states={}
     with connect() as db:
+        ensure_a1_energy_binding(db,states)
         bindings={r['printer']:r['entity'] for r in db.execute('SELECT * FROM pp_farm_energy_config')}
         tariff=cfg(db,'farm_energy_tariff')
     sensors=[{'id':key,'name':str((state.get('attributes') or {}).get('friendly_name') or key)}
@@ -3734,7 +3747,9 @@ def farm_poll_loop():
                 db.execute('BEGIN IMMEDIATE')
                 farm_stats.record_poll(db,current['printers'])
                 if current['connected']:
-                    farm_stats.record_energy(db,homeassistant_states())
+                    states=homeassistant_states()
+                    ensure_a1_energy_binding(db,states)
+                    farm_stats.record_energy(db,states)
         except Exception:
             log.exception('Druckfarm-Messung konnte nicht gespeichert werden')
         time.sleep(60)
