@@ -210,13 +210,18 @@ def enrich_currents(snapshot, states):
     estimated_count = 0
     for device in snapshot.get("devices", []):
         entity = device.get("entity") or ""
+        # Match by the same physical Shelly, including custom-renamed power
+        # entities. The fixed known map distinguishes A1 and X2D correctly.
         match = SHELLY_ID.search(entity)
+        if not match:
+            match = SHELLY_ID.search(device.get("switch_entity") or "")
+        suffix = (match.group(1) if match else
+                  power_monitor.KNOWN_SHELLYS.get(device.get("name")))
         sensor = ""
         actual = None
-        if match:
-            prefix = "sensor.shellyplugsg3_" + match.group(1) + "_"
-            # Prefer the known HA German suffix, then any current sensor
-            # belonging to the *same physical Shelly device identifier*.
+        if suffix:
+            prefix = "sensor.shellyplugsg3_" + suffix + "_"
+            # Prefer the real HA Stromstärke entity for this exact plug.
             known = prefix + "stromstarke"
             options = ([known] if known in states else []) + sorted(
                 key for key in states
