@@ -1,3 +1,13 @@
+## 0.13.89 – Max A zurücksetzen, bisherige Rekorde dauerhaft erhalten (24.11.2026)
+
+- Neuer Button „Max A zurücksetzen“ in der Geräteübersicht des Tablet-Schutzmonitors. Ein Bestätigungsdialog schützt vor versehentlicher Rücksetzung.
+- Der Button startet die aktuelle Spitzenwertmessung für **alle zugeordneten Geräte** und den **Gesamt-Ampere-Peak** neu. Die laufende Watt-/Ampere-Messung und die bestehenden Watt-Gesamtpeakwerte werden nicht zurückgesetzt. Spätestens mit der nächsten regulären 15-Sekunden-Abfrage werden neue Max-A-Werte erfasst.
+- **Kein Verlust bisheriger Max-A-Rekorde:** Bei jeder Rücksetzung werden Zeitstempel, Gerätename, Leistungs-/Stromsensor, vorheriger Ampere-Peak und dessen Messzeitpunkt sowie die Herkunft des Werts (Shelly oder berechnet) dauerhaft in `pp_power_peak_reset_log` protokolliert.
+- Aufklappbares Protokoll „Zurücksetzungen und frühere Spitzenwerte“ zeigt im Tablet die zuletzt zurückgesetzten Spitzenwerte mit Datum. Sämtliche gespeicherten Reset-Datensätze bleiben in SQLite erhalten, auch nach Neustarts.
+- Bereits bestehende Watt-/Ampere-Trendhistorien (5 Minuten / Stunde, bis 400 Tage) bleiben unverändert. CSV-Export für 24 Stunden, 7 Tage, 30 Tage und 365 Tage enthält die Reset-Ereignisse als zusätzliche `Max-A-Reset`-Datensätze in derselben tabellarischen Datei, mit `max_a_vor_reset` und weiteren Ereignisfeldern.
+- Reset über einen dedizierten, Home-Assistant-Ingress-geschützten POST-Endpunkt mit Transaktionssperre. Es werden keine Steckdosen geschaltet und keine Druckjobs beeinflusst.
+- Regressionstest für zwei aufeinanderfolgende Resets mit gespeicherten früheren Spitzen und weiterhin vorhandenen Mess-/Watt-Gesamtdaten hinzugefügt. Frontend-Aufruf und Aufrufpfad mit UI-Mock geprüft; Live-Test in HA nach dem Update erforderlich.
+
 ## 0.13.88 – Dualer Watt-/Ampere-Laststatus mit drei Warnfarben (24.11.2026)
 
 - Stromüberwachung nach dem freigegebenen Entwurf neu gestaltet: zwei vollbreite Lastbalken direkt untereinander, separat für Watt und die Summe der realen Shelly-Amperewerte; ausschließlich Farbfolge **Grün → Gelb → Rot**, keine orange Zwischenstufe.
