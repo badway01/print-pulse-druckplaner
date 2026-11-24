@@ -261,6 +261,10 @@ def enrich_currents(snapshot, states):
 
 def ensure_total_peak_table(db):
     """Keep highest observed aggregate across restarts, not a circuit peak."""
+    # On a fresh installation the API may be opened before the first sample.
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_power_history
+        (at INTEGER PRIMARY KEY, watts REAL, measured INTEGER NOT NULL,
+         expected INTEGER NOT NULL)""")
     db.execute("""CREATE TABLE IF NOT EXISTS pp_power_total_peak(
         id INTEGER PRIMARY KEY CHECK(id=1),
         max_watts REAL NOT NULL CHECK(max_watts>=0),
