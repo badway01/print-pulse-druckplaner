@@ -69,3 +69,15 @@ body[data-theme=dark] .devices-table .pill.error{background:#6b2f2c;color:#ffcfc
  padding:9px 12px;white-space:nowrap;cursor:pointer}
 .back-to-planner:hover{background:var(--soft)}
 @media(max-width:780px){.back-to-planner{padding:7px 9px;font-size:11px}}
+
+/* Narrow screen threshold labels: two separate rows avoid warning/critical collisions. */
+@media (max-width:850px){
+ .load-ticks{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  grid-template-rows:auto auto;column-gap:14px;row-gap:3px;height:auto;
+  margin-top:9px;font-size:11px;line-height:1.4}
+ .load-ticks span{position:static!important;left:auto!important;right:auto!important;
+  transform:none!important;top:auto!important;white-space:normal;min-width:0}
+ .load-ticks span:first-child{grid-column:1 / -1;grid-row:1;text-align:left}
+ .load-ticks span:nth-child(2){grid-column:1;grid-row:2;text-align:left}
+ .load-ticks span:last-child{grid-column:2;grid-row:2;text-align:right}
+}
