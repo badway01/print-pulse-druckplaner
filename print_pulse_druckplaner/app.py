@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats, filament_stats
+    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats, filament_stats, power_monitor
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -62,9 +62,12 @@ except ImportError:
     _filament_stats_spec=importlib.util.spec_from_file_location('pp_filament_stats',Path(__file__).with_name('filament_stats.py'))
     filament_stats=importlib.util.module_from_spec(_filament_stats_spec)
     _filament_stats_spec.loader.exec_module(filament_stats)
+    _power_spec=importlib.util.spec_from_file_location('pp_power_monitor',Path(__file__).with_name('power_monitor.py'))
+    power_monitor=importlib.util.module_from_spec(_power_spec)
+    _power_spec.loader.exec_module(power_monitor)
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.73'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.76'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -3211,6 +3214,20 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError,sqlite3.Error):
                 return self.send(400,{'error':'Druckfarm-Auswertung konnte nicht geladen werden.'})
         if path=='/api/farm-energy-settings': return self.send(200,energy_settings())
+        if path=='/api/power-monitor':
+            try:
+                with connect() as db:
+                    settings=power_monitor.config(db,cfg)
+                return self.send(200,power_monitor.snapshot(homeassistant_states(),settings))
+            except RuntimeError as exc:
+                return self.send(503,{'error':str(exc)[:160]})
+        if path=='/api/power-monitor-settings':
+            try:
+                states=homeassistant_states()
+                with connect() as db:
+                    return self.send(200,power_monitor.read_settings(db,cfg,states))
+            except RuntimeError as exc:
+                return self.send(503,{'error':str(exc)[:160]})
         if path=='/api/printer-entities': return self.send(200,ha_entity_choices())
         if path=='/api/print-tools':
             params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
@@ -3271,7 +3288,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except (ValueError,FileNotFoundError):
                 return self.send(404,{'error':'Datei nicht verfügbar.'})
-        assets={'/printer-farm-frame.html':('printer-farm-frame.html','text/html'),'/printer-farm-frame.js':('printer-farm-frame.js','application/javascript'),'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/filament-quick-ui.js':('filament-quick-ui.js','application/javascript'),'/filament-stats-ui.js':('filament-stats-ui.js','application/javascript'),'/farm-ui.js':('farm-ui.js','application/javascript'),'/farm-ui.css':('farm-ui.css','text/css'),'/dashboard-order-cards.css':('dashboard-order-cards.css','text/css'),'/master-insights-ui.js':('master-insights-ui.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/catalog-3mf-info.js':('catalog-3mf-info.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/production-pool-ui.js':('production-pool-ui.js','application/javascript'),'/production-pool.css':('production-pool.css','text/css'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
+        assets={'/printer-farm-frame.html':('printer-farm-frame.html','text/html'),'/printer-farm-frame.js':('printer-farm-frame.js','application/javascript'),'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/filament-quick-ui.js':('filament-quick-ui.js','application/javascript'),'/filament-stats-ui.js':('filament-stats-ui.js','application/javascript'),'/farm-ui.js':('farm-ui.js','application/javascript'),'/farm-ui.css':('farm-ui.css','text/css'),'/power-safety-ui.js':('power-safety-ui.js','application/javascript'),'/power-safety-ui.css':('power-safety-ui.css','text/css'),'/dashboard-order-cards.css':('dashboard-order-cards.css','text/css'),'/master-insights-ui.js':('master-insights-ui.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/catalog-3mf-info.js':('catalog-3mf-info.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/production-pool-ui.js':('production-pool-ui.js','application/javascript'),'/production-pool.css':('production-pool.css','text/css'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
@@ -3602,6 +3619,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,overview())
             if path=='/api/farm-energy-settings':
                 return self.send(200,save_energy_settings(data))
+            if path=='/api/power-monitor-settings':
+                states=homeassistant_states()
+                with connect() as db:
+                    settings=power_monitor.save_settings(db,cfg,put_cfg,data,states)
+                return self.send(200,{'ok':True,'settings':settings})
+            if path=='/api/power-monitor-test':
+                with connect() as db:
+                    result=power_monitor.test_notification(db,cfg)
+                return self.send(200,result)
             if path=='/api/undo':
                 undo_action(str(data.get('id') or ''))
                 return self.send(200,overview())
@@ -3714,6 +3740,24 @@ def farm_poll_loop():
         time.sleep(60)
 
 
+def power_alarm_loop():
+    """Background notifications without an open browser, never switches off power."""
+    while True:
+        try:
+            states=homeassistant_states()
+            with connect() as db:
+                message=power_monitor.poll_alert(db,cfg,put_cfg,states)
+            if message:
+                power_monitor.send_ntfy(
+                    message['topic'],message['title'],message['message'],message['priority'])
+                with connect() as db:
+                    power_monitor.mark_sent(db,cfg,put_cfg,message)
+        except Exception:
+            # Do not log topic URLs or private message bodies.
+            log.warning('Stromwarnung derzeit nicht versendbar; wird erneut geprüft.')
+        time.sleep(15)
+
+
 def periodic_sync():
     while True:
         with connect() as db:
@@ -3730,4 +3774,5 @@ if __name__=='__main__':
     init_db()
     threading.Thread(target=periodic_sync,daemon=True).start()
     threading.Thread(target=farm_poll_loop,daemon=True).start()
+    threading.Thread(target=power_alarm_loop,daemon=True).start()
     ThreadingHTTPServer(('0.0.0.0',8099),Handler).serve_forever()
