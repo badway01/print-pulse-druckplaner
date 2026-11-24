@@ -1,3 +1,11 @@
+## 0.13.84 – Tablet-Monitor: Home-Assistant-Ingress 401 behoben (24.11.2026)
+
+- Ursache: Der Dashboard-Button „Tablet-Monitor öffnen“ nutzte `target="_blank"`. Die Home-Assistant-iOS-App öffnete die Ingress-URL deshalb in Safari, wo keine gültige Ingress-Sitzung vorhanden war (`401: Unauthorized`).
+- Statt eines neuen Tabs wird der Monitor mit einem Klick innerhalb des bestehenden, authentifizierten Home-Assistant-Ingress-Frames aufgerufen. Es wird kein Anmelde-Token in eine neue Browser-Session kopiert.
+- In der Monitoransicht gibt es nun den Button „‹ Druckplaner“, der zur ursprünglichen Add-on-Startseite derselben Sitzung zurückführt.
+- Ressourcen-Versionen für das Dashboard und den Tablet-Monitor aktualisiert, damit der alte Link nicht aus dem Browsercache geladen wird.
+- Direkt gespeicherte `/api/hassio_ingress/...`-Links sind keine dauerhaft gültigen, eigenständig nutzbaren Tablet-URLs. Zum Start den Druckplaner aus Home Assistant öffnen. Alle Shelly-Sensoren, Spitzenwerte und Warnungen bleiben unverändert.
+
 ## 0.13.83 – Echte Shelly-Ampere und dauerhafter Gesamtleistungs-Peak (24.11.2026)
 
 - Tablet-Monitor nutzt echte Home-Assistant-Stromsensoren (device_class=current, A/mA) je Shelly. Die Zuordnung erfolgt strikt über die Plug-ID: H2D `90706948a600`, P1S Old `80b54e2aaa24`, P1S New `9070694d3d74`, Snapmaker U1 `9070694dac1c`, X2D `80b54e287eac`, A1 `48f6eeb64e1c`.
