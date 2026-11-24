@@ -9,6 +9,15 @@
   html{--primary-text-color:#161b22;--card-background-color:#fff;--divider-color:#d9dde2;--secondary-background-color:#f1f3f5;--secondary-text-color:#68727c}
   html[data-theme="dark"]{color-scheme:dark;--primary-text-color:#eeeeee;--card-background-color:#25322b;--divider-color:#48564c;--secondary-background-color:#1d2822;--secondary-text-color:#aab9af}
   #farm{display:flow-root}
+  .a1-shelly-bar{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;
+    border:1px solid var(--divider-color);background:var(--card-background-color);border-radius:12px;
+    padding:12px 14px;margin:7px 10px 12px;color:var(--primary-text-color);font:13px system-ui,sans-serif}
+  .a1-shelly-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .a1-shelly-text strong{font-size:14px}
+  .a1-shelly-text span{color:var(--secondary-text-color)}
+  #a1-shelly-toggle{padding:9px 14px;border:1px solid #278257;border-radius:8px;background:#278257;color:#fff;
+    font:600 12px system-ui,sans-serif;cursor:pointer;min-width:125px}
+  #a1-shelly-toggle:disabled{background:var(--divider-color);color:var(--secondary-text-color);border-color:var(--divider-color);cursor:default}
  </style>
  <script src="printer-farm-frame.js?v=0.13.69" defer></script>
 </head>
