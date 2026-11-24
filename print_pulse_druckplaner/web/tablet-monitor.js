@@ -68,7 +68,17 @@
   else if(faults.length){level='critical';label='Shelly-Störung';detail=faults.length+' aktive Fehlermeldung(en)'}
   else if(d.level==='critical'){level='critical';label='Kritische Last';detail='Kritische Schwelle überschritten'}
   else if(d.level==='warning'){level='warning';label='Erhöhte Last';detail='Warnschwelle überschritten'}
-  else if(!d.complete){level='unknown';label='Unvollständige Messung';detail='Nicht alle Drucker-Sensoren liefern Werte'}
+  else if(!d.complete){
+   level='unknown';
+   const missing=(d.devices||[]).filter(x=>x.kind==='printer'&&x.watts==null);
+   const unassigned=missing.filter(x=>!x.entity).map(x=>x.name);
+   const unavailable=missing.filter(x=>x.entity).map(x=>x.name);
+   label=unassigned.length?'Messpunkte fehlen':'Unvollständige Messung';
+   detail=[
+    unassigned.length?'Nicht zugeordnet: '+unassigned.join(', '):'',
+    unavailable.length?'Kein Messwert: '+unavailable.join(', '):''
+   ].filter(Boolean).join(' · ')||'Nicht alle Drucker-Sensoren liefern Werte';
+  }
   byId('load-card').dataset.level=level;
   byId('status-title').textContent=label;
   byId('status-detail').textContent=detail;
