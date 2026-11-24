@@ -227,3 +227,39 @@ body[data-theme=dark] .devices-table .pill.error{background:#6b2f2c;color:#ffcfc
 
 /* Override the legacy mobile single-bar tick placement for both new bars. */
 .dual-load .load-ticks span{grid-column:auto!important;grid-row:auto!important}
+
+/* Current Max-A period controls. Logs remain visible after resets. */
+.peak-reset-section{margin-top:14px;border-top:1px solid var(--border);padding-top:14px}
+.peak-reset-action{display:flex;align-items:center;justify-content:space-between;
+ gap:13px;flex-wrap:wrap}
+.peak-reset-title{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.peak-reset-title strong{font-size:13px}
+.peak-reset-title span{font-size:11px;color:var(--muted);line-height:1.4}
+.peak-reset-button{border:1px solid var(--border);color:var(--text);background:var(--soft);
+ border-radius:9px;padding:9px 13px;font-size:12px;font-weight:700;cursor:pointer;
+ white-space:nowrap}
+.peak-reset-button:hover{border-color:var(--green);color:var(--green)}
+.peak-reset-button:focus-visible{outline:3px solid #4cac77;outline-offset:2px}
+.peak-reset-button:disabled{opacity:.55;cursor:wait}
+.peak-reset-feedback{color:var(--muted);font-size:11px;margin:8px 0 0;line-height:1.5}
+.peak-reset-feedback:empty{display:none}
+.peak-reset-history{margin-top:11px;color:var(--muted);font-size:12px}
+.peak-reset-history summary{cursor:pointer;font-weight:650;line-height:1.4;
+ padding:6px 0;color:var(--text)}
+.peak-reset-history summary span{font-weight:400;color:var(--muted)}
+.peak-reset-log{display:grid;gap:9px;max-height:320px;overflow:auto;padding:8px 0}
+.peak-reset-batch{border:1px solid var(--border);border-radius:9px;padding:10px 12px;
+ background:var(--soft);min-width:0}
+.peak-reset-batch>strong{display:block;font-size:12px;color:var(--text);margin-bottom:7px}
+.peak-reset-batch ul{margin:0;padding:0;list-style:none;display:grid;gap:7px}
+.peak-reset-batch li{display:grid;grid-template-columns:minmax(0,1fr) auto;
+ align-items:baseline;gap:3px 8px;font-size:11px}
+.peak-reset-batch li span{min-width:0;color:var(--text);font-weight:570}
+.peak-reset-batch li b{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text)}
+.peak-reset-batch li small{grid-column:1/-1;color:var(--muted);font-size:10px}
+.peak-reset-empty{margin:0;color:var(--muted);font-size:11px}
+@media(max-width:460px){
+ .peak-reset-action{align-items:stretch}
+ .peak-reset-title{flex:1 1 100%}
+ .peak-reset-button{width:100%}
+}
