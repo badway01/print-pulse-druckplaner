@@ -179,9 +179,51 @@ def save(db, cfg, put_cfg, payload, states):
     return {"ok": True, "devices": result}
 
 
+def ensure_peak_table(db):
+    """Maintain permanent peak power readings, keyed by the HA power sensor.
+
+    Renaming a printer does not lose its peak. Assigning a different plug
+    does not mistakenly inherit the previous plug's recorded peak.
+    """
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_power_device_peaks(
+        entity TEXT PRIMARY KEY,
+        max_watts REAL NOT NULL CHECK(max_watts >= 0),
+        at INTEGER NOT NULL)""")
+
+
+def device_peaks(db):
+    """Highest observed W/230 (A) per power entity since peak tracking began."""
+    ensure_peak_table(db)
+    return {row["entity"]: {
+                "max_watts": round(row["max_watts"], 1),
+                "max_amps": round(row["max_watts"] / 230, 3),
+                "at": row["at"]}
+            for row in db.execute(
+                "SELECT entity,max_watts,at FROM pp_power_device_peaks")}
+
+
 def record_sample(db, snapshot, now=None):
-    """15-second samples, retained 24h; missing readings remain NULL, never zero."""
+    """15-second samples; permanently store per-Shelly observed power peaks."""
     now = int(time.time() if now is None else now)
+    ensure_peak_table(db)
+    for item in snapshot.get("devices", []):
+        if not isinstance(item, dict):
+            continue
+        entity = item.get("entity")
+        watts = item.get("watts")
+        if not isinstance(entity, str) or not entity.startswith("sensor."):
+            continue
+        if isinstance(watts, bool) or not isinstance(watts, (int, float)):
+            continue
+        if not math.isfinite(watts) or watts < 0:
+            continue
+        db.execute("""INSERT INTO pp_power_device_peaks(entity,max_watts,at)
+            VALUES(?,?,?)
+            ON CONFLICT(entity) DO UPDATE SET
+                at=CASE WHEN excluded.max_watts > pp_power_device_peaks.max_watts
+                        THEN excluded.at ELSE pp_power_device_peaks.at END,
+                max_watts=MAX(pp_power_device_peaks.max_watts,excluded.max_watts)""",
+                   (entity, watts, now))
     db.execute("""CREATE TABLE IF NOT EXISTS pp_power_history
         (at INTEGER PRIMARY KEY, watts REAL, measured INTEGER NOT NULL,
          expected INTEGER NOT NULL)""")
