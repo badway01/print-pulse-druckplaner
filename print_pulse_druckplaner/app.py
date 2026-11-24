@@ -3279,6 +3279,7 @@ class Handler(BaseHTTPRequestHandler):
                         power_monitor.snapshot(states,settings),states)
                     result['history']=tablet_monitor.history(db,minutes)
                     result['total_peak']=tablet_monitor.total_peak(db)
+                    result['total_amps_peak']=tablet_monitor.total_amps_peak(db)
                     peaks=tablet_monitor.device_peaks(db)
                 records=tablet_monitor.devices(states,settings)
                 by_name={d['name']:d for d in records if d.get('enabled',True)}
