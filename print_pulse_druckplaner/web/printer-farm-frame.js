@@ -3,6 +3,70 @@
 // No access token is copied and no new server-side control endpoint is exposed.
 const farmResource='/local/print-pulse-farm/print-pulse-farm.js?v=0.2.2';
 const farmMount=document.getElementById('farm');
+const A1_SHELLY={
+ switch:'switch.shellyplugsg3_48f6eeb64e1c',
+ power:'sensor.shellyplugsg3_48f6eeb64e1c_leistung',
+ energy:'sensor.shellyplugsg3_48f6eeb64e1c_energie'
+};
+// Enrich only the A1 card. All other printer config and controls are preserved.
+function withA1Shelly(config){
+ if(!Array.isArray(config.printers))return config;
+ return {...config,printers:config.printers.map(p=>{
+  if(p.id!=='a1'&&String(p.name||'').trim().toLowerCase()!=='a1')return p;
+  const controls=Array.isArray(p.controls)?p.controls.slice():[];
+  if(!controls.includes(A1_SHELLY.switch))controls.push(A1_SHELLY.switch);
+  return {...p,controls,entities:{...(p.entities||{}),power:A1_SHELLY.power,energy:A1_SHELLY.energy}};
+ })};
+}
+function installA1Control(root){
+ const bar=document.createElement('section');
+ bar.className='a1-shelly-bar';
+ bar.setAttribute('aria-label','A1 Shelly Stromversorgung');
+ bar.innerHTML='<div class="a1-shelly-text"><strong>Bambu A1 · Shelly</strong><span id="a1-shelly-reading">Lade Shelly-Zustand …</span></div>'+
+  '<button id="a1-shelly-toggle" type="button" disabled>Keine Verbindung</button>';
+ farmMount.append(bar);
+ const button=bar.querySelector('#a1-shelly-toggle');
+ const reading=bar.querySelector('#a1-shelly-reading');
+ let changing=false;
+ const refresh=()=>{
+  const st=root.hass?.states||{};
+  const sw=st[A1_SHELLY.switch]?.state;
+  const powered=sw==='on'||sw==='off';
+  const watts=st[A1_SHELLY.power];
+  const kwh=st[A1_SHELLY.energy];
+  const power=watts&&['W','kW'].includes(watts.attributes?.unit_of_measurement)&&Number.isFinite(Number(watts.state))?
+   (Number(watts.state)*(watts.attributes.unit_of_measurement==='kW'?1000:1)).toLocaleString('de-DE',{maximumFractionDigits:1})+' W':null;
+  const energy=kwh&&Number.isFinite(Number(kwh.state))?
+   Number(kwh.state).toLocaleString('de-DE',{maximumFractionDigits:2})+' kWh':null;
+  if(!changing){
+   button.disabled=!powered;
+   button.textContent=sw==='on'?'A1 ausschalten':sw==='off'?'A1 einschalten':'Shelly nicht verfügbar';
+  }
+  reading.textContent=(powered?(sw==='on'?'Ein':'Aus'):'Keine Schalterdaten')+
+    (power?' · '+power:'')+(energy?' · '+energy:'');
+ };
+ button.addEventListener('click',async()=>{
+  if(changing)return;
+  const st=root.hass?.states?.[A1_SHELLY.switch]?.state;
+  if(st!=='on'&&st!=='off')return;
+  const action=st==='on'?'turn_off':'turn_on';
+  if(action==='turn_off'&&!window.confirm('Bambu A1 wirklich vom Strom trennen? Einen laufenden Druck dadurch nicht unterbrechen.'))return;
+  changing=true;
+  button.disabled=true;
+  button.textContent='Schalte …';
+  try{
+   await root.hass.callService('switch',action,{entity_id:A1_SHELLY.switch});
+   reading.textContent='Schaltbefehl gesendet. Warte auf HA-Rückmeldung …';
+  }catch(e){
+   reading.textContent='A1-Schaltung fehlgeschlagen: '+String(e?.message||e);
+  }finally{
+   changing=false;
+   refresh();
+  }
+ });
+ refresh();
+ return refresh;
+}
 function findHA(){
  let current=window;
  for(let depth=0;depth<8;depth++){
@@ -66,7 +130,7 @@ async function startFarm(loadResource=url=>import(url)){
  let root=findHA();
  for(let i=0;!root&&i<15;i++){await new Promise(resolve=>setTimeout(resolve,250));root=findHA();}
  if(!root)throw Error('HA-Frontend nicht erreichbar');
- const config=await farmConfig(root.hass);
+ const config=withA1Shelly(await farmConfig(root.hass));
  await loadResource(farmResource);
  if(!customElements.get('print-pulse-farm'))throw Error('HA-Karte nicht installiert');
  const card=document.createElement('print-pulse-farm');
@@ -80,12 +144,14 @@ async function startFarm(loadResource=url=>import(url)){
   root.dispatchEvent(new view.CustomEvent('hass-more-info',{detail:{entityId},bubbles:true,composed:true}));
  });
  syncTheme();
+ const refreshA1=installA1Control(root);
  farmMount.append(card);
  const observer=new ResizeObserver(()=>report('height'));
  observer.observe(farmMount);
  report('ready');
  const timer=setInterval(()=>{
   syncTheme();
+  refreshA1();
   if(!root.hass?.states||root.hass.connected===false){clearInterval(timer);report('unavailable');return;}
   if(root.hass!==last){last=root.hass;card.hass=last;}
  },500);
