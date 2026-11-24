@@ -52,6 +52,14 @@
   range=Number(byId('chart-range').value);
   refresh();
  });
+ // Use a native same-origin attachment download: preserves Home Assistant
+ // ingress authentication and works even in the iOS companion webview.
+ byId('export-period').addEventListener('change',()=>{
+  const period=byId('export-period').value;
+  if(['day','week','month','year'].includes(period)){
+   byId('history-export-link').href='api/tablet-history-export?period='+period;
+  }
+ });
  async function fetchData(){
   const response=await fetch('api/tablet-monitor?minutes='+range,
    {credentials:'same-origin',cache:'no-store'});
