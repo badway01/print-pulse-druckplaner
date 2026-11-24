@@ -9,7 +9,7 @@
  const fmt=n=>n==null?'–':new Intl.NumberFormat('de-DE',{maximumFractionDigits:1}).format(n);
  host.innerHTML =
   '<section id="pp-power" class="pp-power" aria-label="Shelly Stromüberwachung">'+
-   '<div class="pp-power-head"><div><small>DRUCKERFARM · SHELLY LIVE · v0.13.81</small><h3>Stromüberwachung</h3></div><span class="pp-power-header-actions"><a class="pp-tablet-link" href="monitor" target="_blank" rel="noopener">Tablet-Monitor öffnen ↗</a><span id="pp-power-state" class="pp-power-state">Lade …</span></span></div>'+
+   '<div class="pp-power-head"><div><small>DRUCKERFARM · SHELLY LIVE · v0.13.84</small><h3>Stromüberwachung</h3></div><span class="pp-power-header-actions"><button type="button" class="pp-tablet-link" id="pp-tablet-open">Tablet-Monitor öffnen</button><span id="pp-power-state" class="pp-power-state">Lade …</span></span></div>'+
    '<div class="pp-power-grid">'+
     '<div><small>Gemessene Leistung</small><strong id="pp-power-watts">– W</strong></div>'+
     '<div><small>Rechnerisch bei 230 V</small><strong id="pp-power-amps">– A</strong></div>'+
@@ -38,6 +38,11 @@
     '</details>'+
    '</section>';
  const el=id=>document.getElementById(id);
+ // Stay in the Home Assistant ingress iframe. A new Safari tab would not
+ // inherit the HA session and commonly fails with 401 Unauthorized.
+ el('pp-tablet-open').addEventListener('click',()=>{
+  window.location.assign('monitor');
+ });
  async function request(path,payload){
   const response=await fetch('api/'+path,{
    method:payload===undefined?'GET':'POST',
