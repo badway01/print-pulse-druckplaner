@@ -1,3 +1,12 @@
+## 0.13.83 – Echte Shelly-Ampere und dauerhafter Gesamtleistungs-Peak (24.11.2026)
+
+- Tablet-Monitor nutzt echte Home-Assistant-Stromsensoren (device_class=current, A/mA) je Shelly. Die Zuordnung erfolgt strikt über die Plug-ID: H2D `90706948a600`, P1S Old `80b54e2aaa24`, P1S New `9070694d3d74`, Snapmaker U1 `9070694dac1c`, X2D `80b54e287eac`, A1 `48f6eeb64e1c`.
+- Keine pauschale Watt-/230-V-Berechnung mehr, solange der jeweilige Ampere-Sensor Daten liefert. Bei fehlendem Sensor bleibt ein als `≈` gekennzeichneter Ersatzwert. Die Ampere-Gesamtsumme addiert Gerätewerte; sie ist keine direkte Messung eines abgesicherten Stromkreises.
+- Geräteübersicht: Strom und Max A mit drei Nachkommastellen, echte Shelly-Spitzenwerte je Gerät dauerhaft in SQLite. Bisherige errechnete Max-A-Spitzen bleiben als Fallback erhalten und sind gekennzeichnet.
+- Neue KPI „Gesamtpeak seit Aufzeichnung“: höchste insgesamt beobachtete Leistung in Watt, Zeitpunkt und Abdeckung der Drucker-Messpunkte. Dauerhaft gespeichert; beim ersten Start aus dem vorhandenen 24-Stunden-Verlauf initialisiert, sofern dieser existiert.
+- Responsive Anordnung von sechs KPI-Feldern mit Auto-/Hell-/Dunkelmodus. Keine Änderung an Drucker-Schaltern oder Stromwarnschwellen.
+- HA-Geräteprüfung: A1 und X2D liefern nach Aktivierung der zuvor deaktivierten Entität jeweils `sensor.shellyplugsg3_<id>_stromstarke`.
+
 ## 0.13.82 – Tablet: Max A und detaillierte Druckphasen (24.11.2026)
 
 - Neue Spalte „Max A“ direkt neben „Strom*“: dauerhafter höchster beobachteter Wert pro Shelly-Leistungssensor, berechnet aus Watt / 230 V. 15-Sekunden-Abtastung im Hintergrund, SQLite-Speicherung auch über Add-on-Neustarts hinweg.
