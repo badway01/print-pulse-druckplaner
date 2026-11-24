@@ -291,3 +291,59 @@ def mark_sent(db, cfg, put_cfg, message):
     if previous.get('candidate') == message['level'] and previous.get('since') == message['since']:
         previous['sent'] = message['level']
         put_cfg(db, ALERT_KEY, json.dumps(previous))
+
+def poll_fault_alert(db, cfg, put_cfg, states, now=None):
+    """Notify once per active Shelly fault episode. Rearm only on explicit 'off'."""
+    now = int(time.time() if now is None else now)
+    settings = config(db, cfg)
+    if not settings['ntfy_topic']:
+        return None
+    try:
+        saved = json.loads(cfg(db, FAULT_ALERT_KEY, '{}'))
+    except (ValueError, TypeError):
+        saved = {}
+    if not isinstance(saved, dict):
+        saved = {}
+    alert = None
+    for fault in fault_status(states):
+        entity = fault['entity']
+        if fault['state'] == 'off':
+            saved.pop(entity, None)
+            continue
+        if fault['state'] != 'on':
+            continue
+        previous = saved.get(entity, {})
+        if not isinstance(previous, dict):
+            previous = {}
+        if 'since' not in previous:
+            previous['since'] = now
+        if not previous.get('sent') and alert is None:
+            # A short confirmation prevents alerts caused by one stale state.
+            if now - int(previous['since']) >= 15 and now - int(previous.get('attempt') or 0) >= 60:
+                previous['attempt'] = now
+                alert = {
+                    'entity': entity,
+                    'since': previous['since'],
+                    'topic': settings['ntfy_topic'],
+                    'title': 'Print & Pulse: Shelly-' + fault['type'],
+                    'message': fault['device'] + ' meldet ' + fault['type'] +
+                               '. Status in Home Assistant und am Gerät prüfen.',
+                    'priority': '5',
+                }
+        saved[entity] = previous
+    put_cfg(db, FAULT_ALERT_KEY, json.dumps(saved, ensure_ascii=False))
+    return alert
+
+
+def mark_fault_sent(db, cfg, put_cfg, alert):
+    try:
+        saved = json.loads(cfg(db, FAULT_ALERT_KEY, '{}'))
+    except (ValueError, TypeError):
+        return
+    if not isinstance(saved, dict):
+        return
+    current = saved.get(alert['entity'], {})
+    if isinstance(current, dict) and current.get('since') == alert['since']:
+        current['sent'] = True
+        saved[alert['entity']] = current
+        put_cfg(db, FAULT_ALERT_KEY, json.dumps(saved, ensure_ascii=False))
