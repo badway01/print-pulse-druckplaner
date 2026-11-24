@@ -100,3 +100,26 @@ body[data-theme=dark] .devices-table .pill.error{background:#6b2f2c;color:#ffcfc
  text-align:center;
  vertical-align:middle;
 }
+
+/* Exportable long-term trends: same calm visual language as the live chart. */
+.history-export{border-top:1px solid var(--border);margin-top:13px;padding-top:14px}
+.history-export-heading{display:flex;justify-content:space-between;align-items:baseline;
+ gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.history-export-heading strong{font-size:14px}
+.history-export-heading span{color:var(--muted);font-size:10px}
+.history-export-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;
+ gap:9px;align-items:stretch}
+.history-export-controls select{border:1px solid var(--border);border-radius:9px;
+ padding:9px 11px;background:var(--soft);color:var(--text);
+ min-width:0;font-size:12px;width:100%}
+.history-download{display:inline-flex;justify-content:center;align-items:center;
+ gap:5px;border:1px solid #20864b;border-radius:9px;background:#20864b;
+ color:#fff!important;text-decoration:none!important;font-size:12px;font-weight:700;
+ padding:9px 13px;white-space:nowrap;cursor:pointer}
+.history-download:hover{background:#176b3a}
+.history-download:focus-visible{outline:3px solid #61b87d;outline-offset:2px}
+.history-export-note{font-size:10px;line-height:1.55;color:var(--muted);margin:9px 0 0}
+@media(max-width:420px){
+ .history-export-controls{grid-template-columns:1fr}
+ .history-download{min-height:37px}
+}
