@@ -1,3 +1,11 @@
+## 0.13.82 – Tablet: Max A und detaillierte Druckphasen (24.11.2026)
+
+- Neue Spalte „Max A“ direkt neben „Strom*“: dauerhafter höchster beobachteter Wert pro Shelly-Leistungssensor, berechnet aus Watt / 230 V. 15-Sekunden-Abtastung im Hintergrund, SQLite-Speicherung auch über Add-on-Neustarts hinweg.
+- Spitzenwerte beginnen mit dieser Version; ältere einzelne Gerätespitzen lassen sich aus der bisherigen reinen Gesamtleistungs-Historie nicht rekonstruieren. Beim Druckertausch bleibt der Peak an die bisherige Shelly-Leistungsentität gebunden und wird keinem fremden Shelly zugeschrieben.
+- Echte Bambu-HA-Arbeitsschritte in der Tablet-Tabelle: beispielsweise „Nivelliert“, „Heizbett heizt“, „Düse heizt“, „Kalibriert Extrusion“, „Filamentwechsel“ oder „Druckt“. Wenn keine verwertbare Phase vorhanden ist, wird weiterhin der normale Druckstatus gezeigt.
+- Gesamte Tabellenzeilen dezent eingefärbt: Grün bei Druck, Gelb bei Nivellierung/Vorbereitung, Orange bei Pause, Blau bei Fertig, Neutral bei Bereit/Aus und Rot bei Fehler. Schmaler Statusstreifen links; Hell- und Dunkelmodus unterstützt.
+- Keine Änderungen an Shelly-Schaltfunktionen, Leistungsschwellen oder ntfy-Warnungen.
+
 ## 0.13.81 – Print & Pulse Tablet-Schutzmonitor (24.11.2026)
 
 - Eigenständige, über den Home-Assistant-Ingress gesicherte Monitorseite `/monitor` für ein dauerhaftes Tablet-Display. Aufruf per „Tablet-Monitor öffnen“ im Dashboard, keine eigene Login- oder Internetfreigabe.
