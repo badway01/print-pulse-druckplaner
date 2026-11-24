@@ -32,21 +32,40 @@
    <article class="kpi"><div class="kpi-symbol">ϟ</div><div><small>Gesamtleistung</small><strong id="watts">– W</strong></div></article>
    <article class="kpi peak-kpi"><div class="kpi-symbol">↑</div><div><small>Gesamtpeak seit Aufzeichnung</small><strong id="total-peak">– W</strong><span id="total-peak-note" class="kpi-note">Noch keine Messung</span></div></article>
    <article class="kpi"><div class="kpi-symbol">⌁</div><div><small>Stromsumme der Geräte</small><strong id="amps">– A</strong><span id="amps-method" class="kpi-note">Shelly-Sensoren werden geprüft</span></div></article>
+   <article class="kpi peak-amps-kpi"><div class="kpi-symbol">↗</div><div><small>Strompeak gesamt</small><strong id="total-amps-peak">– A</strong><span id="total-amps-peak-note" class="kpi-note">Aufzeichnung beginnt</span></div></article>
    <article class="kpi"><div class="kpi-symbol">▣</div><div><small>Aktive Messpunkte</small><strong id="measured">– / –</strong></div></article>
-   <article class="kpi warning"><div class="kpi-symbol">△</div><div><small>Warnschwelle</small><strong id="warning">– W</strong></div></article>
-   <article class="kpi critical"><div class="kpi-symbol">!</div><div><small>Kritische Schwelle</small><strong id="critical">– W</strong></div></article>
+   <article class="kpi warning"><div class="kpi-symbol">△</div><div><small>Watt-Warnschwelle</small><strong id="warning">– W</strong></div></article>
+   <article class="kpi critical"><div class="kpi-symbol">!</div><div><small>Watt kritisch</small><strong id="critical">– W</strong></div></article>
+   <article class="kpi amp-limit-kpi"><div class="kpi-symbol">⌁</div><div><small>Stromkreis-Nennstrom</small><strong id="amp-limit">16,0 A</strong><span class="kpi-note">Vom Nutzer angegeben · B16 prüfen</span></div></article>
   </section>
-  <section class="load-card" id="load-card" data-level="unknown" aria-label="Aktuelle Last">
-   <div class="load-title"><div><h2>Laststatus</h2><p>Live-Gesamtleistung aller zugeordneten Geräte</p></div><div class="status" id="status"><span class="status-symbol">●</span><div><strong id="status-title">Prüfe Messdaten</strong><span id="status-detail">Warte auf Home Assistant</span></div></div></div>
-   <div class="load-layout">
-    <div class="load-main">
+  <section class="load-card dual-load" id="load-card" data-level="unknown" aria-label="Zwei getrennte Laststatus-Balken">
+   <div class="dual-load-heading">
+    <div><h2>Laststatus</h2><p>Watt und Ampere separat überwacht</p></div>
+    <span class="dual-load-note">Shelly-Summen sind keine direkte Messung des Stromkreisstroms</span>
+   </div>
+   <div class="load-bar-row watt-row" id="watt-load-row" data-level="unknown">
+    <div class="load-side-title"><span class="load-row-icon" aria-hidden="true">ϟ</span><strong>Watt-Laststatus</strong></div>
+    <div class="load-row-main">
      <div class="load-gradient-box">
       <div class="load-pin" id="load-pin"><strong id="load-pin-value">– W</strong><i></i></div>
-      <div id="load-gradient" class="load-gradient" role="progressbar" aria-label="Leistung im Verhältnis zur kritischen Schwelle" aria-valuemin="0" aria-valuenow="0"></div>
+      <div id="load-gradient" class="load-gradient" role="progressbar" aria-label="Wattlast" aria-valuemin="0" aria-valuenow="0"></div>
      </div>
-     <div class="load-ticks"><span>0 W</span><span id="warn-tick">Warnung – W</span><span id="critical-tick">Kritisch – W</span></div>
+     <div class="load-ticks watt-ticks"><span>0 W</span><span id="warn-tick">Warnung – W</span><span id="critical-tick">Kritisch – W</span></div>
     </div>
+    <div class="status" id="status"><span class="status-symbol">?</span><div><strong id="status-title">Prüfe Messdaten</strong><span id="status-detail">Warte auf Home Assistant</span></div></div>
    </div>
+   <div class="load-bar-row amps-row" id="amps-load-row" data-level="unknown">
+    <div class="load-side-title"><span class="load-row-icon" aria-hidden="true">⌁</span><strong>Ampere-Laststatus</strong></div>
+    <div class="load-row-main">
+     <div class="load-gradient-box">
+      <div class="load-pin" id="amp-load-pin"><strong id="amp-load-pin-value">– A</strong><i></i></div>
+      <div id="amp-load-gradient" class="load-gradient" role="progressbar" aria-label="Summierte Ampere der Shellys" aria-valuemin="0" aria-valuemax="18" aria-valuenow="0"></div>
+     </div>
+     <div class="load-ticks amp-ticks"><span>0 A</span><span id="amp-warn-tick">Warnung 12,0 A</span><span id="amp-red-tick">Rot ab 14,0 A</span><span id="amp-limit-tick">Nennstrom 16,0 A</span></div>
+    </div>
+    <div class="status" id="amp-status"><span class="status-symbol">?</span><div><strong id="amp-status-title">Prüfe Messdaten</strong><span id="amp-status-detail">Warte auf Shelly-Stromsensoren</span></div></div>
+   </div>
+   <p class="dual-load-disclaimer">Ampere: Summe der erfassten Shelly-Geräteströme, nicht direkt am Sicherungsautomaten gemessen. Weitere Verbraucher am selben Stromkreis sind gegebenenfalls nicht enthalten. Die Anzeige ersetzt keine elektrische Schutzvorrichtung.</p>
   </section>
   <div class="bottom-grid">
    <section class="panel devices-panel">
