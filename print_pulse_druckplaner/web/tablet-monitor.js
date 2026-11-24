@@ -156,9 +156,9 @@
    const available=item.watts!=null;
    const phase=displayPhase(item);
    const amp=item.amps==null?'–':
-      (item.amps_source==='shelly'?'':'≈ ')+fmt(item.amps,2)+' A';
+      (item.amps_source==='shelly'?'':'≈ ')+fmt(item.amps,3)+' A';
    const maxAmp=item.max_amps==null?'–':
-      (item.max_amps_source==='shelly'?'':'≈ ')+fmt(item.max_amps,2)+' A';
+      (item.max_amps_source==='shelly'?'':'≈ ')+fmt(item.max_amps,3)+' A';
    const currentHint=item.amps_source==='shelly'?'Shelly-Stromsensor direkt gemessen':
       item.amps_source==='calculated'?'Ersatzwert aus Watt / 230 V':'Kein Stromwert';
    const peakHint=item.max_amps_source==='shelly'?'Höchster gemessener Shelly-Ampere-Wert':
