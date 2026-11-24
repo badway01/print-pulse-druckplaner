@@ -342,6 +342,95 @@ def device_peaks(db):
     return peaks
 
 
+def ensure_peak_reset_log(db):
+    """Permanent audit log: resets never erase the recorded former maxima."""
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_power_peak_reset_log(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        batch_id TEXT NOT NULL,
+        at INTEGER NOT NULL,
+        device_key TEXT NOT NULL,
+        device_name TEXT NOT NULL,
+        previous_amps REAL,
+        previous_source TEXT,
+        previous_peak_at INTEGER,
+        scope TEXT NOT NULL CHECK(scope IN ('device','overall'))
+    )""")
+    db.execute("""CREATE INDEX IF NOT EXISTS idx_pp_peak_resets_at
+        ON pp_power_peak_reset_log(at)""")
+
+
+def peak_reset_history(db, limit=80):
+    ensure_peak_reset_log(db)
+    limit = max(1, min(250, int(limit)))
+    rows = db.execute("""SELECT batch_id,at,device_key,device_name,previous_amps,
+        previous_source,previous_peak_at,scope
+        FROM pp_power_peak_reset_log ORDER BY id DESC LIMIT ?""",
+        (limit,)).fetchall()
+    return [{"batch_id": r["batch_id"], "at": r["at"],
+             "entity": r["device_key"], "name": r["device_name"],
+             "previous_amps": round(r["previous_amps"],3)
+                 if r["previous_amps"] is not None else None,
+             "source": r["previous_source"],
+             "previous_at": r["previous_peak_at"], "scope": r["scope"]}
+            for r in rows]
+
+
+def reset_all_amperes(db, active_devices, now=None):
+    """Start a new Max-A measurement period, preserving an immutable reset log.
+
+    Clears only tracked CURRENT device maxima and the aggregate Ampere peak.
+    The long-term 5m/1h watt/current history and permanent Watt-total peak
+    are not touched. This function is called inside one immediate transaction.
+    """
+    now = int(time.time() if now is None else now)
+    ensure_peak_table(db)
+    ensure_total_amps_peak_table(db)
+    ensure_peak_reset_log(db)
+    old_peaks = device_peaks(db)
+    old_total = total_amps_peak(db)
+    batch = str(now) + "-" + str(db.execute(
+        "SELECT hex(randomblob(6))").fetchone()[0])
+    used = set()
+    reset_count = 0
+    for dev in active_devices:
+        if not isinstance(dev,dict):
+            continue
+        entity = dev.get("entity")
+        if not isinstance(entity,str) or not entity.startswith("sensor."):
+            continue
+        if entity in used:
+            continue
+        used.add(entity)
+        name = str(dev.get("name") or entity)[:70]
+        prior = old_peaks.get(entity) or {}
+        db.execute("""INSERT INTO pp_power_peak_reset_log(
+            batch_id,at,device_key,device_name,previous_amps,
+            previous_source,previous_peak_at,scope)
+            VALUES (?,?,?,?,?,?,?,'device')""",
+            (batch,now,entity,name,prior.get("max_amps"),
+             prior.get("source"),prior.get("at")))
+        # Both peak tables are cleared: otherwise the old W/230 fallback
+        # would immediately reappear instead of the intended fresh Max A.
+        db.execute("DELETE FROM pp_power_actual_current_peaks WHERE entity=?",
+                   (entity,))
+        db.execute("DELETE FROM pp_power_device_peaks WHERE entity=?", (entity,))
+        reset_count += 1
+    if reset_count == 0:
+        raise ValueError("Keine zugeordneten Leistungssensoren vorhanden.")
+    db.execute("""INSERT INTO pp_power_peak_reset_log(
+        batch_id,at,device_key,device_name,previous_amps,
+        previous_source,previous_peak_at,scope)
+        VALUES (?,?,?, ?,?,?,?,'overall')""",
+        (batch,now,"__gesamt__","Strompeak gesamt",
+         old_total["amps"] if old_total else None,
+         "shelly" if old_total else None,
+         old_total["at"] if old_total else None))
+    db.execute("DELETE FROM pp_power_total_amps_peak WHERE id=1")
+    return {"ok":True, "reset_at":now,"reset_count":reset_count,
+            "previous_total_amps":old_total["amps"] if old_total else None,
+            "history":peak_reset_history(db)}
+
+
 def record_sample(db, snapshot, now=None):
     """15-second samples; permanently store per-Shelly observed power peaks."""
     now = int(time.time() if now is None else now)
