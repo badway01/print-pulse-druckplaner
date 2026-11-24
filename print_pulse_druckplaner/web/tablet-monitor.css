@@ -62,3 +62,10 @@ body[data-theme=dark] .devices-table .pill.error{background:#6b2f2c;color:#ffcfc
  font-weight:500;color:var(--muted);line-height:1.35;white-space:normal}
 .kpi.peak-kpi strong{color:var(--text)}
 @media(max-width:780px){.kpi .kpi-note{font-size:10px}}
+
+/* Keep the tablet within HA ingress; no pop-out Safari navigation. */
+.back-to-planner{background:var(--surface);border:1px solid var(--border);
+ color:var(--text);border-radius:9px;font-size:12px;font-weight:700;
+ padding:9px 12px;white-space:nowrap;cursor:pointer}
+.back-to-planner:hover{background:var(--soft)}
+@media(max-width:780px){.back-to-planner{padding:7px 9px;font-size:11px}}
