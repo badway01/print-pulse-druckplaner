@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f8f5">
 <title>Print &amp; Pulse | Stromüberwachung Live</title>
-<link rel="stylesheet" href="tablet-monitor.css?v=0.13.81">
-<script src="tablet-monitor.js?v=0.13.81" defer></script>
+<link rel="stylesheet" href="tablet-monitor.css?v=0.13.82">
+<script src="tablet-monitor.js?v=0.13.82" defer></script>
 </head>
 <body data-theme="light">
 <div class="monitor-shell">
@@ -50,10 +50,10 @@
    <section class="panel devices-panel">
     <div class="panel-title"><h2>Geräteübersicht</h2><span id="device-summary">Live-Werte</span></div>
     <div class="table-wrap"><table class="devices-table">
-     <thead><tr><th>Gerät</th><th>Leistung</th><th>Strom*</th><th>Energie</th><th>Status</th></tr></thead>
-     <tbody id="device-rows"><tr><td colspan="5" class="placeholder">Geräte werden geladen …</td></tr></tbody>
+     <thead><tr><th>Gerät</th><th>Leistung</th><th>Strom*</th><th title="Höchster beobachteter Strom seit Aktivierung der Aufzeichnung">Max A*</th><th>Energie</th><th>Status</th></tr></thead>
+     <tbody id="device-rows"><tr><td colspan="6" class="placeholder">Geräte werden geladen …</td></tr></tbody>
     </table></div>
-    <p class="table-note">* Stromstärke überschlägig aus Watt / 230 V. Nicht zugeordnete oder ausgefallene Sensoren zählen nicht als 0 W.</p>
+    <p class="table-note">* Strom und Max A sind aus Watt / 230 V berechnet. Max A ist der höchste seit diesem Update erfasste Messwert je Shelly (Abfrage alle 15 s). Nicht verfügbare Sensoren zählen nicht als 0 W.</p>
    </section>
    <div class="side-panels">
     <section class="panel faults-panel">
