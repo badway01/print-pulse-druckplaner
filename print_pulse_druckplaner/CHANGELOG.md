@@ -1,3 +1,10 @@
+## 0.13.85 – Tablet: verständliche Messabdeckung und iPhone-Lastbalken (24.11.2026)
+
+- Statt pauschal „Unvollständige Messung“ benennt der Tablet-Laststatus jetzt konkret fehlende Messpunkte („Nicht zugeordnet: A1 mini“) oder zugeordnete Geräte ohne aktuellen Wattwert („Kein Messwert: ...“). Kritische Schwellen- und echte Shelly-Fehlermeldungen haben weiterhin Vorrang.
+- Wird ein Drucker derzeit nicht betrieben und hat keinen Shelly, kann er in der bestehenden Geräteverwaltung deaktiviert werden. Dann zählt er nicht als fehlender Drucker-Messpunkt.
+- Bei Bildschirmbreiten bis 850 px stehen „Warnung“ und „Kritisch“ in separaten Rasterspalten unter dem Lastbalken und überlappen sich nicht; Nullmarkierung in einer eigenen Zeile. Die dynamischen Grenzwerte und die Lastbalkenposition selbst bleiben unverändert.
+- CSS/JS-Cacheversion für die Tabletansicht angehoben. Keine Änderungen an Shelly-Zuordnungen, Verbrauchshistorie, maximalen Stromspitzen, ntfy oder Schaltfunktionen.
+
 ## 0.13.84 – Tablet-Monitor: Home-Assistant-Ingress 401 behoben (24.11.2026)
 
 - Ursache: Der Dashboard-Button „Tablet-Monitor öffnen“ nutzte `target="_blank"`. Die Home-Assistant-iOS-App öffnete die Ingress-URL deshalb in Safari, wo keine gültige Ingress-Sitzung vorhanden war (`401: Unauthorized`).
