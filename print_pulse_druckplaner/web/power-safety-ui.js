@@ -3,7 +3,7 @@
  * WARNING: summed device loads do not establish circuit loading.
  */
 (function () {
- const host=document.getElementById('printer-strip');
+ const host=document.getElementById('dashboard-orders-summary');
  if(!host)return;
  const escP=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const fmt=n=>n==null?'–':new Intl.NumberFormat('de-DE',{maximumFractionDigits:1}).format(n);
