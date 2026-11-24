@@ -179,6 +179,106 @@ def save(db, cfg, put_cfg, payload, states):
     return {"ok": True, "devices": result}
 
 
+def shelly_current(item):
+    """Read a real Shelly current sensor (A or mA); not W divided by voltage."""
+    if not isinstance(item, dict):
+        return None
+    attrs = item.get("attributes") or {}
+    if attrs.get("device_class") != "current":
+        return None
+    unit = str(attrs.get("unit_of_measurement") or "").strip().lower()
+    if unit not in ("a", "ma"):
+        return None
+    try:
+        value = float(item.get("state"))
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if not math.isfinite(value) or not 0 <= value <= 100000:
+        return None
+    amperes = value / 1000 if unit == "ma" else value
+    return round(amperes, 4) if amperes <= 100 else None
+
+
+def enrich_currents(snapshot, states):
+    """Prefer actual current from the same Shelly, fallback to W/230 if absent.
+
+    The aggregate is a sum of individual device current magnitudes, *not* a
+    measurement of a wall outlet, circuit or phase.
+    """
+    total = 0.0
+    real_count = 0
+    estimated_count = 0
+    for device in snapshot.get("devices", []):
+        entity = device.get("entity") or ""
+        match = SHELLY_ID.search(entity)
+        sensor = ""
+        actual = None
+        if match:
+            prefix = "sensor.shellyplugsg3_" + match.group(1) + "_"
+            # Prefer the known HA German suffix, then any current sensor
+            # belonging to the *same physical Shelly device identifier*.
+            known = prefix + "stromstarke"
+            options = ([known] if known in states else []) + sorted(
+                key for key in states
+                if key.startswith(prefix) and key != known)
+            for candidate in options:
+                current = shelly_current(states.get(candidate))
+                if current is not None:
+                    actual = current
+                    sensor = candidate
+                    break
+        watts = device.get("watts")
+        if actual is not None:
+            device["amps"] = actual
+            device["amps_source"] = "shelly"
+            device["current_entity"] = sensor
+            total += actual
+            real_count += 1
+        elif isinstance(watts, (int, float)) and not isinstance(watts, bool) \
+                and math.isfinite(watts) and watts >= 0:
+            device["amps"] = round(watts / 230, 4)
+            device["amps_source"] = "calculated"
+            device["current_entity"] = ""
+            total += device["amps"]
+            estimated_count += 1
+        else:
+            device["amps"] = None
+            device["amps_source"] = "unavailable"
+            device["current_entity"] = ""
+    snapshot["amps"] = round(total, 2) if real_count + estimated_count else None
+    snapshot["amps_real_count"] = real_count
+    snapshot["amps_estimated_count"] = estimated_count
+    snapshot["amps_source"] = ("mixed" if real_count and estimated_count
+        else "shelly" if real_count else "calculated" if estimated_count
+        else "unavailable")
+    return snapshot
+
+
+def ensure_total_peak_table(db):
+    """Keep highest observed aggregate across restarts, not a circuit peak."""
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_power_total_peak(
+        id INTEGER PRIMARY KEY CHECK(id=1),
+        max_watts REAL NOT NULL CHECK(max_watts>=0),
+        at INTEGER NOT NULL,
+        measured INTEGER NOT NULL,
+        expected INTEGER NOT NULL)""")
+    # Seed once from the retained 24h history of the prior monitor version.
+    db.execute("""INSERT OR IGNORE INTO pp_power_total_peak
+        (id,max_watts,at,measured,expected)
+        SELECT 1,watts,at,measured,expected FROM pp_power_history
+        WHERE watts IS NOT NULL AND watts>=0
+        ORDER BY watts DESC,at ASC LIMIT 1""")
+
+
+def total_peak(db):
+    ensure_total_peak_table(db)
+    row = db.execute("""SELECT max_watts,at,measured,expected
+        FROM pp_power_total_peak WHERE id=1""").fetchone()
+    return ({"watts":round(row["max_watts"],1),"at":row["at"],
+             "measured":row["measured"],"expected":row["expected"]}
+            if row else None)
+
+
 def ensure_peak_table(db):
     """Maintain permanent peak power readings, keyed by the HA power sensor.
 
@@ -189,23 +289,54 @@ def ensure_peak_table(db):
         entity TEXT PRIMARY KEY,
         max_watts REAL NOT NULL CHECK(max_watts >= 0),
         at INTEGER NOT NULL)""")
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_power_actual_current_peaks(
+        entity TEXT PRIMARY KEY,
+        max_amps REAL NOT NULL CHECK(max_amps>=0),
+        current_entity TEXT NOT NULL,
+        at INTEGER NOT NULL)""")
 
 
 def device_peaks(db):
-    """Highest observed W/230 (A) per power entity since peak tracking began."""
+    """Retain earlier calculated peaks; prefer true Shelly-amp peaks when present."""
     ensure_peak_table(db)
-    return {row["entity"]: {
+    peaks = {row["entity"]: {
                 "max_watts": round(row["max_watts"], 1),
                 "max_amps": round(row["max_watts"] / 230, 3),
-                "at": row["at"]}
+                "at": row["at"],
+                "source": "calculated"}
             for row in db.execute(
                 "SELECT entity,max_watts,at FROM pp_power_device_peaks")}
+    for row in db.execute(
+            "SELECT entity,max_amps,at FROM pp_power_actual_current_peaks"):
+        peak = peaks.setdefault(row["entity"], {})
+        peak.update(max_amps=round(row["max_amps"], 3),
+                    at=row["at"], source="shelly")
+    return peaks
 
 
 def record_sample(db, snapshot, now=None):
     """15-second samples; permanently store per-Shelly observed power peaks."""
     now = int(time.time() if now is None else now)
     ensure_peak_table(db)
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_power_history
+        (at INTEGER PRIMARY KEY, watts REAL, measured INTEGER NOT NULL,
+         expected INTEGER NOT NULL)""")
+    ensure_total_peak_table(db)
+    combined = snapshot.get("watts")
+    if isinstance(combined, (int, float)) and not isinstance(combined, bool) \
+            and math.isfinite(combined) and combined >= 0:
+        db.execute("""INSERT INTO pp_power_total_peak
+            (id,max_watts,at,measured,expected) VALUES (1,?,?,?,?)
+            ON CONFLICT(id) DO UPDATE SET
+                at=CASE WHEN excluded.max_watts>pp_power_total_peak.max_watts
+                        THEN excluded.at ELSE pp_power_total_peak.at END,
+                measured=CASE WHEN excluded.max_watts>pp_power_total_peak.max_watts
+                        THEN excluded.measured ELSE pp_power_total_peak.measured END,
+                expected=CASE WHEN excluded.max_watts>pp_power_total_peak.max_watts
+                        THEN excluded.expected ELSE pp_power_total_peak.expected END,
+                max_watts=MAX(pp_power_total_peak.max_watts,excluded.max_watts)""",
+            (combined,now,snapshot.get("printers_measured",0),
+             snapshot.get("printers_total",0)))
     for item in snapshot.get("devices", []):
         if not isinstance(item, dict):
             continue
@@ -224,6 +355,19 @@ def record_sample(db, snapshot, now=None):
                         THEN excluded.at ELSE pp_power_device_peaks.at END,
                 max_watts=MAX(pp_power_device_peaks.max_watts,excluded.max_watts)""",
                    (entity, watts, now))
+        amps = item.get("amps")
+        if (item.get("amps_source") == "shelly"
+                and isinstance(amps, (int, float)) and not isinstance(amps, bool)
+                and math.isfinite(amps) and amps >= 0):
+            db.execute("""INSERT INTO pp_power_actual_current_peaks(
+                entity,max_amps,current_entity,at) VALUES(?,?,?,?)
+                ON CONFLICT(entity) DO UPDATE SET
+                  at=CASE WHEN excluded.max_amps > pp_power_actual_current_peaks.max_amps
+                          THEN excluded.at ELSE pp_power_actual_current_peaks.at END,
+                  current_entity=CASE WHEN excluded.max_amps > pp_power_actual_current_peaks.max_amps
+                          THEN excluded.current_entity ELSE pp_power_actual_current_peaks.current_entity END,
+                  max_amps=MAX(pp_power_actual_current_peaks.max_amps,excluded.max_amps)""",
+                (entity,amps,item.get("current_entity") or "",now))
     db.execute("""CREATE TABLE IF NOT EXISTS pp_power_history
         (at INTEGER PRIMARY KEY, watts REAL, measured INTEGER NOT NULL,
          expected INTEGER NOT NULL)""")
