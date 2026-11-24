@@ -28,6 +28,7 @@
     '<p class="pp-power-help">Warnung nach mindestens 30 Sekunden erhöhter Leistung; erneute Warnung erst nach Entwarnung für 2 Minuten. ntfy wird erst nach Eintragen und Speichern des Topics aktiviert. Keine automatische Abschaltung.</p>'+
     '<div class="pp-power-actions"><button type="button" id="pp-power-save" class="primary">Einstellungen speichern</button><button type="button" id="pp-power-test" class="secondary">ntfy testen</button></div>'+
     '<p id="pp-power-feedback" role="status" aria-live="polite"></p>'+
+   '</details>'+
     '<details id="pp-devices-manager" class="pp-devices-manager"><summary>Geräteverwaltung · Drucker und Shellys hinzufügen / entfernen</summary>'+
      '<p class="pp-power-help">Verwalte alle überwachten Geräte zentral. Wähle nur die HA-Shelly-Sensoren aus. Der Tablet-Monitor aktualisiert sich automatisch. Deaktivierte Geräte bleiben gespeichert.</p>'+
      '<div id="pp-device-list" class="pp-device-list"></div>'+
@@ -35,7 +36,7 @@
       '<button type="button" id="pp-device-save" class="primary">Änderungen speichern</button></div>'+
      '<p id="pp-device-info" class="pp-power-help" role="status" aria-live="polite"></p>'+
     '</details>'+
-   '</details></section>';
+   '</section>';
  const el=id=>document.getElementById(id);
  async function request(path,payload){
   const response=await fetch('api/'+path,{
