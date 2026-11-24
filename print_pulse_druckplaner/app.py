@@ -3248,19 +3248,28 @@ class Handler(BaseHTTPRequestHandler):
                     settings=power_monitor.config(db,cfg)
                     result=power_monitor.snapshot(states,settings)
                     result['history']=tablet_monitor.history(db,minutes)
+                    peaks=tablet_monitor.device_peaks(db)
                 records=tablet_monitor.devices(states,settings)
                 by_name={d['name']:d for d in records if d.get('enabled',True)}
                 printers=saved_printer_bindings()
+                # Select only stages associated with the already-mapped status
+                # entity; never mix phases from P1S Old/New or A1/A1 mini.
+                candidates={item['id']:item['entities'] for item in discover_printer_candidates(states)}
                 for entry in result['devices']:
                     device=by_name.get(entry['name'],{})
                     energy=states.get(device.get('energy_entity',''))
                     entry['energy_kwh']=tablet_monitor.energy_kwh(energy)
+                    peak=peaks.get(entry.get('entity') or '',{})
+                    entry['max_amps']=peak.get('max_amps')
+                    entry['max_amps_at']=peak.get('at')
                     state=states.get(device.get('switch_entity',''))
                     switch=state.get('state') if isinstance(state,dict) else None
                     entry['switch_state']=switch if switch in ('on','off') else None
                     mapping=printers.get(entry['name'],{})
                     sensor=sensor_value(states,mapping,'status')
                     entry['printer_state']=printer_state(sensor,True) if sensor else None
+                    stage_entity=mapping.get('stage') or candidates.get(mapping.get('status'),{}).get('stage')
+                    entry['print_stage']=sensor_text(states.get(stage_entity)) if stage_entity else None
                 result['updated']=int(time.time())
                 return self.send(200,result)
             except (ValueError, TypeError):
