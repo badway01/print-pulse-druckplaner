@@ -52,14 +52,23 @@
   range=Number(byId('chart-range').value);
   refresh();
  });
- // Use a native same-origin attachment download: preserves Home Assistant
- // ingress authentication and works even in the iOS companion webview.
- byId('export-period').addEventListener('change',()=>{
+ // Use a native same-origin attachment download through the current
+ // Home Assistant ingress session (no blank tab and no copied ingress token).
+ // Both /monitor and /monitor/ must resolve to the add-on's /api/ prefix.
+ const exportBase=new URL(window.location.href);
+ exportBase.pathname=exportBase.pathname.replace(/\/monitor\/?$/, '/api/tablet-history-export');
+ exportBase.search='';
+ exportBase.hash='';
+ function updateExportLink(){
   const period=byId('export-period').value;
   if(['day','week','month','year'].includes(period)){
-   byId('history-export-link').href='api/tablet-history-export?period='+period;
+   const target=new URL(exportBase.href);
+   target.searchParams.set('period',period);
+   byId('history-export-link').href=target.href;
   }
- });
+ }
+ byId('export-period').addEventListener('change',updateExportLink);
+ updateExportLink();
  async function fetchData(){
   const response=await fetch('api/tablet-monitor?minutes='+range,
    {credentials:'same-origin',cache:'no-store'});
