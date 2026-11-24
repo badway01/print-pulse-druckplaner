@@ -19,6 +19,7 @@ COPY filament_stats.py ./filament_stats.py
 COPY master_insights.py ./master_insights.py
 COPY farm_stats.py ./farm_stats.py
 COPY power_monitor.py ./power_monitor.py
+COPY tablet_monitor.py ./tablet_monitor.py
 COPY web ./web
 COPY CHANGELOG.md ./CHANGELOG.md
 ENV PP_VERSION=${BUILD_VERSION}
