@@ -1,3 +1,9 @@
+## 0.13.78 – Statische Stromkachel und Ladediagnose (24.11.2026)
+
+- Stromüberwachung sitzt fest als HTML-Kachel direkt nach den Bestellungen; sie bleibt auch bei ausfallendem Javascript sichtbar und zeigt dann eine konkrete Fehlermeldung.
+- Das JavaScript befüllt die vorhandene Kachel mit Shelly-Werten, Messpunkt-Konfiguration und ntfy-Test.
+- Browser-Caches für beide Scripts und das CSS auf die neue Version gesetzt.
+
 ## 0.13.77 – Stromanzeige sofort auf dem Dashboard (24.11.2026)
 
 - Stromüberwachung unmittelbar unter die Bestellübersicht und vor Etsy-Bestandswarnungen verschoben statt unter die lange Druckerliste.
