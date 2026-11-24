@@ -74,9 +74,15 @@
   const n=Math.max(0,Number(d.watts)||0);
   // The marker uses a calculated reference range, not an electrical safety rating.
   const pct=Math.min(96,Math.max(4,n/max*100));
+  const warningPct=(warn/max*100)+'%';
+  const criticalPct=(critical/max*100)+'%';
   const pin=byId('load-pin'),track=byId('load-gradient');
   pin.style.left=pct+'%';
   track.style.setProperty('--marker-left',pct+'%');
+  track.style.setProperty('--warning-pct',warningPct);
+  track.style.setProperty('--critical-pct',criticalPct);
+  byId('warn-tick').parentElement.style.setProperty('--warning-pct',warningPct);
+  byId('critical-tick').parentElement.style.setProperty('--critical-pct',criticalPct);
   track.setAttribute('aria-valuemax',String(max));
   track.setAttribute('aria-valuenow',String(Math.min(max,n)));
   byId('load-pin-value').textContent=power(d.watts);
