@@ -3268,8 +3268,12 @@ class Handler(BaseHTTPRequestHandler):
                     mapping=printers.get(entry['name'],{})
                     sensor=sensor_value(states,mapping,'status')
                     entry['printer_state']=printer_state(sensor,True) if sensor else None
-                    stage_entity=mapping.get('stage') or candidates.get(mapping.get('status'),{}).get('stage')
-                    entry['print_stage']=sensor_text(states.get(stage_entity)) if stage_entity else None
+                    stage_entity=mapping.get('stage')
+                    stage=sensor_text(states.get(stage_entity)) if stage_entity else None
+                    if stage is None:
+                        candidate_stage=candidates.get(mapping.get('status'),{}).get('stage')
+                        stage=sensor_text(states.get(candidate_stage)) if candidate_stage else None
+                    entry['print_stage']=stage
                 result['updated']=int(time.time())
                 return self.send(200,result)
             except (ValueError, TypeError):
