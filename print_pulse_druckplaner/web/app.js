@@ -1378,7 +1378,7 @@ function showWorkspace(value){
  }
  const production=value==='production';
  for(const id of ['dashboard-title','dashboard-orders-summary'])$(id).hidden=!production;
- const powerPanel=document.getElementById('pp-power');
+ const powerPanel=document.getElementById('pp-power-shell');
  if(powerPanel)powerPanel.hidden=!production;
  $('summary').hidden=true;
  $('priority-shell').hidden=value!=='queue';
@@ -2888,7 +2888,7 @@ $('printer-config-form').addEventListener('submit',async event=>{
  finally{printerConfigBusy=false;$('printer-config-save').disabled=false;}
 });
 
-$('dashboard-orders-summary').after($('etsy-stock-banner'));
+$('pp-power-shell').after($('etsy-stock-banner'));
 $('stats-filament-mount').append($('filament-statistics'));
 $('optional-stock-open').addEventListener('click',()=>{$('settings').close();showWorkspace('stock');});
 showWorkspace('production');
