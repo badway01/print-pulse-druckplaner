@@ -75,6 +75,18 @@
      <tbody id="device-rows"><tr><td colspan="6" class="placeholder">Geräte werden geladen …</td></tr></tbody>
     </table></div>
     <p class="table-note">Ampere direkt aus dem Shelly-Stromsensor, falls verfügbar. ≈ kennzeichnet Ersatzwerte aus Watt / 230 V. Max A zeigt die höchste erfasste Stromstärke pro Shelly (15-Sekunden-Abfrage). Nicht verfügbare Sensoren zählen nicht als 0.</p>
+    <div class="peak-reset-section">
+     <div class="peak-reset-action">
+      <div class="peak-reset-title"><strong>Max-A-Rekorde</strong>
+       <span>Neue Messperiode starten, bisherige Spitzenwerte bleiben in der Historie.</span></div>
+      <button id="reset-amps-peaks" type="button" class="peak-reset-button">Max A zurücksetzen</button>
+     </div>
+     <p id="peak-reset-feedback" class="peak-reset-feedback" role="status" aria-live="polite"></p>
+     <details class="peak-reset-history">
+      <summary>Zurücksetzungen und frühere Spitzenwerte <span id="peak-reset-count"></span></summary>
+      <div id="peak-reset-log" class="peak-reset-log"><p>Protokoll wird geladen …</p></div>
+     </details>
+    </div>
    </section>
    <div class="side-panels">
     <section class="panel faults-panel">
