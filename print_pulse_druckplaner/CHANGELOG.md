@@ -1,3 +1,9 @@
+## 0.13.86 – Tablet: Statussymbol richtig zentriert (24.11.2026)
+
+- Häkchen, Fragezeichen und Ausrufezeichen innerhalb des runden Laststatus-Symbols auf iPhone und Tablet exakt mittig ausgerichtet. Ursache war eine zu allgemeine CSS-Regel, die das zentrierende Grid-Layout überschrieben hatte.
+- Vorherige Änderung aus v0.13.85 bleibt bestehen: Keine Überlappung von Warn- und Kritisch-Beschriftung auf schmalen Bildschirmen; konkrete Namen für fehlende oder nicht zugeordnete Shelly-Messpunkte.
+- Tablet-CSS-Cacheversion aktualisiert. Keine Änderungen an Stromsensorik, Historie oder Schaltfunktionen.
+
 ## 0.13.85 – Tablet: verständliche Messabdeckung und iPhone-Lastbalken (24.11.2026)
 
 - Statt pauschal „Unvollständige Messung“ benennt der Tablet-Laststatus jetzt konkret fehlende Messpunkte („Nicht zugeordnet: A1 mini“) oder zugeordnete Geräte ohne aktuellen Wattwert („Kein Messwert: ...“). Kritische Schwellen- und echte Shelly-Fehlermeldungen haben weiterhin Vorrang.
