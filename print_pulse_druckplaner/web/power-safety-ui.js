@@ -18,6 +18,7 @@
    '<div class="pp-power-track" role="progressbar" aria-label="Gemessene Leistung relativ zu 3.680 Watt, nur unverbindliche Referenz" aria-valuemin="0" aria-valuemax="3680" aria-valuenow="0"><div id="pp-power-bar"></div></div>'+
    '<p class="pp-power-disclaimer">16 A / 3.680 W sind nur eine Rechenreferenz. Zwei Wandsteckdosen können am selben Stromkreis liegen. Shelly-Werte ersetzen weder Sicherung noch Prüfung der Leitungen.</p>'+
    '<div id="pp-power-devices" class="pp-power-devices"></div>'+
+   '<div id="pp-power-faults" class="pp-power-faults" role="status" aria-live="polite"></div>'+
    '<details id="pp-power-settings" class="pp-power-settings"><summary>Messpunkte und ntfy-Warnung einrichten</summary>'+
     '<p class="pp-power-help">Jedem Drucker den passenden Shelly-Leistungssensor (W) zuordnen. Der Kühlschrank ist optional. Nicht zugeordnete oder ausgefallene Sensoren werden nicht als 0 W gezählt.</p>'+
     '<div id="pp-power-bindings" class="pp-power-bindings"></div>'+
@@ -73,8 +74,13 @@
    const badge=el('pp-power-state');
    const state=d.level==='critical'?'Alarm':d.level==='warning'?'Erhöhte Last':
     !d.complete?'Unvollständig':'Normaler Messwert';
-   badge.textContent=state+(d.ntfy_enabled?' · ntfy':' · ntfy aus');
-   badge.dataset.level=d.level;
+   const faults=(d.faults||[]).filter(f=>f.state==='on');
+   badge.textContent=faults.length?'Shelly-Fehler · '+faults.length:
+     state+(d.ntfy_enabled?' · ntfy':' · ntfy aus');
+   badge.dataset.level=faults.length?'critical':d.level;
+   el('pp-power-faults').innerHTML=faults.length?
+     '<strong>Achtung: '+faults.length+' Shelly-Meldung(en)</strong> '+
+     faults.map(f=>'<span>'+escP(f.device+': '+f.type)+'</span>').join(' · '):'';
    const progress=el('pp-power').querySelector('[role="progressbar"]');
    const n=d.watts==null?0:Math.max(0,d.watts);
    progress.setAttribute('aria-valuenow',String(Math.min(3680,n)));
@@ -89,6 +95,7 @@
    el('pp-power-amps').textContent='– A';
    el('pp-power-count').textContent='– / 7';
    el('pp-power-bar').style.width='0%';
+   el('pp-power-faults').textContent='';
    el('pp-power-devices').textContent='Home Assistant nicht erreichbar: '+e.message;
   }
  }
