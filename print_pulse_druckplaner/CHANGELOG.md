@@ -1,3 +1,14 @@
+## 0.13.81 – Print & Pulse Tablet-Schutzmonitor (24.11.2026)
+
+- Eigenständige, über den Home-Assistant-Ingress gesicherte Monitorseite `/monitor` für ein dauerhaftes Tablet-Display. Aufruf per „Tablet-Monitor öffnen“ im Dashboard, keine eigene Login- oder Internetfreigabe.
+- Helles responsives Layout mit Auto-/Hell-/Dunkelumschalter (Auto folgt Geräte-Systemdesign), Vollbildknopf, Uhrzeit, Live-Leistung, rechnerischen Ampere, Drucker-Messabdeckung, Warn- und kritischer Schwelle.
+- Großer Lastbalken mit grün-gelb-rotem Verlauf, aktuellem Marker und nach den bestehenden einstellbaren Watt-Schwellen kalibrierten Farbzonen. Keine Steckdosengruppen.
+- Live-Gerätetabelle mit W, berechnetem A, kWh (falls HA-Energiezähler zugeordnet), Druckstatus aus vorhandenen echten HA-Statussensoren, Shelly-Schaltzustand (nur Anzeige).
+- Vier Shelly-Fehlerarten einzeln; unbekannte/nicht vorhandene Fehlersensoren werden nicht als fehlerfrei ausgegeben.
+- 15-Sekunden-Abtastung der gemessenen Gesamtleistung im Hintergrund mit bis zu 24 Stunden SQLite-Verlauf; Tablet-Diagramm wählbar 15 Minuten, 1 Stunde, 3 Stunden oder 24 Stunden.
+- Zentraler „Geräteverwaltung“-Bereich unter der vorhandenen Stromüberwachung: Drucker/Sonstiges hinzufügen, umbenennen, deaktivieren, entfernen sowie Leistungs-, Energie- und Switch-Entitäten auswählen. Maximale 40 Geräte. Bereits bekannte Zuordnungen werden übernommen; nach Änderungen verwendet auch die bestehende Stromkachel und ntfy-Gesamtlastüberwachung dieselbe Liste.
+- Monitor bleibt vollständig lesend: kein Druckstart und keine Shelly-Abschaltung; die dargestellte Gesamtsumme ist kein direkter Stromkreismesswert.
+
 ## 0.13.80 – Bambu A1 Shelly in Stromüberwachung und Druckerfarm (24.11.2026)
 
 - Bambu A1 als sechsten HA-Produktionsdrucker in Druckstatus und Statistik ergänzt; A1 mini bleibt separat.
