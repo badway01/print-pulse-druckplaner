@@ -89,28 +89,83 @@
   byId('warn-tick').textContent='Warnung '+fmt(warn,0)+' W';
   byId('critical-tick').textContent='Kritisch '+fmt(critical,0)+' W';
  }
+ function activePrintStage(raw){
+  if(typeof raw!=='string'||!raw.trim())return null;
+  const key=raw.trim().toLowerCase().replace(/[\s-]+/g,'_');
+  const stageMap={
+   auto_bed_leveling:['Nivelliert','leveling'],
+   bed_leveling:['Nivelliert','leveling'],
+   heatbed_preheating:['Heizbett heizt','preparing'],
+   heating_hotend:['Düse heizt','preparing'],
+   heating_bed:['Heizbett heizt','preparing'],
+   waiting_for_heatbed_temperature:['Heizbett heizt','preparing'],
+   waiting_for_nozzle_temperature:['Düse heizt','preparing'],
+   cleaning_nozzle_tip:['Reinigt Düse','preparing'],
+   homing_toolhead:['Referenzfahrt','preparing'],
+   calibrating_extrusion:['Kalibriert Extrusion','preparing'],
+   calibrating_extrusion_flow:['Kalibriert Fluss','preparing'],
+   calibrating_micro_lidar:['Kalibriert Sensor','preparing'],
+   calibrating_motor_noise:['Kalibriert Motoren','preparing'],
+   checking_extruder_temperature:['Prüft Temperatur','preparing'],
+   scanning_bed_surface:['Prüft Druckbett','preparing'],
+   inspecting_first_layer:['Prüft erste Schicht','preparing'],
+   identifying_build_plate_type:['Erkennt Druckplatte','preparing'],
+   sweeping_xy_mech_mode:['Mechanikprüfung','preparing'],
+   filament_loading:['Lädt Filament','preparing'],
+   filament_unloading:['Entlädt Filament','preparing'],
+   changing_filament:['Filamentwechsel','preparing'],
+   cooling_chamber:['Kühlt Bauraum','preparing'],
+   printing:['Druckt','printing'],
+  };
+  if(stageMap[key])return {label:stageMap[key][0],state:stageMap[key][1]};
+  if(['idle','offline','unknown','none','unavailable','finished'].includes(key))return null;
+  if(key.startsWith('paused_'))return {label:'Pausiert',state:'paused'};
+  if(/level|nivell|tramming/.test(key))return {label:'Nivelliert',state:'leveling'};
+  if(/heat|aufheiz|preheat/.test(key))return {label:'Heizt auf',state:'preparing'};
+  if(/calibr|kalibrier/.test(key))return {label:'Kalibriert',state:'preparing'};
+  if(/clean|reinig/.test(key))return {label:'Reinigt Düse',state:'preparing'};
+  if(/filament|materialwechsel/.test(key))return {label:'Filamentwechsel',state:'preparing'};
+  if(/print|druck/.test(key))return {label:'Druckt',state:'printing'};
+  if(/^[a-z_äöüß]{3,55}$/i.test(key))
+   return {label:raw.replace(/_/g,' ').slice(0,36),state:'preparing'};
+  return null;
+ }
+ function displayPhase(item){
+  const pr=item.printer_state;
+  if(item.switch_state==='off')return {label:'Aus',state:'off'};
+  if(pr==='error')return {label:'Störung',state:'error'};
+  if(pr==='offline')return {label:'Offline',state:'error'};
+  if(pr==='paused')return {label:'Pausiert',state:'paused'};
+  if(pr==='finished')return {label:'Fertig',state:'finished'};
+  if(pr==='idle')return {label:'Bereit',state:'idle'};
+  if(pr==='printing'||pr==='preparing'){
+   const stage=activePrintStage(item.print_stage);
+   if(stage)return stage;
+   return pr==='printing'?{label:'Druckt',state:'printing'}:
+     {label:'Bereitet vor',state:'preparing'};
+  }
+  if(item.switch_state==='on')return {label:'Eingeschaltet',state:'idle'};
+  if(!item.entity)return {label:'Nicht zugeordnet',state:'missing'};
+  if(item.watts==null)return {label:'Nicht erreichbar',state:'missing'};
+  return {label:'Misst',state:'idle'};
+ }
  function renderDevices(d){
   const rows=(d.devices||[]);
-  const states={printing:'Druckt',paused:'Pausiert',preparing:'Heizt vor',
-   finished:'Fertig',idle:'Bereit',error:'Störung'};
   byId('device-summary').textContent=rows.length+' Geräte · '+d.measured+' mit Leistungsmessung';
   const html=rows.map(item=>{
    const available=item.watts!=null;
-   let cls='on',label='Misst';
-   const pr=item.printer_state;
-   if(pr&&states[pr]){cls=pr==='error'?'error':pr==='paused'?'paused':pr==='printing'?'printing':'on';label=states[pr]}
-   else if(item.switch_state==='off'){cls='off';label='Aus'}
-   else if(item.switch_state==='on'){cls='on';label='Eingeschaltet'}
-   else if(!item.entity){cls='missing';label='Nicht zugeordnet'}
-   else if(!available){cls='missing';label='Nicht erreichbar'}
-   if(!available&&item.entity&&cls!=='off'){cls='missing';label='Keine Messung'}
+   const phase=displayPhase(item);
    const amp=available?fmt(item.watts/230,2)+' A':'–';
+   const maxAmp=item.max_amps==null?'–':fmt(item.max_amps,2)+' A';
    const e=item.energy_kwh==null?'–':fmt(item.energy_kwh,2)+' kWh';
-   return '<tr><td class="'+(item.kind==='other'?'other-name':'printer-name')+'">'+esc(item.name)+'</td>'+
-    '<td>'+esc(power(item.watts))+'</td><td>'+esc(amp)+'</td><td>'+esc(e)+'</td>'+
-    '<td><span class="pill '+cls+'">'+esc(label)+'</span></td></tr>';
+   return '<tr class="device-row state-'+esc(phase.state)+'"><td class="'+
+    (item.kind==='other'?'other-name':'printer-name')+'">'+esc(item.name)+'</td>'+
+    '<td>'+esc(power(item.watts))+'</td><td>'+esc(amp)+'</td>'+
+    '<td class="device-max-amps">'+esc(maxAmp)+'</td><td>'+esc(e)+'</td>'+
+    '<td><span class="pill '+esc(phase.state)+'">'+esc(phase.label)+'</span></td></tr>';
   }).join('');
-  byId('device-rows').innerHTML=html||'<tr><td colspan="5" class="placeholder">Keine aktiven Geräte. Im Druckplaner hinzufügen.</td></tr>';
+  byId('device-rows').innerHTML=html||
+    '<tr><td colspan="6" class="placeholder">Keine aktiven Geräte. Im Druckplaner hinzufügen.</td></tr>';
  }
  const types=['Überlast','Überstrom','Überhitzung','Überspannung'];
  function renderFaults(d){
