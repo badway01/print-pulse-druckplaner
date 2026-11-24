@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f5f8f5">
+<title>Print &amp; Pulse | Stromüberwachung Live</title>
+<link rel="stylesheet" href="tablet-monitor.css?v=0.13.81">
+<script src="tablet-monitor.js?v=0.13.81" defer></script>
+</head>
+<body data-theme="light">
+<div class="monitor-shell">
+ <header class="topbar">
+  <div class="brand">
+   <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M24 3 43 14v20L24 45 5 34V14Z" fill="none" stroke="currentColor" stroke-width="3"/><path d="m5 14 19 11 19-11M24 25v20" fill="none" stroke="currentColor" stroke-width="3"/></svg></span>
+   <div><h1>Print <span>&amp;</span> Pulse</h1><p>Stromüberwachung <strong>Live</strong></p></div>
+  </div>
+  <div class="header-tools">
+   <div class="connection" id="connection"><span class="connection-dot"></span><span id="connection-text">Verbinde …</span></div>
+   <div class="theme-switch" aria-label="Darstellung wählen">
+    <button type="button" data-theme-value="auto">Auto</button>
+    <button type="button" data-theme-value="light">Hell</button>
+    <button type="button" data-theme-value="dark">Dunkel</button>
+   </div>
+   <button class="fullscreen" id="fullscreen" type="button" title="Vollbild umschalten" aria-label="Vollbild umschalten">⛶</button>
+   <div class="clock"><strong id="clock">--:--</strong><span id="date">--</span></div>
+  </div>
+ </header>
+ <main>
+  <section class="kpis" aria-label="Live-Kennzahlen">
+   <article class="kpi"><div class="kpi-symbol">ϟ</div><div><small>Gesamtleistung</small><strong id="watts">– W</strong></div></article>
+   <article class="kpi"><div class="kpi-symbol">⌁</div><div><small>Rechnerisch bei 230 V</small><strong id="amps">– A</strong></div></article>
+   <article class="kpi"><div class="kpi-symbol">▣</div><div><small>Aktive Messpunkte</small><strong id="measured">– / –</strong></div></article>
+   <article class="kpi warning"><div class="kpi-symbol">△</div><div><small>Warnschwelle</small><strong id="warning">– W</strong></div></article>
+   <article class="kpi critical"><div class="kpi-symbol">!</div><div><small>Kritische Schwelle</small><strong id="critical">– W</strong></div></article>
+  </section>
+  <section class="load-card" id="load-card" data-level="unknown" aria-label="Aktuelle Last">
+   <div class="load-title"><div><h2>Laststatus</h2><p>Live-Gesamtleistung aller zugeordneten Geräte</p></div><div class="status" id="status"><span class="status-symbol">●</span><div><strong id="status-title">Prüfe Messdaten</strong><span id="status-detail">Warte auf Home Assistant</span></div></div></div>
+   <div class="load-layout">
+    <div class="load-main">
+     <div class="load-gradient-box">
+      <div class="load-pin" id="load-pin"><strong id="load-pin-value">– W</strong><i></i></div>
+      <div id="load-gradient" class="load-gradient" role="progressbar" aria-label="Leistung im Verhältnis zur kritischen Schwelle" aria-valuemin="0" aria-valuenow="0"></div>
+     </div>
+     <div class="load-ticks"><span>0 W</span><span id="warn-tick">Warnung – W</span><span id="critical-tick">Kritisch – W</span></div>
+    </div>
+   </div>
+  </section>
+  <div class="bottom-grid">
+   <section class="panel devices-panel">
+    <div class="panel-title"><h2>Geräteübersicht</h2><span id="device-summary">Live-Werte</span></div>
+    <div class="table-wrap"><table class="devices-table">
+     <thead><tr><th>Gerät</th><th>Leistung</th><th>Strom*</th><th>Energie</th><th>Status</th></tr></thead>
+     <tbody id="device-rows"><tr><td colspan="5" class="placeholder">Geräte werden geladen …</td></tr></tbody>
+    </table></div>
+    <p class="table-note">* Stromstärke überschlägig aus Watt / 230 V. Nicht zugeordnete oder ausgefallene Sensoren zählen nicht als 0 W.</p>
+   </section>
+   <div class="side-panels">
+    <section class="panel faults-panel">
+     <div class="panel-title"><h2>Shelly-Schutzstatus</h2><span id="fault-summary">Prüfe Sensoren …</span></div>
+     <div id="faults" class="faults"><p>Warte auf Shelly-Meldungen …</p></div>
+    </section>
+    <section class="panel chart-panel">
+     <div class="panel-title"><h2>Leistungsverlauf</h2><div class="chart-controls"><label for="chart-range" class="sr-only">Zeitraum</label><select id="chart-range"><option value="15">15 Minuten</option><option value="60" selected>1 Stunde</option><option value="180">3 Stunden</option><option value="1440">24 Stunden</option></select><span class="live-pill"><i></i> Live</span></div></div>
+     <div class="chart-host" id="chart"><p class="placeholder">Verlauf wird aufgezeichnet …</p></div>
+    </section>
+   </div>
+  </div>
+ </main>
+ <footer><span id="updated">Warte auf ersten Messwert …</span><span>Messung über Home Assistant · Keine elektrische Schutzabschaltung</span></footer>
+</div>
+</body>
+</html>
