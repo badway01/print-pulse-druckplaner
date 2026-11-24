@@ -19,6 +19,23 @@ DEFAULT_CRITICAL = 3200
 TOPIC_RE = re.compile(r'^[A-Za-z0-9_-]{5,128}$')
 CONF_KEY = 'power_monitor_config'
 ALERT_KEY = 'power_monitor_alert_state'
+FAULT_ALERT_KEY = 'power_monitor_fault_alert_state'
+# Exact IDs supplied by the user; no assumed A1 mini device.
+KNOWN_SHELLYS = {
+    'H2D': '90706948a600',
+    'P1S Old': '80b54e2aaa24',
+    'P1S New': '9070694d3d74',
+    'Snapmaker U1': '9070694dac1c',
+    'X2D': '80b54e287eac',
+    'A1': '48f6eeb64e1c',
+}
+A1_POWER = 'sensor.shellyplugsg3_48f6eeb64e1c_leistung'
+FAULT_SUFFIXES = {
+    'uberlast': 'Überlast',
+    'uberstrom': 'Überstrom',
+    'uberhitzung': 'Überhitzung',
+    'uberspannung': 'Überspannung',
+}
 
 
 def defaults():
@@ -71,8 +88,32 @@ def sensor_choices(states):
     return sorted(result, key=lambda item: item['name'].casefold())
 
 
+def effective_bindings(settings, states):
+    """Suggest verified A1 power sensor only if it was never explicitly set."""
+    bindings = dict(settings['bindings'])
+    if 'A1' not in bindings and watts(states.get(A1_POWER)) is not None \
+            and A1_POWER not in bindings.values():
+        bindings['A1'] = A1_POWER
+    return bindings
+
+
+def fault_status(states):
+    """Only registered binary sensors are monitored; unknown is not 'off'."""
+    faults = []
+    for name, device in KNOWN_SHELLYS.items():
+        for suffix, label in FAULT_SUFFIXES.items():
+            entity = f'binary_sensor.shellyplugsg3_{device}_{suffix}'
+            item = states.get(entity)
+            if item is None:
+                continue
+            value = str(item.get('state', 'unknown')).lower()
+            faults.append({'device': name, 'type': label, 'entity': entity,
+                           'state': value if value in ('on', 'off') else 'unknown'})
+    return faults
+
+
 def snapshot(states, settings):
-    bindings = settings['bindings']
+    bindings = effective_bindings(settings, states)
     devices = []
     total = 0.0
     measured = 0
@@ -99,6 +140,7 @@ def snapshot(states, settings):
             'printers_configured': sum(bool(bindings.get(n)) for n in DEVICES[:PRINTER_COUNT]),
             'printers_measured': sum(x['watts'] is not None for x in devices[:PRINTER_COUNT]),
             'devices': devices, 'level': level,
+            'faults': fault_status(states),
             'warning_w': warning, 'critical_w': critical,
             'ntfy_enabled': bool(settings['ntfy_topic']),
             'complete': all(x['watts'] is not None for x in devices[:PRINTER_COUNT]),
@@ -107,6 +149,7 @@ def snapshot(states, settings):
 
 def read_settings(db, cfg, states):
     result = config(db, cfg)
+    result['bindings'] = effective_bindings(result, states)
     result['devices'] = list(DEVICES)
     result['sensors'] = sensor_choices(states)
     return result
@@ -130,7 +173,10 @@ def save_settings(db, cfg, put_cfg, data, states):
             if str(a.get('unit_of_measurement', '')).strip().lower() not in ('w','kw'):
                 raise ValueError('Nur Leistungs-Sensoren in W oder kW sind erlaubt.')
             cleaned[name] = entity
-    if len(set(cleaned.values())) != len(cleaned):
+        elif name == 'A1':
+            # Explicitly removing A1 must remain possible, rather than auto-restoring it.
+            cleaned[name] = ''
+    if len(set(v for v in cleaned.values() if v)) != len([v for v in cleaned.values() if v]):
         raise ValueError('Ein Sensor darf nur einem Gerät zugeordnet sein.')
     try:
         warning = int(data.get('warning_w', DEFAULT_WARNING))
@@ -184,7 +230,7 @@ def poll_alert(db, cfg, put_cfg, states, now=None):
     """
     now = int(time.time() if now is None else now)
     setting = config(db, cfg)
-    if not setting['ntfy_topic'] or not setting['bindings']:
+    if not setting['ntfy_topic']:
         return
     result = snapshot(states, setting)
     if result['watts'] is None:
