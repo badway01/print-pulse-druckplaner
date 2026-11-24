@@ -3250,6 +3250,7 @@ class Handler(BaseHTTPRequestHandler):
                     result['history']=tablet_monitor.history(db,minutes)
                 records=tablet_monitor.devices(states,settings)
                 by_name={d['name']:d for d in records if d.get('enabled',True)}
+                printers=saved_printer_bindings()
                 for entry in result['devices']:
                     device=by_name.get(entry['name'],{})
                     energy=states.get(device.get('energy_entity',''))
@@ -3257,6 +3258,9 @@ class Handler(BaseHTTPRequestHandler):
                     state=states.get(device.get('switch_entity',''))
                     switch=state.get('state') if isinstance(state,dict) else None
                     entry['switch_state']=switch if switch in ('on','off') else None
+                    mapping=printers.get(entry['name'],{})
+                    sensor=sensor_value(states,mapping,'status')
+                    entry['printer_state']=printer_state(sensor,True) if sensor else None
                 result['updated']=int(time.time())
                 return self.send(200,result)
             except (ValueError, TypeError):
