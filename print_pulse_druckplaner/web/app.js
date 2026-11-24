@@ -1378,6 +1378,8 @@ function showWorkspace(value){
  }
  const production=value==='production';
  for(const id of ['dashboard-title','dashboard-orders-summary'])$(id).hidden=!production;
+ const powerPanel=document.getElementById('pp-power');
+ if(powerPanel)powerPanel.hidden=!production;
  $('summary').hidden=true;
  $('priority-shell').hidden=value!=='queue';
  for(const id of ['product-toolbar','product-sort-note','products'])$(id).hidden=value!=='stock';
