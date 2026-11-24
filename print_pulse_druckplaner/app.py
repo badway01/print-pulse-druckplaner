@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats, filament_stats, power_monitor
+    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats, filament_stats, power_monitor, tablet_monitor
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -65,6 +65,11 @@ except ImportError:
     _power_spec=importlib.util.spec_from_file_location('pp_power_monitor',Path(__file__).with_name('power_monitor.py'))
     power_monitor=importlib.util.module_from_spec(_power_spec)
     _power_spec.loader.exec_module(power_monitor)
+    _tablet_spec=importlib.util.spec_from_file_location('pp_tablet_monitor',Path(__file__).with_name('tablet_monitor.py'))
+    tablet_monitor=importlib.util.module_from_spec(_tablet_spec)
+    _tablet_spec.loader.exec_module(tablet_monitor)
+
+tablet_monitor.power_monitor = power_monitor
 
 ROOT = Path(__file__).resolve().parent
 APP_VERSION = os.environ.get('PP_VERSION') or '0.13.80'
@@ -3234,6 +3239,38 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,power_monitor.snapshot(homeassistant_states(),settings))
             except RuntimeError as exc:
                 return self.send(503,{'error':str(exc)[:160]})
+        if path=='/api/tablet-monitor':
+            try:
+                params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+                minutes=int((params.get('minutes') or ['60'])[0])
+                states=homeassistant_states()
+                with connect() as db:
+                    settings=power_monitor.config(db,cfg)
+                    result=power_monitor.snapshot(states,settings)
+                    result['history']=tablet_monitor.history(db,minutes)
+                records=tablet_monitor.devices(states,settings)
+                by_name={d['name']:d for d in records if d.get('enabled',True)}
+                for entry in result['devices']:
+                    device=by_name.get(entry['name'],{})
+                    energy=states.get(device.get('energy_entity',''))
+                    entry['energy_kwh']=tablet_monitor.energy_kwh(energy)
+                    state=states.get(device.get('switch_entity',''))
+                    switch=state.get('state') if isinstance(state,dict) else None
+                    entry['switch_state']=switch if switch in ('on','off') else None
+                result['updated']=int(time.time())
+                return self.send(200,result)
+            except (ValueError, TypeError):
+                return self.send(400,{'error':'Ungültiger Zeitraum.'})
+            except RuntimeError as exc:
+                return self.send(503,{'error':str(exc)[:160]})
+        if path=='/api/tablet-devices':
+            try:
+                states=homeassistant_states()
+                with connect() as db:
+                    settings=power_monitor.config(db,cfg)
+                    return self.send(200,tablet_monitor.read_settings(states,settings))
+            except RuntimeError as exc:
+                return self.send(503,{'error':str(exc)[:160]})
         if path=='/api/power-monitor-settings':
             try:
                 states=homeassistant_states()
@@ -3301,7 +3338,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             except (ValueError,FileNotFoundError):
                 return self.send(404,{'error':'Datei nicht verfügbar.'})
-        assets={'/printer-farm-frame.html':('printer-farm-frame.html','text/html'),'/printer-farm-frame.js':('printer-farm-frame.js','application/javascript'),'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/filament-quick-ui.js':('filament-quick-ui.js','application/javascript'),'/filament-stats-ui.js':('filament-stats-ui.js','application/javascript'),'/farm-ui.js':('farm-ui.js','application/javascript'),'/farm-ui.css':('farm-ui.css','text/css'),'/power-safety-ui.js':('power-safety-ui.js','application/javascript'),'/power-safety-ui.css':('power-safety-ui.css','text/css'),'/dashboard-order-cards.css':('dashboard-order-cards.css','text/css'),'/master-insights-ui.js':('master-insights-ui.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/catalog-3mf-info.js':('catalog-3mf-info.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/production-pool-ui.js':('production-pool-ui.js','application/javascript'),'/production-pool.css':('production-pool.css','text/css'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
+        assets={'/monitor':('tablet-monitor.html','text/html'),'/monitor/':('tablet-monitor.html','text/html'),'/tablet-monitor.html':('tablet-monitor.html','text/html'),'/tablet-monitor.js':('tablet-monitor.js','application/javascript'),'/tablet-monitor.css':('tablet-monitor.css','text/css'),'/tablet-devices-ui.js':('tablet-devices-ui.js','application/javascript'),'/printer-farm-frame.html':('printer-farm-frame.html','text/html'),'/printer-farm-frame.js':('printer-farm-frame.js','application/javascript'),'/':('index.html','text/html'),'/index.html':('index.html','text/html'),'/app.js':('app.js','application/javascript'),'/filament-quick-ui.js':('filament-quick-ui.js','application/javascript'),'/filament-stats-ui.js':('filament-stats-ui.js','application/javascript'),'/farm-ui.js':('farm-ui.js','application/javascript'),'/farm-ui.css':('farm-ui.css','text/css'),'/power-safety-ui.js':('power-safety-ui.js','application/javascript'),'/power-safety-ui.css':('power-safety-ui.css','text/css'),'/dashboard-order-cards.css':('dashboard-order-cards.css','text/css'),'/master-insights-ui.js':('master-insights-ui.js','application/javascript'),'/components-ui.js':('components-ui.js','application/javascript'),'/catalog-3mf-info.js':('catalog-3mf-info.js','application/javascript'),'/priority-ui.js':('priority-ui.js','application/javascript'),'/production-pool-ui.js':('production-pool-ui.js','application/javascript'),'/production-pool.css':('production-pool.css','text/css'),'/economics-ui.js':('economics-ui.js','application/javascript'),'/import-ui.js':('import-ui.js','application/javascript'),'/local-orders-ui.js':('local-orders-ui.js','application/javascript'),'/dialog-behavior.js':('dialog-behavior.js','application/javascript'),'/order-zoom-ui.js':('order-zoom-ui.js','application/javascript'),'/stock-orders-ui.js':('stock-orders-ui.js','application/javascript'),'/filament-planner-ui.js':('filament-planner-ui.js','application/javascript'),'/filament-purchases-ui.js':('filament-purchases-ui.js','application/javascript'),'/filament-purchases.css':('filament-purchases.css','text/css'),'/filament-planner.css':('filament-planner.css','text/css'),'/style.css':('style.css','text/css'),'/brand.svg':('brand.svg','image/svg+xml'),'/install-slicer-helper-mac.command':('install-slicer-helper-mac.command','application/octet-stream')}
         if path in assets:
             name,mime=assets[path]
             return self.send(200,(ROOT/'web'/name).read_bytes(),mime+'; charset=utf-8')
@@ -3632,6 +3669,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,overview())
             if path=='/api/farm-energy-settings':
                 return self.send(200,save_energy_settings(data))
+            if path=='/api/tablet-devices':
+                states=homeassistant_states()
+                with connect() as db:
+                    result=tablet_monitor.save(db,cfg,put_cfg,data,states)
+                return self.send(200,result)
             if path=='/api/power-monitor-settings':
                 states=homeassistant_states()
                 with connect() as db:
@@ -3756,18 +3798,18 @@ def farm_poll_loop():
 
 
 def power_alarm_loop():
-    """Background notifications without an open browser, never switches off power."""
+    """Sample the tablet history every 15s and send opted-in ntfy warnings."""
     while True:
         try:
-            with connect() as db:
-                enabled=bool(power_monitor.config(db,cfg)['ntfy_topic'])
-            if not enabled:
-                time.sleep(15)
-                continue
             states=homeassistant_states()
             with connect() as db:
-                message=power_monitor.poll_alert(db,cfg,put_cfg,states)
-                fault=power_monitor.poll_fault_alert(db,cfg,put_cfg,states)
+                settings=power_monitor.config(db,cfg)
+                reading=power_monitor.snapshot(states,settings)
+                tablet_monitor.record_sample(db,reading)
+                message=fault=None
+                if settings['ntfy_topic']:
+                    message=power_monitor.poll_alert(db,cfg,put_cfg,states)
+                    fault=power_monitor.poll_fault_alert(db,cfg,put_cfg,states)
             if fault:
                 power_monitor.send_ntfy(
                     fault['topic'],fault['title'],fault['message'],fault['priority'])
