@@ -2836,7 +2836,7 @@ function syncPrinterFarm(active){
  $('printer-farm-status').hidden=false;
  $('printer-farm-status').textContent='Druckerfarm wird geladen …';
  $('printer-monitor-fallback').hidden=true;
- $('printer-farm-frame').src='printer-farm-frame.html?v=0.13.69';
+ $('printer-farm-frame').src='printer-farm-frame.html?v=0.13.80';
  // A nonzero viewport is required for responsive card layout, even while loading.
  $('printer-farm-frame').hidden=false;
  $('printer-farm-frame').height='1';
