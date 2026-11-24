@@ -54,6 +54,12 @@ def config(db, cfg):
         result.update({k: raw[k] for k in result if k in raw})
     if not isinstance(result['bindings'], dict):
         result['bindings'] = {}
+    # Optional dynamic registry. None means the original 8 default devices.
+    try:
+        stored = json.loads(cfg(db, 'tablet_monitor_devices', ''))
+        result['registry'] = stored['items'] if isinstance(stored, dict) and isinstance(stored.get('items'), list) else None
+    except (TypeError, ValueError, KeyError):
+        result['registry'] = None
     return result
 
 
@@ -88,19 +94,39 @@ def sensor_choices(states):
     return sorted(result, key=lambda item: item['name'].casefold())
 
 
+def device_specs(settings):
+    registry = settings.get('registry')
+    if registry is not None:
+        return [item for item in registry if isinstance(item, dict)
+                and isinstance(item.get('name'), str)]
+    return [{'name': name, 'kind': 'other' if name == 'Kühlschrank' else 'printer',
+             'enabled': True} for name in DEVICES]
+
+
 def effective_bindings(settings, states):
     """Suggest verified A1 power sensor only if it was never explicitly set."""
     bindings = dict(settings['bindings'])
-    if 'A1' not in bindings and watts(states.get(A1_POWER)) is not None \
+    if any(item['name'] == 'A1' for item in device_specs(settings)) and 'A1' not in bindings and watts(states.get(A1_POWER)) is not None \
             and A1_POWER not in bindings.values():
         bindings['A1'] = A1_POWER
     return bindings
 
 
-def fault_status(states):
-    """Only registered binary sensors are monitored; unknown is not 'off'."""
+def fault_status(states, settings=None):
+    """Report known and newly registered Shelly faults; unknown is not 'off'."""
     faults = []
-    for name, device in KNOWN_SHELLYS.items():
+    known = dict(KNOWN_SHELLYS)
+    if settings is not None:
+        active = [item for item in device_specs(settings) if item.get('enabled', True)]
+        selected = {item['name'] for item in active}
+        known = {name: suffix for name, suffix in known.items() if name in selected}
+        for item in active:
+            for field in ('power_entity', 'switch_entity'):
+                match = re.search(r'shellyplugsg3_([a-f0-9]{12})', item.get(field) or '')
+                if match:
+                    known[item['name']] = match.group(1)
+                    break
+    for name, device in known.items():
         for suffix, label in FAULT_SUFFIXES.items():
             entity = f'binary_sensor.shellyplugsg3_{device}_{suffix}'
             item = states.get(entity)
@@ -118,39 +144,46 @@ def snapshot(states, settings):
     total = 0.0
     measured = 0
     configured = 0
-    for name in DEVICES:
-        entity = bindings.get(name) or ''
+    specs = [item for item in device_specs(settings) if item.get('enabled', True)]
+    for item in specs:
+        name = item['name']
+        entity = bindings.get(name) or item.get('power_entity') or ''
         if entity:
             configured += 1
         value = watts(states.get(entity)) if entity else None
         if value is not None:
             total += value
             measured += 1
-        devices.append({'name': name, 'entity': entity, 'watts': value})
+        devices.append({'name': name, 'entity': entity, 'watts': value,
+                        'kind': item.get('kind', 'printer'),
+                        'energy_entity': item.get('energy_entity') or '',
+                        'switch_entity': item.get('switch_entity') or ''})
     actual = round(total, 1) if measured else None
     warning = settings['warning_w']
     critical = settings['critical_w']
     level = ('unknown' if actual is None else
              'critical' if actual >= critical else
              'warning' if actual >= warning else 'normal')
+    printers = [d for d in devices if d['kind'] == 'printer']
     return {'watts': actual,
             'amps': round(total / 230, 2) if measured else None,
             'reference_percent_16a': round(total / 3680 * 100) if measured else None,
             'measured': measured, 'configured': configured,
-            'printers_configured': sum(bool(bindings.get(n)) for n in DEVICES[:PRINTER_COUNT]),
-            'printers_measured': sum(x['watts'] is not None for x in devices[:PRINTER_COUNT]),
+            'printers_total': len(printers),
+            'printers_configured': sum(bool(x['entity']) for x in printers),
+            'printers_measured': sum(x['watts'] is not None for x in printers),
             'devices': devices, 'level': level,
-            'faults': fault_status(states),
+            'faults': fault_status(states, settings),
             'warning_w': warning, 'critical_w': critical,
             'ntfy_enabled': bool(settings['ntfy_topic']),
-            'complete': all(x['watts'] is not None for x in devices[:PRINTER_COUNT]),
+            'complete': bool(printers) and all(x['watts'] is not None for x in printers),
             'note': 'Nur zugeordnete Shelly-Sensoren. Kühlschrank optional. Die 16-A-Referenz ist KEINE gemessene Stromkreis-Auslastung.'}
 
 
 def read_settings(db, cfg, states):
     result = config(db, cfg)
     result['bindings'] = effective_bindings(result, states)
-    result['devices'] = list(DEVICES)
+    result['devices'] = [item['name'] for item in device_specs(result)]
     result['sensors'] = sensor_choices(states)
     return result
 
@@ -159,10 +192,11 @@ def save_settings(db, cfg, put_cfg, data, states):
     if not isinstance(data, dict):
         raise ValueError('Ungültige Einstellungen.')
     bindings = data.get('bindings')
-    if not isinstance(bindings, dict) or set(bindings) - set(DEVICES):
+    valid_names = [item['name'] for item in device_specs(config(db, cfg))]
+    if not isinstance(bindings, dict) or set(bindings) - set(valid_names):
         raise ValueError('Ungültige Messpunkt-Zuordnung.')
     cleaned = {}
-    for name in DEVICES:
+    for name in valid_names:
         entity = bindings.get(name, '')
         if not isinstance(entity, str):
             raise ValueError('Ungültige Sensor-ID.')
@@ -191,6 +225,16 @@ def save_settings(db, cfg, put_cfg, data, states):
     result = {'bindings': cleaned, 'warning_w': warning,
               'critical_w': critical, 'ntfy_topic': topic}
     put_cfg(db, CONF_KEY, json.dumps(result, ensure_ascii=False))
+    # Keep the read-only tablet in sync if assignments are edited in the old panel.
+    try:
+        raw_registry = json.loads(cfg(db, 'tablet_monitor_devices', ''))
+        if isinstance(raw_registry, dict) and isinstance(raw_registry.get('items'), list):
+            for item in raw_registry['items']:
+                if isinstance(item, dict) and item.get('name') in valid_names:
+                    item['power_entity'] = cleaned.get(item['name'], '')
+            put_cfg(db, 'tablet_monitor_devices', json.dumps(raw_registry, ensure_ascii=False))
+    except (ValueError, TypeError):
+        pass
     # Changing sensors / limits should not keep an old alert episode active.
     put_cfg(db, ALERT_KEY, '{}')
     return result
@@ -275,7 +319,7 @@ def poll_alert(db, cfg, put_cfg, states, now=None):
     clock = datetime.fromtimestamp(now, ZoneInfo('Europe/Berlin')).strftime('%H:%M')
     headline = 'Hohe Leistung' if level == 'warning' else 'Kritische Leistung'
     message = (f'{clock} Uhr: {result["watts"]:.0f} W / ca. {result["amps"]:.1f} A '
-               f'gemessene Gesamtleistung ({result["printers_measured"]}/{PRINTER_COUNT} Drucker erfasst). '
+               f'gemessene Gesamtleistung ({result["printers_measured"]}/{result["printers_total"]} Drucker erfasst). '
                'Bitte Farm und Stromversorgung kontrollieren. '
                'Die tatsächliche Stromkreislast kann abweichen; kein automatischer Überlastungsschutz.')
     return {'level': level, 'message': message, 'title': 'Print & Pulse: ' + headline,
@@ -305,7 +349,7 @@ def poll_fault_alert(db, cfg, put_cfg, states, now=None):
     if not isinstance(saved, dict):
         saved = {}
     alert = None
-    for fault in fault_status(states):
+    for fault in fault_status(states, settings):
         entity = fault['entity']
         if fault['state'] == 'off':
             saved.pop(entity, None)
