@@ -1,3 +1,12 @@
+## 0.13.87 – Jahres-Historie und CSV-Datenexport für den Tablet-Schutzmonitor (24.11.2026)
+
+- Neuer Bereich „Messhistorie exportieren“ direkt unter dem Leistungsverlauf des Tablet-Monitors. Zeiträume: letzte 24 Stunden, 7 Tage, 30 Tage, 365 Tage. Klick auf „CSV exportieren“ startet einen authentifizierten Download innerhalb der bestehenden HA-Ingress-Sitzung, ohne externen Safari-Tab.
+- CSV im Excel-kompatiblen UTF-8-/Semikolon-Format mit deutscher Dezimalschreibweise. Enthält die Gesamtfarm und jede überwachte Shelly-Entität: Zeitraum, Anfang/Ende mit deutscher Zeitzone, Gerätename, HA-Sensor, Mittel- und Spitzenleistung in Watt, Mittel- und Spitzenstrom in Ampere, aus 15-Sekunden-Abtastung **geschätzte** kWh, Messlücken/Abdeckung und Anteil direkt gemessener Ampere-Werte. Ausgefallene Sensoren zählen nicht als 0 W.
+- Der bestehende 15-Sekunden-Hintergrundsammler zeichnet nun zusätzlich dauerhaft aggregierte Geräteverläufe in SQLite auf: 5-Minuten-Werte für 10 Tage, Stundenwerte für 400 Tage. Exportiert wird für 24 Stunden in 5-Minuten-, 7 Tage in 15-Minuten-, 30 Tage in Stunden- und 365 Tage in Tagesintervallen. Hält CSV-Dateien auch für lange Zeiträume kompakt.
+- Historische Einzelgerätedaten beginnen **erst mit diesem Update**; eine rückwirkende Rekonstruktion aus Gesamtleistungsverlauf/Maximalwerten ist nicht möglich. Bei noch leerer Historie meldet der Server dies eindeutig.
+- Kennzahlen und bestehender Live-Schutzmonitor bleiben unverändert. Kein Zugriff auf Etsy-Kundendaten oder Druckinhalte; nur technische Messdaten und Gerätebezeichnungen.
+- CSV-Download nutzt den bestehenden HA-Ingress-Zugriffsschutz und erhält denselben Dateinamen unabhängig von iPhone-/Tablet-Ansicht.
+
 ## 0.13.86 – Tablet: Statussymbol richtig zentriert (24.11.2026)
 
 - Häkchen, Fragezeichen und Ausrufezeichen innerhalb des runden Laststatus-Symbols auf iPhone und Tablet exakt mittig ausgerichtet. Ursache war eine zu allgemeine CSS-Regel, die das zentrierende Grid-Layout überschrieben hatte.
