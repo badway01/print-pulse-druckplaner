@@ -1,3 +1,8 @@
+## 0.13.77 – Stromanzeige sofort auf dem Dashboard (24.11.2026)
+
+- Stromüberwachung unmittelbar unter die Bestellübersicht und vor Etsy-Bestandswarnungen verschoben statt unter die lange Druckerliste.
+- Beim Wechsel des Arbeitsbereichs wird die Kachel nur im Dashboard angezeigt. Der Script-Cache wird mit der Version aktualisiert.
+
 ## 0.13.76 – Stromüberwachung und ntfy (24.11.2026)
 
 - Im Dashboard gemessene Shelly-Leistung, rechnerische Ampere bei 230 V und Sensor-Abdeckung pro Drucker anzeigen; optional Kühlschrank zuordnen.
