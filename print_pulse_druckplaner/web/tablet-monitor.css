@@ -224,3 +224,6 @@ body[data-theme=dark] .devices-table .pill.error{background:#6b2f2c;color:#ffcfc
  .dual-load-heading{margin-bottom:8px}
  .dual-load-disclaimer{font-size:9px}
 }
+
+/* Override the legacy mobile single-bar tick placement for both new bars. */
+.dual-load .load-ticks span{grid-column:auto!important;grid-row:auto!important}
