@@ -55,3 +55,6 @@ html[data-theme="dark"] .pp-power-faults:not(:empty){background:#402b27;color:#f
 html[data-theme=dark] .pp-tablet-link{color:#a5f0c3}
 @media(max-width:850px){.pp-device-list{grid-template-columns:1fr}}
 @media(max-width:430px){.pp-device-edit-grid{grid-template-columns:1fr}}
+
+button.pp-tablet-link{background:transparent;font-family:inherit;cursor:pointer}
+button.pp-tablet-link:focus-visible{outline:2px solid #2a925b;outline-offset:2px}
