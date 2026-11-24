@@ -27,7 +27,7 @@
     '<p class="pp-power-help">Warnung nach mindestens 30 Sekunden erhöhter Leistung; erneute Warnung erst nach Entwarnung für 2 Minuten. ntfy wird erst nach Eintragen und Speichern des Topics aktiviert. Keine automatische Abschaltung.</p>'+
     '<div class="pp-power-actions"><button type="button" id="pp-power-save" class="primary">Einstellungen speichern</button><button type="button" id="pp-power-test" class="secondary">ntfy testen</button></div>'+
     '<p id="pp-power-feedback" role="status" aria-live="polite"></p>'+
-   '</details></section>');
+   '</details></section>';
  const el=id=>document.getElementById(id);
  async function request(path,payload){
   const response=await fetch('api/'+path,{
