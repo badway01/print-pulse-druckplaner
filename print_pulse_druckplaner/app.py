@@ -3280,6 +3280,7 @@ class Handler(BaseHTTPRequestHandler):
                     result['history']=tablet_monitor.history(db,minutes)
                     result['total_peak']=tablet_monitor.total_peak(db)
                     result['total_amps_peak']=tablet_monitor.total_amps_peak(db)
+                    result['peak_reset_history']=tablet_monitor.peak_reset_history(db)
                     peaks=tablet_monitor.device_peaks(db)
                 records=tablet_monitor.devices(states,settings)
                 by_name={d['name']:d for d in records if d.get('enabled',True)}
@@ -3719,6 +3720,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,overview())
             if path=='/api/farm-energy-settings':
                 return self.send(200,save_energy_settings(data))
+            if path=='/api/tablet-reset-peaks':
+                if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
+                    return self.send(403,{'error':'Ungültiger Ursprung.'})
+                if data.get('action') != 'reset_all_amperes':
+                    raise ValueError('Ungültige Aktion.')
+                states=homeassistant_states()
+                with connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    settings=power_monitor.config(db,cfg)
+                    current=power_monitor.snapshot(states,settings)
+                    result=tablet_monitor.reset_all_amperes(db,current['devices'])
+                return self.send(200,result)
             if path=='/api/tablet-devices':
                 states=homeassistant_states()
                 with connect() as db:
