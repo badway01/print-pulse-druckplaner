@@ -9,7 +9,7 @@
  const fmt=n=>n==null?'–':new Intl.NumberFormat('de-DE',{maximumFractionDigits:1}).format(n);
  host.innerHTML =
   '<section id="pp-power" class="pp-power" aria-label="Shelly Stromüberwachung">'+
-   '<div class="pp-power-head"><div><small>DRUCKERFARM · SHELLY LIVE</small><h3>Stromüberwachung</h3></div><span id="pp-power-state" class="pp-power-state">Lade …</span></div>'+
+   '<div class="pp-power-head"><div><small>DRUCKERFARM · SHELLY LIVE · v0.13.79</small><h3>Stromüberwachung</h3></div><span id="pp-power-state" class="pp-power-state">Lade …</span></div>'+
    '<div class="pp-power-grid">'+
     '<div><small>Gemessene Leistung</small><strong id="pp-power-watts">– W</strong></div>'+
     '<div><small>Rechnerisch bei 230 V</small><strong id="pp-power-amps">– A</strong></div>'+
