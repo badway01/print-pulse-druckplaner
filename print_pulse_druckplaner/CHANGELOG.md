@@ -1,3 +1,14 @@
+## 0.13.88 – Dualer Watt-/Ampere-Laststatus mit drei Warnfarben (24.11.2026)
+
+- Stromüberwachung nach dem freigegebenen Entwurf neu gestaltet: zwei vollbreite Lastbalken direkt untereinander, separat für Watt und die Summe der realen Shelly-Amperewerte; ausschließlich Farbfolge **Grün → Gelb → Rot**, keine orange Zwischenstufe.
+- Watt: bisherige einstellbare Warn-/Kritischgrenzen (standardmäßig 2.500/3.200 W) unverändert, separater Wertemarker und eigener Normal-/Warn-/Kritischstatus.
+- Ampere: 0–unter 12 A grün; ab 12 A gelb; ab 14 A rot („Hohe Stromlast“); ab 16 A rot mit dem ausdrücklichen Status „16 A erreicht“. Die 16 A sind der vom Nutzer genannte Nennstrom der gemeinsamen Sicherung, kein garantierter Abschaltpunkt.
+- Neues KPI-Feld „Strompeak gesamt“: höchster **vollständig aus echten Shelly-Stromsensoren** gemessener summierter Gerätewert, inklusive Zeitpunkt. SQLite-Speicherung über Neustarts hinweg; unvollständige oder rechnerisch geschätzte Werte werden nicht als bestätigter Gesamtpeak verbucht. Die übrigen Watt-/Ampere-Spitzenwerte bleiben erhalten.
+- Zweites neues KPI-Feld „Stromkreis-Nennstrom 16,0 A“. Insgesamt acht Kennzahlen mit vier Spalten bei ausreichend breiten Tablets und zwei Spalten auf dem iPhone.
+- Beide Lastbalken und ihre Zustandsanzeigen sind getrennt: ein Watt-Alarm setzt nicht fälschlich die Ampere-Anzeige auf Rot; aktive Shelly-Fehlermeldungen werden weiterhin prominent markiert.
+- Mobilfreundliche Grenzbeschriftungen unter beiden Balken, mit Korrektur der alten Grid-Regeln, um Überschneidungen zu vermeiden.
+- **Wichtige Grenze:** Die Ampere-Summe ist die Summe einzelner Shelly-Geräteströme und keine direkte Messung des Stromkreises. Andere Verbraucher, Blindleistung, Netzphasen, Leitungsschutz und Steckdosenkontakte bleiben außerhalb dieser Anzeigegenauigkeit. Keine automatische Abschaltung oder Änderung der ntfy-Einstellungen.
+
 ## 0.13.87 – Jahres-Historie und CSV-Datenexport für den Tablet-Schutzmonitor (24.11.2026)
 
 - Neuer Bereich „Messhistorie exportieren“ direkt unter dem Leistungsverlauf des Tablet-Monitors. Zeiträume: letzte 24 Stunden, 7 Tage, 30 Tage, 365 Tage. Klick auf „CSV exportieren“ startet einen authentifizierten Download innerhalb der bestehenden HA-Ingress-Sitzung, ohne externen Safari-Tab.
