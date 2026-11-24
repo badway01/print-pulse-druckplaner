@@ -1,3 +1,8 @@
+## 0.13.79 – Stromkachel: JavaScript repariert (24.11.2026)
+
+- Syntaxfehler in der neuen Stromkachel-Initialisierung behoben und JavaScript auf Syntax geprüft.
+- Kachel zeigt die installierte Anzeigeversion an; HTML-Fallback bleibt auch bei Ladeproblemen sichtbar.
+
 ## 0.13.78 – Statische Stromkachel und Ladediagnose (24.11.2026)
 
 - Stromüberwachung sitzt fest als HTML-Kachel direkt nach den Bestellungen; sie bleibt auch bei ausfallendem Javascript sichtbar und zeigt dann eine konkrete Fehlermeldung.
