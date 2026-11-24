@@ -155,13 +155,19 @@
   const html=rows.map(item=>{
    const available=item.watts!=null;
    const phase=displayPhase(item);
-   const amp=available?fmt(item.watts/230,2)+' A':'–';
-   const maxAmp=item.max_amps==null?'–':fmt(item.max_amps,2)+' A';
+   const amp=item.amps==null?'–':
+      (item.amps_source==='shelly'?'':'≈ ')+fmt(item.amps,2)+' A';
+   const maxAmp=item.max_amps==null?'–':
+      (item.max_amps_source==='shelly'?'':'≈ ')+fmt(item.max_amps,2)+' A';
+   const currentHint=item.amps_source==='shelly'?'Shelly-Stromsensor direkt gemessen':
+      item.amps_source==='calculated'?'Ersatzwert aus Watt / 230 V':'Kein Stromwert';
+   const peakHint=item.max_amps_source==='shelly'?'Höchster gemessener Shelly-Ampere-Wert':
+      'Höchster errechneter Ersatzwert';
    const e=item.energy_kwh==null?'–':fmt(item.energy_kwh,2)+' kWh';
    return '<tr class="device-row state-'+esc(phase.state)+'"><td class="'+
     (item.kind==='other'?'other-name':'printer-name')+'">'+esc(item.name)+'</td>'+
-    '<td>'+esc(power(item.watts))+'</td><td>'+esc(amp)+'</td>'+
-    '<td class="device-max-amps">'+esc(maxAmp)+'</td><td>'+esc(e)+'</td>'+
+    '<td>'+esc(power(item.watts))+'</td><td title="'+esc(currentHint)+'">'+esc(amp)+'</td>'+
+    '<td class="device-max-amps" title="'+esc(peakHint)+'">'+esc(maxAmp)+'</td><td>'+esc(e)+'</td>'+
     '<td><span class="pill '+esc(phase.state)+'">'+esc(phase.label)+'</span></td></tr>';
   }).join('');
   byId('device-rows').innerHTML=html||
@@ -236,6 +242,17 @@
  function render(d){
   byId('watts').textContent=power(d.watts);
   byId('amps').textContent=d.amps==null?'– A':fmt(d.amps,2)+' A';
+  const real=Number(d.amps_real_count)||0,estimated=Number(d.amps_estimated_count)||0;
+  byId('amps-method').textContent=real&&estimated?
+    real+' direkt · '+estimated+' geschätzt':
+    real?real+' Shelly-Sensoren direkt gemessen':
+    estimated?'≈ Nur berechnete Ersatzwerte':'Noch keine Strommessung';
+  const high=d.total_peak;
+  byId('total-peak').textContent=high?power(high.watts):'– W';
+  byId('total-peak-note').textContent=high?
+    'Am '+new Date(high.at*1000).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+
+    ' · '+high.measured+'/'+high.expected+' Drucker erfasst':
+    'Noch kein Gesamtpeak gespeichert';
   byId('measured').textContent=(d.printers_measured??0)+' / '+(d.printers_total??0);
   byId('warning').textContent=power(d.warning_w);
   byId('critical').textContent=power(d.critical_w);
