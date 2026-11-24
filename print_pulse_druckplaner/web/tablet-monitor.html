@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f8f5">
 <title>Print &amp; Pulse | Stromüberwachung Live</title>
-<link rel="stylesheet" href="tablet-monitor.css?v=0.13.88">
-<script src="tablet-monitor.js?v=0.13.88" defer></script>
+<link rel="stylesheet" href="tablet-monitor.css?v=0.13.89">
+<script src="tablet-monitor.js?v=0.13.89" defer></script>
 </head>
 <body data-theme="light">
 <div class="monitor-shell">
@@ -71,10 +71,10 @@
    <section class="panel devices-panel">
     <div class="panel-title"><h2>Geräteübersicht</h2><span id="device-summary">Live-Werte</span></div>
     <div class="table-wrap"><table class="devices-table">
-     <thead><tr><th>Gerät</th><th>Leistung</th><th>Strom*</th><th title="Höchster beobachteter Strom seit Aktivierung der Aufzeichnung">Max A*</th><th>Energie</th><th>Status</th></tr></thead>
+     <thead><tr><th>Gerät</th><th>Leistung</th><th>Strom*</th><th title="Höchster beobachteter Strom seit dem letzten Max-A-Reset">Max A*</th><th>Energie</th><th>Status</th></tr></thead>
      <tbody id="device-rows"><tr><td colspan="6" class="placeholder">Geräte werden geladen …</td></tr></tbody>
     </table></div>
-    <p class="table-note">Ampere direkt aus dem Shelly-Stromsensor, falls verfügbar. ≈ kennzeichnet Ersatzwerte aus Watt / 230 V. Max A zeigt die höchste erfasste Stromstärke pro Shelly (15-Sekunden-Abfrage). Nicht verfügbare Sensoren zählen nicht als 0.</p>
+    <p class="table-note">Ampere direkt aus dem Shelly-Stromsensor, falls verfügbar. ≈ kennzeichnet Ersatzwerte aus Watt / 230 V. Max A zeigt den höchsten Strom je Shelly seit dem letzten Reset (15-Sekunden-Abfrage). Frühere Peaks bleiben im Protokoll und CSV-Export. Nicht verfügbare Sensoren zählen nicht als 0.</p>
     <div class="peak-reset-section">
      <div class="peak-reset-action">
       <div class="peak-reset-title"><strong>Max-A-Rekorde</strong>
