@@ -3246,8 +3246,10 @@ class Handler(BaseHTTPRequestHandler):
                 states=homeassistant_states()
                 with connect() as db:
                     settings=power_monitor.config(db,cfg)
-                    result=power_monitor.snapshot(states,settings)
+                    result=tablet_monitor.enrich_currents(
+                        power_monitor.snapshot(states,settings),states)
                     result['history']=tablet_monitor.history(db,minutes)
+                    result['total_peak']=tablet_monitor.total_peak(db)
                     peaks=tablet_monitor.device_peaks(db)
                 records=tablet_monitor.devices(states,settings)
                 by_name={d['name']:d for d in records if d.get('enabled',True)}
@@ -3262,6 +3264,7 @@ class Handler(BaseHTTPRequestHandler):
                     peak=peaks.get(entry.get('entity') or '',{})
                     entry['max_amps']=peak.get('max_amps')
                     entry['max_amps_at']=peak.get('at')
+                    entry['max_amps_source']=peak.get('source')
                     state=states.get(device.get('switch_entity',''))
                     switch=state.get('state') if isinstance(state,dict) else None
                     entry['switch_state']=switch if switch in ('on','off') else None
@@ -3821,7 +3824,8 @@ def power_alarm_loop():
             states=homeassistant_states()
             with connect() as db:
                 settings=power_monitor.config(db,cfg)
-                reading=power_monitor.snapshot(states,settings)
+                reading=tablet_monitor.enrich_currents(
+                    power_monitor.snapshot(states,settings),states)
                 tablet_monitor.record_sample(db,reading)
                 message=fault=None
                 if settings['ntfy_topic']:
