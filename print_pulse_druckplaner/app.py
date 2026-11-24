@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats, filament_stats, power_monitor, tablet_monitor
+    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats, filament_stats, power_monitor, tablet_monitor, tablet_history
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -68,6 +68,9 @@ except ImportError:
     _tablet_spec=importlib.util.spec_from_file_location('pp_tablet_monitor',Path(__file__).with_name('tablet_monitor.py'))
     tablet_monitor=importlib.util.module_from_spec(_tablet_spec)
     _tablet_spec.loader.exec_module(tablet_monitor)
+    _history_spec=importlib.util.spec_from_file_location('pp_tablet_history',Path(__file__).with_name('tablet_history.py'))
+    tablet_history=importlib.util.module_from_spec(_history_spec)
+    _history_spec.loader.exec_module(tablet_history)
 
 tablet_monitor.power_monitor = power_monitor
 
@@ -3239,6 +3242,32 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,power_monitor.snapshot(homeassistant_states(),settings))
             except RuntimeError as exc:
                 return self.send(503,{'error':str(exc)[:160]})
+        if path=='/api/tablet-history-export':
+            try:
+                params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+                period=(params.get('period') or ['day'])[0]
+                if period not in tablet_history.PERIODS:
+                    return self.send(400,{'error':'Ungültiger Exportzeitraum.'})
+                with connect() as db:
+                    document=tablet_history.export_csv(db,period)
+                stamp=dt.datetime.now(ZoneInfo('Europe/Berlin')).strftime('%Y%m%d-%H%M')
+                label=tablet_history.PERIODS[period][2]
+                filename='Print-Pulse-Stromhistorie-'+label+'-'+stamp+'.csv'
+                self.send_response(200)
+                self.send_header('Content-Type','text/csv; charset=utf-8')
+                self.send_header('Content-Disposition','attachment; filename="'+filename+'"')
+                self.send_header('Content-Length',str(len(document)))
+                self.send_header('Cache-Control','private, no-store')
+                self.send_header('X-Content-Type-Options','nosniff')
+                self.send_header('Referrer-Policy','no-referrer')
+                self.end_headers()
+                self.wfile.write(document)
+                return
+            except LookupError:
+                return self.send(409,{'error':'Für diesen Zeitraum liegen noch keine Messdaten vor.'})
+            except sqlite3.Error:
+                log.exception('Tablet-CSV-Export konnte nicht gelesen werden')
+                return self.send(503,{'error':'CSV-Export derzeit nicht verfügbar.'})
         if path=='/api/tablet-monitor':
             try:
                 params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
@@ -3827,6 +3856,7 @@ def power_alarm_loop():
                 reading=tablet_monitor.enrich_currents(
                     power_monitor.snapshot(states,settings),states)
                 tablet_monitor.record_sample(db,reading)
+                tablet_history.record_sample(db,reading)
                 message=fault=None
                 if settings['ntfy_topic']:
                     message=power_monitor.poll_alert(db,cfg,put_cfg,states)
