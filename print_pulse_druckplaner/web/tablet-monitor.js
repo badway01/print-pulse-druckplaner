@@ -33,6 +33,15 @@
  }
  clock();
  setInterval(clock,1000);
+ byId('back-to-planner').addEventListener('click',()=>{
+  // Never redirect to a saved ingress token in a separate browser.
+  // /monitor and /monitor/ both return to the same authenticated add-on root.
+  const url=new URL(window.location.href);
+  url.pathname=url.pathname.replace(/\/monitor\/?$/, '/');
+  url.search='';
+  url.hash='';
+  window.location.assign(url.href);
+ });
  byId('fullscreen').addEventListener('click',async()=>{
   try{
    if(document.fullscreenElement)await document.exitFullscreen();
