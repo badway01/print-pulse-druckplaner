@@ -52,3 +52,13 @@ body[data-theme=dark] .devices-table .pill.printing{background:#23633c;color:#c9
 body[data-theme=dark] .devices-table .pill.paused{background:#654322;color:#ffe5c0}
 body[data-theme=dark] .devices-table .pill.error{background:#6b2f2c;color:#ffcfca}
 @media(max-width:780px){.devices-table{min-width:680px}}
+
+/* Six tablet KPIs: three columns on typical 10–13" tablets, six on wide screens. */
+@media (min-width:1601px){.kpis{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media (min-width:781px) and (max-width:1600px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.kpi.peak-kpi{background:linear-gradient(135deg,#e8f4ee99,transparent 80%),var(--surface)}
+.kpi.peak-kpi .kpi-symbol{color:#237da0}
+.kpi .kpi-note{display:block;font-size:clamp(9px,.8vw,12px);margin-top:5px;
+ font-weight:500;color:var(--muted);line-height:1.35;white-space:normal}
+.kpi.peak-kpi strong{color:var(--text)}
+@media(max-width:780px){.kpi .kpi-note{font-size:10px}}
