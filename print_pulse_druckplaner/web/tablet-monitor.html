@@ -65,6 +65,25 @@
     <section class="panel chart-panel">
      <div class="panel-title"><h2>Leistungsverlauf</h2><div class="chart-controls"><label for="chart-range" class="sr-only">Zeitraum</label><select id="chart-range"><option value="15">15 Minuten</option><option value="60" selected>1 Stunde</option><option value="180">3 Stunden</option><option value="1440">24 Stunden</option></select><span class="live-pill"><i></i> Live</span></div></div>
      <div class="chart-host" id="chart"><p class="placeholder">Verlauf wird aufgezeichnet …</p></div>
+     <div class="history-export">
+      <div class="history-export-heading">
+       <strong>Messhistorie exportieren</strong>
+       <span>Gesamtfarm und Einzelgeräte</span>
+      </div>
+      <div class="history-export-controls">
+       <label for="export-period" class="sr-only">Zeitraum für Datenexport</label>
+       <select id="export-period" aria-label="Exportzeitraum">
+        <option value="day">Letzte 24 Stunden</option>
+        <option value="week">Letzte 7 Tage</option>
+        <option value="month">Letzte 30 Tage</option>
+        <option value="year">Letzte 365 Tage</option>
+       </select>
+       <a id="history-export-link" class="history-download"
+        href="api/tablet-history-export?period=day" download>CSV exportieren ↓</a>
+      </div>
+      <p class="history-export-note">Die Datei enthält Watt, Ampere, Spitzenwerte, Messabdeckung und geschätzte kWh.
+       Längere Zeiträume werden platzsparend verdichtet. Aufzeichnung ab dieser Version.</p>
+     </div>
     </section>
    </div>
   </div>
