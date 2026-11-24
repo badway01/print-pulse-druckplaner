@@ -3767,6 +3767,12 @@ def power_alarm_loop():
             states=homeassistant_states()
             with connect() as db:
                 message=power_monitor.poll_alert(db,cfg,put_cfg,states)
+                fault=power_monitor.poll_fault_alert(db,cfg,put_cfg,states)
+            if fault:
+                power_monitor.send_ntfy(
+                    fault['topic'],fault['title'],fault['message'],fault['priority'])
+                with connect() as db:
+                    power_monitor.mark_fault_sent(db,cfg,put_cfg,fault)
             if message:
                 power_monitor.send_ntfy(
                     message['topic'],message['title'],message['message'],message['priority'])
