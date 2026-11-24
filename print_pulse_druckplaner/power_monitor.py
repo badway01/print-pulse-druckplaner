@@ -201,6 +201,8 @@ def poll_alert(db, cfg, put_cfg, states, now=None):
         # incomplete measurements as proof that the alarm has cleared.
         if result['measured'] < result['configured']:
             return
+        previous.pop('candidate', None)
+        previous.pop('since', None)
         below = int(previous.get('below_since') or now)
         if now - below >= 120:
             previous = {}
@@ -213,7 +215,8 @@ def poll_alert(db, cfg, put_cfg, states, now=None):
         previous['since'] = now
     previous.pop('below_since', None)
     sent = previous.get('sent', '')
-    if now - int(previous.get('since') or now) < 30 or sent == level:
+    rank = {'warning': 1, 'critical': 2}
+    if now - int(previous.get('since') or now) < 30 or rank.get(sent, 0) >= rank[level]:
         put_cfg(db, ALERT_KEY, json.dumps(previous))
         return
     # No silent flood on network errors. Retry after at least 60 seconds.
