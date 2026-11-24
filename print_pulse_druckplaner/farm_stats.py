@@ -8,10 +8,10 @@ import math
 import datetime as dt
 from zoneinfo import ZoneInfo
 
-PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "X2D", "A1 mini", "Prusa MK4")
+PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "X2D", "A1", "A1 mini", "Prusa MK4")
 # Only the production printers count toward fleet statistics.
-# The two manual printers and their existing history remain intact.
-PRODUCTION_PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "X2D")
+# The two manual printers and their existing history remain intact. A1 is HA-monitored.
+PRODUCTION_PRINTERS = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "X2D", "A1")
 MANUAL_PRINTERS = ("A1 mini", "Prusa MK4")
 KNOWN_STATES = {"printing", "paused", "idle", "finished", "error", "preparing"}
 MAX_GAP_SECONDS = 100
