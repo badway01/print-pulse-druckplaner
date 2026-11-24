@@ -1,3 +1,10 @@
+## 0.13.76 – Stromüberwachung und ntfy (24.11.2026)
+
+- Im Dashboard gemessene Shelly-Leistung, rechnerische Ampere bei 230 V und Sensor-Abdeckung pro Drucker anzeigen; optional Kühlschrank zuordnen.
+- Leistungssensoren (W/kW) im Dashboard zuordnen; 2500/3200 W sind anpassbare Warnschwellen und keine Schutzeinstellung.
+- ntfy.sh-Topic im Dashboard hinterlegen und per Testnachricht prüfen. Hintergrund-Warnung erst nach mindestens 30 Sekunden hoher Leistung; Entwarnung erfordert zwei Minuten mit vollständigen Messwerten.
+- Keine Schaltautomation. Unvollständige Messwerte werden nicht als Null ausgegeben. Die Absicherung der Kellersteckdosen muss weiterhin fachlich geprüft werden.
+
 ## 0.13.73 – Drucker-Auslastung verständlich dargestellt (22.11.2026)
 
 - Große gemessene Auslastung je Drucker und für die gesamte Farm: Grün für Druckzeit, Beige für übrige erfasste Zeit.
