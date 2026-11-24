@@ -77,38 +77,63 @@
   if(!response.ok)throw new Error(data.error||'HA-Abfrage fehlgeschlagen');
   return data;
  }
+ const AMP_WARN_A=12;
+ const AMP_RED_A=14;
+ const AMP_RATED_A=16;
+ const AMP_SCALE_MAX=18;
+ function setRowStatus(rowId,boxId,titleId,detailId,level,label,detail){
+  const row=byId(rowId);
+  row.dataset.level=level;
+  const badge=byId(boxId);
+  badge.querySelector('.status-symbol').textContent=
+   level==='normal'?'✓':level==='unknown'?'?':'!';
+  byId(titleId).textContent=label;
+  byId(detailId).textContent=detail;
+ }
  function status(d){
   const faults=(d.faults||[]).filter(f=>f.state==='on');
   const unknown=(d.faults||[]).filter(f=>f.state==='unknown').length;
-  let level='normal',label='Normal',detail='Unter den eingestellten Warnschwellen';
-  if(d.watts==null){level='unknown';label='Keine Messwerte';detail='Kein Leistungssensor erreichbar'}
-  else if(faults.length){level='critical';label='Shelly-Störung';detail=faults.length+' aktive Fehlermeldung(en)'}
-  else if(d.level==='critical'){level='critical';label='Kritische Last';detail='Kritische Schwelle überschritten'}
-  else if(d.level==='warning'){level='warning';label='Erhöhte Last';detail='Warnschwelle überschritten'}
+  let wl='normal',wt='Normal',wd='Unter den eingestellten Watt-Warnschwellen';
+  if(faults.length){wl='critical';wt='Shelly-Störung';wd=faults.length+' aktive Fehlermeldung(en)'}
+  else if(d.watts==null){wl='unknown';wt='Keine Messwerte';wd='Kein Leistungssensor erreichbar'}
+  else if(d.level==='critical'){wl='critical';wt='Kritische Wattlast';wd='Eingestellte Watt-Grenze erreicht'}
+  else if(d.level==='warning'){wl='warning';wt='Watt-Warnung';wd='Eingestellte Watt-Warnschwelle erreicht'}
   else if(!d.complete){
-   level='unknown';
+   wl='unknown';
    const missing=(d.devices||[]).filter(x=>x.kind==='printer'&&x.watts==null);
    const unassigned=missing.filter(x=>!x.entity).map(x=>x.name);
    const unavailable=missing.filter(x=>x.entity).map(x=>x.name);
-   label=unassigned.length?'Messpunkte fehlen':'Unvollständige Messung';
-   detail=[
+   wt=unassigned.length?'Messpunkte fehlen':'Unvollständige Messung';
+   wd=[
     unassigned.length?'Nicht zugeordnet: '+unassigned.join(', '):'',
     unavailable.length?'Kein Messwert: '+unavailable.join(', '):''
-   ].filter(Boolean).join(' · ')||'Nicht alle Drucker-Sensoren liefern Werte';
+   ].filter(Boolean).join(' · ')||'Nicht alle Watt-Sensoren liefern Werte';
   }
-  byId('load-card').dataset.level=level;
-  byId('status-title').textContent=label;
-  byId('status-detail').textContent=detail;
-  byId('status').querySelector('.status-symbol').textContent=level==='normal'?'✓':level==='critical'?'!':level==='warning'?'!':'?';
+  if(unknown&&wl==='normal')wd=unknown+' Shelly-Fehlerstatus nicht verfügbar';
+  setRowStatus('watt-load-row','status','status-title','status-detail',wl,wt,wd);
+  let al='normal',at='Normal',ad='Unter 12 A der erfassten Shellys';
+  const valid=typeof d.amps==='number'&&Number.isFinite(d.amps)&&d.amps>=0;
+  const devices=d.devices||[];
+  const allDirect=devices.length>0&&d.amps_real_count===devices.length&&
+   d.amps_estimated_count===0&&d.complete;
+  if(faults.length){al='critical';at='Shelly-Störung';ad=faults.length+' aktive Fehlermeldung(en)'}
+  else if(!valid){al='unknown';at='Keine Stromwerte';ad='Shelly-Ampere nicht verfügbar'}
+  else if(d.amps>=AMP_RATED_A){al='critical';at='16 A erreicht';ad='Nennstromgrenze: Stromkreislast prüfen'}
+  else if(d.amps>=AMP_RED_A){al='critical';at='Hohe Stromlast';ad='Ab 14 A: Last möglichst reduzieren'}
+  else if(d.amps>=AMP_WARN_A){al='warning';at='Strom-Warnung';ad='Ab 12 A: Stromkreis beobachten'}
+  else if(!allDirect){al='unknown';at='Messung unvollständig';ad=d.amps_estimated_count?
+     'Mindestens ein Ampere-Wert nur berechnet':
+     'Nicht alle Shelly-Amperewerte vorhanden'}
+  setRowStatus('amps-load-row','amp-status','amp-status-title','amp-status-detail',al,at,ad);
+  const severity={normal:0,unknown:1,warning:2,critical:3};
+  byId('load-card').dataset.level=severity[wl]>=severity[al]?wl:al;
   byId('connection').dataset.state='ok';
   byId('connection-text').textContent='Live · HA verbunden';
-  if(unknown&&level==='normal')byId('status-detail').textContent=unknown+' Shelly-Fehlerstatus nicht verfügbar';
  }
  function loadBar(d){
   const warn=Number(d.warning_w)||2500,critical=Number(d.critical_w)||3200;
   const max=critical*1.18;
   const n=Math.max(0,Number(d.watts)||0);
-  // The marker uses a calculated reference range, not an electrical safety rating.
   const pct=Math.min(96,Math.max(4,n/max*100));
   const warningPct=(warn/max*100)+'%';
   const criticalPct=(critical/max*100)+'%';
@@ -124,6 +149,20 @@
   byId('load-pin-value').textContent=power(d.watts);
   byId('warn-tick').textContent='Warnung '+fmt(warn,0)+' W';
   byId('critical-tick').textContent='Kritisch '+fmt(critical,0)+' W';
+
+  const amps=typeof d.amps==='number'&&Number.isFinite(d.amps)?Math.max(0,d.amps):null;
+  const ampPct=amps==null?4:Math.min(97,Math.max(4,amps/AMP_SCALE_MAX*100));
+  const ampPin=byId('amp-load-pin'),ampTrack=byId('amp-load-gradient');
+  ampPin.style.left=ampPct+'%';
+  ampTrack.style.setProperty('--marker-left',ampPct+'%');
+  ampTrack.style.setProperty('--warning-pct',AMP_WARN_A/AMP_SCALE_MAX*100+'%');
+  ampTrack.style.setProperty('--red-pct',AMP_RED_A/AMP_SCALE_MAX*100+'%');
+  ampTrack.setAttribute('aria-valuenow',String(Math.min(AMP_SCALE_MAX,amps||0)));
+  byId('amp-load-pin-value').textContent=amps==null?'– A':fmt(amps,2)+' A';
+  const marks=byId('amp-warn-tick').parentElement;
+  marks.style.setProperty('--amp-warn-pct',AMP_WARN_A/AMP_SCALE_MAX*100+'%');
+  marks.style.setProperty('--amp-red-pct',AMP_RED_A/AMP_SCALE_MAX*100+'%');
+  marks.style.setProperty('--amp-limit-pct',AMP_RATED_A/AMP_SCALE_MAX*100+'%');
  }
  function activePrintStage(raw){
   if(typeof raw!=='string'||!raw.trim())return null;
