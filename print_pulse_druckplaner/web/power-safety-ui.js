@@ -9,7 +9,7 @@
  const fmt=n=>n==null?'–':new Intl.NumberFormat('de-DE',{maximumFractionDigits:1}).format(n);
  host.innerHTML =
   '<section id="pp-power" class="pp-power" aria-label="Shelly Stromüberwachung">'+
-   '<div class="pp-power-head"><div><small>DRUCKERFARM · SHELLY LIVE · v0.13.79</small><h3>Stromüberwachung</h3></div><span id="pp-power-state" class="pp-power-state">Lade …</span></div>'+
+   '<div class="pp-power-head"><div><small>DRUCKERFARM · SHELLY LIVE · v0.13.81</small><h3>Stromüberwachung</h3></div><span class="pp-power-header-actions"><a class="pp-tablet-link" href="monitor" target="_blank" rel="noopener">Tablet-Monitor öffnen ↗</a><span id="pp-power-state" class="pp-power-state">Lade …</span></span></div>'+
    '<div class="pp-power-grid">'+
     '<div><small>Gemessene Leistung</small><strong id="pp-power-watts">– W</strong></div>'+
     '<div><small>Rechnerisch bei 230 V</small><strong id="pp-power-amps">– A</strong></div>'+
@@ -28,6 +28,13 @@
     '<p class="pp-power-help">Warnung nach mindestens 30 Sekunden erhöhter Leistung; erneute Warnung erst nach Entwarnung für 2 Minuten. ntfy wird erst nach Eintragen und Speichern des Topics aktiviert. Keine automatische Abschaltung.</p>'+
     '<div class="pp-power-actions"><button type="button" id="pp-power-save" class="primary">Einstellungen speichern</button><button type="button" id="pp-power-test" class="secondary">ntfy testen</button></div>'+
     '<p id="pp-power-feedback" role="status" aria-live="polite"></p>'+
+    '<details id="pp-devices-manager" class="pp-devices-manager"><summary>Geräteverwaltung · Drucker und Shellys hinzufügen / entfernen</summary>'+
+     '<p class="pp-power-help">Verwalte alle überwachten Geräte zentral. Wähle nur die HA-Shelly-Sensoren aus. Der Tablet-Monitor aktualisiert sich automatisch. Deaktivierte Geräte bleiben gespeichert.</p>'+
+     '<div id="pp-device-list" class="pp-device-list"></div>'+
+     '<div class="pp-power-actions"><button type="button" id="pp-device-add" class="secondary">+ Gerät hinzufügen</button>'+
+      '<button type="button" id="pp-device-save" class="primary">Änderungen speichern</button></div>'+
+     '<p id="pp-device-info" class="pp-power-help" role="status" aria-live="polite"></p>'+
+    '</details>'+
    '</details></section>';
  const el=id=>document.getElementById(id);
  async function request(path,payload){
@@ -70,7 +77,7 @@
    const d=await request('power-monitor');
    el('pp-power-watts').textContent=fmt(d.watts)+' W';
    el('pp-power-amps').textContent=fmt(d.amps)+' A';
-   el('pp-power-count').textContent=d.printers_measured+' / 7';
+   el('pp-power-count').textContent=d.printers_measured+' / '+(d.printers_total??7);
    const badge=el('pp-power-state');
    const state=d.level==='critical'?'Alarm':d.level==='warning'?'Erhöhte Last':
     !d.complete?'Unvollständig':'Normaler Messwert';
@@ -93,12 +100,17 @@
    el('pp-power-state').textContent='Keine Messdaten';
    el('pp-power-watts').textContent='– W';
    el('pp-power-amps').textContent='– A';
-   el('pp-power-count').textContent='– / 7';
+   el('pp-power-count').textContent='– / –';
    el('pp-power-bar').style.width='0%';
    el('pp-power-faults').textContent='';
    el('pp-power-devices').textContent='Home Assistant nicht erreichbar: '+e.message;
   }
  }
+ window.addEventListener('pp-devices-updated',()=>{
+  loaded=false;
+  if(el('pp-power-settings').open)settings();
+  refresh();
+ });
  el('pp-power-settings').addEventListener('toggle',()=>{if(el('pp-power-settings').open)settings();});
  el('pp-power-save').addEventListener('click',async()=>{
   if(saving)return;
