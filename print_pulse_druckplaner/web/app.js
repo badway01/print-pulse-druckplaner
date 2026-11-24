@@ -2622,9 +2622,9 @@ $('master-upload-input').addEventListener('change',()=>{masterUploadPending=null
 
 
 
-// Separate read-only printer monitor: four compact gauges in production,
+// Read-only printer monitor: all six monitored production printers,
 // full status details and persistent HA entity selection in the Drucker tab.
-const monitorPrinters=['H2D','P1S Old','P1S New','Snapmaker U1'];
+const monitorPrinters=['H2D','P1S Old','P1S New','Snapmaker U1','X2D','A1'];
 const monitorFields=[
  ['status','Druckstatus (erforderlich)'],['progress','Fortschritt (%)'],['remaining','Restzeit'],
  ['filename','Aktuelle Druckdatei'],['bed','Heizbett (°C)'],['nozzle','Düse (°C)'],
@@ -2718,7 +2718,9 @@ function printerAutofill(){
  const fields=[...document.querySelectorAll('#printer-config-fields input[data-printer-field]')];
  const prefix=printerConfigId==='H2D'?/(?:h2d)/i:printerConfigId==='A1 mini'?/(?:a1_mini|a1mini|a1 mini)/i:
   printerConfigId==='Snapmaker U1'?/(?:snapmaker|(?:^|_)u1(?:_|$))/i:
-  printerConfigId==='P1S Old'?/(?:p1s.*old|p1s old)/i:/(?:p1s.*new|p1s new)/i;
+  printerConfigId==='P1S Old'?/(?:p1s.*old|p1s old)/i:
+   printerConfigId==='P1S New'?/(?:p1s.*new|p1s new)/i:
+   printerConfigId==='X2D'?/(?:^|[_.\s])x2d(?:$|[_.\s])/i:/(?:^|[_.\s])a1(?:$|[_.\s])/i;
  const aliases={
   status:['print_status','print_state'],progress:['print_progress','progress'],
   remaining:['remaining_time','time_remaining'],filename:['gcode_file','gcode_filename','filename','task_name'],
