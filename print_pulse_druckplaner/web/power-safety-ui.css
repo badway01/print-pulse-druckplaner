@@ -31,3 +31,27 @@
   color:#8b2626;border-radius:9px;font-size:12px;line-height:1.55}
 .pp-power-faults span{font-weight:600}
 html[data-theme="dark"] .pp-power-faults:not(:empty){background:#402b27;color:#ffe0d5;border-color:#7a443b}
+
+/* Tablet monitor entry and dynamic device management, all inside the planner. */
+.pp-power-header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pp-tablet-link{display:inline-flex;align-items:center;min-height:34px;padding:7px 10px;
+ border:1px solid #81caa2;border-radius:9px;color:#20764b;text-decoration:none;font-size:12px;font-weight:700}
+.pp-tablet-link:hover{background:#e6f6ed}
+.pp-devices-manager{margin-top:14px;padding-top:11px;border-top:1px solid var(--line,#d8ddd8)}
+.pp-devices-manager>summary{font-size:13px;font-weight:750;cursor:pointer}
+.pp-device-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:13px 0}
+.pp-device-edit{background:var(--surface-soft,#f5f8f5);border:1px solid var(--line,#d8ddd8);
+ border-radius:12px;padding:13px;min-width:0}
+.pp-device-edit-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.pp-device-edit-head>strong{font-size:13px}
+.pp-device-remove{font-size:11px!important;padding:6px 9px!important}
+.pp-device-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.pp-device-edit-grid label{display:grid;gap:4px;font-size:11px;font-weight:600;min-width:0}
+.pp-device-edit-grid select,.pp-device-edit-grid input:not([type=checkbox]){width:100%;min-width:0;
+ font:inherit;border:1px solid var(--line,#d8ddd8);border-radius:7px;background:var(--surface,#fff);
+ color:var(--ink,#263a2c);padding:8px}
+.pp-device-enabled{display:flex!important;align-items:center;flex-direction:row;gap:8px!important}
+.pp-device-enabled input{width:17px;height:17px;accent-color:#32855b}
+html[data-theme=dark] .pp-tablet-link{color:#a5f0c3}
+@media(max-width:850px){.pp-device-list{grid-template-columns:1fr}}
+@media(max-width:430px){.pp-device-edit-grid{grid-template-columns:1fr}}
