@@ -95,7 +95,7 @@ function renderFarmStats(){
    '<div class="farm-overview-utilization">'+farmUtilization(printing,recorded)+farmCoverage(recorded,total,d.coverage_percent)+'</div>',
    farmKpi('Erfasste Druckzeit',farmHours(printing),'Über alle '+String(d.printer_count)+' Produktionsdrucker'),
    farmKpi('Ohne Druck',farmHours(Math.max(0,recorded-printing)),'Nur gemessene Zeit, keine unbekannten Stunden'),
-   farmKpi('Produktionsdrucker',String(d.printer_count),'P1S Old · P1S New · H2D · U1 · X2D')
+   farmKpi('Produktionsdrucker',String(d.printer_count),'P1S Old · P1S New · H2D · U1 · X2D · A1')
  ].join('');
  root.innerHTML=(d.printers||[]).map(r=>farmPrinterCard(r,d)).join('');
  const h2d=(d.printers||[]).find(p=>p.printer==='H2D');
