@@ -7,7 +7,7 @@ import json
 import math
 import re
 import time
-import power_monitor
+power_monitor = None  # Injected by app.py, also works when loaded by file-path tests.
 
 REGISTRY_KEY = "tablet_monitor_devices"
 MAX_DEVICES = 40
