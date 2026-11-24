@@ -3,11 +3,11 @@
  * WARNING: summed device loads do not establish circuit loading.
  */
 (function () {
- const host=document.getElementById('dashboard-orders-summary');
+ const host=document.getElementById('pp-power-shell');
  if(!host)return;
  const escP=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const fmt=n=>n==null?'–':new Intl.NumberFormat('de-DE',{maximumFractionDigits:1}).format(n);
- host.insertAdjacentHTML('afterend',
+ host.innerHTML =
   '<section id="pp-power" class="pp-power" aria-label="Shelly Stromüberwachung">'+
    '<div class="pp-power-head"><div><small>DRUCKERFARM · SHELLY LIVE</small><h3>Stromüberwachung</h3></div><span id="pp-power-state" class="pp-power-state">Lade …</span></div>'+
    '<div class="pp-power-grid">'+
