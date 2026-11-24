@@ -1,3 +1,13 @@
+## 0.13.80 – Bambu A1 Shelly in Stromüberwachung und Druckerfarm (24.11.2026)
+
+- Bambu A1 als sechsten HA-Produktionsdrucker in Druckstatus und Statistik ergänzt; A1 mini bleibt separat.
+- Die vom Nutzer bestätigte Shelly-Leistungsentität des A1 wird automatisch angeboten. Vorhandene Sensorzuordnungen werden nicht überschrieben.
+- A1-kWh-Zähler automatisch zur Druckfarm-Energiebilanz hinzufügen, wenn der echte HA-Zähler erreichbar ist.
+- Eingebettete HA-Druckerfarm um A1-Ein-/Ausschalter, Watt und kWh erweitert. Ausschalten erfordert eine Bestätigung.
+- Bekannte Shelly-Fehlerzustände (Überlast, Überstrom, Überhitzung, Überspannung) werden im Dashboard angezeigt und bei eingerichtetem ntfy-Topic einmal je aktivem Fehler gemeldet.
+- Keine automatische Stromabschaltung oder Steuerung von Druckstarts aus Bambu Studio; eine verbindliche Bambuddy-Startwarteschlange ist noch nicht angebunden.
+- Die separate Lovelace-Ressource außerhalb des Add-ons bleibt unverändert; der Schalter befindet sich im eingebetteten Druckerfarm-Reiter.
+
 ## 0.13.79 – Stromkachel: JavaScript repariert (24.11.2026)
 
 - Syntaxfehler in der neuen Stromkachel-Initialisierung behoben und JavaScript auf Syntax geprüft.
