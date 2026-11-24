@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f8f5">
 <title>Print &amp; Pulse | Stromüberwachung Live</title>
-<link rel="stylesheet" href="tablet-monitor.css?v=0.13.82">
-<script src="tablet-monitor.js?v=0.13.82" defer></script>
+<link rel="stylesheet" href="tablet-monitor.css?v=0.13.83">
+<script src="tablet-monitor.js?v=0.13.83" defer></script>
 </head>
 <body data-theme="light">
 <div class="monitor-shell">
@@ -29,7 +29,8 @@
  <main>
   <section class="kpis" aria-label="Live-Kennzahlen">
    <article class="kpi"><div class="kpi-symbol">ϟ</div><div><small>Gesamtleistung</small><strong id="watts">– W</strong></div></article>
-   <article class="kpi"><div class="kpi-symbol">⌁</div><div><small>Rechnerisch bei 230 V</small><strong id="amps">– A</strong></div></article>
+   <article class="kpi peak-kpi"><div class="kpi-symbol">↑</div><div><small>Gesamtpeak seit Aufzeichnung</small><strong id="total-peak">– W</strong><span id="total-peak-note" class="kpi-note">Noch keine Messung</span></div></article>
+   <article class="kpi"><div class="kpi-symbol">⌁</div><div><small>Stromsumme der Geräte</small><strong id="amps">– A</strong><span id="amps-method" class="kpi-note">Shelly-Sensoren werden geprüft</span></div></article>
    <article class="kpi"><div class="kpi-symbol">▣</div><div><small>Aktive Messpunkte</small><strong id="measured">– / –</strong></div></article>
    <article class="kpi warning"><div class="kpi-symbol">△</div><div><small>Warnschwelle</small><strong id="warning">– W</strong></div></article>
    <article class="kpi critical"><div class="kpi-symbol">!</div><div><small>Kritische Schwelle</small><strong id="critical">– W</strong></div></article>
@@ -53,7 +54,7 @@
      <thead><tr><th>Gerät</th><th>Leistung</th><th>Strom*</th><th title="Höchster beobachteter Strom seit Aktivierung der Aufzeichnung">Max A*</th><th>Energie</th><th>Status</th></tr></thead>
      <tbody id="device-rows"><tr><td colspan="6" class="placeholder">Geräte werden geladen …</td></tr></tbody>
     </table></div>
-    <p class="table-note">* Strom und Max A sind aus Watt / 230 V berechnet. Max A ist der höchste seit diesem Update erfasste Messwert je Shelly (Abfrage alle 15 s). Nicht verfügbare Sensoren zählen nicht als 0 W.</p>
+    <p class="table-note">Ampere direkt aus dem Shelly-Stromsensor, falls verfügbar. ≈ kennzeichnet Ersatzwerte aus Watt / 230 V. Max A zeigt die höchste erfasste Stromstärke pro Shelly (15-Sekunden-Abfrage). Nicht verfügbare Sensoren zählen nicht als 0.</p>
    </section>
    <div class="side-panels">
     <section class="panel faults-panel">
