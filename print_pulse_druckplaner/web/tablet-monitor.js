@@ -328,6 +328,12 @@
     'Am '+new Date(high.at*1000).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+
     ' · '+high.measured+'/'+high.expected+' Drucker erfasst':
     'Noch kein Gesamtpeak gespeichert';
+  const ampHigh=d.total_amps_peak;
+  byId('total-amps-peak').textContent=ampHigh?fmt(ampHigh.amps,2)+' A':'– A';
+  byId('total-amps-peak-note').textContent=ampHigh?
+    'Am '+new Date(ampHigh.at*1000).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+
+    ' · '+ampHigh.measured+' Shellys direkt':
+    'Ab Update: nur vollständige Shelly-Werte';
   byId('measured').textContent=(d.printers_measured??0)+' / '+(d.printers_total??0);
   byId('warning').textContent=power(d.warning_w);
   byId('critical').textContent=power(d.critical_w);
@@ -347,8 +353,11 @@
    byId('connection').dataset.state='error';
    byId('connection-text').textContent='Keine Live-Verbindung';
    byId('load-card').dataset.level='unknown';
+   for(const name of ['watt-load-row','amps-load-row'])byId(name).dataset.level='unknown';
    byId('status-title').textContent='Verbindung unterbrochen';
    byId('status-detail').textContent=e.message;
+   byId('amp-status-title').textContent='Verbindung unterbrochen';
+   byId('amp-status-detail').textContent='Keine aktuellen Shelly-Messwerte';
    byId('updated').textContent='Keine aktuellen Daten: '+e.message;
   }finally{loading=false}
  }
