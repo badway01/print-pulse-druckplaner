@@ -365,7 +365,9 @@ body[data-theme=dark] .devices-table .pill.error{background:#6b2f2c;color:#ffcfc
 .pd-phase-table th:first-child,.pd-phase-table td:first-child{text-align:left}
 .pd-phase-table td strong{display:block;font-size:11px;color:var(--text)}
 .pd-phase-table td small{display:block;color:var(--muted);font-size:9px;margin-top:3px}
-.pd-phase-panel{grid-column:1/-1}
+.pd-chart-panel{grid-column:1;grid-row:1}
+.pd-events-panel{grid-column:2;grid-row:1}
+.pd-phase-panel{grid-column:1/-1;grid-row:2}
 .pd-phase-panel .pd-helper{margin-top:10px}
 .pd-events{display:grid;gap:7px;align-content:start}
 .pd-event{display:flex;justify-content:space-between;align-items:center;
@@ -390,7 +392,7 @@ body[data-theme=dark] .pd-state-offline{background:#642d2d;color:#ffd0d0}
 body[data-theme=dark] .pd-state-finished{background:#274862;color:#c9e4fd}
 @media(max-width:970px){
  .pd-content{grid-template-columns:1fr}
- .pd-phase-panel{grid-column:auto}
+ .pd-chart-panel,.pd-events-panel,.pd-phase-panel{grid-column:auto;grid-row:auto}
  .pd-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
  .printer-detail{max-height:95vh}
  .pd-chart{min-height:200px}
