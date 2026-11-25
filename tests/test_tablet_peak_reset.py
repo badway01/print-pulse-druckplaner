@@ -77,6 +77,48 @@ class PeakResetTest(unittest.TestCase):
         self.assertIn("Strompeak gesamt", csv)
         self.assertIn("Messwerte", csv)
 
+    def test_24h_average_is_real_observed_current_and_survives_peak_reset(self):
+        first = self.snapshot(100., 200., 1.25, 2.75)  # 4.0 A total
+        monitor.record_sample(self.db, first, now=self.now)
+        mean = monitor.average_amps_24h(self.db, now=self.now + 1)
+        self.assertEqual(mean["amps"], 4.0)
+        self.assertEqual(mean["samples"], 1)
+        # Partially unavailable: no misleading zeros or W/230 fallbacks.
+        unavailable = self.snapshot(80., 90., 0.4, 0.6)
+        unavailable["devices"][1]["amps_source"] = "calculated"
+        monitor.record_sample(self.db, unavailable, now=self.now + 15)
+        mean = monitor.average_amps_24h(self.db, now=self.now + 16)
+        self.assertEqual(mean["amps"], 4.0)
+        self.assertEqual(mean["samples"], 1)
+        second = self.snapshot(90., 120., 2.0, 4.0)  # 6.0 A
+        monitor.record_sample(self.db, second, now=self.now + 30)
+        mean = monitor.average_amps_24h(self.db, now=self.now + 31)
+        self.assertEqual(mean["amps"], 5.0)
+        self.assertEqual(mean["samples"], 2)
+        monitor.reset_all_amperes(self.db, second["devices"], now=self.now + 33)
+        self.assertEqual(monitor.average_amps_24h(self.db, now=self.now + 34), mean)
+        # A new measurement after reset belongs to the average, regardless of peak reset.
+        third = self.snapshot(50., 50., 0.5, 1.5)  # 2.0 A
+        monitor.record_sample(self.db, third, now=self.now + 45)
+        self.assertEqual(monitor.average_amps_24h(self.db, now=self.now + 46)["amps"], 4.0)
+
+    def test_24h_average_migrates_existing_watt_history(self):
+        # Simulates v0.13.89 before the first 0.13.90 average-current sample.
+        self.db.execute("""CREATE TABLE pp_power_history
+            (at INTEGER PRIMARY KEY, watts REAL, measured INTEGER NOT NULL,
+             expected INTEGER NOT NULL)""")
+        self.db.execute("INSERT INTO pp_power_history VALUES (?,?,?,?)",
+                        (self.now-60, 420., 2, 2))
+        self.assertIsNone(monitor.average_amps_24h(self.db, now=self.now))
+        snapshot = self.snapshot(200., 100., 1.0, 1.0)
+        monitor.record_sample(self.db, snapshot, now=self.now)
+        mean = monitor.average_amps_24h(self.db, now=self.now)
+        self.assertEqual(mean["samples"], 1)
+        self.assertEqual(mean["amps"], 2.0)
+        before = self.db.execute("SELECT watts FROM pp_power_history WHERE at=?",
+                                 (self.now-60,)).fetchone()
+        self.assertEqual(before["watts"], 420.)
+
     def test_repeat_reset_keeps_first_audit(self):
         first = self.snapshot(200.,100.,0.8,0.6)
         monitor.record_sample(self.db,first,now=self.now)
