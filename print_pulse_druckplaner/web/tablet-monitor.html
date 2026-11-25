@@ -73,7 +73,7 @@
   </section>
   <div class="bottom-grid">
    <section class="panel devices-panel">
-    <div class="panel-title"><h2>Geräteübersicht</h2><span id="device-summary">Live-Werte</span></div>
+    <div class="panel-title"><h2>Geräteübersicht</h2><span id="device-summary">Drucker anklicken für Details</span></div>
     <div class="table-wrap"><table class="devices-table">
      <thead><tr><th>Gerät</th><th>Leistung</th><th>Strom*</th><th title="Höchster beobachteter Strom seit dem letzten Max-A-Reset">Max A*</th><th>Energie</th><th>Status</th></tr></thead>
      <tbody id="device-rows"><tr><td colspan="6" class="placeholder">Geräte werden geladen …</td></tr></tbody>
@@ -123,5 +123,70 @@
  </main>
  <footer><span id="updated">Warte auf ersten Messwert …</span><span>Messung über Home Assistant · Keine elektrische Schutzabschaltung</span></footer>
 </div>
+<dialog id="printer-detail" class="printer-detail" aria-labelledby="pd-title" aria-modal="true">
+ <div class="pd-shell">
+  <header class="pd-head">
+   <div class="pd-heading">
+    <span class="pd-printer-glyph" aria-hidden="true">▣</span>
+    <div><p class="pd-eyebrow">PRINT &amp; PULSE · GERÄTEANALYSE</p>
+     <h2 id="pd-title">Drucker-Details</h2>
+     <p id="pd-subtitle">Shelly-Leistung und Druckphase</p>
+    </div>
+   </div>
+   <div class="pd-head-actions">
+    <button type="button" id="pd-prev" aria-label="Vorheriger Drucker" title="Vorheriger Drucker">‹</button>
+    <button type="button" id="pd-next" aria-label="Nächster Drucker" title="Nächster Drucker">›</button>
+    <button type="button" id="pd-close" aria-label="Schließen" title="Schließen">×</button>
+   </div>
+  </header>
+  <div class="pd-live-state"><span id="pd-status" class="pd-state-tag">Lade …</span>
+   <span id="pd-updated">Live-Werte aus Home Assistant</span>
+  </div>
+  <div class="pd-kpis" aria-label="Druckerkennzahlen">
+   <div class="pd-kpi"><small>Aktuelle Leistung</small><strong id="pd-watts">– W</strong></div>
+   <div class="pd-kpi"><small>Aktueller Strom</small><strong id="pd-amps">– A</strong></div>
+   <div class="pd-kpi"><small>Watt-Peak im Zeitraum</small><strong id="pd-peak-w">– W</strong><span id="pd-peak-w-note">–</span></div>
+   <div class="pd-kpi"><small>Ampere-Peak im Zeitraum</small><strong id="pd-peak-a">– A</strong><span id="pd-peak-a-note">–</span></div>
+  </div>
+  <div class="pd-content">
+   <section class="pd-panel pd-chart-panel" aria-label="Drucker-Stromverlauf">
+    <div class="pd-panel-heading">
+     <h3>Watt- und Ampere-Verlauf</h3>
+     <label class="pd-period-label" for="pd-period">Zeitraum
+      <select id="pd-period">
+       <option value="1h">1 Stunde</option>
+       <option value="24h" selected>24 Stunden</option>
+       <option value="7d">7 Tage</option>
+       <option value="30d">30 Tage</option>
+      </select>
+     </label>
+    </div>
+    <div class="pd-legend"><span><i class="pd-line-green"></i>Leistung (W)</span>
+     <span><i class="pd-line-blue"></i>Strom (A)</span></div>
+    <div class="pd-chart" id="pd-chart" aria-label="Zeitlicher Verlauf">
+     <p>Messwerte werden geladen …</p>
+    </div>
+    <p class="pd-helper" id="pd-chart-note">Messungen entstehen ab Installation dieser Version.</p>
+   </section>
+   <section class="pd-panel pd-phase-panel">
+    <div class="pd-panel-heading"><h3>Verbrauch nach Druckphase</h3>
+     <span id="pd-phase-total">–</span></div>
+    <div class="pd-table-scroll"><table class="pd-phase-table">
+     <thead><tr><th>Druckphase</th><th>Ø W</th><th>Ø A</th><th>Peak W</th><th>Peak A</th></tr></thead>
+     <tbody id="pd-phase-rows"><tr><td colspan="5">Noch keine Messwerte</td></tr></tbody>
+    </table></div>
+    <p class="pd-helper">Durchschnittswerte je tatsächlich erkannter Phase. Unbekannte HA-Arbeitsschritte werden separat ausgewiesen.</p>
+   </section>
+   <section class="pd-panel pd-events-panel">
+    <div class="pd-panel-heading"><h3>Spitzen &amp; Ereignisse</h3><span>Mit Druckphase und Uhrzeit</span></div>
+    <div id="pd-events" class="pd-events"><p>Keine Ereignisse vorhanden.</p></div>
+   </section>
+  </div>
+  <footer class="pd-footer">
+   <span id="pd-note">15-Sekunden-Abtastung: sehr kurze Spitzen können zwischen den Messungen liegen.</span>
+   <button type="button" id="pd-done">Schließen</button>
+  </footer>
+ </div>
+</dialog>
 </body>
 </html>
