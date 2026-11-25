@@ -331,6 +331,202 @@
   byId('device-rows').innerHTML=html||
     '<tr><td colspan="6" class="placeholder">Keine aktiven Geräte. Im Druckplaner hinzufügen.</td></tr>';
  }
+ // Per-printer detail window: the main monitoring dashboard stays unchanged.
+ const detailDialog=byId('printer-detail');
+ let detailLastFetch=0;
+ function printerOptions(){
+  return (current?.devices||[]).filter(d=>d.kind==='printer'&&d.entity);
+ }
+ function dateTime(at){
+  return at?new Date(at*1000).toLocaleString('de-DE',{
+   day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'–';
+ }
+ function updateDetailLive(){
+  if(!activeDeviceEntity)return;
+  const item=printerOptions().find(x=>x.entity===activeDeviceEntity);
+  if(!item)return;
+  byId('pd-title').textContent=item.name+' – Geräte-Details';
+  const status=displayPhase(item);
+  const stage=activePrintStage(item.print_stage);
+  byId('pd-status').textContent=status.label;
+  byId('pd-status').className='pd-state-tag pd-state-'+status.state;
+  byId('pd-subtitle').textContent='Shelly · '+(stage?.label||status.label);
+  byId('pd-updated').textContent='Live zuletzt: '+dateTime(current.updated);
+  byId('pd-watts').textContent=power(item.watts);
+  byId('pd-amps').textContent=item.amps==null?'– A':
+   (item.amps_source==='shelly'?'':'≈ ')+fmt(item.amps,3)+' A';
+ }
+ function deviceStep(amount){
+  const options=printerOptions();
+  if(options.length<2)return;
+  const index=options.findIndex(d=>d.entity===activeDeviceEntity);
+  if(index<0)return;
+  const selected=options[(index+amount+options.length)%options.length];
+  openDevice(selected.entity);
+ }
+ function closeDetail(){
+  activeDeviceEntity=null;
+  latestDetail=null;
+  detailRequest++;
+  if(detailDialog.open)detailDialog.close();
+ }
+ function renderDetailChart(data){
+  const chart=byId('pd-chart');
+  const series=Array.isArray(data.series)?data.series:[];
+  if(!series.length){
+   chart.innerHTML='<p class="pd-empty">Für diesen Drucker und Zeitraum sind noch keine Phasen-Messwerte gespeichert. Die Aufzeichnung beginnt mit diesem Update.</p>';
+   return;
+  }
+  const periods={'1h':3600,'24h':86400,'7d':604800,'30d':2592000};
+  const span=periods[data.period]||86400;
+  const end=Number(data.updated)||Math.floor(Date.now()/1000);
+  const begin=end-span;
+  const maxW=Math.max(50,...series.map(s=>Number(s.watts)||0))*1.12;
+  const maxA=Math.max(.5,...series.map(s=>Number(s.amps)||0))*1.12;
+  const width=920,height=270,L=64,R=64,T=21,B=40;
+  const plotW=width-L-R,plotH=height-T-B;
+  const x=at=>L+Math.max(0,Math.min(1,(at-begin)/span))*plotW;
+  const y=(n,max)=>T+plotH-(Math.max(0,Number(n)||0)/max)*plotH;
+  const grid=Array.from({length:5},(_,i)=>{
+   const pos=T+i*plotH/4;
+   const watt=maxW*(1-i/4),amp=maxA*(1-i/4);
+   return '<line x1="'+L+'" y1="'+pos+'" x2="'+(width-R)+'" y2="'+pos+'" stroke="currentColor" stroke-opacity=".1"/>'+
+    '<text x="'+(L-8)+'" y="'+(pos+4)+'" text-anchor="end">'+
+    esc(fmt(watt,0))+' W</text><text x="'+(width-R+8)+'" y="'+(pos+4)+
+    '" text-anchor="start">'+esc(fmt(amp,1))+' A</text>';
+  }).join('');
+  const ticks=Array.from({length:5},(_,i)=>{
+   const at=begin+span*i/4;
+   const time=new Date(at*1000).toLocaleString('de-DE',
+    span<=86400?{hour:'2-digit',minute:'2-digit'}:
+    {day:'2-digit',month:'2-digit'});
+   return '<text x="'+x(at)+'" y="'+(height-10)+'" text-anchor="middle">'+esc(time)+'</text>';
+  }).join('');
+  function line(field,max,color){
+   let d='',last=null;
+   const expected=span<=3600?15:span<=86400?300:span<=604800?1800:7200;
+   series.forEach(s=>{
+    const v=s[field];
+    if(v==null||!Number.isFinite(Number(v))){last=null;return}
+    const command=!last||s.at-last>expected*2.5?'M':'L';
+    d+=command+x(s.at).toFixed(1)+' '+y(v,max).toFixed(1)+' ';
+    last=s.at;
+   });
+   return '<path d="'+d+'" fill="none" stroke="'+color+
+    '" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>';
+  }
+  chart.innerHTML='<svg class="pd-plot" viewBox="0 0 '+width+' '+height+
+   '" role="img" aria-label="Zeitlicher Watt- und Ampere-Verlauf" preserveAspectRatio="xMidYMid meet">'+
+   '<g class="pd-plot-grid">'+grid+ticks+'</g>'+
+   line('watts',maxW,'#36b869')+line('amps',maxA,'#308bd5')+'</svg>';
+ }
+ function renderPrinterDetail(data){
+  const summary=data.summary||{};
+  const avgCount=Number(data.samples)||0;
+  byId('pd-peak-w').textContent=power(summary.watts_peak);
+  byId('pd-peak-a').textContent=summary.amps_peak==null?'– A':fmt(summary.amps_peak,3)+' A';
+  byId('pd-peak-w-note').textContent=summary.watts_peak_at?
+   'Am '+dateTime(summary.watts_peak_at):'Noch kein Wert';
+  byId('pd-peak-a-note').textContent=summary.amps_peak_at?
+   'Am '+dateTime(summary.amps_peak_at):'Noch kein Wert';
+  byId('pd-phase-total').textContent=avgCount.toLocaleString('de-DE')+' Messungen';
+  const phases=Array.isArray(data.phases)?data.phases:[];
+  byId('pd-phase-rows').innerHTML=phases.length?
+   phases.map(phase=>{
+    const real=phase.amps_direct_pct===100;
+    const avgA=phase.amps_avg==null?'–':
+     (real?'':'≈ ')+fmt(phase.amps_avg,3)+' A';
+    const peakA=phase.amps_peak==null?'–':
+     (real?'':'≈ ')+fmt(phase.amps_peak,3)+' A';
+    return '<tr><td><strong>'+esc(phase.label)+'</strong><small>'+
+     phase.samples.toLocaleString('de-DE')+' Messungen</small></td>'+
+     '<td>'+esc(power(phase.watts_avg))+'</td>'+
+     '<td>'+esc(avgA)+'</td>'+
+     '<td>'+esc(power(phase.watts_peak))+'</td>'+
+     '<td>'+esc(peakA)+'</td></tr>';
+   }).join(''):
+   '<tr><td colspan="5" class="pd-empty">Noch keine Druckphasen aufgezeichnet.</td></tr>';
+  const events=Array.isArray(data.peaks)?data.peaks:[];
+  byId('pd-events').innerHTML=events.length?events.slice(0,10).map(evt=>{
+   const unit=evt.kind==='amps'?'A':'W';
+   const label=evt.kind==='amps'?'Stromspitze':'Leistungsspitze';
+   return '<div class="pd-event"><div><strong>'+esc(evt.phase)+
+    '</strong><small>'+esc(label)+' · '+esc(dateTime(evt.at))+
+    '</small></div><b>'+esc(fmt(evt.value,evt.kind==='amps'?3:1))+
+    ' '+unit+'</b></div>';
+  }).join(''):'<p class="pd-empty">Noch keine Spitzen mit Druckphasen gespeichert.</p>';
+  byId('pd-chart-note').textContent=data.note||
+   '15-Sekunden-Abtastung; sehr kurze Lastspitzen können unentdeckt bleiben.';
+  byId('pd-note').textContent=(data.retention||'Bis zu 31 Tage')+
+   ' · Keine rückwirkende Phasenzuordnung früherer Messungen.';
+  renderDetailChart(data);
+ }
+ async function loadDetail(){
+  if(!activeDeviceEntity)return;
+  const entity=activeDeviceEntity;
+  const period=byId('pd-period').value;
+  const ticket=++detailRequest;
+  detailLastFetch=Date.now();
+  const url=new URL(detailBase.href);
+  url.searchParams.set('entity',entity);
+  url.searchParams.set('period',period);
+  try{
+   const response=await fetch(url.href,{credentials:'same-origin',cache:'no-store'});
+   let data={};
+   try{data=await response.json()}catch(_){}
+   if(!response.ok)throw new Error(data.error||'Gerätedaten nicht verfügbar');
+   if(ticket!==detailRequest||entity!==activeDeviceEntity)return;
+   latestDetail=data;
+   renderPrinterDetail(data);
+  }catch(error){
+   if(ticket!==detailRequest||entity!==activeDeviceEntity)return;
+   byId('pd-chart').innerHTML='<p class="pd-empty">'+esc(error.message)+'</p>';
+   byId('pd-phase-rows').innerHTML='<tr><td colspan="5">Keine Phasendaten verfügbar.</td></tr>';
+   byId('pd-events').innerHTML='<p>Keine Ereignisse verfügbar.</p>';
+  }
+ }
+ function openDevice(entity){
+  const option=printerOptions().find(x=>x.entity===entity);
+  if(!option)return;
+  activeDeviceEntity=entity;
+  latestDetail=null;
+  byId('pd-period').value='24h';
+  byId('pd-chart').innerHTML='<p class="pd-empty">Lade Messwerte …</p>';
+  byId('pd-phase-rows').innerHTML='<tr><td colspan="5">Lade Druckphasen …</td></tr>';
+  byId('pd-events').innerHTML='<p>Lade Ereignisse …</p>';
+  byId('pd-peak-w').textContent='– W';
+  byId('pd-peak-a').textContent='– A';
+  byId('pd-peak-w-note').textContent='–';
+  byId('pd-peak-a-note').textContent='–';
+  byId('pd-prev').disabled=printerOptions().length<2;
+  byId('pd-next').disabled=printerOptions().length<2;
+  updateDetailLive();
+  if(!detailDialog.open)detailDialog.showModal();
+  loadDetail();
+ }
+ byId('device-rows').addEventListener('click',event=>{
+  const row=event.target.closest('tr[data-entity]');
+  if(row)openDevice(row.dataset.entity);
+ });
+ byId('device-rows').addEventListener('keydown',event=>{
+  if(event.key!=='Enter'&&event.key!==' ')return;
+  const row=event.target.closest('tr[data-entity]');
+  if(!row)return;
+  event.preventDefault();
+  openDevice(row.dataset.entity);
+ });
+ byId('pd-close').addEventListener('click',closeDetail);
+ byId('pd-done').addEventListener('click',closeDetail);
+ byId('pd-prev').addEventListener('click',()=>deviceStep(-1));
+ byId('pd-next').addEventListener('click',()=>deviceStep(1));
+ byId('pd-period').addEventListener('change',loadDetail);
+ detailDialog.addEventListener('close',()=>{
+  activeDeviceEntity=null;latestDetail=null;detailRequest++;
+ });
+ detailDialog.addEventListener('click',event=>{
+  if(event.target===detailDialog)closeDetail();
+ });
+
  const types=['Überlast','Überstrom','Überhitzung','Überspannung'];
  function renderFaults(d){
   const known=d.faults||[];
@@ -426,6 +622,10 @@
   byId('warning').textContent=power(d.warning_w);
   byId('critical').textContent=power(d.critical_w);
   status(d);loadBar(d);renderDevices(d);renderPeakHistory(d);renderFaults(d);chart(d);
+  if(activeDeviceEntity&&detailDialog.open){
+   updateDetailLive();
+   if(Date.now()-detailLastFetch>30000)loadDetail();
+  }
   const t=d.updated?new Date(d.updated*1000):new Date();
   byId('updated').textContent='Letzte Aktualisierung: '+t.toLocaleTimeString('de-DE')+
    (d.complete?'':' · Messung teilweise unvollständig');
