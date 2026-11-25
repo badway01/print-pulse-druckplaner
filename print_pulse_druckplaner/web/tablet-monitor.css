@@ -263,3 +263,28 @@ body[data-theme=dark] .devices-table .pill.error{background:#6b2f2c;color:#ffcfc
  .peak-reset-title{flex:1 1 100%}
  .peak-reset-button{width:100%}
 }
+
+/* 24h current average and visible top reset KPI (v0.13.90).
+   3x3 metric grid groups live current, observed average and peak together. */
+.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpi.avg-amps-kpi{background:linear-gradient(130deg,#e9f7ee88,transparent 82%),var(--surface)}
+.kpi.avg-amps-kpi .kpi-symbol{color:#2c9778;font-weight:700;font-size:30px}
+.kpi.peak-amps-kpi{align-items:center}
+.kpi.peak-amps-kpi>div:last-child{min-width:0;flex:1}
+.kpi-reset-button{
+ display:block;width:fit-content;max-width:100%;
+ min-height:31px;margin-top:10px;padding:7px 12px;
+ border-color:#b7ccbd;background:var(--surface);
+ font-size:11px;white-space:normal;text-align:center;
+}
+.kpi.peak-amps-kpi .peak-reset-feedback{
+ display:block;margin-top:7px;font-size:10px;
+ overflow-wrap:anywhere;max-width:100%;
+}
+@media(min-width:1601px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(min-width:981px) and (max-width:1600px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:980px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){
+ .kpi-reset-button{font-size:10px;line-height:1.25;padding:6px 8px;min-height:30px}
+ .kpi.peak-amps-kpi{gap:7px}
+}
