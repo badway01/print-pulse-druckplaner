@@ -127,7 +127,7 @@ def record(db, snapshot, now=None):
     for item in snapshot.get("devices") or ():
         if not isinstance(item, dict) or item.get("kind") != "printer":
             continue
-        entity = str(item.get("entity") or "")
+        entity = str(item.get("history_key") or item.get("entity") or "")
         if not re.fullmatch(r"sensor\.[a-z0-9_]{3,160}", entity):
             continue
         phase, label = classify(item.get("print_stage"),item.get("printer_state"),

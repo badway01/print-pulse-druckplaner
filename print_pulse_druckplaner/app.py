@@ -79,7 +79,7 @@ except ImportError:
 tablet_monitor.power_monitor = power_monitor
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.93'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.94'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -88,8 +88,8 @@ MASTER_IMPORT_ROOT = Path(os.environ.get("PP_MASTER_IMPORT_DIR", "/share/print-p
 MAX_MASTER_SIZE = 100 * 1024 * 1024
 MASTER_CHUNK_SIZE = 2 * 1024 * 1024  # Streaming ingress: fewer requests, adaptive fallback in client.
 MASTER_UPLOAD_LOCK = threading.RLock()
-PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","X2D","A1","A1 mini","Prusa MK4")
-MONITOR_PRINTERS = ("H2D","P1S Old","P1S New","Snapmaker U1","X2D","A1")
+PRINTERS = ("H2D","H2D No2","P1S Old","P1S New","Snapmaker U1","X2D","A1","A1 mini","Prusa MK4")
+MONITOR_PRINTERS = ("H2D","H2D No2","P1S Old","P1S New","Snapmaker U1","X2D","A1")
 MONITOR_FIELDS = ("status","progress","remaining","filename","nozzle","nozzle_left","nozzle_right",
                   "bed","chamber","layer","total_layers","stage","active_tray",
                   "head0","head1","head2","head3","ams1","ams2","ams3","ams4")
@@ -1795,7 +1795,7 @@ def sync_compatible_bambu_settings(data):
         sync_master_revisions(db)
     source,source_path=master_download_record(source_id)
     target,target_path=master_download_record(target_id)
-    if source['printer']!='H2D' or target['printer'] not in ('P1S Old','P1S New'):
+    if source['printer'] not in ('H2D','H2D No2') or target['printer'] not in ('P1S Old','P1S New'):
         raise ValueError('Kompatible Bambu-Einstellungen nur von H2D zu P1S übernehmen.')
     if source['listing_id']!=target['listing_id'] or source['variant_id']!=target['variant_id']:
         raise ValueError('Die Projekte gehören nicht zum selben Modell und derselben Variante.')
@@ -2554,11 +2554,11 @@ PRINTER_ENTITY_SUFFIXES = {
  'progress': ('print_progress','print_percent','progress','druckfortschritt'),
  'remaining': ('remaining_time','time_remaining','print_time_remaining','verbleibende_zeit'),
  'filename': ('gcode_filename','gcode_file','current_file','print_filename','task_name','filename','gcode_dateiname'),
- 'nozzle_left': ('left_nozzle_temperature','left_nozzle_temp','nozzle_left_temperature'),
- 'nozzle_right': ('right_nozzle_temperature','right_nozzle_temp','nozzle_right_temperature'),
+ 'nozzle_left': ('left_nozzle_temperature','linke_dusentemperatur','left_nozzle_temp','nozzle_left_temperature'),
+ 'nozzle_right': ('right_nozzle_temperature','rechte_dusentemperatur','right_nozzle_temp','nozzle_right_temperature'),
  'nozzle': ('nozzle_temperature','nozzle_temp','temperatur_der_duse'),
  'bed': ('bed_temperature','bed_temp','druckbetttemperatur'),
- 'chamber': ('chamber_temperature','chamber_temp'),
+ 'chamber': ('chamber_temperature','temperatur_im_druckraum','chamber_temp'),
  'layer': ('current_layer','print_layer','aktuelle_schicht'),
  'total_layers': ('total_layer_count','total_layers','total_layer','gesamtzahl_der_schichten'),
  'stage': ('current_stage','print_stage','aktueller_arbeitsschritt'),
@@ -2574,6 +2574,7 @@ PRINTER_ENTITY_SUFFIXES = {
 }
 
 def printer_model_for_slug(slug):
+    if re.search(r'(?:^|_)h2d_no_?2(?:_|$)',slug): return 'H2D No2'
     if re.search(r'(?:^|_)h2d(?:_|$)',slug): return 'H2D'
     if re.search(r'(?:^|_)x2d(?:_|$)',slug): return 'X2D'
     if re.search(r'(?:^|_)p1s(?:_|$)',slug): return 'P1S'
@@ -2601,6 +2602,10 @@ def discover_printer_candidates(states):
                         for suffix in aliases for domain in ('sensor','number')
                         if domain+'.'+base+'_'+suffix in states),None)
             if found:fields[field]=found
+        if model=='H2D No2':
+            for i in range(1,5):
+                slot=next((x for x in (f'sensor.h2d_0948bb521500938_ams_2_slot_{i}',f'sensor.h2d_0948bb521500938_ams_2_tray_{i}') if x in states),None)
+                if slot: fields['ams'+str(i)]=slot
         attrs=states[status_id].get('attributes') or {}
         friendly=str(attrs.get('friendly_name') or '') if isinstance(attrs,dict) else ''
         suffix=base.split('_')[-1][:10]
@@ -2881,7 +2886,14 @@ def tablet_print_phases(reading, states):
         entry['switch_state']=switch if switch in ('on','off') else None
         mapping=bindings.get(entry.get('name'),{})
         sensor=sensor_value(states,mapping,'status')
+        if entry.get('name')=='H2D No2' and not sensor:
+            matches=[c for c in discover_printer_candidates(states) if c['model']=='H2D No2']
+            if len(matches)==1:
+                mapping=matches[0]['entities'];sensor=sensor_value(states,mapping,'status')
         entry['printer_state']=printer_state(sensor,True) if sensor else None
+        if entry.get('name')=='H2D No2':
+            if sensor_text(states.get('binary_sensor.h2d_no2_online'))=='off': entry['printer_state']='offline'
+            elif sensor_text(states.get('binary_sensor.h2d_no2_druckfehler'))=='on': entry['printer_state']='error'
         stage_entity=mapping.get('stage')
         stage=sensor_text(states.get(stage_entity)) if stage_entity else None
         if stage is None:
@@ -2905,6 +2917,27 @@ def printer_ams_slot(item):
     return {'name':name,'color':color,'material':material}
 
 
+H2D_NO2_DIAGNOSTICS={
+    'Online':'binary_sensor.h2d_no2_online',
+    'Druckfehler':'binary_sensor.h2d_no2_druckfehler',
+    'HMS-Fehler':'binary_sensor.h2d_no2_hms_fehler',
+    'Gehäusetür offen':'binary_sensor.h2d_no2_gehausetur',
+    'Extruder Filament':'binary_sensor.h2d_no2_extruder_filament_status',
+    'Linkes Extruderfilament':'binary_sensor.h2d_no2_linkes_extruderfilament',
+    'Zeitraffer':'binary_sensor.h2d_no2_aufnahme_von_zeitraffern',
+    'Firmware-Update':'binary_sensor.h2d_no2_firmware_status',
+    'Entwickler-LAN':'binary_sensor.h2d_no2_entwickler_lan_modus',
+    'MQTT-Kontrolle blockiert':'binary_sensor.h2d_no2_hybrides_mqtt_blockiert_die_kontrolle',
+    'MQTT-Verschlüsselung':'binary_sensor.h2d_no2_mqtt_verschlusselungsfirmware',
+    'AMS 128 aktiv':'binary_sensor.h2d_0948bb521500938_ams_128_aktiv',
+    'AMS 128 trocknet':'binary_sensor.h2d_0948bb521500938_ams_128_trocknen',
+    'AMS 2 aktiv':'binary_sensor.h2d_0948bb521500938_ams_2_aktiv',
+    'AMS 2 trocknet':'binary_sensor.h2d_0948bb521500938_ams_2_trocknen',
+    'Externe Spule 1 aktiv':'binary_sensor.h2d_0948bb521500938_externalspool_aktiv',
+    'Externe Spule 2 aktiv':'binary_sensor.h2d_0948bb521500938_externalspool2_aktiv',
+}
+
+
 def printer_dashboard(force=False):
     bindings=saved_printer_bindings()
     try:
@@ -2924,6 +2957,9 @@ def printer_dashboard(force=False):
         selected=bindings.get(printer,{})
         configured=bool(selected.get('status'))
         status=printer_state(sensor_value(states,selected,'status'),configured) if connected else ('offline' if configured else 'setup')
+        if printer=='H2D No2' and connected:
+            if sensor_text(states.get('binary_sensor.h2d_no2_online'))=='off': status='offline'
+            elif sensor_text(states.get('binary_sensor.h2d_no2_druckfehler'))=='on': status='error'
         progress=numeric_sensor(sensor_value(states,selected,'progress'))
         if progress is not None: progress=round(max(0,min(100,progress)))
         if status not in ('printing','paused','finished','preparing'):progress=None
@@ -2939,7 +2975,12 @@ def printer_dashboard(force=False):
         remaining=printer_remaining(sensor_value(states,selected,'remaining'),printer) if status in ('printing','paused','preparing') else None
         slots=[printer_ams_slot(sensor_value(states,selected,'ams'+str(i)))
                if status not in ('offline','setup') else None for i in range(1,5)]
-        rows.append({'id':printer,'name':('Bambu '+printer if printer!='Snapmaker U1' else printer),
+        diagnostics={}
+        if printer=='H2D No2':
+            for field,entity in H2D_NO2_DIAGNOSTICS.items():
+                value=sensor_text(states.get(entity))
+                diagnostics[field]=value if value in ('on','off') else None
+        rows.append({'diagnostics':diagnostics,'id':printer,'name':('Bambu '+printer if printer!='Snapmaker U1' else printer),
                      'configured':configured,'state':status,'raw_status':sensor_text(sensor_value(states,selected,'status')) if connected else None,
                      'progress':progress,'remaining_seconds':remaining,'filename':file,'stage':sensor_text(sensor_value(states,selected,'stage')) if status not in ('offline','setup') else None,
                      'active_tray':sensor_text(sensor_value(states,selected,'active_tray')) if status not in ('offline','setup') else None,
@@ -2972,6 +3013,46 @@ def ensure_a1_energy_binding(db, states):
     if A1_SHELLY_ENERGY in states and farm_stats.energy_value(states[A1_SHELLY_ENERGY]) is not None:
         db.execute('INSERT OR IGNORE INTO pp_farm_energy_config(printer,entity) VALUES(?,?)',
                    ('A1', A1_SHELLY_ENERGY))
+
+
+def migrate_h2d_no2():
+    """Transfer the former H2D socket once, without moving historical data."""
+    with connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        if cfg(db,'h2d_no2_migrated')=='1':
+            return
+        settings=power_monitor.config(db,cfg)
+        bindings=dict(settings['bindings'])
+        registry=settings.get('registry')
+        old_binding=bindings.get('H2D') or ''
+        if isinstance(registry,list):
+            old=next((x for x in registry if x.get('name')=='H2D'),None)
+            new=next((x for x in registry if x.get('name')=='H2D No2'),None)
+            if new is None:
+                new={'id':'h2d-no2','name':'H2D No2','kind':'printer','enabled':True,
+                     'power_entity':'','energy_entity':'','switch_entity':''}
+                if old:
+                    for field in ('power_entity','energy_entity','switch_entity'):
+                        new[field]=old.get(field) or ''
+                        old[field]=''
+                new['power_entity']=old_binding or new['power_entity']
+                registry.append(new)
+                bindings['H2D No2']=new['power_entity']
+                bindings['H2D']=''
+                put_cfg(db,tablet_monitor.REGISTRY_KEY,json.dumps({'items':registry},ensure_ascii=False))
+        elif 'H2D No2' not in bindings:
+            bindings['H2D No2']=old_binding
+            bindings['H2D']=''
+        persisted={k:settings[k] for k in ('warning_w','critical_w','ntfy_topic')}
+        persisted['bindings']=bindings
+        put_cfg(db,power_monitor.CONF_KEY,json.dumps(persisted,ensure_ascii=False))
+        old=db.execute("SELECT entity FROM pp_farm_energy_config WHERE printer='H2D'").fetchone()
+        new=db.execute("SELECT entity FROM pp_farm_energy_config WHERE printer='H2D No2'").fetchone()
+        if old and not new:
+            db.execute("DELETE FROM pp_farm_energy_config WHERE printer='H2D'")
+            db.execute("INSERT INTO pp_farm_energy_config(printer,entity) VALUES('H2D No2',?)",(old['entity'],))
+            db.execute("DELETE FROM pp_farm_energy_last WHERE printer IN ('H2D','H2D No2')")
+        put_cfg(db,'h2d_no2_migrated','1')
 
 
 def energy_settings():
@@ -3321,7 +3402,7 @@ class Handler(BaseHTTPRequestHandler):
                     device=by_name.get(entry['name'],{})
                     energy=states.get(device.get('energy_entity',''))
                     entry['energy_kwh']=tablet_monitor.energy_kwh(energy)
-                    peak=peaks.get(entry.get('entity') or '',{})
+                    peak=peaks.get(entry.get('history_key') or entry.get('entity') or '',{})
                     entry['max_amps']=peak.get('max_amps')
                     entry['max_amps_at']=peak.get('at')
                     entry['max_amps_source']=peak.get('source')
@@ -3349,7 +3430,7 @@ class Handler(BaseHTTPRequestHandler):
                              if x.get('kind')=='printer' and x.get('entity')}
                     if entity not in allowed:
                         return self.send(404,{'error':'Drucker nicht zugeordnet.'})
-                    data=tablet_printer_detail.detail(db,entity,period)
+                    data=tablet_printer_detail.detail(db,power_monitor.history_key(entity,allowed[entity]),period)
                     data['name']=allowed[entity]
                 return self.send(200,data)
             except ValueError:
@@ -3773,7 +3854,7 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('BEGIN IMMEDIATE')
                     settings=power_monitor.config(db,cfg)
                     current=power_monitor.snapshot(states,settings)
-                    printers={x['entity'] for x in current['devices']
+                    printers={x['entity']:x.get('history_key') or x['entity'] for x in current['devices']
                               if x.get('kind')=='printer' and x.get('entity')}
                     if action=='reset_device_peak':
                         entity=data.get('entity')
@@ -3783,12 +3864,12 @@ class Handler(BaseHTTPRequestHandler):
                         if not isinstance(period,str):
                             raise ValueError('Ungültiger Zeitraum.')
                         result=tablet_printer_detail.reset_peak(
-                            db,entity,data.get('kind'),period)
+                            db,printers[entity],data.get('kind'),period)
                     else:
                         result=tablet_monitor.reset_all_amperes(db,current['devices'])
                         for entity in sorted(printers):
                             tablet_printer_detail.reset_peak(
-                                db,entity,'amps','30d',now=result['reset_at'])
+                                db,printers[entity],'amps','30d',now=result['reset_at'])
                 return self.send(200,result)
             if path=='/api/tablet-devices':
                 states=homeassistant_states()
@@ -3965,6 +4046,7 @@ def periodic_sync():
 
 if __name__=='__main__':
     init_db()
+    migrate_h2d_no2()
     threading.Thread(target=periodic_sync,daemon=True).start()
     threading.Thread(target=farm_poll_loop,daemon=True).start()
     threading.Thread(target=power_alarm_loop,daemon=True).start()

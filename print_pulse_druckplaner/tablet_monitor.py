@@ -216,7 +216,7 @@ def enrich_currents(snapshot, states):
         if not match:
             match = SHELLY_ID.search(device.get("switch_entity") or "")
         suffix = (match.group(1) if match else
-                  power_monitor.KNOWN_SHELLYS.get(device.get("name")))
+                  (power_monitor.KNOWN_SHELLYS.get(device.get("name")) if entity or device.get("switch_entity") else None))
         sensor = ""
         actual = None
         if suffix:
@@ -395,7 +395,7 @@ def reset_all_amperes(db, active_devices, now=None):
     for dev in active_devices:
         if not isinstance(dev,dict):
             continue
-        entity = dev.get("entity")
+        entity = dev.get("history_key") or dev.get("entity")
         if not isinstance(entity,str) or not entity.startswith("sensor."):
             continue
         if entity in used:
@@ -513,7 +513,7 @@ def record_sample(db, snapshot, now=None):
     for item in snapshot.get("devices", []):
         if not isinstance(item, dict):
             continue
-        entity = item.get("entity")
+        entity = item.get("history_key") or item.get("entity")
         watts = item.get("watts")
         if not isinstance(entity, str) or not entity.startswith("sensor."):
             continue

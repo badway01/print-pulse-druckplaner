@@ -86,7 +86,7 @@ def record_sample(db, snapshot, now=None):
             continue
         name = str(row.get("name") or "Unbenannt")[:70]
         entity = str(row.get("entity") or "")[:170]
-        key = entity if entity else "nicht-zugeordnet:" + name
+        key = str(row.get("history_key") or entity) if entity else "nicht-zugeordnet:" + name
         watts = _number(row.get("watts"))
         amps = _number(row.get("amps"))
         watts_count = int(watts is not None)

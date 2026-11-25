@@ -12,8 +12,8 @@ import urllib.request
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-DEVICES = ('H2D', 'P1S Old', 'P1S New', 'Snapmaker U1', 'X2D', 'A1', 'A1 mini', 'Kühlschrank')
-PRINTER_COUNT = 7
+DEVICES = ('H2D', 'H2D No2', 'P1S Old', 'P1S New', 'Snapmaker U1', 'X2D', 'A1', 'A1 mini', 'Kühlschrank')
+PRINTER_COUNT = 8
 DEFAULT_WARNING = 2500
 DEFAULT_CRITICAL = 3200
 TOPIC_RE = re.compile(r'^[A-Za-z0-9_-]{5,128}$')
@@ -22,7 +22,7 @@ ALERT_KEY = 'power_monitor_alert_state'
 FAULT_ALERT_KEY = 'power_monitor_fault_alert_state'
 # Exact IDs supplied by the user; no assumed A1 mini device.
 KNOWN_SHELLYS = {
-    'H2D': '90706948a600',
+    'H2D No2': '90706948a600',
     'P1S Old': '80b54e2aaa24',
     'P1S New': '9070694d3d74',
     'Snapmaker U1': '9070694dac1c',
@@ -120,6 +120,12 @@ def fault_status(states, settings=None):
         active = [item for item in device_specs(settings) if item.get('enabled', True)]
         selected = {item['name'] for item in active}
         known = {name: suffix for name, suffix in known.items() if name in selected}
+        bindings=effective_bindings(settings,states)
+        if not bindings.get('H2D No2') and not any(x['name']=='H2D No2' and x.get('power_entity') for x in active):
+            known.pop('H2D No2',None)
+        for name in ('H2D','H2D No2'):
+            match=re.search(r'shellyplugsg3_([a-f0-9]{12})',bindings.get(name) or '')
+            if match: known[name]=match.group(1)
         for item in active:
             for field in ('power_entity', 'switch_entity'):
                 match = re.search(r'shellyplugsg3_([a-f0-9]{12})', item.get(field) or '')
@@ -138,6 +144,10 @@ def fault_status(states, settings=None):
     return faults
 
 
+def history_key(entity, name):
+    return entity + "_h2d_no2" if entity and name == "H2D No2" else entity
+
+
 def snapshot(states, settings):
     bindings = effective_bindings(settings, states)
     devices = []
@@ -154,7 +164,7 @@ def snapshot(states, settings):
         if value is not None:
             total += value
             measured += 1
-        devices.append({'name': name, 'entity': entity, 'watts': value,
+        devices.append({'name': name, 'entity': entity, 'history_key': history_key(entity,name), 'watts': value,
                         'kind': item.get('kind', 'printer'),
                         'energy_entity': item.get('energy_entity') or '',
                         'switch_entity': item.get('switch_entity') or ''})
