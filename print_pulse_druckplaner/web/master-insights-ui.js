@@ -87,7 +87,7 @@
        const snapshot=(saved?.colors||[]).find(f=>Number(f.id)===id);
        const library=(printTools.filaments_library||[]).find(f=>Number(f.id)===id);
        const where=[
-         file.printer==='H2D'?(src.side==='left'?'Düse links':src.side==='right'?'Düse rechts':'Düse nicht zugeordnet'):'',
+         (file.printer==='H2D'||file.printer==='H2D No2')?(src.side==='left'?'Düse links':src.side==='right'?'Düse rechts':'Düse nicht zugeordnet'):'',
          src.label||'Filamentquelle',src.type==='ams'?'Slot '+(i+1):'Spule'
        ].filter(Boolean).join(' · ');
        if(assigned.has(id)){assigned.get(id).places.push(where);return;}

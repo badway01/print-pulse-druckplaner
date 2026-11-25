@@ -1693,7 +1693,8 @@ $('filament-delete').addEventListener('click',async()=>{
 setInterval(()=>{if(workspace==='filament'&&!document.hidden)loadFilaments();},30000);
 
 
-const masterPrinters=['H2D','P1S Old','P1S New','Snapmaker U1','X2D','A1','A1 mini','Prusa MK4'];
+const isH2D=name=>name==='H2D'||name==='H2D No2';
+const masterPrinters=['H2D','H2D No2','P1S Old','P1S New','Snapmaker U1','X2D','A1','A1 mini','Prusa MK4'];
 function toolSummary(p){
  const profiles=printTools.profiles.filter(r=>r.listing_id===p.id);
  const files=printTools.files.filter(r=>!r.is_history&&r.listing_id===p.id);
@@ -1790,7 +1791,7 @@ function masterSelectionChanged(){
  closeMasterPicker(false);
  const panel=$('master-color-editor-panel');if(panel){$('master-color-editor-home').appendChild(panel);panel.hidden=true;}
  masterColorEditFileId=null;
- $('master-source-side').hidden=$('master-printer').value!=='H2D';
+ $('master-source-side').hidden=!isH2D($('master-printer').value);
  $('master-upload-status').textContent='';
  $('master-profile-status').textContent='';
  syncUploadPrinterTargets();
@@ -1800,7 +1801,7 @@ function masterSelectionChanged(){
  const u1Data=isU1?masterU1Toolheads(savedSources):null;
  masterSources=isU1?u1Data.heads:savedSources;
  $('master-add-source').hidden=isU1;
- $('master-source-side').hidden=isU1||$('master-printer').value!=='H2D';
+ $('master-source-side').hidden=isU1||!isH2D($('master-printer').value);
  const u1Note=$('master-u1-note');
  u1Note.hidden=!isU1;
  if(isU1)u1Note.textContent=u1Data.legacy?
@@ -1854,7 +1855,7 @@ function masterSlotMarkup(fid,sourceIndex,slotIndex){
 function renderMasterSources(){
  updateHTML($('master-sources'),masterSources.length?masterSources.map((s,n)=>
  '<div class="pp-palette-source"><div class="pp-palette-source-top"><strong>'+esc(s.label)+'</strong>'+
- ($('master-printer').value==='H2D'?'<select data-master-source-side="'+n+'" aria-label="Düse für '+esc(s.label)+' wählen"><option value=""'+(masterNozzleSide(s)==='unassigned'?' selected':'')+'>Düse zuordnen</option><option value="left"'+(masterNozzleSide(s)==='left'?' selected':'')+'>Düse links</option><option value="right"'+(masterNozzleSide(s)==='right'?' selected':'')+'>Düse rechts</option></select>':'')+
+ (isH2D($('master-printer').value)?'<select data-master-source-side="'+n+'" aria-label="Düse für '+esc(s.label)+' wählen"><option value=""'+(masterNozzleSide(s)==='unassigned'?' selected':'')+'>Düse zuordnen</option><option value="left"'+(masterNozzleSide(s)==='left'?' selected':'')+'>Düse links</option><option value="right"'+(masterNozzleSide(s)==='right'?' selected':'')+'>Düse rechts</option></select>':'')+
  ($('master-printer').value==='Snapmaker U1'?'':'<button type="button" class="text-button" data-master-remove="'+n+'">Quelle entfernen</button>')+'</div><div class="pp-palette-slots">'+s.slots.map((fid,j)=>masterSlotMarkup(fid,n,j)).join('')+'</div></div>').join(''):'<p class="hint">Noch keine Quelle. AMS, AMS HT oder externe Spule hinzufügen.</p>');
 }
 function masterPalettePreviewMarkup(file){
@@ -1863,15 +1864,15 @@ function masterPalettePreviewMarkup(file){
  const exact=(printTools.profiles||[]).find(p=>p.listing_id===file.listing_id&&p.variant_id===file.variant_id&&p.printer===file.printer);
  const profile=exact||(printTools.profiles||[]).find(p=>p.listing_id===file.listing_id&&!p.variant_id&&p.printer===file.printer);
  const sources=(active?masterSources:profile?.sources)||[];
- const sides=file.printer==='H2D'?['left','right','unassigned']:
+ const sides=isH2D(file.printer)?['left','right','unassigned']:
   file.printer==='Snapmaker U1'?['t0','t1','t2','t3']:['unassigned'];
  const groups=sides.map(side=>({
-  side,sources:sources.filter(s=>file.printer==='H2D'?masterNozzleSide(s)===side:
+  side,sources:sources.filter(s=>isH2D(file.printer)?masterNozzleSide(s)===side:
    file.printer==='Snapmaker U1'?s.side===side:side==='unassigned')
  })).filter(g=>g.sources.some(s=>s.slots.some(Boolean)));
  const swatch=hex=>'<span class="master-insight-dot" style="background:'+esc(masterSwatchHex(hex))+'"></span>';
  const previewGroups=groups.map(g=>'<div class="pp-palette-view-group"><div class="pp-palette-view-label">'+
-  esc(file.printer==='H2D'?masterNozzleLabel(g.side):file.printer==='Snapmaker U1'?'Kopf '+g.side.toUpperCase():'Filamentquellen')+'</div>'+
+  esc(isH2D(file.printer)?masterNozzleLabel(g.side):file.printer==='Snapmaker U1'?'Kopf '+g.side.toUpperCase():'Filamentquellen')+'</div>'+
   g.sources.map(s=>'<div class="pp-palette-view-source"><small>'+esc(s.label)+'</small><div class="master-insight-colors">'+
    s.slots.map((fid,slot)=>{
     if(!fid)return '';
@@ -1886,7 +1887,7 @@ function masterPalettePreviewMarkup(file){
  const originalRows=Array.isArray(file.insights?.filaments)?file.insights.filaments:[];
  const original=originalRows.map((row,i)=>{
   const name=[row.code,row.name].filter(Boolean).join(' · ')||'3MF-Farbe '+(i+1);
-  const sideButtons=file.printer==='H2D'?[['left','Links'],['right','Rechts']]:
+  const sideButtons=isH2D(file.printer)?[['left','Links'],['right','Rechts']]:
    file.printer==='Snapmaker U1'?['t0','t1','t2','t3'].map(v=>[v,v.toUpperCase()]):[['unassigned','Zuordnen']];
   const actions=active?'<div class="master-original-assign" role="group" aria-label="'+esc(name)+' zuordnen">'+
    sideButtons.map(([side,label])=>'<button type="button" class="secondary small" data-master-original-assign="'+i+
@@ -2434,13 +2435,13 @@ function masterOriginalDestination(side){
   const source=masterSources.findIndex(s=>s.type==='toolhead'&&s.side===side);
   return source<0?null:{source,slot:0};
  }
- const source=masterSources.findIndex(s=>(printer!=='H2D'||masterNozzleSide(s)===side)&&
+ const source=masterSources.findIndex(s=>(!isH2D(printer)||masterNozzleSide(s)===side)&&
   (s.slots||[]).some(fid=>!fid));
  if(source>=0)return {source,slot:masterSources[source].slots.findIndex(fid=>!fid)};
  if(masterSources.length>=12)return null;
- const type=printer==='H2D'&&side==='left'?'ams_ht':'ams';
+ const type=isH2D(printer)&&side==='left'?'ams_ht':'ams';
  const label=(type==='ams_ht'?'AMS HT ':'AMS ')+(masterSources.filter(s=>s.type===type).length+1);
- masterSources.push({type,side:printer==='H2D'?side:'',label,slots:Array(type==='ams'?4:1).fill(null)});
+ masterSources.push({type,side:isH2D(printer)?side:'',label,slots:Array(type==='ams'?4:1).fill(null)});
  return {source:masterSources.length-1,slot:0};
 }
 $('master-files').addEventListener('click',event=>{
@@ -2454,7 +2455,7 @@ $('master-files').addEventListener('click',event=>{
  const index=original?Number(original.dataset.masterOriginalAssign):-1;
  const row=index>=0?file.insights?.filaments?.[index]:null;
  const side=original?.dataset.masterOriginalSide||
-  ($('master-printer').value==='Snapmaker U1'?'t0':$('master-printer').value==='H2D'?'left':'unassigned');
+  ($('master-printer').value==='Snapmaker U1'?'t0':isH2D($('master-printer').value)?'left':'unassigned');
  const dest=masterOriginalDestination(side);
  if(!dest){flash('Kein freier Filamentplatz. Bitte Quellenbelegung prüfen.',true);return;}
  const match=row?masterOriginalStockMatch(row):null;
@@ -2474,7 +2475,7 @@ $('master-add').addEventListener('click',()=>{
  const type=$('master-source-type').value;
  if(masterSources.length>=12){flash('Maximal 12 Filamentquellen.',true);return;}
  const label=type==='ams'?'AMS ':type==='ams_ht'?'AMS HT ':'Externe Spule ';
- const side=$('master-printer').value==='H2D'?$('master-source-side').value:'';
+ const side=isH2D($('master-printer').value)?$('master-source-side').value:'';
  masterSources.push({type,side,label:label+(masterSources.filter(s=>s.type===type).length+1),slots:Array(type==='ams'?4:1).fill(null)});
  renderMasterSources();markMasterColorsDirty();
 });
@@ -2624,7 +2625,7 @@ $('master-upload-input').addEventListener('change',()=>{masterUploadPending=null
 
 // Read-only printer monitor: all six monitored production printers,
 // full status details and persistent HA entity selection in the Drucker tab.
-const monitorPrinters=['H2D','P1S Old','P1S New','Snapmaker U1','X2D','A1'];
+const monitorPrinters=['H2D','H2D No2','P1S Old','P1S New','Snapmaker U1','X2D','A1'];
 const monitorFields=[
  ['status','Druckstatus (erforderlich)'],['progress','Fortschritt (%)'],['remaining','Restzeit'],
  ['filename','Aktuelle Druckdatei'],['bed','Heizbett (°C)'],['nozzle','Düse (°C)'],
@@ -2696,6 +2697,7 @@ function renderPrinterMonitor(){
    printerLine('Schichten',layers.layer!=null&&layers.total_layers!=null?layers.layer+' / '+layers.total_layers:layers.layer!=null?layers.layer:'–')+
    visible.map(([label,value])=>printerLine(label,printerTemp(value))).join('')+
    '</div>'+
+   (Object.keys(p.diagnostics||{}).length?'<details><summary>Geräte- und AMS-Zustände</summary>'+Object.entries(p.diagnostics).map(([label,value])=>printerLine(label,value==='on'?'Ja':value==='off'?'Nein':'–')).join('')+'</details>':'')+
    (slots.length?'<div class="printer-trays"><b>AMS-Belegung</b><div class="printer-tray-grid">'+slots.map((slot,i)=>
     '<span class="printer-tray">'+(slot.color?'<i class="printer-tray-swatch" style="background:'+esc(slot.color)+'"></i>':'')+
     '<small>'+(i+1)+' · '+esc(slot.name)+(slot.material?' · '+esc(slot.material):'')+'</small></span>').join('')+'</div></div>':'')+
@@ -2703,6 +2705,11 @@ function renderPrinterMonitor(){
    (p.configured?'Sensorzuordnung bearbeiten':'Sensoren zuordnen')+'</button>'+
    (p.state==='setup'?'<small>'+(p.id.startsWith('P1S')&&(printerLive?.candidates||[]).some(c=>c.model==='P1S')?'P1S einmal zuordnen':'Kein Druckstatus erkannt · HA-Integration prüfen')+'</small>':'')+'</div></article>';
  }).join(''));
+ const extra=$('printer-no2-extra');
+ if(extra){
+  const card=$('printer-detail-grid').querySelector('[data-printer-panel="H2D No2"]');
+  extra.innerHTML=card?card.outerHTML:'';
+ }
 }
 async function loadPrinters(force=false){
  if(printerLoading||document.hidden)return;
@@ -2716,7 +2723,7 @@ function printerAutofill(){
  if(!printerConfigId)return;
  let count=0;
  const fields=[...document.querySelectorAll('#printer-config-fields input[data-printer-field]')];
- const prefix=printerConfigId==='H2D'?/(?:h2d)/i:printerConfigId==='A1 mini'?/(?:a1_mini|a1mini|a1 mini)/i:
+ const prefix=printerConfigId==='H2D No2'?/(?:h2d_no_?2|h2d no2|h2d_0948bb521500938)/i:printerConfigId==='H2D'?/^(?!.*(?:h2d_no_?2|h2d no2|h2d_0948bb521500938)).*h2d/i:printerConfigId==='A1 mini'?/(?:a1_mini|a1mini|a1 mini)/i:
   printerConfigId==='Snapmaker U1'?/(?:snapmaker|(?:^|_)u1(?:_|$))/i:
   printerConfigId==='P1S Old'?/(?:p1s.*old|p1s old)/i:
    printerConfigId==='P1S New'?/(?:p1s.*new|p1s new)/i:
@@ -2820,6 +2827,7 @@ function resetPrinterFarm(){
  $('printer-farm-frame').removeAttribute('src');
  $('printer-farm-area').hidden=true;
  $('printer-farm-toggle').hidden=true;
+ $('printer-no2-extra').hidden=true;
  $('printer-farm-toggle').textContent='Sensorzuordnung / bisherige Ansicht';
  $('printer-monitor-fallback').hidden=false;
 }
@@ -2836,7 +2844,7 @@ function syncPrinterFarm(active){
  $('printer-farm-status').hidden=false;
  $('printer-farm-status').textContent='Druckerfarm wird geladen …';
  $('printer-monitor-fallback').hidden=true;
- $('printer-farm-frame').src='printer-farm-frame.html?v=0.13.80';
+ $('printer-farm-frame').src='printer-farm-frame.html?v=0.13.94';
  // A nonzero viewport is required for responsive card layout, even while loading.
  $('printer-farm-frame').hidden=false;
  $('printer-farm-frame').height='1';
@@ -2856,6 +2864,7 @@ window.addEventListener('message',event=>{
   printerFarmReady=true;
   $('printer-farm-status').hidden=true;
   $('printer-farm-toggle').hidden=false;
+  $('printer-no2-extra').hidden=Boolean(data.hasH2dNo2);
  }
 });
 $('printer-farm-toggle').addEventListener('click',()=>{

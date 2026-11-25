@@ -122,7 +122,8 @@ if(!customElements.get('ha-icon'))customElements.define('ha-icon',class extends 
   root.innerHTML='<style>:host{display:inline-flex;align-items:center;justify-content:center}svg{width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px)}</style><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="'+path+'"/></svg>';
  }
 });
-function report(status){window.parent.postMessage({kind:'pp-printer-farm',status,height:Math.ceil(farmMount.getBoundingClientRect().height)},location.origin);}
+let hasH2dNo2=false;
+function report(status){window.parent.postMessage({kind:'pp-printer-farm',status,hasH2dNo2,height:Math.ceil(farmMount.getBoundingClientRect().height)},location.origin);}
 function syncTheme(){
  try{document.documentElement.dataset.theme=window.parent.document.documentElement.dataset.theme||'light';}catch{}
 }
@@ -131,6 +132,7 @@ async function startFarm(loadResource=url=>import(url)){
  for(let i=0;!root&&i<15;i++){await new Promise(resolve=>setTimeout(resolve,250));root=findHA();}
  if(!root)throw Error('HA-Frontend nicht erreichbar');
  const config=withA1Shelly(await farmConfig(root.hass));
+ hasH2dNo2=(config.printers||[]).some(p=>/h2d[ _-]*no[ _-]*2/i.test(String(p.id||'')+' '+String(p.name||'')));
  await loadResource(farmResource);
  if(!customElements.get('print-pulse-farm'))throw Error('HA-Karte nicht installiert');
  const card=document.createElement('print-pulse-farm');

@@ -90,7 +90,7 @@ class FarmTests(unittest.TestCase):
     def test_production_kpis_exclude_manual_printers(self):
         start = 10000
         end = start + 60
-        production = ("H2D", "P1S Old", "P1S New", "Snapmaker U1", "X2D")
+        production = farm.PRODUCTION_PRINTERS
         for name in production:
             self.poll(name, "printing", start)
             self.poll(name, "printing", end)
@@ -100,24 +100,24 @@ class FarmTests(unittest.TestCase):
 
         result = farm.summary(self.db, days=7, now=end)
         self.assertEqual([p["printer"] for p in result["printers"]], list(production))
-        self.assertEqual(result["printer_count"], 5)
-        self.assertEqual(result["capacity_seconds"], 5 * 7 * 24 * 3600)
-        self.assertEqual(result["printing_seconds"], 5 * 60)
-        self.assertEqual(result["observed_seconds"], 5 * 60)
+        self.assertEqual(result["printer_count"], len(farm.PRODUCTION_PRINTERS))
+        self.assertEqual(result["capacity_seconds"], len(farm.PRODUCTION_PRINTERS) * 7 * 24 * 3600)
+        self.assertEqual(result["printing_seconds"], len(farm.PRODUCTION_PRINTERS) * 60)
+        self.assertEqual(result["observed_seconds"], len(farm.PRODUCTION_PRINTERS) * 60)
         self.assertAlmostEqual(
             result["capacity_percent"],
-            round(100 * (5 * 60) / (5 * 7 * 24 * 3600), 1)
+            round(100 * (len(farm.PRODUCTION_PRINTERS) * 60) / (len(farm.PRODUCTION_PRINTERS) * 7 * 24 * 3600), 1)
         )
         self.assertAlmostEqual(
             result["coverage_percent"],
-            round(100 * (5 * 60) / (5 * 7 * 24 * 3600), 1)
+            round(100 * (len(farm.PRODUCTION_PRINTERS) * 60) / (len(farm.PRODUCTION_PRINTERS) * 7 * 24 * 3600), 1)
         )
 
     def test_capacity_for_each_period_uses_five_printers(self):
         for days in (1, 7, 30):
             result = farm.summary(self.db, days=days, now=20000)
-            self.assertEqual(result["printer_count"], 5)
-            self.assertEqual(result["capacity_seconds"], 5 * days * 24 * 3600)
+            self.assertEqual(result["printer_count"], len(farm.PRODUCTION_PRINTERS))
+            self.assertEqual(result["capacity_seconds"], len(farm.PRODUCTION_PRINTERS) * days * 24 * 3600)
             self.assertEqual(result["printing_seconds"], 0)
 
     def test_energy_measures_delta_and_skips_reset(self):

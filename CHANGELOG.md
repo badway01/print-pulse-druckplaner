@@ -1,3 +1,10 @@
+## 0.13.94 – H2D No2 als eigener Produktionsdrucker
+
+- H2D No2 in Dashboard, Drucker-Monitor, Farmstatistik, Rechner, 3MF-Zuordnung mit linker/rechter Düse und Produktionsfilter ergänzt.
+- Die bisherige H2D-Shelly-Zuordnung wird einmalig auf No2 übertragen, die alte H2D-Zuordnung freigegeben; keine Doppelzählung. Gerätehistorie und Peak-Werte von No2 beginnen getrennt; bestehende Aufzeichnungen bleiben erhalten. Der alte H2D braucht eine separate Leistungszuordnung.
+- Binäre Zustände und AMS-Aktivitätsdaten in der No2-Detailkarte. Fehlende Druckstatus-/Temperatur-/AMS-Slot-Sensoren werden nicht erfunden.
+- Externe HA-Druckerfarm unverändert; native Zusatzkarte zeigt No2, solange externe Farm ihn nicht enthält. H2D-Auslastungsvergleich statt Kaufempfehlung.
+
 ## 0.13.93 – Watt/Ampere-Umschalter im Gesamtverlauf
 
 - Direkt am Leistungsverlauf der Stromüberwachung zwischen Watt (grün) und Ampere (blau) wechseln; Zeitfilter bleibt erhalten. Die zuletzt gewählte Messgröße wird lokal gespeichert.

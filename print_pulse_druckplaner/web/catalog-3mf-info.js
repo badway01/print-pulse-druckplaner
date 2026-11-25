@@ -50,7 +50,7 @@
   const hasSaved=sources.some(s=>s.slots.some(assigned));
   const printer=String(file.printer||'Drucker');
   let layout='';
-  if(printer==='H2D'){
+  if(printer==='H2D'||printer==='H2D No2'){
    const left=sources.filter(s=>s.side==='left'),right=sources.filter(s=>s.side==='right');
    const pending=sources.filter(s=>s.side!=='left'&&s.side!=='right');
    layout='<div class="pp-catalog-loading-grid">'+group('Düse links',left,profile)+

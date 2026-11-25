@@ -95,25 +95,12 @@ function renderFarmStats(){
    '<div class="farm-overview-utilization">'+farmUtilization(printing,recorded)+farmCoverage(recorded,total,d.coverage_percent)+'</div>',
    farmKpi('Erfasste Druckzeit',farmHours(printing),'Über alle '+String(d.printer_count)+' Produktionsdrucker'),
    farmKpi('Ohne Druck',farmHours(Math.max(0,recorded-printing)),'Nur gemessene Zeit, keine unbekannten Stunden'),
-   farmKpi('Produktionsdrucker',String(d.printer_count),'P1S Old · P1S New · H2D · U1 · X2D · A1')
+   farmKpi('Produktionsdrucker',String(d.printer_count),(d.printers||[]).map(p=>p.printer).join(' · '))
  ].join('');
  root.innerHTML=(d.printers||[]).map(r=>farmPrinterCard(r,d)).join('');
- const h2d=(d.printers||[]).find(p=>p.printer==='H2D');
- let headline='Investitions-Check: zweiter H2D';
- let message='';
- if(d.days!==7){
-   message='Wähle „7 Tage“, damit die Entscheidung auf einer vergleichbaren Produktionswoche basiert.';
- }else if(!h2d||h2d.coverage_percent<75){
-   message='Noch zu wenig zuverlässige H2D-Messdaten für eine Kaufempfehlung. Nach rund einer vollständig erfassten Woche lässt sich der Engpass besser beurteilen.';
- }else if(h2d.capacity_percent>=75){
-   message='Dein H2D hat mindestens 75 % der gesamten Woche tatsächlich gedruckt. Ein zweiter H2D könnte helfen, wenn passende Kundenaufträge warten und der freie Cashflow ausreicht.';
- }else if(h2d.capacity_percent>=55){
-   message='Dein H2D ist regelmäßig beschäftigt. Prüfe zusätzlich die wartenden H2D-Aufträge und die Verteilung auf die anderen Drucker.';
- }else{
-   message='Der gemessene H2D liegt noch unter 55 % der 24/7-Kapazität. Zuerst nach Engpässen bei anderen Druckern und Rüstzeiten schauen.';
- }
- invest.innerHTML='<h3>'+headline+'</h3><p>'+farmSafe(message)+'</p>'+
-  '<small>Die Auswertung zeigt Auslastung, aber keine Rentabilität. Zusätzlicher Deckungsbeitrag, Ausfallrisiko und Investitionsbudget bleiben für die Kaufentscheidung wichtig.</small>';
+ const h2d=(d.printers||[]).filter(p=>p.printer==='H2D'||p.printer==='H2D No2');
+ invest.innerHTML='<h3>H2D-Auslastung im Vergleich</h3>'+h2d.map(p=>'<p><strong>'+farmSafe(p.printer)+'</strong> · '+farmSafe(String(p.coverage_percent??0))+' % Messabdeckung · '+farmSafe(String(p.capacity_percent??0))+' % der Gesamtkapazität</p>').join('')+
+  '<small>Neue Drucker sammeln eigene Messwerte ab der Einbindung.</small>';
 }
 async function loadFarmStats(force=false){
  if(farmBusy || document.hidden)return;

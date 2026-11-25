@@ -37,9 +37,26 @@ class PrinterMonitorTests(unittest.TestCase):
     def test_four_printers_start_unconfigured_without_fake_values(self):
         with patch.object(app,'homeassistant_states',return_value={}):
             data=app.printer_dashboard()
-        self.assertEqual(len(data['printers']),5)
+        self.assertEqual(len(data['printers']),len(app.MONITOR_PRINTERS))
         self.assertTrue(all(p['state']=='setup' and p['progress'] is None for p in data['printers']))
         self.assertEqual([p['id'] for p in data['printers']],list(app.MONITOR_PRINTERS))
+
+    def test_two_h2d_devices_discovered_separately(self):
+        states={x['entity_id']:x for x in (
+            entity('sensor.keller_h2d_druckstatus','running'),
+            entity('sensor.h2d_no2_druckstatus','idle'),
+            entity('sensor.h2d_no2_linke_dusentemperatur',42,'°C'),
+            entity('binary_sensor.h2d_no2_online','on'),
+            entity('binary_sensor.h2d_0948bb521500938_ams_2_aktiv','on'),
+        )}
+        with patch.object(app,'homeassistant_states',return_value=states):
+            data=app.printer_dashboard()
+        rows={p['id']:p for p in data['printers']}
+        self.assertEqual(rows['H2D']['state'],'printing')
+        self.assertEqual(rows['H2D No2']['state'],'idle')
+        self.assertEqual(rows['H2D No2']['temps']['nozzle_left'],42)
+        self.assertEqual(rows['H2D No2']['diagnostics']['AMS 2 aktiv'],'on')
+        self.assertNotEqual(data['bindings']['H2D']['status'],data['bindings']['H2D No2']['status'])
 
     def test_bambu_minutes_and_snapmaker_seconds(self):
         app.save_printer_bindings({'printer':'H2D','entities':{
@@ -91,11 +108,11 @@ class PrinterMonitorTests(unittest.TestCase):
         with patch.object(app,'homeassistant_states',return_value=states):
             result=app.printer_dashboard()
         self.assertEqual([p['id'] for p in result['printers']],
-            ['H2D','P1S Old','P1S New','Snapmaker U1','X2D'])
+            list(app.MONITOR_PRINTERS))
         self.assertIn('H2D',result['auto_assigned'])
         self.assertIn('P1S Old',result['auto_assigned'])
         self.assertIn('Snapmaker U1',result['auto_assigned'])
-        h2d,old,new,u1,x2d=result['printers']
+        h2d,_,old,new,u1,x2d,_a1=result['printers']
         self.assertEqual(x2d['state'],'setup')
         self.assertEqual((h2d['state'],h2d['progress'],h2d['remaining_seconds']),('printing',72,5400))
         self.assertEqual((h2d['temps']['nozzle_left'],h2d['temps']['nozzle_right']),(210,215))
