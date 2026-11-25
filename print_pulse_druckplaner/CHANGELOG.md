@@ -1,3 +1,13 @@
+## 0.13.90 – Ø Ampere 24 h und sichtbarer Max-A-Rücksteller (25.11.2026)
+
+- Die Live-Kennzahlen sind als 3×3-Raster angeordnet: oben Gesamtleistung, Watt-Rekord und Messpunkte; darunter direkt nebeneinander **aktuelle Stromsumme**, **Ø Strom 24 Stunden** und **Strompeak gesamt**; unten Watt-Warnung, Watt-kritisch und 16-A-Nennstrom.
+- Neue Karte **„Durchschnittsstrom · 24 h“**: Durchschnitt der alle 15 Sekunden erfassten vollständigen summierten realen Shelly-Ampere-Messwerte innerhalb der letzten 24 Stunden. Fehlende Sensorwerte und Watt-/230-V-Schätzwerte werden nicht als 0 A oder als vollständige Strommessung in den Durchschnitt übernommen. Angezeigt wird auch die Anzahl verwertbarer Stichproben.
+- Behutsame SQLite-Migration der vorhandenen `pp_power_history` um eine optionale `amps`-Spalte; der bisherige Watt-Verlauf, die längere CSV-Historie und sämtliche Peak-Protokolle bleiben erhalten. Historische Ampere-Durchschnitte entstehen ab diesem Update; vergangene Einzelwerte können nicht nachträglich rekonstruiert werden.
+- **„Max A zurücksetzen“** steht jetzt direkt in der oberen Karte **„Strompeak gesamt“** und ist damit ohne Scrollen erreichbar. Der bisherige, unter der Gerätetabelle versteckte Knopf wurde entfernt, um eine doppelte Aktion zu vermeiden.
+- Das aufklappbare Protokoll „Zurücksetzungen und frühere Spitzenwerte“ bleibt unter der Geräteübersicht, ebenso die Aufzeichnungen alter Peaks im CSV-Export. Der Peak-Reset verändert den 24-Stunden-Durchschnitt und die längerfristigen Messverläufe **nicht**.
+- Responsive Kartengrößen für Desktop/Tablet (3 Spalten) und iPhone (2 Spalten) angepasst. Keine Änderungen an Schaltschwellen oder ntfy-Warnungen.
+- Ergänzte Regressionstests für frühere Watt-Historien ohne Ampere-Spalte, fehlende Messdaten, echten 24h-Durchschnitt und Unabhängigkeit von Peak-Resets.
+
 ## 0.13.89 – Max A zurücksetzen, bisherige Rekorde dauerhaft erhalten (24.11.2026)
 
 - Neuer Button „Max A zurücksetzen“ in der Geräteübersicht des Tablet-Schutzmonitors. Ein Bestätigungsdialog schützt vor versehentlicher Rücksetzung.
