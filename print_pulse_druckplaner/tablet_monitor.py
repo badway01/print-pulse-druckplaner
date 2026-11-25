@@ -431,6 +431,37 @@ def reset_all_amperes(db, active_devices, now=None):
             "history":peak_reset_history(db)}
 
 
+def ensure_24h_current_column(db):
+    """Migrate the existing 24h power-history table without deleting values."""
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_power_history
+        (at INTEGER PRIMARY KEY, watts REAL, measured INTEGER NOT NULL,
+         expected INTEGER NOT NULL)""")
+    existing={r[1] for r in db.execute("PRAGMA table_info(pp_power_history)")}
+    if "amps" not in existing:
+        db.execute("ALTER TABLE pp_power_history ADD COLUMN amps REAL")
+
+
+def average_amps_24h(db, now=None):
+    """Observed 24-hour mean of complete, real Shelly-current sums.
+
+    Missing 15s samples stay NULL; they never count as zero. Resetting Max A
+    does not reset this average or any previously recorded measurement.
+    """
+    now=int(time.time() if now is None else now)
+    ensure_24h_current_column(db)
+    row=db.execute("""SELECT AVG(amps) AS average_amps,
+        COUNT(amps) AS samples, MIN(CASE WHEN amps IS NOT NULL THEN at END) AS first_at,
+        MAX(CASE WHEN amps IS NOT NULL THEN at END) AS last_at
+        FROM pp_power_history WHERE at>=? AND at<=?""",
+        (now-86400,now)).fetchone()
+    if not row or not row["samples"]:
+        return None
+    return {"amps":round(row["average_amps"],3),
+            "samples":row["samples"],
+            "first_at":row["first_at"],
+            "last_at":row["last_at"]}
+
+
 def record_sample(db, snapshot, now=None):
     """15-second samples; permanently store per-Shelly observed power peaks."""
     now = int(time.time() if now is None else now)
@@ -510,13 +541,18 @@ def record_sample(db, snapshot, now=None):
                           THEN excluded.current_entity ELSE pp_power_actual_current_peaks.current_entity END,
                   max_amps=MAX(pp_power_actual_current_peaks.max_amps,excluded.max_amps)""",
                 (entity,amps,item.get("current_entity") or "",now))
-    db.execute("""CREATE TABLE IF NOT EXISTS pp_power_history
-        (at INTEGER PRIMARY KEY, watts REAL, measured INTEGER NOT NULL,
-         expected INTEGER NOT NULL)""")
+    ensure_24h_current_column(db)
+    # Only total sums based on ALL real Shelly current entities qualify.
+    # An incomplete measurement or W/230 fallback must not distort Ø A.
+    recorded_amps = amps_total if (fully_measured
+        and snapshot.get("printers_measured")==snapshot.get("printers_total")
+        and isinstance(amps_total,(int,float))
+        and not isinstance(amps_total,bool) and math.isfinite(amps_total)
+        and amps_total>=0) else None
     db.execute("""INSERT OR REPLACE INTO pp_power_history
-        (at, watts, measured, expected) VALUES (?, ?, ?, ?)""",
+        (at, watts, measured, expected, amps) VALUES (?, ?, ?, ?, ?)""",
         (now, snapshot.get("watts"), snapshot.get("printers_measured", 0),
-         snapshot.get("printers_total", 0)))
+         snapshot.get("printers_total", 0), recorded_amps))
     if now % 300 < 16:
         db.execute("DELETE FROM pp_power_history WHERE at<?", (now - 86400,))
 
@@ -524,9 +560,7 @@ def record_sample(db, snapshot, now=None):
 def history(db, minutes=60):
     if minutes not in (15, 60, 180, 1440):
         raise ValueError("Ungültiger Zeitraum.")
-    db.execute("""CREATE TABLE IF NOT EXISTS pp_power_history
-        (at INTEGER PRIMARY KEY, watts REAL, measured INTEGER NOT NULL,
-         expected INTEGER NOT NULL)""")
+    ensure_24h_current_column(db)
     start = int(time.time()) - minutes * 60
     rows = db.execute("""SELECT at,watts,measured,expected FROM pp_power_history
         WHERE at>=? ORDER BY at""", (start,)).fetchall()
