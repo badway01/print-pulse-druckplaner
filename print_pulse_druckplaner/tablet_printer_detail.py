@@ -24,17 +24,20 @@ PHASES = {
     "finished": "Fertig",
     "idle": "Bereit",
     "offline": "Offline",
+    "off": "Aus",
     "error": "Fehler",
     "other": "Weitere Phase",
     "unknown": "Unbekannt",
 }
 ORDER = ("heating", "leveling", "cleaning", "calibrating", "filament",
          "printing", "cooling", "paused", "finished", "idle", "offline",
-         "error", "other", "unknown")
+         "off", "error", "other", "unknown")
 
 
-def classify(stage, state=None):
+def classify(stage, state=None, switch_state=None):
     """Map observed HA stages; suppress stale stages for idle/offline jobs."""
+    if switch_state == "off":
+        return "off", PHASES["off"]
     status = str(state or "").strip().casefold()
     if status in ("offline", "error", "finished", "paused", "idle"):
         return status, PHASES[status]
@@ -112,7 +115,8 @@ def record(db, snapshot, now=None):
         entity = str(item.get("entity") or "")
         if not re.fullmatch(r"sensor\.[a-z0-9_]{3,160}", entity):
             continue
-        phase, label = classify(item.get("print_stage"),item.get("printer_state"))
+        phase, label = classify(item.get("print_stage"),item.get("printer_state"),
+                                item.get("switch_state"))
         name = str(item.get("name") or entity)[:70]
         watts, amps = number(item.get("watts")), number(item.get("amps"))
         direct = int(amps is not None and item.get("amps_source") == "shelly")
