@@ -402,6 +402,11 @@
     'Am '+new Date(high.at*1000).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+
     ' · '+high.measured+'/'+high.expected+' Drucker erfasst':
     'Noch kein Gesamtpeak gespeichert';
+  const average=d.average_amps_24h;
+  byId('average-amps-24h').textContent=average?fmt(average.amps,2)+' A':'– A';
+  byId('average-amps-note').textContent=average?
+    'Aus '+average.samples.toLocaleString('de-DE')+' vollständigen Messungen · 24-h-Fenster':
+    'Noch keine vollständigen 24-h-Strommessungen';
   const ampHigh=d.total_amps_peak;
   byId('total-amps-peak').textContent=ampHigh?fmt(ampHigh.amps,2)+' A':'– A';
   byId('total-amps-peak-note').textContent=ampHigh?
