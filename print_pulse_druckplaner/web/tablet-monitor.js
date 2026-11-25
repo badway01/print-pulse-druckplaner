@@ -9,6 +9,7 @@
  const dateFmt=new Intl.DateTimeFormat('de-DE',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
  const timeFmt=new Intl.DateTimeFormat('de-DE',{hour:'2-digit',minute:'2-digit'});
  let current=null,loading=false,range=60,theme='auto',failed=false;
+ let activeDeviceEntity=null,detailRequest=0,latestDetail=null;
  const media=window.matchMedia('(prefers-color-scheme: dark)');
  try{theme=localStorage.getItem('pp-monitor-theme')||'auto'}catch(_){}
  if(!['auto','light','dark'].includes(theme))theme='auto';
@@ -69,6 +70,9 @@
  }
  byId('export-period').addEventListener('change',updateExportLink);
  updateExportLink();
+ const detailBase=new URL(exportBase.href);
+ detailBase.pathname=detailBase.pathname.replace(/\/api\/tablet-history-export$/, '/api/tablet-printer-detail');
+ detailBase.search='';
  const resetBase=new URL(exportBase.href);
  resetBase.pathname=resetBase.pathname.replace(/\/api\/tablet-history-export$/, '/api/tablet-reset-peaks');
  resetBase.search='';
@@ -313,7 +317,12 @@
    const peakHint=item.max_amps_source==='shelly'?'Höchster gemessener Shelly-Ampere-Wert':
       'Höchster errechneter Ersatzwert';
    const e=item.energy_kwh==null?'–':fmt(item.energy_kwh,2)+' kWh';
-   return '<tr class="device-row state-'+esc(phase.state)+'"><td class="'+
+   const clickable=item.kind==='printer'&&item.entity;
+   const clickAttrs=clickable?
+    ' role="button" tabindex="0" data-entity="'+esc(item.entity)+
+    '" aria-label="Details zu '+esc(item.name)+' öffnen"':'';
+   return '<tr class="device-row state-'+esc(phase.state)+
+    (clickable?' pd-clickable':'')+'"'+clickAttrs+'><td class="'+
     (item.kind==='other'?'other-name':'printer-name')+'">'+esc(item.name)+'</td>'+
     '<td>'+esc(power(item.watts))+'</td><td title="'+esc(currentHint)+'">'+esc(amp)+'</td>'+
     '<td class="device-max-amps" title="'+esc(peakHint)+'">'+esc(maxAmp)+'</td><td>'+esc(e)+'</td>'+
