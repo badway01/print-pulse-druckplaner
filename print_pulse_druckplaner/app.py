@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from zoneinfo import ZoneInfo
 try:
-    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats, filament_stats, power_monitor, tablet_monitor, tablet_history
+    from . import components, safety, local_orders, local_order_pdf, economics, filament_planner, filament_purchases, master_insights, farm_stats, filament_stats, power_monitor, tablet_monitor, tablet_history, tablet_printer_detail
 except ImportError:
     # The add-on also starts app.py directly, and the regression tests load it
     # by file path rather than as an installed Python package.
@@ -71,6 +71,10 @@ except ImportError:
     _history_spec=importlib.util.spec_from_file_location('pp_tablet_history',Path(__file__).with_name('tablet_history.py'))
     tablet_history=importlib.util.module_from_spec(_history_spec)
     _history_spec.loader.exec_module(tablet_history)
+    _printer_detail_spec=importlib.util.spec_from_file_location(
+        'pp_tablet_printer_detail',Path(__file__).with_name('tablet_printer_detail.py'))
+    tablet_printer_detail=importlib.util.module_from_spec(_printer_detail_spec)
+    _printer_detail_spec.loader.exec_module(tablet_printer_detail)
 
 tablet_monitor.power_monitor = power_monitor
 
@@ -2860,6 +2864,30 @@ def printer_state(item,configured):
     return 'unknown'
 
 
+def tablet_print_phases(reading, states):
+    """Attach HA printer status and actual stage to this exact Shelly snapshot.
+
+    Reuse the configured printer binding. In particular, never merge stages
+    across P1S Old/New or A1/A1 mini by fuzzy device-name matching.
+    """
+    bindings=saved_printer_bindings()
+    candidates={item['id']:item['entities']
+                for item in discover_printer_candidates(states)}
+    for entry in reading.get('devices',[]):
+        if entry.get('kind')!='printer':
+            continue
+        mapping=bindings.get(entry.get('name'),{})
+        sensor=sensor_value(states,mapping,'status')
+        entry['printer_state']=printer_state(sensor,True) if sensor else None
+        stage_entity=mapping.get('stage')
+        stage=sensor_text(states.get(stage_entity)) if stage_entity else None
+        if stage is None:
+            candidate=candidates.get(mapping.get('status'),{}).get('stage')
+            stage=sensor_text(states.get(candidate)) if candidate else None
+        entry['print_stage']=stage
+    return reading
+
+
 def printer_ams_slot(item):
     if not isinstance(item,dict) or sensor_text(item) is None:return None
     attrs=item.get('attributes') or {}
@@ -3275,8 +3303,9 @@ class Handler(BaseHTTPRequestHandler):
                 states=homeassistant_states()
                 with connect() as db:
                     settings=power_monitor.config(db,cfg)
-                    result=tablet_monitor.enrich_currents(
-                        power_monitor.snapshot(states,settings),states)
+                    result=tablet_print_phases(
+                        tablet_monitor.enrich_currents(
+                            power_monitor.snapshot(states,settings),states),states)
                     result['history']=tablet_monitor.history(db,minutes)
                     result['total_peak']=tablet_monitor.total_peak(db)
                     result['total_amps_peak']=tablet_monitor.total_amps_peak(db)
@@ -3285,10 +3314,6 @@ class Handler(BaseHTTPRequestHandler):
                     peaks=tablet_monitor.device_peaks(db)
                 records=tablet_monitor.devices(states,settings)
                 by_name={d['name']:d for d in records if d.get('enabled',True)}
-                printers=saved_printer_bindings()
-                # Select only stages associated with the already-mapped status
-                # entity; never mix phases from P1S Old/New or A1/A1 mini.
-                candidates={item['id']:item['entities'] for item in discover_printer_candidates(states)}
                 for entry in result['devices']:
                     device=by_name.get(entry['name'],{})
                     energy=states.get(device.get('energy_entity',''))
@@ -3300,15 +3325,6 @@ class Handler(BaseHTTPRequestHandler):
                     state=states.get(device.get('switch_entity',''))
                     switch=state.get('state') if isinstance(state,dict) else None
                     entry['switch_state']=switch if switch in ('on','off') else None
-                    mapping=printers.get(entry['name'],{})
-                    sensor=sensor_value(states,mapping,'status')
-                    entry['printer_state']=printer_state(sensor,True) if sensor else None
-                    stage_entity=mapping.get('stage')
-                    stage=sensor_text(states.get(stage_entity)) if stage_entity else None
-                    if stage is None:
-                        candidate_stage=candidates.get(mapping.get('status'),{}).get('stage')
-                        stage=sensor_text(states.get(candidate_stage)) if candidate_stage else None
-                    entry['print_stage']=stage
                 result['updated']=int(time.time())
                 return self.send(200,result)
             except (ValueError, TypeError):
@@ -3868,10 +3884,12 @@ def power_alarm_loop():
             states=homeassistant_states()
             with connect() as db:
                 settings=power_monitor.config(db,cfg)
-                reading=tablet_monitor.enrich_currents(
-                    power_monitor.snapshot(states,settings),states)
+                reading=tablet_print_phases(
+                    tablet_monitor.enrich_currents(
+                        power_monitor.snapshot(states,settings),states),states)
                 tablet_monitor.record_sample(db,reading)
                 tablet_history.record_sample(db,reading)
+                tablet_printer_detail.record(db,reading)
                 message=fault=None
                 if settings['ntfy_topic']:
                     message=power_monitor.poll_alert(db,cfg,put_cfg,states)
