@@ -2876,6 +2876,9 @@ def tablet_print_phases(reading, states):
     for entry in reading.get('devices',[]):
         if entry.get('kind')!='printer':
             continue
+        plug=states.get(entry.get('switch_entity') or '')
+        switch=plug.get('state') if isinstance(plug,dict) else None
+        entry['switch_state']=switch if switch in ('on','off') else None
         mapping=bindings.get(entry.get('name'),{})
         sensor=sensor_value(states,mapping,'status')
         entry['printer_state']=printer_state(sensor,True) if sensor else None
