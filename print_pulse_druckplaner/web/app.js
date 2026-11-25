@@ -2878,7 +2878,7 @@ $('printer-strip-row').addEventListener('click',event=>{
  const b=event.target.closest('[data-printer-focus]');
  if(b){showWorkspace('printers');const panel=[...document.querySelectorAll('[data-printer-panel]')].find(x=>x.dataset.printerPanel===b.dataset.printerFocus);panel?.scrollIntoView({behavior:'smooth',block:'nearest'});}
 });
-$('printer-detail-grid').addEventListener('click',event=>{
+$('printers-shell').addEventListener('click',event=>{
  const b=event.target.closest('[data-printer-config]');if(b)openPrinterConfig(b.dataset.printerConfig);
 });
 $('printer-refresh').addEventListener('click',()=>loadPrinters(true));
