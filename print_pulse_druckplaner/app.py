@@ -3331,6 +3331,28 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(400,{'error':'Ungültiger Zeitraum.'})
             except RuntimeError as exc:
                 return self.send(503,{'error':str(exc)[:160]})
+        if path=='/api/tablet-printer-detail':
+            try:
+                params=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+                entity=(params.get('entity') or [''])[0]
+                period=(params.get('period') or ['24h'])[0]
+                if (len(entity)>170 or period not in tablet_printer_detail.PERIODS):
+                    return self.send(400,{'error':'Ungültiger Drucker oder Zeitraum.'})
+                states=homeassistant_states()
+                with connect() as db:
+                    settings=power_monitor.config(db,cfg)
+                    listed=power_monitor.snapshot(states,settings)['devices']
+                    allowed={x['entity']:x['name'] for x in listed
+                             if x.get('kind')=='printer' and x.get('entity')}
+                    if entity not in allowed:
+                        return self.send(404,{'error':'Drucker nicht zugeordnet.'})
+                    data=tablet_printer_detail.detail(db,entity,period)
+                    data['name']=allowed[entity]
+                return self.send(200,data)
+            except ValueError:
+                return self.send(400,{'error':'Ungültige Detailanfrage.'})
+            except RuntimeError as exc:
+                return self.send(503,{'error':str(exc)[:160]})
         if path=='/api/tablet-devices':
             try:
                 states=homeassistant_states()
