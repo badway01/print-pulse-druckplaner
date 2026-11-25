@@ -1,3 +1,14 @@
+## 0.13.91 – Anklickbare Drucker-Details mit Druckphasen-Auswertung (25.11.2026)
+
+- Ein Klick auf eine Druckerzeile in der bestehenden Stromüberwachung öffnet ein eigenständiges, responsives Detailfenster; Schließen per X, „Schließen“, Esc oder Klick außerhalb, Wechsel zum nächsten/vorherigen Drucker über Pfeile. Tastaturbedienung mit Tab und Enter/Leertaste. Die Hauptübersicht bleibt erhalten.
+- Im Detailfenster: **aktuelle Watt und echte Shelly-Ampere**, Status/aktuelle Phase, **maximale Watt und Ampere im gewählten Zeitraum**, übersichtlicher gemeinsamer Watt-/Ampere-Verlauf und eine Liste erfasster Spitzenwerte **mit Druckphase und Uhrzeit**.
+- Filterbare Zeiträume: **1 Stunde, 24 Stunden, 7 Tage und 30 Tage**. Speichert fein aufgelöste 15-Sekunden-Einzelmessungen für 2 Tage und phasenspezifische, kompakte 5-Minuten-Aggregate für 31 Tage in SQLite. Schmale Anzeige mit scrollbar angeordneter Detailtabelle. Lastkurven unterbrechen sichtbar bei Messlücken.
+- Neue Phase-Statistik für jeden Drucker: **Ø Watt, Ø Ampere, Watt-Peak, Ampere-Peak und geschätzter kWh-Verbrauch** für „Heizt auf“, „Nivelliert“, „Düse reinigen“, „Kalibriert / prüft“, „Filamentwechsel“, „Druckt“, „Kühlt ab“, „Bereit“, „Aus“ usw. Die Phase wird ausschließlich aus den tatsächlich zugeordneten Home-Assistant-Drucksensoren abgeleitet; unbekannte Phasen bleiben sichtbar „Weitere Phase“ oder „Unbekannt“.
+- Die technische Verknüpfung erfolgt streng über den hinterlegten Shelly-Leistungssensor je Gerät. Der Hintergrundsammler ergänzt alle 15 Sekunden den aktuellen HA-Arbeitsschritt; P1S Old/New und A1/A1 mini werden nicht vermischt. Bei ausgeschaltetem Shelly wird „Aus“ statt eines möglicherweise veralteten Druckstatus gespeichert.
+- Ein eigener Home-Assistant-Ingress-geschützter, nur lesender API-Endpunkt `/api/tablet-printer-detail` liefert ausschließlich Daten von aktuell aktiven, zugeordneten Druckern. Kein neuer Safari-Tab, keine Schaltfunktion, keine Änderung des Produktionsworkflows.
+- **Ab dieser Version:** Die früheren Watt-/Ampere-Historien bleiben unverändert, enthalten aber keine zuverlässige Zuordnung damaliger Messspitzen zu Druckphasen. Sehr kurze Spitzen können zwischen den 15-Sekunden-Messungen unentdeckt bleiben; kWh sind Schätzwerte aus den vorhandenen Stichproben, keine exakte Verbrauchsabrechnung.
+- Neue Regressionstests für Phasenklassifikation, isolierte Druckerwerte, Peak-Zeitpunkte, unvollständige Sensorwerte, 1h-/7d-Anzeige und ungültige Sensor-IDs. Die Browseransicht wurde simuliert geprüft, Live-Test in Home Assistant nach Update steht noch aus.
+
 ## 0.13.90 – Ø Ampere 24 h und sichtbarer Max-A-Rücksteller (25.11.2026)
 
 - Die Live-Kennzahlen sind als 3×3-Raster angeordnet: oben Gesamtleistung, Watt-Rekord und Messpunkte; darunter direkt nebeneinander **aktuelle Stromsumme**, **Ø Strom 24 Stunden** und **Strompeak gesamt**; unten Watt-Warnung, Watt-kritisch und 16-A-Nennstrom.
