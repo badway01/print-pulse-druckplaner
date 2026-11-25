@@ -76,6 +76,7 @@ class PrinterDetailTest(unittest.TestCase):
         self.assertEqual(detail.classify("unexpected_magic_step","printing")[0],
                          "other")
         self.assertEqual(detail.classify("printing",None)[0],"printing")
+        self.assertEqual(detail.classify("cleaning_nozzle_tip","printing","off")[0],"off")
 
     def test_empty_period_and_validation(self):
         data=detail.detail(self.db,self.h2d,"24h",now=self.now)
