@@ -10,6 +10,8 @@
  const timeFmt=new Intl.DateTimeFormat('de-DE',{hour:'2-digit',minute:'2-digit'});
  let current=null,loading=false,range=60,theme='auto',failed=false;
  let activeDeviceEntity=null,detailRequest=0,latestDetail=null;
+ let chartMetric='watts';
+ try{if(localStorage.getItem('pp-monitor-chart-metric')==='amps')chartMetric='amps'}catch(_){}
  const media=window.matchMedia('(prefers-color-scheme: dark)');
  try{theme=localStorage.getItem('pp-monitor-theme')||'auto'}catch(_){}
  if(!['auto','light','dark'].includes(theme))theme='auto';
@@ -49,6 +51,25 @@
    else await document.documentElement.requestFullscreen();
   }catch(_){byId('connection-text').textContent='Vollbild im Browser aktivieren'}
  });
+ function updateChartMetric(){
+  const amps=chartMetric==='amps';
+  byId('chart-title').textContent=amps?'Stromverlauf':'Leistungsverlauf';
+  byId('chart').dataset.metric=chartMetric;
+  byId('chart-watts').setAttribute('aria-pressed',String(!amps));
+  byId('chart-amps').setAttribute('aria-pressed',String(amps));
+  byId('chart-source-note').textContent=amps?
+   'Nur vollständige, direkt gemessene Shelly-Stromsummen. Messlücken bleiben offen.':
+   'Gemessene Gesamtleistung der zugeordneten Geräte.';
+ }
+ for(const metric of ['watts','amps']){
+  byId('chart-'+metric).addEventListener('click',()=>{
+   chartMetric=metric;
+   try{localStorage.setItem('pp-monitor-chart-metric',metric)}catch(_){}
+   updateChartMetric();
+   if(current)chart(current);
+  });
+ }
+ updateChartMetric();
  byId('chart-range').addEventListener('change',()=>{
   range=Number(byId('chart-range').value);
   refresh();
@@ -607,31 +628,41 @@
   byId('fault-summary').textContent=count?count+' aktive Warnungen':all? 'Keine aktiven Fehler':'Keine Fehlersensoren';
  }
  function chart(data){
-  const list=(data.history||[]).filter(p=>Number.isFinite(Number(p.at)));
+  const amps=chartMetric==='amps';
+  const unit=amps?'A':'W';
+  const list=(data.history||[]).filter(p=>p.at!=null&&Number.isFinite(Number(p.at)));
   const host=byId('chart');
-  if(!list.length){host.innerHTML='<p class="placeholder">Noch kein Verlauf vorhanden. Aufzeichnung läuft im Hintergrund.</p>';return;}
-  const W=580,H=230,L=43,R=15,T=14,B=28;
-  const innerW=W-L-R,innerH=H-T-B;
   const now=Math.round(Date.now()/1000),min=now-range*60;
-  const max=Math.max(150,Number(data.warning_w)||0,Number(data.critical_w)||0,
-    ...list.map(p=>p.watts==null?0:Number(p.watts)||0))*1.1;
+  const read=p=>p[chartMetric]==null?null:Number(p[chartMetric]);
+  const valid=list.filter(p=>p.at>=min&&p.at<=now&&Number.isFinite(read(p)));
+  if(!valid.length){
+   host.innerHTML='<p class="placeholder">'+(amps?
+    'Noch keine vollständigen Shelly-Ampere-Messungen in diesem Zeitraum.':
+    'Noch kein Verlauf vorhanden. Aufzeichnung läuft im Hintergrund.')+'</p>';
+   return;
+  }
+  const W=580,H=230,L=55,R=15,T=14,B=28;
+  const innerW=W-L-R,innerH=H-T-B;
+  const peak=valid.reduce((max,p)=>Math.max(max,read(p)),0);
+  const max=amps?Math.max(16,Math.ceil(peak*1.1/4)*4):
+   Math.max(150,Number(data.warning_w)||0,Number(data.critical_w)||0,peak)*1.1;
   const xx=t=>L+Math.max(0,Math.min(1,(t-min)/(range*60)))*innerW;
   const yy=v=>T+innerH-Math.max(0,Math.min(1,v/max))*innerH;
   const lines=[];
   let last=null,segment=[];
   for(const sample of list){
-   const val=sample.watts==null?null:Number(sample.watts);
-   if(!Number.isFinite(val)||val===null||sample.at<min){if(segment.length){lines.push(segment);segment=[]}last=null;continue;}
+   const val=read(sample);
+   if(!Number.isFinite(val)||val===null||sample.at<min||sample.at>now){if(segment.length){lines.push(segment);segment=[]}last=null;continue;}
    if(last!=null&&sample.at-last>45&&segment.length){lines.push(segment);segment=[];}
    segment.push([xx(sample.at),yy(val),sample.at,val]);
    last=sample.at;
   }
   if(segment.length)lines.push(segment);
-  let svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Gemessene Leistung der letzten '+range+' Minuten">';
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+(amps?'Gemessener Strom':'Gemessene Leistung')+' der letzten '+range+' Minuten">';
   for(let i=0;i<=4;i++){
    const val=max*i/4,y=yy(val);
    svg+='<line class="grid-line" x1="'+L+'" y1="'+y+'" x2="'+(W-R)+'" y2="'+y+'"/>'+
-     '<text x="'+(L-6)+'" y="'+(y+3)+'" text-anchor="end">'+esc(fmt(val,0))+'</text>';
+     '<text x="'+(L-6)+'" y="'+(y+3)+'" text-anchor="end">'+esc(fmt(val,amps&&val%1!==0?1:0))+' '+unit+'</text>';
   }
   for(let i=0;i<=4;i++){
    const t=min+i*(range*60)/4,x=xx(t);
@@ -642,7 +673,8 @@
    const path=points.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
    if(points.length>1)svg+='<path class="graph-fill" d="'+path+' L '+
      points[points.length-1][0].toFixed(1)+' '+yy(0)+' L '+points[0][0].toFixed(1)+' '+yy(0)+' Z"/>';
-   svg+='<path class="graph-line" d="'+path+'"/>';
+   if(points.length===1)svg+='<circle class="chart-sample" cx="'+points[0][0]+'" cy="'+points[0][1]+'" r="2"/>';
+   else svg+='<path class="graph-line" d="'+path+'"/>';
   }
   const end=lines.length?lines[lines.length-1].at(-1):null;
   if(end&&end[2]>=now-100){

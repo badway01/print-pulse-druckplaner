@@ -426,3 +426,16 @@ body[data-theme=dark] .pd-state-finished{background:#274862;color:#c9e4fd}
 .pd-reset-feedback:empty{display:none}
 .pd-reset-title{font-size:13px;margin:16px 0 6px;color:var(--muted)}
 #pd-reset-history[hidden]{display:none}
+
+/* Switch the main farm history between measured watts and amperes. */
+.chart-panel .panel-title{flex-wrap:wrap}
+.chart-controls{flex-wrap:wrap;justify-content:flex-end}
+.chart-metric-switch{display:inline-flex;gap:2px;border:1px solid var(--border);border-radius:9px;padding:2px;background:var(--soft)}
+.chart-metric-switch button{border:0;border-radius:6px;padding:6px 9px;background:transparent;color:var(--muted);font:inherit;font-size:11px;cursor:pointer;white-space:nowrap}
+.chart-metric-switch button[aria-pressed="true"]{background:var(--surface);color:var(--text);font-weight:750;box-shadow:0 1px 3px #0002}
+.chart-metric-switch button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.chart-host[data-metric="amps"] .graph-line{stroke:#308bd5}
+.chart-host[data-metric="amps"] .graph-fill{fill:#308bd51c}
+.chart-host[data-metric="amps"] .chart-cursor,.chart-host[data-metric="amps"] .chart-sample{fill:#308bd5}
+.chart-host .chart-sample{fill:#20a957}
+.chart-source-note{font-size:10px;color:var(--muted);margin:3px 0 12px;line-height:1.4}

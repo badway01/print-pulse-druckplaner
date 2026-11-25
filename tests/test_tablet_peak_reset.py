@@ -119,6 +119,30 @@ class PeakResetTest(unittest.TestCase):
                                  (self.now-60,)).fetchone()
         self.assertEqual(before["watts"], 420.)
 
+    def test_history_includes_real_amps_and_keeps_missing_samples(self):
+        first = self.snapshot(100., 200., 1.25, 2.75)
+        monitor.record_sample(self.db, first, now=self.now)
+        missing = self.snapshot(80., 90., 0.4, 0.6)
+        missing["devices"][1]["amps_source"] = "calculated"
+        monitor.record_sample(self.db, missing, now=self.now+15)
+        monitor.record_sample(self.db, self.snapshot(0.,0.,0.,0.), now=self.now+30)
+        for minutes in (15,60,180,1440):
+            rows=monitor.history(self.db,minutes,now=self.now+31)
+            self.assertEqual([r["watts"] for r in rows],[300.,170.,0.])
+            self.assertEqual([r["amps"] for r in rows],[4.,None,0.])
+        self.assertEqual(monitor.history(self.db,15,now=self.now-1),[])
+
+    def test_history_does_not_skip_short_peaks_in_24h(self):
+        monitor.ensure_24h_current_column(self.db)
+        self.db.executemany(
+            "INSERT INTO pp_power_history(at,watts,measured,expected,amps) VALUES(?,?,?,?,?)",
+            [(self.now+i*15, 900. if i==511 else 10.,2,2,4. if i==511 else .1)
+             for i in range(1100)])
+        rows=monitor.history(self.db,1440,now=self.now+1100*15)
+        self.assertEqual(len(rows),1100)
+        self.assertEqual(rows[511]["amps"],4.)
+        self.assertEqual(rows[511]["watts"],900.)
+
     def test_repeat_reset_keeps_first_audit(self):
         first = self.snapshot(200.,100.,0.8,0.6)
         monitor.record_sample(self.db,first,now=self.now)

@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f8f5">
 <title>Print &amp; Pulse | Stromüberwachung Live</title>
-<link rel="stylesheet" href="tablet-monitor.css?v=0.13.92">
-<script src="tablet-monitor.js?v=0.13.92" defer></script>
+<link rel="stylesheet" href="tablet-monitor.css?v=0.13.93">
+<script src="tablet-monitor.js?v=0.13.93" defer></script>
 </head>
 <body data-theme="light">
 <div class="monitor-shell">
@@ -96,8 +96,9 @@
      <div id="faults" class="faults"><p>Warte auf Shelly-Meldungen …</p></div>
     </section>
     <section class="panel chart-panel">
-     <div class="panel-title"><h2>Leistungsverlauf</h2><div class="chart-controls"><label for="chart-range" class="sr-only">Zeitraum</label><select id="chart-range"><option value="15">15 Minuten</option><option value="60" selected>1 Stunde</option><option value="180">3 Stunden</option><option value="1440">24 Stunden</option></select><span class="live-pill"><i></i> Live</span></div></div>
-     <div class="chart-host" id="chart"><p class="placeholder">Verlauf wird aufgezeichnet …</p></div>
+     <div class="panel-title"><h2 id="chart-title">Leistungsverlauf</h2><div class="chart-controls"><div class="chart-metric-switch" role="group" aria-label="Messgröße"><button type="button" id="chart-watts" aria-pressed="true">Watt</button><button type="button" id="chart-amps" aria-pressed="false">Ampere</button></div><label for="chart-range" class="sr-only">Zeitraum</label><select id="chart-range"><option value="15">15 Minuten</option><option value="60" selected>1 Stunde</option><option value="180">3 Stunden</option><option value="1440">24 Stunden</option></select><span class="live-pill"><i></i> Live</span></div></div>
+     <div class="chart-host" id="chart" data-metric="watts"><p class="placeholder">Verlauf wird aufgezeichnet …</p></div>
+     <p id="chart-source-note" class="chart-source-note">Gemessene Gesamtleistung der zugeordneten Geräte.</p>
      <div class="history-export">
       <div class="history-export-heading">
        <strong>Messhistorie exportieren</strong>

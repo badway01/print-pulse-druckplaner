@@ -16,7 +16,11 @@ const parent={parent:haWindow,document:{querySelector:()=>null,documentElement:{
 const mount={append:card=>{mounted=card;},getBoundingClientRect:()=>({height:456})};
 const cardEvents={};
 const card={setConfig(value){this.config=value;},addEventListener(name,callback){cardEvents[name]=callback;}};
-const document={getElementById:()=>mount,documentElement:{dataset:{}},createElement:()=>card};
+const button={disabled:true,textContent:'',addEventListener(){}};
+const reading={textContent:''};
+const bar={setAttribute(){},querySelector:selector=>selector==='#a1-shelly-toggle'?button:reading};
+const document={getElementById:()=>mount,documentElement:{dataset:{}},
+ createElement:tag=>tag==='section'?bar:card};
 const registry=new Map();
 const context=vm.createContext({
  window:{parent,addEventListener(){}},document,location:{origin:'https://example.invalid'},
@@ -36,7 +40,8 @@ vm.runInContext(source.replace('startFarm().catch(()=>report(\'unavailable\'));'
  assert.equal(calls[0].type,'lovelace/config');
  assert.equal(calls[0].url_path,'dashboard-example');
  assert.equal(mounted,card);
- assert.equal(card.config,config);
+ assert.deepEqual(JSON.parse(JSON.stringify(card.config)),config);
+ assert.equal(button.disabled,true);
  assert.equal(card.hass,HA.hass);
  assert.equal(document.documentElement.dataset.theme,'dark');
  assert.equal(messages[0].message.status,'ready');

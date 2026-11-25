@@ -1,3 +1,10 @@
+## 0.13.93 – Watt/Ampere-Umschalter im Gesamtverlauf
+
+- Direkt am Leistungsverlauf der Stromüberwachung zwischen Watt (grün) und Ampere (blau) wechseln; Zeitfilter bleibt erhalten. Die zuletzt gewählte Messgröße wird lokal gespeichert.
+- Ampere-Verlauf verwendet ausschließlich die bereits gespeicherten vollständigen, direkt gemessenen Shelly-Stromsummen; keine rückwirkende W/230-Schätzung. Fehlende Werte bleiben Lücken.
+- Die Achse zeigt die jeweilige Einheit. Die Ampere-Skala zeigt mindestens 0–16 A und wächst bei höheren Messwerten mit.
+- Die API liefert die vorhandenen 15-Sekunden-Messwerte beider Größen auch für 24 Stunden ohne Ausdünnung, um kurze Spitzen und tatsächliche Messlücken zu erhalten. CSV-Export, Reset-Funktionen und Grenzwerte bleiben unverändert.
+
 ## 0.13.92 – Einzelne Watt- und Ampere-Peaks zurücksetzen (25.11.2026)
 
 - Kleine Reset-Symbole oben rechts auf beiden Peak-Karten der Drucker-Detailansicht. Bestätigung und Rückmeldung je Messgröße und Drucker; neue Spitzen ab der nächsten gültigen Messung.

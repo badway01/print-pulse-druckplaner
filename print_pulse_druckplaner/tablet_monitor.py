@@ -557,15 +557,17 @@ def record_sample(db, snapshot, now=None):
         db.execute("DELETE FROM pp_power_history WHERE at<?", (now - 86400,))
 
 
-def history(db, minutes=60):
+def history(db, minutes=60, now=None):
+    """Return observed W and complete, directly measured A; preserve gaps/peaks."""
     if minutes not in (15, 60, 180, 1440):
         raise ValueError("Ungültiger Zeitraum.")
     ensure_24h_current_column(db)
-    start = int(time.time()) - minutes * 60
-    rows = db.execute("""SELECT at,watts,measured,expected FROM pp_power_history
-        WHERE at>=? ORDER BY at""", (start,)).fetchall()
-    # Keep the response compact on mobile/tablets, particularly for 24h.
-    step = max(1, len(rows) // 500)
-    return [{"at": row["at"], "watts": row["watts"],
+    end = int(time.time() if now is None else now)
+    start = end - minutes * 60
+    rows = db.execute("""SELECT at,watts,amps,measured,expected FROM pp_power_history
+        WHERE at>=? AND at<=? ORDER BY at""", (start,end)).fetchall()
+    # At 15-second cadence the 24h view has at most about 5,761 points.
+    # Striding through samples loses short peaks and introduces false gaps.
+    return [{"at": row["at"], "watts": row["watts"], "amps": row["amps"],
              "measured": row["measured"], "expected": row["expected"]}
-            for row in rows[::step]]
+            for row in rows]
