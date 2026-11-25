@@ -43,6 +43,7 @@ jobs:
           node --check print_pulse_druckplaner/web/filament-quick-ui.js
           node --check print_pulse_druckplaner/web/filament-stats-ui.js
           node --check print_pulse_druckplaner/web/app.js
+          node --check print_pulse_druckplaner/web/tablet-monitor.js
           node --check print_pulse_druckplaner/web/farm-ui.js
           node --check print_pulse_druckplaner/web/master-insights-ui.js
           node --check print_pulse_druckplaner/web/components-ui.js

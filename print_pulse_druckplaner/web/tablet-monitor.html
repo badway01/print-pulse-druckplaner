@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f8f5">
 <title>Print &amp; Pulse | Stromüberwachung Live</title>
-<link rel="stylesheet" href="tablet-monitor.css?v=0.13.91">
-<script src="tablet-monitor.js?v=0.13.91" defer></script>
+<link rel="stylesheet" href="tablet-monitor.css?v=0.13.92">
+<script src="tablet-monitor.js?v=0.13.92" defer></script>
 </head>
 <body data-theme="light">
 <div class="monitor-shell">
@@ -145,9 +145,10 @@
   <div class="pd-kpis" aria-label="Druckerkennzahlen">
    <div class="pd-kpi"><small>Aktuelle Leistung</small><strong id="pd-watts">– W</strong></div>
    <div class="pd-kpi"><small>Aktueller Strom</small><strong id="pd-amps">– A</strong></div>
-   <div class="pd-kpi"><small>Watt-Peak im Zeitraum</small><strong id="pd-peak-w">– W</strong><span id="pd-peak-w-note">–</span></div>
-   <div class="pd-kpi"><small>Ampere-Peak im Zeitraum</small><strong id="pd-peak-a">– A</strong><span id="pd-peak-a-note">–</span></div>
+   <div class="pd-kpi"><div class="pd-kpi-heading"><small>Watt-Peak im Zeitraum</small><button type="button" id="pd-reset-w" class="pd-reset-icon" aria-label="Watt-Peak zurücksetzen" title="Watt-Peak zurücksetzen" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg></button></div><strong id="pd-peak-w">– W</strong><span id="pd-peak-w-note">–</span></div>
+   <div class="pd-kpi"><div class="pd-kpi-heading"><small>Ampere-Peak im Zeitraum</small><button type="button" id="pd-reset-a" class="pd-reset-icon" aria-label="Ampere-Peak zurücksetzen" title="Ampere-Peak zurücksetzen" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg></button></div><strong id="pd-peak-a">– A</strong><span id="pd-peak-a-note">–</span></div>
   </div>
+  <p id="pd-reset-feedback" class="pd-reset-feedback" role="status"></p>
   <div class="pd-content">
    <section class="pd-panel pd-chart-panel" aria-label="Drucker-Stromverlauf">
     <div class="pd-panel-heading">
@@ -180,6 +181,7 @@
    <section class="pd-panel pd-events-panel">
     <div class="pd-panel-heading"><h3>Spitzen &amp; Ereignisse</h3><span>Mit Druckphase und Uhrzeit</span></div>
     <div id="pd-events" class="pd-events"><p>Keine Ereignisse vorhanden.</p></div>
+    <section id="pd-reset-history" hidden><h4 class="pd-reset-title">Zurücksetzungen &amp; frühere Spitzen</h4><div id="pd-reset-events" class="pd-events"></div></section>
    </section>
   </div>
   <footer class="pd-footer">

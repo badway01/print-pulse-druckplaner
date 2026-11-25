@@ -108,6 +108,7 @@
     render(current);
    }
    await refresh();
+   if(activeDeviceEntity)await loadDetail();
   }catch(e){
    byId('peak-reset-feedback').textContent='Nicht zurückgesetzt: '+e.message;
   }finally{
@@ -423,13 +424,29 @@
  function renderPrinterDetail(data){
   const summary=data.summary||{};
   const avgCount=Number(data.samples)||0;
-  byId('pd-peak-w').textContent=power(summary.watts_peak);
-  byId('pd-peak-a').textContent=summary.amps_peak==null?'– A':
-   (summary.amps_direct_pct===100?'':'≈ ')+fmt(summary.amps_peak,3)+' A';
-  byId('pd-peak-w-note').textContent=summary.watts_peak_at?
-   'Am '+dateTime(summary.watts_peak_at):'Noch kein Wert';
-  byId('pd-peak-a-note').textContent=summary.amps_peak_at?
-   'Am '+dateTime(summary.amps_peak_at):'Noch kein Wert';
+  const cards=data.card_peaks||{};
+  const w=cards.watts||{value:summary.watts_peak,at:summary.watts_peak_at};
+  const a=cards.amps||{value:summary.amps_peak,at:summary.amps_peak_at,direct:summary.amps_direct_pct===100};
+  byId('pd-peak-w').textContent=power(w.value);
+  byId('pd-peak-a').textContent=a.value==null?'– A':
+   (a.direct?'':'≈ ')+fmt(a.value,3)+' A';
+  const peakNote=p=>(p.at?'Am '+dateTime(p.at):'Noch kein Wert')+
+   (p.reset_at?' · Reset '+dateTime(p.reset_at):'');
+  byId('pd-peak-w-note').textContent=peakNote(w);
+  byId('pd-peak-a-note').textContent=peakNote(a);
+  const resets=Array.isArray(data.reset_history)?data.reset_history:[];
+  byId('pd-reset-history').hidden=!resets.length;
+  byId('pd-reset-events').innerHTML=resets.map(r=>{
+   const unit=r.kind==='amps'?'A':'W';
+   const value=r.previous_value==null?'Kein Messwert':
+    (r.kind==='amps'&&!r.previous_direct?'≈ ':'')+
+    fmt(r.previous_value,r.kind==='amps'?3:1)+' '+unit;
+   return '<div class="pd-event"><div><strong>'+esc(unit==='A'?'Ampere zurückgesetzt':'Watt zurückgesetzt')+
+    '</strong><small>'+esc(dateTime(r.at))+
+    (r.previous_at?' · Peak am '+esc(dateTime(r.previous_at)):'')+
+    '</small></div><b>'+esc(value)+'</b></div>';
+  }).join('');
+  for(const id of ['pd-reset-w','pd-reset-a'])byId(id).disabled=detailResetBusy;
   byId('pd-phase-total').textContent=avgCount.toLocaleString('de-DE')+' Messungen';
   const phases=Array.isArray(data.phases)?data.phases:[];
   byId('pd-phase-rows').innerHTML=phases.length?
@@ -490,11 +507,47 @@
    byId('pd-events').innerHTML='<p>Keine Ereignisse verfügbar.</p>';
   }
  }
+ let detailResetBusy=false;
+ async function resetDetailPeak(kind){
+  if(detailResetBusy||!activeDeviceEntity||!latestDetail)return;
+  const entity=activeDeviceEntity;
+  const period=byId('pd-period').value;
+  const name=printerOptions().find(x=>x.entity===entity)?.name||entity;
+  const label=kind==='watts'?'Watt':'Ampere';
+  if(!window.confirm(label+'-Peak von '+name+' zurücksetzen? Alle bisherigen Messungen bleiben erhalten.'))return;
+  detailResetBusy=true;
+  for(const id of ['pd-reset-w','pd-reset-a'])byId(id).disabled=true;
+  byId('pd-reset-feedback').textContent='';
+  try{
+   const response=await fetch(resetBase.href,{
+    method:'POST',credentials:'same-origin',cache:'no-store',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'reset_device_peak',entity,kind,period})
+   });
+   let data={};
+   try{data=await response.json()}catch(_){}
+   if(!response.ok||!data.ok)throw new Error(data.error||'Zurücksetzen fehlgeschlagen');
+   if(entity===activeDeviceEntity){
+    byId('pd-reset-feedback').textContent=label+'-Peak zurückgesetzt. Historie bleibt erhalten.';
+    await loadDetail();
+   }
+  }catch(error){
+   if(entity===activeDeviceEntity)byId('pd-reset-feedback').textContent='Nicht zurückgesetzt: '+error.message;
+  }finally{
+   detailResetBusy=false;
+   for(const id of ['pd-reset-w','pd-reset-a'])byId(id).disabled=!latestDetail;
+  }
+ }
+ byId('pd-reset-w').addEventListener('click',()=>resetDetailPeak('watts'));
+ byId('pd-reset-a').addEventListener('click',()=>resetDetailPeak('amps'));
  function openDevice(entity){
   const option=printerOptions().find(x=>x.entity===entity);
   if(!option)return;
   activeDeviceEntity=entity;
   latestDetail=null;
+  byId('pd-reset-feedback').textContent='';
+  byId('pd-reset-history').hidden=true;
+  for(const id of ['pd-reset-w','pd-reset-a'])byId(id).disabled=true;
   byId('pd-period').value='24h';
   byId('pd-chart').innerHTML='<p class="pd-empty">Lade Messwerte …</p>';
   byId('pd-phase-rows').innerHTML='<tr><td colspan="6">Lade Druckphasen …</td></tr>';

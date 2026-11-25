@@ -79,7 +79,7 @@ except ImportError:
 tablet_monitor.power_monitor = power_monitor
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.91'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.13.92'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -3765,14 +3765,30 @@ class Handler(BaseHTTPRequestHandler):
             if path=='/api/tablet-reset-peaks':
                 if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
                     return self.send(403,{'error':'Ungültiger Ursprung.'})
-                if data.get('action') != 'reset_all_amperes':
+                action=data.get('action')
+                if action not in ('reset_all_amperes','reset_device_peak'):
                     raise ValueError('Ungültige Aktion.')
                 states=homeassistant_states()
                 with connect() as db:
                     db.execute('BEGIN IMMEDIATE')
                     settings=power_monitor.config(db,cfg)
                     current=power_monitor.snapshot(states,settings)
-                    result=tablet_monitor.reset_all_amperes(db,current['devices'])
+                    printers={x['entity'] for x in current['devices']
+                              if x.get('kind')=='printer' and x.get('entity')}
+                    if action=='reset_device_peak':
+                        entity=data.get('entity')
+                        if not isinstance(entity,str) or entity not in printers:
+                            return self.send(404,{'error':'Drucker nicht zugeordnet.'})
+                        period=data.get('period','24h')
+                        if not isinstance(period,str):
+                            raise ValueError('Ungültiger Zeitraum.')
+                        result=tablet_printer_detail.reset_peak(
+                            db,entity,data.get('kind'),period)
+                    else:
+                        result=tablet_monitor.reset_all_amperes(db,current['devices'])
+                        for entity in sorted(printers):
+                            tablet_printer_detail.reset_peak(
+                                db,entity,'amps','30d',now=result['reset_at'])
                 return self.send(200,result)
             if path=='/api/tablet-devices':
                 states=homeassistant_states()

@@ -1,3 +1,10 @@
+## 0.13.92 – Einzelne Watt- und Ampere-Peaks zurücksetzen (25.11.2026)
+
+- Kleine Reset-Symbole oben rechts auf beiden Peak-Karten der Drucker-Detailansicht. Bestätigung und Rückmeldung je Messgröße und Drucker; neue Spitzen ab der nächsten gültigen Messung.
+- Frühere Spitzen, Reset-Zeit und gewählter Zeitraum werden getrennt in SQLite protokolliert und unter „Zurücksetzungen & frühere Spitzen“ angezeigt. Historische Kurven, Phasenstatistiken und Durchschnitte bleiben unverändert.
+- Der bisherige globale Max-A-Reset bleibt bestehen und startet auch die Ampere-Detailkarten aller zugeordneten Drucker neu. Einzelne Detail-Resets ändern keine Gesamt-Rekorde, Grenzwerte oder Steckdosen.
+- Auch im verdichteten Verlauf werden vor dem Reset liegende Werte des angebrochenen Fünf-Minuten-Intervalls nicht erneut zum Peak.
+
 ## 0.13.91 – Anklickbare Drucker-Details mit Druckphasen-Auswertung (25.11.2026)
 
 - Ein Klick auf eine Druckerzeile in der bestehenden Stromüberwachung öffnet ein eigenständiges, responsives Detailfenster; Schließen per X, „Schließen“, Esc oder Klick außerhalb, Wechsel zum nächsten/vorherigen Drucker über Pfeile. Tastaturbedienung mit Tab und Enter/Leertaste. Die Hauptübersicht bleibt erhalten.

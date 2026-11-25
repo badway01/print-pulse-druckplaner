@@ -415,3 +415,14 @@ body[data-theme=dark] .pd-state-finished{background:#274862;color:#c9e4fd}
  .pd-phase-table{min-width:475px}
  .pd-footer button{width:100%}
 }
+
+/* Independent peak resets: compact touch targets in each KPI heading. */
+.pd-kpi-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:5px;min-height:26px}
+.pd-reset-icon{flex:0 0 34px;width:34px;height:34px;margin:-5px -5px -3px 0;padding:7px;border:1px solid var(--border,#d5d9de);border-radius:8px;background:transparent;color:inherit;cursor:pointer;display:grid;place-items:center}
+.pd-reset-icon svg{width:18px;height:18px}
+.pd-reset-icon:disabled{opacity:.35;cursor:default}
+.pd-reset-icon:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.pd-reset-feedback{font-size:12px;color:var(--muted);margin:0 0 10px}
+.pd-reset-feedback:empty{display:none}
+.pd-reset-title{font-size:13px;margin:16px 0 6px;color:var(--muted)}
+#pd-reset-history[hidden]{display:none}

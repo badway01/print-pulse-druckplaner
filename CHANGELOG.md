@@ -1,3 +1,10 @@
+## 0.13.92 – Einzelne Watt- und Ampere-Peaks zurücksetzen (25.11.2026)
+
+- Kleine Reset-Symbole oben rechts auf beiden Peak-Karten der Drucker-Detailansicht. Bestätigung und Rückmeldung je Messgröße und Drucker; neue Spitzen ab der nächsten gültigen Messung.
+- Frühere Spitzen, Reset-Zeit und gewählter Zeitraum werden getrennt in SQLite protokolliert und unter „Zurücksetzungen & frühere Spitzen“ angezeigt. Historische Kurven, Phasenstatistiken und Durchschnitte bleiben unverändert.
+- Der bisherige globale Max-A-Reset bleibt bestehen und startet auch die Ampere-Detailkarten aller zugeordneten Drucker neu. Einzelne Detail-Resets ändern keine Gesamt-Rekorde, Grenzwerte oder Steckdosen.
+- Auch im verdichteten Verlauf werden vor dem Reset liegende Werte des angebrochenen Fünf-Minuten-Intervalls nicht erneut zum Peak.
+
 ## 0.13.73 – Drucker-Auslastung verständlich dargestellt (22.11.2026)
 
 - Große gemessene Auslastung je Drucker und für die gesamte Farm: Grün für Druckzeit, Beige für übrige erfasste Zeit.

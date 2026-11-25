@@ -98,6 +98,21 @@ def ensure(db):
     db.execute(f"""CREATE INDEX IF NOT EXISTS idx_pp_phase_roll_device
         ON {ROLL_TABLE}(device_key,bucket)""")
 
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_printer_detail_resets(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        device_key TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK(kind IN ('watts','amps')),
+        at INTEGER NOT NULL,
+        period TEXT NOT NULL,
+        previous_value REAL,
+        previous_at INTEGER,
+        previous_direct INTEGER,
+        boundary_value REAL,
+        boundary_at INTEGER,
+        boundary_direct INTEGER)""")
+    db.execute("""CREATE INDEX IF NOT EXISTS idx_pp_detail_resets_device
+        ON pp_printer_detail_resets(device_key,kind,id)""")
+
 
 def number(value):
     if isinstance(value, bool) or not isinstance(value, (int,float)):
@@ -124,6 +139,18 @@ def record(db, snapshot, now=None):
             (at,device_key,device_name,phase_key,watts,amps,amp_direct)
             VALUES(?,?,?,?,?,?,?)""",
             (now,entity,name,phase,watts,amps,direct))
+        # Track the post-reset portion of the first 5-minute bucket separately.
+        # The original bucket remains intact for historical charts and phases.
+        for kind, value in (("watts", watts), ("amps", amps)):
+            if value is not None:
+                db.execute("""UPDATE pp_printer_detail_resets
+                    SET boundary_value=?,boundary_at=?,boundary_direct=?
+                    WHERE id=(SELECT MAX(id) FROM pp_printer_detail_resets
+                              WHERE device_key=? AND kind=?)
+                      AND at<? AND at>=?
+                      AND (boundary_value IS NULL OR boundary_value<?)""",
+                    (value,now,direct if kind=="amps" else 1,
+                     entity,kind,now,now//300*300,value))
         bucket = now//300*300
         wc, ac = int(watts is not None), int(amps is not None)
         db.execute(f"""INSERT INTO {ROLL_TABLE}
@@ -185,6 +212,63 @@ def _format_stat(item):
             "amps_peak_at":item["at"],
             "amps_direct_pct":round(item["direct"]/item["ac"]*100,1) if item["ac"] else None,
             "energy_est_kwh":round(item["kwh"],5)}
+
+
+def _card_peak(db, entity, kind, period, now, summary):
+    reset=db.execute("""SELECT * FROM pp_printer_detail_resets
+        WHERE device_key=? AND kind=? ORDER BY id DESC LIMIT 1""",
+        (entity,kind)).fetchone()
+    result={"value":summary[kind+"_peak"],"at":summary[kind+"_peak_at"],
+            "direct":kind=="watts" or summary["amps_direct_pct"]==100,
+            "reset_at":reset["at"] if reset else None}
+    if reset is None:
+        return result
+    duration,_=PERIODS[period]
+    start=now-duration
+    reset_at=reset["at"]
+    # For long periods, keep the existing five-minute resolution, but never
+    # allow a pre-reset peak in the boundary bucket to reappear.
+    if period=="1h":
+        if reset_at<start:
+            return result
+        rows=db.execute(f"""SELECT {kind} AS value,at,amp_direct AS direct
+            FROM {RAW_TABLE} WHERE device_key=? AND at>=? AND at>? AND at<=?
+            AND {kind} IS NOT NULL ORDER BY value DESC,at LIMIT 1""",
+            (entity,start,reset_at,now)).fetchall()
+        candidates=[(r["value"],r["at"],kind=="watts" or bool(r["direct"])) for r in rows]
+    else:
+        reset_bucket=reset_at//300*300
+        if reset_bucket<start//300*300:
+            return result
+        rows=db.execute(f"""SELECT {kind}_max AS value,{kind}_peak_at AS at,
+            amps_direct_count,amps_count FROM {ROLL_TABLE}
+            WHERE device_key=? AND bucket>? AND bucket<=? AND {kind}_count>0
+              AND {kind}_peak_at IS NOT NULL
+            ORDER BY value DESC,at LIMIT 1""",(entity,reset_bucket,now)).fetchall()
+        candidates=[(r["value"],r["at"],kind=="watts" or
+                     r["amps_direct_count"]==r["amps_count"]) for r in rows]
+        if reset["boundary_at"] is not None and reset["boundary_at"]<=now:
+            candidates.append((reset["boundary_value"],reset["boundary_at"],
+                               bool(reset["boundary_direct"])))
+    if candidates:
+        value,at,direct=max(candidates,key=lambda x:(x[0],-x[1]))
+        result.update(value=round(value,1 if kind=="watts" else 3),at=at,direct=direct)
+    else:
+        result.update(value=None,at=None,direct=False)
+    return result
+
+
+def reset_peak(db, entity, kind, period="24h", now=None):
+    """Reset exactly one detail-card metric; preserve all original readings."""
+    if kind not in ("watts","amps"):
+        raise ValueError("Ungültige Messgröße.")
+    now=int(time.time() if now is None else now)
+    before=detail(db,entity,period,now)["card_peaks"][kind]
+    db.execute("""INSERT INTO pp_printer_detail_resets
+        (device_key,kind,at,period,previous_value,previous_at,previous_direct)
+        VALUES(?,?,?,?,?,?,?)""",
+        (entity,kind,now,period,before["value"],before["at"],int(before["direct"])))
+    return {"ok":True,"kind":kind,"entity":entity,"reset_at":now}
 
 
 def detail(db, entity, period="24h", now=None):
@@ -259,9 +343,17 @@ def detail(db, entity, period="24h", now=None):
                        "watts":round(item["ws"]/item["wc"],1) if item["wc"] else None,
                        "amps":round(item["as"]/item["ac"],3) if item["ac"] else None,
                        "phase":PHASES.get(phase,"Weitere Phase")})
+    summary=_format_stat(totals)
+    card_peaks={kind:_card_peak(db,entity,kind,period,now,summary)
+                for kind in ("watts","amps")}
+    reset_history=[dict(r) for r in db.execute("""SELECT kind,at,period,
+        previous_value,previous_at,previous_direct FROM pp_printer_detail_resets
+        WHERE device_key=? AND at>=? AND at<=? ORDER BY id DESC LIMIT 20""",
+        (entity,from_time,now)).fetchall()]
     return {"period":period,"retention":"2 Tage fein · 31 Tage verdichtet",
             "started":bool(rows),"samples":totals["samples"],
-            "summary":_format_stat(totals),"phases":phases,"series":series,
+            "summary":summary,"card_peaks":card_peaks,"reset_history":reset_history,
+            "phases":phases,"series":series,
             "peaks":peaks[:12],"updated":now,
             "note":"Phase aus Home Assistant, Watt/Ampere vom zugeordneten Shelly. "
                    "15-Sekunden-Abtastung; kürzere Spitzen können fehlen. "

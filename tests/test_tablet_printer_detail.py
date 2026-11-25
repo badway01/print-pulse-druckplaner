@@ -101,5 +101,38 @@ class PrinterDetailTest(unittest.TestCase):
         self.assertGreater(len(result["series"]),0)
 
 
+    def test_independent_resets_preserve_history_and_boundary(self):
+        self.now=self.now//300*300+30
+        detail.record(self.db,self.capture(self.now,"heating",990.,4.3),now=self.now)
+        detail.reset_peak(self.db,self.h2d,"watts","24h",now=self.now+5)
+        data=detail.detail(self.db,self.h2d,"24h",now=self.now+6)
+        self.assertIsNone(data["card_peaks"]["watts"]["value"])
+        self.assertEqual(data["card_peaks"]["amps"]["value"],4.3)
+        self.assertEqual(data["summary"]["watts_peak"],990.)
+        self.assertEqual(data["reset_history"][0]["previous_value"],990.)
+        detail.record(self.db,self.capture(self.now+15,"heating",100.,.5),now=self.now+15)
+        detail.reset_peak(self.db,self.h2d,"amps","1h",now=self.now+20)
+        detail.record(self.db,self.capture(self.now+30,"printing",120.,.7),now=self.now+30)
+        for period in ("1h","24h","7d","30d"):
+            data=detail.detail(self.db,self.h2d,period,now=self.now+40)
+            self.assertEqual(data["card_peaks"]["watts"]["value"],120.)
+            self.assertEqual(data["card_peaks"]["amps"]["value"],.7)
+            self.assertEqual(data["summary"]["watts_peak"],990.)
+            self.assertEqual(len(data["reset_history"]),2)
+            self.assertEqual(detail.detail(self.db,self.p1s,period,
+                             now=self.now+40)["card_peaks"]["amps"]["value"],9.5)
+        # Older raw rows may be pruned; reset boundary is still recoverable.
+        self.db.execute("DELETE FROM "+detail.RAW_TABLE)
+        data=detail.detail(self.db,self.h2d,"7d",now=self.now+3*86400)
+        self.assertEqual(data["card_peaks"]["watts"]["value"],120.)
+        self.assertEqual(data["card_peaks"]["amps"]["value"],.7)
+        self.assertEqual(data["summary"]["watts_peak"],990.)
+        detail.reset_peak(self.db,self.h2d,"watts","7d",now=self.now+3*86400)
+        self.assertIsNone(detail.detail(self.db,self.h2d,"7d",
+                          now=self.now+3*86400)["card_peaks"]["watts"]["value"])
+        with self.assertRaises(ValueError):
+            detail.reset_peak(self.db,self.h2d,"other")
+
+
 if __name__=="__main__":
     unittest.main()
