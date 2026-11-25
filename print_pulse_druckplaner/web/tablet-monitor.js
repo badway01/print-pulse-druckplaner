@@ -443,9 +443,10 @@
      '<td>'+esc(power(phase.watts_avg))+'</td>'+
      '<td>'+esc(avgA)+'</td>'+
      '<td>'+esc(power(phase.watts_peak))+'</td>'+
-     '<td>'+esc(peakA)+'</td></tr>';
+     '<td>'+esc(peakA)+'</td>'+
+     '<td>'+esc(fmt(phase.energy_est_kwh,3))+'</td></tr>';
    }).join(''):
-   '<tr><td colspan="5" class="pd-empty">Noch keine Druckphasen aufgezeichnet.</td></tr>';
+   '<tr><td colspan="6" class="pd-empty">Noch keine Druckphasen aufgezeichnet.</td></tr>';
   const events=Array.isArray(data.peaks)?data.peaks:[];
   byId('pd-events').innerHTML=events.length?events.slice(0,10).map(evt=>{
    const unit=evt.kind==='amps'?'A':'W';
@@ -481,7 +482,7 @@
   }catch(error){
    if(ticket!==detailRequest||entity!==activeDeviceEntity)return;
    byId('pd-chart').innerHTML='<p class="pd-empty">'+esc(error.message)+'</p>';
-   byId('pd-phase-rows').innerHTML='<tr><td colspan="5">Keine Phasendaten verfügbar.</td></tr>';
+   byId('pd-phase-rows').innerHTML='<tr><td colspan="6">Keine Phasendaten verfügbar.</td></tr>';
    byId('pd-events').innerHTML='<p>Keine Ereignisse verfügbar.</p>';
   }
  }
@@ -492,7 +493,7 @@
   latestDetail=null;
   byId('pd-period').value='24h';
   byId('pd-chart').innerHTML='<p class="pd-empty">Lade Messwerte …</p>';
-  byId('pd-phase-rows').innerHTML='<tr><td colspan="5">Lade Druckphasen …</td></tr>';
+  byId('pd-phase-rows').innerHTML='<tr><td colspan="6">Lade Druckphasen …</td></tr>';
   byId('pd-events').innerHTML='<p>Lade Ereignisse …</p>';
   byId('pd-peak-w').textContent='– W';
   byId('pd-peak-a').textContent='– A';
