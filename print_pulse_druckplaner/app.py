@@ -3280,6 +3280,7 @@ class Handler(BaseHTTPRequestHandler):
                     result['history']=tablet_monitor.history(db,minutes)
                     result['total_peak']=tablet_monitor.total_peak(db)
                     result['total_amps_peak']=tablet_monitor.total_amps_peak(db)
+                    result['average_amps_24h']=tablet_monitor.average_amps_24h(db)
                     result['peak_reset_history']=tablet_monitor.peak_reset_history(db)
                     peaks=tablet_monitor.device_peaks(db)
                 records=tablet_monitor.devices(states,settings)
