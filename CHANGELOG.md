@@ -1,3 +1,7 @@
+## 0.13.96 – Ausgeschaltete Geräte optisch zurücknehmen
+
+- Geräte mit Status „Aus“ erhalten dezenteren Text, weniger Fettdruck und ein abgeblendetes Gerätesymbol. Status und Messwerte bleiben lesbar; Offline- und Störungsanzeigen bleiben unverändert auffällig. Gilt für helles und dunkles Design.
+
 ## 0.13.95 – Ampere-Verlauf auch bei fehlenden Shelly-Sensoren
 
 - Das Diagramm zeigt alle tatsächlich gemessenen Stromwerte als Summe, auch wenn einzelne Geräte fehlen. Unvollständige Messsummen sind gestrichelt; Messabdeckung und fehlende Gerätenamen werden angezeigt. Schätzwerte werden nicht in die Kurve eingerechnet.

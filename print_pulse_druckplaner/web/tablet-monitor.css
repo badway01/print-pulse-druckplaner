@@ -442,3 +442,13 @@ body[data-theme=dark] .pd-state-finished{background:#274862;color:#c9e4fd}
 
 .chart-host .graph-line.chart-partial{stroke-dasharray:5 4;opacity:.85}
 .chart-host[data-metric="amps"] .chart-partial-point{fill:var(--surface);stroke:#308bd5;stroke-width:1.8}
+
+/* Powered-off devices remain readable but recede behind active printers.
+   Do not dim errors, offline states, or the keyboard focus indicator. */
+.devices-table tbody tr.state-off td{color:var(--muted);font-weight:400;transition:background-color .25s ease,color .25s ease}
+.devices-table tbody tr.state-off .printer-name,
+.devices-table tbody tr.state-off .other-name,
+.devices-table tbody tr.state-off .device-max-amps{color:var(--muted);font-weight:500}
+.devices-table tbody tr.state-off .printer-name:before,
+.devices-table tbody tr.state-off .other-name:before{color:var(--muted);opacity:.65}
+.devices-table tbody tr.state-off .pill.off{font-weight:550}
