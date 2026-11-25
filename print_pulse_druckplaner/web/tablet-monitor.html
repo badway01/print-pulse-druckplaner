@@ -31,9 +31,13 @@
   <section class="kpis" aria-label="Live-Kennzahlen">
    <article class="kpi"><div class="kpi-symbol">ϟ</div><div><small>Gesamtleistung</small><strong id="watts">– W</strong></div></article>
    <article class="kpi peak-kpi"><div class="kpi-symbol">↑</div><div><small>Gesamtpeak seit Aufzeichnung</small><strong id="total-peak">– W</strong><span id="total-peak-note" class="kpi-note">Noch keine Messung</span></div></article>
-   <article class="kpi"><div class="kpi-symbol">⌁</div><div><small>Stromsumme der Geräte</small><strong id="amps">– A</strong><span id="amps-method" class="kpi-note">Shelly-Sensoren werden geprüft</span></div></article>
-   <article class="kpi peak-amps-kpi"><div class="kpi-symbol">↗</div><div><small>Strompeak gesamt</small><strong id="total-amps-peak">– A</strong><span id="total-amps-peak-note" class="kpi-note">Aufzeichnung beginnt</span></div></article>
    <article class="kpi"><div class="kpi-symbol">▣</div><div><small>Aktive Messpunkte</small><strong id="measured">– / –</strong></div></article>
+   <article class="kpi"><div class="kpi-symbol">⌁</div><div><small>Stromsumme der Geräte</small><strong id="amps">– A</strong><span id="amps-method" class="kpi-note">Shelly-Sensoren werden geprüft</span></div></article>
+   <article class="kpi avg-amps-kpi"><div class="kpi-symbol">Ø</div><div><small>Durchschnittsstrom · 24 h</small><strong id="average-amps-24h">– A</strong><span id="average-amps-note" class="kpi-note">Warte auf erste Messwerte</span></div></article>
+   <article class="kpi peak-amps-kpi"><div class="kpi-symbol">↗</div><div><small>Strompeak gesamt</small><strong id="total-amps-peak">– A</strong><span id="total-amps-peak-note" class="kpi-note">Aufzeichnung beginnt</span>
+    <button id="reset-amps-peaks" type="button" class="peak-reset-button kpi-reset-button">Max A zurücksetzen</button>
+    <span id="peak-reset-feedback" class="peak-reset-feedback" role="status" aria-live="polite"></span>
+   </div></article>
    <article class="kpi warning"><div class="kpi-symbol">△</div><div><small>Watt-Warnschwelle</small><strong id="warning">– W</strong></div></article>
    <article class="kpi critical"><div class="kpi-symbol">!</div><div><small>Watt kritisch</small><strong id="critical">– W</strong></div></article>
    <article class="kpi amp-limit-kpi"><div class="kpi-symbol">⌁</div><div><small>Stromkreis-Nennstrom</small><strong id="amp-limit">16,0 A</strong><span class="kpi-note">Vom Nutzer angegeben · B16 prüfen</span></div></article>
@@ -78,10 +82,8 @@
     <div class="peak-reset-section">
      <div class="peak-reset-action">
       <div class="peak-reset-title"><strong>Max-A-Rekorde</strong>
-       <span>Neue Messperiode starten, bisherige Spitzenwerte bleiben in der Historie.</span></div>
-      <button id="reset-amps-peaks" type="button" class="peak-reset-button">Max A zurücksetzen</button>
+       <span>Reset oben in „Strompeak gesamt“. Frühere Spitzenwerte bleiben hier und im CSV-Export erhalten.</span></div>
      </div>
-     <p id="peak-reset-feedback" class="peak-reset-feedback" role="status" aria-live="polite"></p>
      <details class="peak-reset-history">
       <summary>Zurücksetzungen und frühere Spitzenwerte <span id="peak-reset-count"></span></summary>
       <div id="peak-reset-log" class="peak-reset-log"><p>Protokoll wird geladen …</p></div>
