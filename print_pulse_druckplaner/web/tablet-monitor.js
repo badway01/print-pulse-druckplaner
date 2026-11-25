@@ -424,7 +424,8 @@
   const summary=data.summary||{};
   const avgCount=Number(data.samples)||0;
   byId('pd-peak-w').textContent=power(summary.watts_peak);
-  byId('pd-peak-a').textContent=summary.amps_peak==null?'– A':fmt(summary.amps_peak,3)+' A';
+  byId('pd-peak-a').textContent=summary.amps_peak==null?'– A':
+   (summary.amps_direct_pct===100?'':'≈ ')+fmt(summary.amps_peak,3)+' A';
   byId('pd-peak-w-note').textContent=summary.watts_peak_at?
    'Am '+dateTime(summary.watts_peak_at):'Noch kein Wert';
   byId('pd-peak-a-note').textContent=summary.amps_peak_at?
@@ -448,12 +449,15 @@
    }).join(''):
    '<tr><td colspan="6" class="pd-empty">Noch keine Druckphasen aufgezeichnet.</td></tr>';
   const events=Array.isArray(data.peaks)?data.peaks:[];
+  const approximated=new Set(phases.filter(p=>p.amps_direct_pct!==100).map(p=>p.label));
   byId('pd-events').innerHTML=events.length?events.slice(0,10).map(evt=>{
    const unit=evt.kind==='amps'?'A':'W';
    const label=evt.kind==='amps'?'Stromspitze':'Leistungsspitze';
    return '<div class="pd-event"><div><strong>'+esc(evt.phase)+
     '</strong><small>'+esc(label)+' · '+esc(dateTime(evt.at))+
-    '</small></div><b>'+esc(fmt(evt.value,evt.kind==='amps'?3:1))+
+    '</small></div><b>'+
+    (evt.kind==='amps'&&approximated.has(evt.phase)?'≈ ':'')+
+    esc(fmt(evt.value,evt.kind==='amps'?3:1))+
     ' '+unit+'</b></div>';
   }).join(''):'<p class="pd-empty">Noch keine Spitzen mit Druckphasen gespeichert.</p>';
   byId('pd-chart-note').textContent=data.note||
