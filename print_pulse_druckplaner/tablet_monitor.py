@@ -439,6 +439,11 @@ def ensure_24h_current_column(db):
     existing={r[1] for r in db.execute("PRAGMA table_info(pp_power_history)")}
     if "amps" not in existing:
         db.execute("ALTER TABLE pp_power_history ADD COLUMN amps REAL")
+    # Separate the observed subset from the existing complete-sum statistic.
+    for column, sqltype in (("amps_observed","REAL"),("amps_count","INTEGER"),
+                            ("amps_expected","INTEGER")):
+        if column not in existing:
+            db.execute(f"ALTER TABLE pp_power_history ADD COLUMN {column} {sqltype}")
 
 
 def average_amps_24h(db, now=None):
@@ -549,10 +554,21 @@ def record_sample(db, snapshot, now=None):
         and isinstance(amps_total,(int,float))
         and not isinstance(amps_total,bool) and math.isfinite(amps_total)
         and amps_total>=0) else None
+    # Record all genuine current readings even if another active device is
+    # unassigned, offline or has only a calculated substitute. Never count
+    # an estimate or a missing sensor as measured zero.
+    real_values=[x["amps"] for x in devices
+                 if isinstance(x,dict) and x.get("amps_source")=="shelly"
+                 and isinstance(x.get("amps"),(int,float))
+                 and not isinstance(x["amps"],bool)
+                 and math.isfinite(x["amps"]) and x["amps"]>=0]
+    observed=round(sum(real_values),3) if real_values else None
     db.execute("""INSERT OR REPLACE INTO pp_power_history
-        (at, watts, measured, expected, amps) VALUES (?, ?, ?, ?, ?)""",
+        (at, watts, measured, expected, amps, amps_observed, amps_count, amps_expected)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (now, snapshot.get("watts"), snapshot.get("printers_measured", 0),
-         snapshot.get("printers_total", 0), recorded_amps))
+         snapshot.get("printers_total", 0), recorded_amps, observed,
+         len(real_values),len(devices)))
     if now % 300 < 16:
         db.execute("DELETE FROM pp_power_history WHERE at<?", (now - 86400,))
 
@@ -564,10 +580,14 @@ def history(db, minutes=60, now=None):
     ensure_24h_current_column(db)
     end = int(time.time() if now is None else now)
     start = end - minutes * 60
-    rows = db.execute("""SELECT at,watts,amps,measured,expected FROM pp_power_history
+    rows = db.execute("""SELECT at,watts,amps,amps_observed,amps_count,amps_expected,measured,expected FROM pp_power_history
         WHERE at>=? AND at<=? ORDER BY at""", (start,end)).fetchall()
     # At 15-second cadence the 24h view has at most about 5,761 points.
     # Striding through samples loses short peaks and introduces false gaps.
     return [{"at": row["at"], "watts": row["watts"], "amps": row["amps"],
+             "amps_observed": row["amps_observed"] if row["amps_observed"] is not None else row["amps"],
+             "amps_count": row["amps_count"], "amps_expected": row["amps_expected"],
+             "amps_complete": (row["amps"] is not None if row["amps_count"] is None
+                               else row["amps_count"] > 0 and row["amps_count"] == row["amps_expected"]),
              "measured": row["measured"], "expected": row["expected"]}
             for row in rows]

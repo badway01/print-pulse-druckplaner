@@ -130,7 +130,23 @@ class PeakResetTest(unittest.TestCase):
             rows=monitor.history(self.db,minutes,now=self.now+31)
             self.assertEqual([r["watts"] for r in rows],[300.,170.,0.])
             self.assertEqual([r["amps"] for r in rows],[4.,None,0.])
+            self.assertEqual([r["amps_observed"] for r in rows],[4.,.4,0.])
+            self.assertEqual([r["amps_complete"] for r in rows],[True,False,True])
+            self.assertEqual([r["amps_count"] for r in rows],[2,1,2])
         self.assertEqual(monitor.history(self.db,15,now=self.now-1),[])
+
+    def test_partial_history_excludes_estimates_and_missing_devices(self):
+        s=self.snapshot(100.,200.,.5,2.)
+        s["devices"].append({"name":"Unzugeordnet","entity":"","amps":None,
+                             "amps_source":"unavailable","watts":None})
+        s["printers_total"]=3
+        monitor.record_sample(self.db,s,now=self.now)
+        row=monitor.history(self.db,15,now=self.now+1)[0]
+        self.assertIsNone(row["amps"])
+        self.assertEqual(row["amps_observed"],2.5)
+        self.assertEqual((row["amps_count"],row["amps_expected"]),(2,3))
+        self.assertFalse(row["amps_complete"])
+        self.assertIsNone(monitor.average_amps_24h(self.db,now=self.now+1))
 
     def test_history_does_not_skip_short_peaks_in_24h(self):
         monitor.ensure_24h_current_column(self.db)

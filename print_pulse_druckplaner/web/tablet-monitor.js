@@ -58,7 +58,7 @@
   byId('chart-watts').setAttribute('aria-pressed',String(!amps));
   byId('chart-amps').setAttribute('aria-pressed',String(amps));
   byId('chart-source-note').textContent=amps?
-   'Nur vollständige, direkt gemessene Shelly-Stromsummen. Messlücken bleiben offen.':
+   'Direkt gemessene Shelly-Stromsumme. Gestrichelt = unvollständig.':
    'Gemessene Gesamtleistung der zugeordneten Geräte.';
  }
  for(const metric of ['watts','amps']){
@@ -633,11 +633,23 @@
   const list=(data.history||[]).filter(p=>p.at!=null&&Number.isFinite(Number(p.at)));
   const host=byId('chart');
   const now=Math.round(Date.now()/1000),min=now-range*60;
-  const read=p=>p[chartMetric]==null?null:Number(p[chartMetric]);
+  const read=p=>{
+   const value=amps?(p.amps_observed??p.amps):p.watts;
+   return value==null?null:Number(value);
+  };
+  const partial=p=>amps&&(p.amps_complete===false||(p.amps_complete==null&&p.amps==null));
+  if(amps){
+   const devices=data.devices||[];
+   const missing=devices.filter(d=>d.amps_source!=='shelly');
+   const real=devices.length-missing.length;
+   byId('chart-source-note').textContent='Direkt gemessen: '+real+'/'+devices.length+' aktive Geräte. '+
+    (missing.length?'Fehlend oder nur geschätzt: '+missing.map(d=>d.name).join(', ')+'. ':'')+
+    'Gestrichelt = unvollständige Stromsumme; kein Nachweis der Gesamtlast.';
+  }
   const valid=list.filter(p=>p.at>=min&&p.at<=now&&Number.isFinite(read(p)));
   if(!valid.length){
    host.innerHTML='<p class="placeholder">'+(amps?
-    'Noch keine vollständigen Shelly-Ampere-Messungen in diesem Zeitraum.':
+    'Noch keine direkt gemessenen Ampere-Werte in diesem Zeitraum. Neue Messungen werden alle 15 Sekunden erfasst.':
     'Noch kein Verlauf vorhanden. Aufzeichnung läuft im Hintergrund.')+'</p>';
    return;
   }
@@ -649,13 +661,17 @@
   const xx=t=>L+Math.max(0,Math.min(1,(t-min)/(range*60)))*innerW;
   const yy=v=>T+innerH-Math.max(0,Math.min(1,v/max))*innerH;
   const lines=[];
-  let last=null,segment=[];
+  let last=null,segment=[],lastPartial=null,lastCoverage=null;
   for(const sample of list){
    const val=read(sample);
    if(!Number.isFinite(val)||val===null||sample.at<min||sample.at>now){if(segment.length){lines.push(segment);segment=[]}last=null;continue;}
-   if(last!=null&&sample.at-last>45&&segment.length){lines.push(segment);segment=[];}
-   segment.push([xx(sample.at),yy(val),sample.at,val]);
-   last=sample.at;
+   const isPartial=partial(sample);
+   const coverage=amps?String(sample.amps_count??'?')+'/'+String(sample.amps_expected??'?'):'';
+   if(last!=null&&(sample.at-last>45||isPartial!==lastPartial||coverage!==lastCoverage)&&segment.length){
+    lines.push(segment);segment=[];
+   }
+   segment.push([xx(sample.at),yy(val),sample.at,val,isPartial]);
+   last=sample.at;lastPartial=isPartial;lastCoverage=coverage;
   }
   if(segment.length)lines.push(segment);
   let svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+(amps?'Gemessener Strom':'Gemessene Leistung')+' der letzten '+range+' Minuten">';
@@ -671,14 +687,15 @@
   }
   for(const points of lines){
    const path=points.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
-   if(points.length>1)svg+='<path class="graph-fill" d="'+path+' L '+
+   const incomplete=points[0][4];
+   if(points.length>1&&!incomplete)svg+='<path class="graph-fill" d="'+path+' L '+
      points[points.length-1][0].toFixed(1)+' '+yy(0)+' L '+points[0][0].toFixed(1)+' '+yy(0)+' Z"/>';
-   if(points.length===1)svg+='<circle class="chart-sample" cx="'+points[0][0]+'" cy="'+points[0][1]+'" r="2"/>';
-   else svg+='<path class="graph-line" d="'+path+'"/>';
+   if(points.length===1)svg+='<circle class="chart-sample'+(incomplete?' chart-partial-point':'')+'" cx="'+points[0][0]+'" cy="'+points[0][1]+'" r="2"/>';
+   else svg+='<path class="graph-line'+(incomplete?' chart-partial':'')+'" d="'+path+'"/>';
   }
   const end=lines.length?lines[lines.length-1].at(-1):null;
   if(end&&end[2]>=now-100){
-   svg+='<circle class="chart-cursor" cx="'+end[0]+'" cy="'+end[1]+'" r="5"/>';
+   svg+='<circle class="chart-cursor'+(end[4]?' chart-partial-point':'')+'" cx="'+end[0]+'" cy="'+end[1]+'" r="5"/>';
   }
   svg+='</svg>';
   host.innerHTML=svg;

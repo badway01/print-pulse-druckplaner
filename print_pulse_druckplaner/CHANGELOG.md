@@ -1,3 +1,9 @@
+## 0.13.95 – Ampere-Verlauf auch bei fehlenden Shelly-Sensoren
+
+- Das Diagramm zeigt alle tatsächlich gemessenen Stromwerte als Summe, auch wenn einzelne Geräte fehlen. Unvollständige Messsummen sind gestrichelt; Messabdeckung und fehlende Gerätenamen werden angezeigt. Schätzwerte werden nicht in die Kurve eingerechnet.
+- Vollständige Stromsummen, 24-h-Durchschnitt und Gesamt-Ampere-Rekord bleiben unverändert streng. Keine Änderung an Warnschwellen oder Schutzfunktionen.
+- Ältere vollständige Messungen bleiben sichtbar. Historische Teilmessungen, die nicht im 15-Sekunden-Gesamtverlauf gespeichert wurden, werden nicht erfunden.
+
 ## 0.13.94 – H2D No2 als eigener Produktionsdrucker
 
 - H2D No2 in Dashboard, Drucker-Monitor, Farmstatistik, Rechner, 3MF-Zuordnung mit linker/rechter Düse und Produktionsfilter ergänzt.

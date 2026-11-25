@@ -439,3 +439,6 @@ body[data-theme=dark] .pd-state-finished{background:#274862;color:#c9e4fd}
 .chart-host[data-metric="amps"] .chart-cursor,.chart-host[data-metric="amps"] .chart-sample{fill:#308bd5}
 .chart-host .chart-sample{fill:#20a957}
 .chart-source-note{font-size:10px;color:var(--muted);margin:3px 0 12px;line-height:1.4}
+
+.chart-host .graph-line.chart-partial{stroke-dasharray:5 4;opacity:.85}
+.chart-host[data-metric="amps"] .chart-partial-point{fill:var(--surface);stroke:#308bd5;stroke-width:1.8}
