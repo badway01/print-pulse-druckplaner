@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f8f5">
 <title>Print &amp; Pulse | Stromüberwachung Live</title>
-<link rel="stylesheet" href="tablet-monitor.css?v=0.14.7">
+<link rel="stylesheet" href="tablet-monitor.css?v=0.14.8">
 <script src="homescreen-link.js?v=0.14.1" defer></script><script src="tablet-monitor.js?v=0.14.7" defer></script>
 </head>
 <body data-theme="light">
@@ -28,20 +28,25 @@
   </div>
  </header>
  <main>
-  <section class="kpis" aria-label="Live-Kennzahlen">
+  <section class="kpis kpis-primary" aria-label="Wichtigste Live-Kennzahlen">
    <article class="kpi"><div class="kpi-symbol">ϟ</div><div><small>Gesamtleistung</small><strong id="watts">– W</strong></div></article>
-   <article class="kpi peak-kpi"><div class="kpi-symbol">↑</div><div><small>Gesamtpeak seit Aufzeichnung</small><strong id="total-peak">– W</strong><span id="total-peak-note" class="kpi-note">Noch keine Messung</span></div></article>
-   <article class="kpi"><div class="kpi-symbol">▣</div><div><small>Aktive Messpunkte</small><strong id="measured">– / –</strong></div></article>
    <article class="kpi"><div class="kpi-symbol">⌁</div><div><small>Stromsumme der Geräte</small><strong id="amps">– A</strong><span id="amps-method" class="kpi-note">Shelly-Sensoren werden geprüft</span></div></article>
-   <article class="kpi avg-amps-kpi"><div class="kpi-symbol">Ø</div><div><small>Durchschnittsstrom · 24 h</small><strong id="average-amps-24h">– A</strong><span id="average-amps-note" class="kpi-note">Warte auf erste Messwerte</span></div></article>
    <article class="kpi peak-amps-kpi"><div class="kpi-symbol">↗</div><div><small>Strompeak gesamt</small><strong id="total-amps-peak">– A</strong><span id="total-amps-peak-note" class="kpi-note">Aufzeichnung beginnt</span>
     <button id="reset-amps-peaks" type="button" class="peak-reset-button kpi-reset-button">Max A zurücksetzen</button>
     <span id="peak-reset-feedback" class="peak-reset-feedback" role="status" aria-live="polite"></span>
    </div></article>
-   <article class="kpi warning"><div class="kpi-symbol">△</div><div><small>Watt-Warnschwelle</small><strong id="warning">– W</strong></div></article>
-   <article class="kpi critical"><div class="kpi-symbol">!</div><div><small>Watt kritisch</small><strong id="critical">– W</strong></div></article>
-   <article class="kpi amp-limit-kpi"><div class="kpi-symbol">⌁</div><div><small>Stromkreis-Nennstrom</small><strong id="amp-limit">16,0 A</strong><span class="kpi-note">Vom Nutzer angegeben · B16 prüfen</span></div></article>
   </section>
+  <details class="kpi-more" id="kpi-more">
+   <summary><span class="kpi-more-label"><span class="kpi-more-chevron" aria-hidden="true">⌄</span><span class="kpi-more-closed">Weitere Kennzahlen anzeigen</span><span class="kpi-more-open">Weitere Kennzahlen ausblenden</span></span><span class="kpi-more-count">6 Kennzahlen</span></summary>
+   <section class="kpis kpis-extra" aria-label="Weitere Live-Kennzahlen">
+    <article class="kpi peak-kpi"><div class="kpi-symbol">↑</div><div><small>Gesamtpeak seit Aufzeichnung</small><strong id="total-peak">– W</strong><span id="total-peak-note" class="kpi-note">Noch keine Messung</span></div></article>
+    <article class="kpi"><div class="kpi-symbol">▣</div><div><small>Aktive Messpunkte</small><strong id="measured">– / –</strong></div></article>
+    <article class="kpi avg-amps-kpi"><div class="kpi-symbol">Ø</div><div><small>Durchschnittsstrom · 24 h</small><strong id="average-amps-24h">– A</strong><span id="average-amps-note" class="kpi-note">Warte auf erste Messwerte</span></div></article>
+    <article class="kpi warning"><div class="kpi-symbol">△</div><div><small>Watt-Warnschwelle</small><strong id="warning">– W</strong></div></article>
+    <article class="kpi critical"><div class="kpi-symbol">!</div><div><small>Watt kritisch</small><strong id="critical">– W</strong></div></article>
+    <article class="kpi amp-limit-kpi"><div class="kpi-symbol">⌁</div><div><small>Stromkreis-Nennstrom</small><strong id="amp-limit">16,0 A</strong><span class="kpi-note">Vom Nutzer angegeben · B16 prüfen</span></div></article>
+   </section>
+  </details>
   <section class="device-group-kpis" aria-label="Aktuelle Last nach Gerätegruppe">
    <article class="group-kpi"><div class="group-kpi-label"><span aria-hidden="true">▣</span><h2>Drucker gesamt</h2></div>
     <div class="group-kpi-values"><strong id="group-printer-watts">– W</strong><span id="group-printer-amps">– A</span></div>

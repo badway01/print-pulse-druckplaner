@@ -1,3 +1,9 @@
+## 0.14.8 – Kompakte Stromüberwachung
+
+- Drei dauerhaft sichtbare Live-Kennzahlen: Gesamtleistung, Stromsumme und Strompeak gesamt inklusive bestehendem Reset.
+- Sechs weitere Kennzahlen in einem standardmäßig geschlossenen, tastaturbedienbaren Aufklappbereich. Alle Messwerte und vorhandenen IDs bleiben erhalten und aktualisieren sich weiterhin.
+- Drucker gesamt, Sonstige gesamt, Lastbalken, Geräteübersicht und Historie bleiben außerhalb des Aufklappbereichs unverändert. Keine Änderung an Messung, Warnschwellen oder Reset-Logik.
+
 ## 0.14.7 – Geräteanalyse für alle Verbraucher und gemeinsame Peak-Resets
 
 - PC, Kühlschrank und Werkstatt Zubehör öffnen dieselbe Geräteanalyse mit Verbrauch, Durchschnitt, Verlauf, Lastanalyse, Shelly-Spannung/Frequenz und Fehlersensoren. Verbrauch und Kosten aus vorhandenen Messungen, Tarif aus der Farm-Konfiguration; Laststarts sind ausdrücklich Schätzungen anhand der gemessenen Gesamtleistung und erst ab neuer Detailerfassung verfügbar.

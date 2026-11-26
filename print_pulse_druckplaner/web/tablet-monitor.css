@@ -507,3 +507,21 @@ body[data-theme=dark] .devices-table .pill.missing,body[data-theme=dark] .pd-sta
 #pd-consumer-stats .pd-panel-heading:not(:first-child){margin-top:18px}
 .device-max-watts{font-weight:650}
 .devices-table tbody tr.state-off .device-max-watts{font-weight:500;color:var(--muted)}
+
+/* Compact live KPIs; native details preserves focus and requires no JS. */
+.kpis.kpis-primary{grid-template-columns:repeat(3,minmax(0,1fr));margin:18px 0 8px;gap:12px}
+.kpi-more{margin:0 0 15px}
+.kpi-more>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;list-style:none;cursor:pointer;padding:9px 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--muted);font-size:12px;font-weight:650}
+.kpi-more>summary::-webkit-details-marker{display:none}
+.kpi-more>summary:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.kpi-more-label{display:flex;align-items:center;gap:8px;min-width:0}
+.kpi-more-chevron{display:inline-block;font-size:19px;line-height:1;transition:transform .15s ease}
+.kpi-more[open] .kpi-more-chevron{transform:rotate(180deg)}
+.kpi-more-count{font-weight:400;white-space:nowrap}
+.kpi-more-open,.kpi-more[open] .kpi-more-closed{display:none}
+.kpi-more[open] .kpi-more-open{display:inline}
+.kpi-more .kpis.kpis-extra{grid-template-columns:repeat(3,minmax(0,1fr));margin:10px 0 0}
+.kpi-more:not([open]) .kpis-extra{display:none}
+@media(min-width:781px){.kpis.kpis-primary .kpi{min-height:90px;padding:13px 15px}}
+@media(max-width:780px){.kpis.kpis-primary,.kpi-more .kpis.kpis-extra{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.kpis.kpis-primary .peak-amps-kpi{grid-column:1/-1}.kpi-more>summary{padding:9px 10px}}
+@media(prefers-reduced-motion:reduce){.kpi-more-chevron{transition:none}}
