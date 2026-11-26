@@ -1,3 +1,9 @@
+## 0.14.6 – Kühlschrank und Werkstatt Zubehör automatisch zuordnen
+
+- Einmalige lokale Einrichtung der bestätigten Verbraucher PC, Kühlschrank und Werkstatt Zubehör anhand eindeutiger HA-Entitäten. Leistung, direkt gemessene Stromstärke, Energie, Schaltstatus und Fehlersensoren werden ohne manuelle Auswahl zugeordnet.
+- Bestehende gleichnamige Einträge werden ergänzt und für die Überwachung aktiviert; andere Geräte, Einstellungen und Messhistorie bleiben unverändert. Mehrdeutige oder widersprüchliche Zuordnungen werden nicht übernommen.
+- Keine Schaltbefehle, keine automatische Abschaltung, keine privaten Hardware-IDs im neuen Quellcode. Die Gesamtlast umfasst alle aktiv überwachten Verbraucher, einschließlich zeitweise angeschlossener Geräte.
+
 ## 0.14.5 – Feste Statusgruppen und automatische PC-Einrichtung
 
 - Feste Reihenfolge gemäß Geräteverwaltung innerhalb der Statusgruppen: eingeschaltet/aktiv (einschließlich Aufheizen, Drucken, Bereit), bestätigt aus, nicht zugeordnet, offline/Störung. Wechsel zwischen Druckphasen ändert die Reihenfolge nicht mehr.

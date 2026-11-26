@@ -184,12 +184,20 @@ def save(db, cfg, put_cfg, payload, states):
     return {"ok": True, "devices": result}
 
 
-def provision_pc(db, cfg, put_cfg, states):
-    """One-time, local PC setup. No private hardware IDs in the source.
-    Only use the exact named device and a unique matching Shelly current
-    sensor, corroborated by the same plug's energy sensor. Do not guess.
+# These are local discovery templates, not hardcoded hardware identifiers.
+CONSUMER_PROFILES = (
+    ("PC", "pc", "tablet_pc_setup_v1"),
+    ("Kühlschrank", "kuhlschrank", "tablet_fridge_setup_v1"),
+    ("Werkstatt Zubehör", "werkstatt_zubehor", "tablet_workshop_setup_v1"),
+)
+
+
+def provision_consumer(db, cfg, put_cfg, states, name, slug, marker):
+    """One-time local setup for a verified, uniquely matched consumer.
+    Match exact friendly names, the renamed power/energy/switch prefix
+    and a unique Shelly current sensor corroborated by its energy sensor.
+    Never guess or register a second measurement of the same socket.
     """
-    marker = "tablet_pc_setup_v1"
     if cfg(db, marker, "") == "1":
         return False
 
@@ -200,23 +208,23 @@ def provision_pc(db, cfg, put_cfg, states):
 
     profiles = []
     for key in states:
-        if not re.fullmatch(r"sensor\.[a-z0-9_]+_pc_leistung", key):
+        if not re.fullmatch(r"sensor\.[a-z0-9_]+_" + re.escape(slug) + r"_leistung", key):
             continue
-        if not matches(key, "power", "PC Leistung"):
+        if not matches(key, "power", name + " Leistung"):
             continue
         prefix = key[len("sensor."):-len("_leistung")]
         energy = "sensor." + prefix + "_energie"
         switch = "switch." + prefix
-        if not matches(energy, "energy", "PC Energie"):
+        if not matches(energy, "energy", name + " Energie"):
             continue
-        if (states.get(switch, {}).get("attributes") or {}).get("friendly_name") != "PC":
+        if (states.get(switch, {}).get("attributes") or {}).get("friendly_name") != name:
             continue
         for current in states:
             mac = SHELLY_ID.search(current)
-            if not mac or not matches(current, "current", "PC Stromstärke"):
+            if not mac or not matches(current, "current", name + " Stromstärke"):
                 continue
             original_energy = "sensor.shellyplugsg3_" + mac.group(1) + "_energieverbrauch"
-            if not matches(original_energy, "energy", "PC Energieverbrauch"):
+            if not matches(original_energy, "energy", name + " Energieverbrauch"):
                 continue
             profiles.append({"power_entity": key, "energy_entity": energy,
                              "switch_entity": switch, "current_entity": current})
@@ -232,13 +240,32 @@ def provision_pc(db, cfg, put_cfg, states):
 
     settings = power_monitor.config(db, cfg)
     rows = devices(states, settings)
-    # Match the user's existing PC entry by name or exact power sensor.
-    matching = [r for r in rows if r.get("name", "").casefold() == "pc"
+    # Match an existing entry by its name or exact power sensor.
+    matching = [r for r in rows if r.get("name", "").casefold() == name.casefold()
                 or r.get("power_entity") == profile["power_entity"]]
     if len(matching) > 1:
         return False
     existing = matching[0] if matching else None
     current_mac = SHELLY_ID.search(profile["current_entity"]).group(1)
+    if existing is not None:
+        # A same-name entry assigned to a different plug is not safe to replace.
+        old_power = existing.get("power_entity") or settings["bindings"].get(existing["name"]) or ""
+        if old_power and old_power != profile["power_entity"]:
+            old_mac = SHELLY_ID.search(old_power)
+            if not old_mac or old_mac.group(1) != current_mac:
+                return False
+            # Preserve the old history key if this is a valid alias of the same plug.
+            if old_power in states:
+                try:
+                    _check_entity(old_power, states, "sensor", set(), "power")
+                except ValueError:
+                    return False
+                profile["power_entity"] = old_power
+        for field in ("current_entity", "energy_entity", "switch_entity"):
+            old_value = existing.get(field) or ""
+            old_mac = SHELLY_ID.search(old_value)
+            if old_mac and old_mac.group(1) != current_mac:
+                return False
     for row in rows:
         if row is existing:
             continue
@@ -254,20 +281,25 @@ def provision_pc(db, cfg, put_cfg, states):
     if existing is None:
         if len(rows) >= MAX_DEVICES:
             return False
-        ident = "auto-pc"
+        ident = "auto-" + slug.replace("_", "-")
         if any(r.get("id") == ident for r in rows):
             return False
-        existing = {"id": ident, "name": "PC", "enabled": True}
+        existing = {"id": ident, "name": name, "enabled": True}
         rows.append(existing)
-    existing.update(profile, kind="other")
-    # Keep all other rows, existing PC ID/name/enabled state, thresholds,
-    # alert state and historical keys. Do not reset notification state.
+    existing.update(profile, kind="other", enabled=True)
+    # Keep all other rows, IDs, thresholds, alert state and historical keys.
+    # The explicitly requested consumer is enabled; never switch a socket.
     settings["bindings"][existing["name"]] = profile["power_entity"]
     put_cfg(db, REGISTRY_KEY, json.dumps({"items": rows}, ensure_ascii=False))
     persisted = {k: settings[k] for k in ("warning_w", "critical_w", "ntfy_topic", "bindings")}
     put_cfg(db, power_monitor.CONF_KEY, json.dumps(persisted, ensure_ascii=False))
     put_cfg(db, marker, "1")
     return True
+
+
+def provision_pc(db, cfg, put_cfg, states):
+    """Compatibility entry point for the original PC migration."""
+    return provision_consumer(db, cfg, put_cfg, states, *CONSUMER_PROFILES[0])
 
 
 def shelly_current(item):
