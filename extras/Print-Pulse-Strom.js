@@ -6,18 +6,28 @@ const bg=new Color("#17251f"),white=new Color("#f1f7f3"),muted=new Color("#a6bcb
 const green=new Color("#55db88"),yellow=new Color("#f5ce51"),red=new Color("#ff7777");
 const valid=v=>typeof v==="number"&&Number.isFinite(v)&&v>=0;
 const fmt=(v,n)=>valid(v)?v.toLocaleString("de-DE",{minimumFractionDigits:n,maximumFractionDigits:n}):"–";
+// Widget 1.2: avoid null input values when iOS dismisses the dialog.
 async function settings(){
  if(Keychain.contains(KEY))return JSON.parse(Keychain.get(KEY));
- if(config.runsInWidget)throw Error("Einrichtung fehlt");
+ if(config.runsInWidget)throw Error("Einrichtung fehlt – Skript öffnen");
  const a=new Alert();
  a.title="P&P Strom einrichten";
- a.message="HA-Adresse im Heimnetz oder über deinen sicheren VPN/HTTPS-Zugang. Token bleibt in der iPhone-Keychain.";
- a.addTextField("HA-Adresse","http://192.168.178.74:8123");
- a.addSecureTextField("Langlebiger HA-Zugriffstoken","");
+ a.message="Token vorher in HA kopieren. Jetzt in Scriptable bleiben. HA-Adresse über Tailscale oder im Heimnetz eingeben.";
+ const urlField=a.addTextField("http://HA-Adresse:8123","");
+ urlField.setURLKeyboard();
+ const tokenField=a.addSecureTextField("HA-Zugriffstoken hier einfügen","");
  a.addAction("Speichern");a.addCancelAction("Abbrechen");
- if(await a.presentAlert()===-1)throw Error("Einrichtung abgebrochen");
- const base=a.textFieldValue(0).trim().replace(/\/+$/,""),token=a.textFieldValue(1).trim();
- if(!/^https?:\/\/[^\s]+$/i.test(base)||!token)throw Error("Adresse oder Token fehlt");
+ const choice=await a.presentAlert();
+ if(choice!==0)throw Error("Einrichtung abgebrochen – erneut starten");
+ const base=String(a.textFieldValue(0)??urlField.text??"").trim().replace(/\/+$/,"");
+ const token=String(a.textFieldValue(1)??tokenField.text??"").trim();
+ if(!base||!token)throw Error("Eingaben fehlen – Token vorher kopieren und Skript erneut starten");
+ if(!/^https?:\/\/[^\s]+$/i.test(base))throw Error("HA-Adresse mit http:// oder https:// eingeben");
+ const req=new Request(base+"/api/");
+ req.headers={Authorization:"Bearer "+token,Accept:"application/json"};
+ req.timeoutInterval=8;
+ await req.loadString();
+ if(req.response.statusCode!==200)throw Error("HA-Zugang abgelehnt: HTTP "+req.response.statusCode);
  const s={base,token};Keychain.set(KEY,JSON.stringify(s));return s;
 }
 function line(stack,value,size,color,bold=false){

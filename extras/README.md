@@ -8,3 +8,5 @@
 6. iOS bestimmt den Refresh. Stand und Messabdeckung beachten. Das Widget ist keine Live-Sicherheitsüberwachung. Die Anzeige öffnet beim Tippen HA.
 
 Widget-Layout 1.1: zwei getrennte Lastbalken für Watt (HA-Warnschwellen) und Ampere (12/14 A, 16 A Nennstrom). Bei veralteten Messwerten wird kein aktueller Lastmarker angezeigt. Nur das Scriptable-Skript aktualisieren; kein weiteres Add-on-Update erforderlich.
+
+Widget 1.2: Token vor dem Start kopieren, Eingaben ohne App-Wechsel abschließen. Abbruch und fehlende Eingaben werden abgefangen; HA-Anmeldung wird vor Speicherung geprüft.
