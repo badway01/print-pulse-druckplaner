@@ -115,6 +115,7 @@ def effective_bindings(settings, states):
 def fault_status(states, settings=None):
     """Report known and newly registered Shelly faults; unknown is not 'off'."""
     faults = []
+    renamed = {}
     known = dict(KNOWN_SHELLYS)
     if settings is not None:
         active = [item for item in device_specs(settings) if item.get('enabled', True)]
@@ -127,20 +128,31 @@ def fault_status(states, settings=None):
             match=re.search(r'shellyplugsg3_([a-f0-9]{12})',bindings.get(name) or '')
             if match: known[name]=match.group(1)
         for item in active:
-            for field in ('power_entity', 'switch_entity'):
+            sw = item.get('switch_entity') or ''
+            if re.fullmatch(r'switch\.[a-z0-9_]+', sw):
+                renamed[item['name']] = sw.split('.', 1)[1]
+            for field in ('power_entity', 'switch_entity', 'current_entity'):
                 match = re.search(r'shellyplugsg3_([a-f0-9]{12})', item.get(field) or '')
                 if match:
                     known[item['name']] = match.group(1)
                     break
-    for name, device in known.items():
+    for name in dict.fromkeys([*known, *renamed]):
         for suffix, label in FAULT_SUFFIXES.items():
-            entity = f'binary_sensor.shellyplugsg3_{device}_{suffix}'
-            item = states.get(entity)
-            if item is None:
-                continue
-            value = str(item.get('state', 'unknown')).lower()
-            faults.append({'device': name, 'type': label, 'entity': entity,
-                           'state': value if value in ('on', 'off') else 'unknown'})
+            candidates = []
+            if name in renamed:
+                candidates.append(f'binary_sensor.{renamed[name]}_{suffix}')
+            if name in known:
+                candidates.append(f'binary_sensor.shellyplugsg3_{known[name]}_{suffix}')
+            for entity in dict.fromkeys(candidates):
+                item = states.get(entity)
+                if not isinstance(item, dict):
+                    continue
+                standard = name in known and entity == f'binary_sensor.shellyplugsg3_{known[name]}_{suffix}'
+                if not standard and (item.get('attributes') or {}).get('device_class') != 'problem':
+                    continue
+                value = str(item.get('state', 'unknown')).lower()
+                faults.append({'device': name, 'type': label, 'entity': entity,
+                               'state': value if value in ('on', 'off') else 'unknown'})
     return faults
 
 
@@ -167,7 +179,8 @@ def snapshot(states, settings):
         devices.append({'name': name, 'entity': entity, 'history_key': history_key(entity,name), 'watts': value,
                         'kind': item.get('kind', 'printer'),
                         'energy_entity': item.get('energy_entity') or '',
-                        'switch_entity': item.get('switch_entity') or ''})
+                        'switch_entity': item.get('switch_entity') or '',
+                        'configured_current_entity': item.get('current_entity') or ''})
     actual = round(total, 1) if measured else None
     warning = settings['warning_w']
     critical = settings['critical_w']

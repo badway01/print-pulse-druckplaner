@@ -1,3 +1,9 @@
+## 0.14.4 – Explizite Stromsensoren und umbenannte Geräte
+
+- Geräteverwaltung: optionaler Stromsensor in A/mA, auch bei umbenannten Leistungs- und Schalterentitäten. Automatische Shelly-ID-Erkennung bleibt verfügbar.
+- Umbenannte Schalter sind explizit auswählbar (nur Status); passende Problem-Sensoren mit exakt gleichem Entitätspräfix werden zusätzlich berücksichtigt.
+- Bestehende Gerätezuordnungen und Historie bleiben erhalten. Keine privaten Entitäts-IDs fest im Code, keine Schaltbefehle.
+
 ## 0.14.3 – Aus, Offline und Störung eindeutig unterscheiden
 
 - Shelly-Schalter off → Aus (grau), Drucker nicht erreichbar → Offline (gelb), gemeldeter Druckerfehler → Störung (rot), bereit → blau, laufend → bisherige Produktionsfarben. Nicht zugeordnete Messpunkte neutral grau.

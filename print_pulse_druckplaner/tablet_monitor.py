@@ -77,14 +77,11 @@ def choices(states, domain):
             continue
         attr = item.get("attributes") or {}
         if domain == "sensor":
-            if attr.get("device_class") not in ("energy", "power"):
+            allowed = {"energy": ("Wh", "kWh"), "power": ("W", "kW"),
+                       "current": ("A", "mA", "a", "ma")}
+            if attr.get("unit_of_measurement") not in allowed.get(attr.get("device_class"), ()):
                 continue
-            unit = attr.get("unit_of_measurement")
-            if unit not in ("W", "kW", "Wh", "kWh"):
-                continue
-        elif domain == "switch":
-            if "shelly" not in key:
-                continue
+        # Renamed HA switches are selectable for status only.
         label = str(attr.get("friendly_name") or key)[:90]
         items.append({"id": key, "name": label,
                       "kind": attr.get("device_class") or ""})
@@ -113,7 +110,8 @@ def _check_entity(value, states, expected, old_values, required_class=None):
         if attr.get("device_class") != required_class:
             raise ValueError("Falscher Sensortyp: " + value[:90])
         unit = attr.get("unit_of_measurement")
-        allowed = ("W", "kW") if required_class == "power" else ("Wh", "kWh")
+        allowed = {"power": ("W", "kW"), "energy": ("Wh", "kWh"),
+                   "current": ("A", "mA", "a", "ma")}[required_class]
         if unit not in allowed:
             raise ValueError("Unpassende Einheit bei " + value[:90])
     return value
@@ -132,6 +130,7 @@ def save(db, cfg, put_cfg, payload, states):
     names = set()
     ids = set()
     powers = set()
+    currents = set()
     for index, item in enumerate(source):
         if not isinstance(item, dict):
             raise ValueError("Ungültiger Geräteeintrag.")
@@ -155,13 +154,19 @@ def save(db, cfg, put_cfg, payload, states):
                           get_old("energy_entity"), "energy")
         sw = _check_entity(item.get("switch_entity", ""), states, "switch",
                            get_old("switch_entity"))
+        current = _check_entity(item.get("current_entity", previous.get("current_entity") or ""),
+                                states, "sensor", get_old("current_entity"), "current")
+        if current:
+            if current in currents:
+                raise ValueError("Ein Stromsensor kann nur einem Gerät gehören.")
+            currents.add(current)
         if p:
             if p in powers:
                 raise ValueError("Ein Leistungssensor kann nur einem Gerät gehören.")
             powers.add(p)
         result.append({"id": ident, "name": name, "kind": kind,
                        "power_entity": p, "energy_entity": e,
-                       "switch_entity": sw, "enabled": enabled})
+                       "switch_entity": sw, "current_entity": current, "enabled": enabled})
         ids.add(ident)
         names.add(name.casefold())
     put_cfg(db, REGISTRY_KEY, json.dumps({"items": result}, ensure_ascii=False))
@@ -231,7 +236,12 @@ def enrich_currents(snapshot, states):
                   (power_monitor.KNOWN_SHELLYS.get(device.get("name")) if entity or device.get("switch_entity") else None))
         sensor = ""
         actual = None
-        if suffix:
+        explicit = device.get("configured_current_entity") or ""
+        if explicit:
+            actual = shelly_current(states.get(explicit))
+            if actual is not None:
+                sensor = explicit
+        elif suffix:
             prefix = "sensor.shellyplugsg3_" + suffix + "_"
             # Prefer the real HA Stromstärke entity for this exact plug.
             known = prefix + "stromstarke"

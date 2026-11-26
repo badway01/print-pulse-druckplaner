@@ -25,7 +25,7 @@
    esc(c.name+' · '+c.id)+'</option>').join('');
  }
  function draw(){
-  const power=sensors.filter(s=>s.kind==='power'),energy=sensors.filter(s=>s.kind==='energy');
+  const power=sensors.filter(s=>s.kind==='power'),energy=sensors.filter(s=>s.kind==='energy'),current=sensors.filter(s=>s.kind==='current');
   list.innerHTML=items.map((item,index)=>
    '<article class="pp-device-edit" data-device-id="'+esc(item.id)+'">'+
     '<div class="pp-device-edit-head"><strong>'+esc(item.name||'Neues Gerät')+'</strong>'+
@@ -35,6 +35,7 @@
      '<label>Typ<select class="pp-device-kind"><option value="printer"'+(item.kind==='printer'?' selected':'')+'>3D-Drucker</option>'+
        '<option value="other"'+(item.kind==='other'?' selected':'')+'>Sonstige Verbraucher</option></select></label>'+
      '<label>Leistungsmessung (W)<select class="pp-device-power">'+fieldChoices(power,item.power_entity,'Kein Leistungssensor')+'</select></label>'+
+     '<label>Strommessung (A)<select class="pp-device-current">'+fieldChoices(current,item.current_entity,'Automatisch (gleiche Shelly-ID)')+'</select></label>'+
      '<label>Verbrauchszähler (kWh)<select class="pp-device-energy">'+fieldChoices(energy,item.energy_entity,'Optional')+'</select></label>'+
      '<label>Steckdosenschalter (nur Status)<select class="pp-device-switch">'+fieldChoices(switches,item.switch_entity,'Optional')+'</select></label>'+
      '<label class="pp-device-enabled"><input class="pp-device-active" type="checkbox"'+(item.enabled!==false?' checked':'')+'>Aktiv überwachen</label>'+
@@ -60,6 +61,7 @@
    kind:row.querySelector('.pp-device-kind').value,
    power_entity:row.querySelector('.pp-device-power').value,
    energy_entity:row.querySelector('.pp-device-energy').value,
+   current_entity:row.querySelector('.pp-device-current').value,
    switch_entity:row.querySelector('.pp-device-switch').value,
    enabled:row.querySelector('.pp-device-active').checked
   }));
@@ -71,6 +73,11 @@
   const prefix='shellyplugsg3_'+m[1];
   const energy=row.querySelector('.pp-device-energy');
   const sw=row.querySelector('.pp-device-switch');
+  const current=row.querySelector('.pp-device-current');
+  if(!current.value){
+   const found=sensors.find(s=>s.id.startsWith('sensor.'+prefix+'_')&&s.kind==='current');
+   if(found)current.value=found.id;
+  }
   if(!energy.value){
    const found=sensors.find(s=>s.id.includes(prefix)&&s.kind==='energy'&&
       /(?:_energieverbrauch|_energie)$/.test(s.id));
@@ -100,7 +107,7 @@
   const base='custom-'+Date.now().toString(36);
   const id=items.some(x=>x.id===base)?base+'-'+Math.floor(Math.random()*9999):base;
   items.push({id,name:'Neuer Drucker',kind:'printer',power_entity:'',
-   energy_entity:'',switch_entity:'',enabled:true});
+   energy_entity:'',switch_entity:'',current_entity:'',enabled:true});
   draw();
   list.lastElementChild?.querySelector('input.pp-device-name')?.focus();
  });
