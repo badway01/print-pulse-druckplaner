@@ -24,12 +24,24 @@ function line(stack,value,size,color,bold=false){
  const t=stack.addText(String(value));t.font=bold?Font.boldSystemFont(size):Font.systemFont(size);
  t.textColor=color;t.lineLimit=1;t.minimumScaleFactor=.65;return t;
 }
-function bar(value,color){
+// Widget layout 1.1: independent Watt and Ampere scales.
+function bar(value,warn,critical,max,rated=null){
  const ctx=new DrawContext();ctx.size=new Size(600,18);ctx.opaque=false;ctx.respectScreenScale=true;
- const stops=[[0,450,"#31b95d"],[450,75,"#e9c747"],[525,75,"#d63e4c"]];
- for(const [x,w,c] of stops){ctx.setFillColor(new Color(c));ctx.fillRect(new Rect(x,2,w,14));}
- if(valid(value)){const x=Math.min(596,Math.max(4,value/16*600));ctx.setFillColor(white);ctx.fillRect(new Rect(x-3,0,6,18));}
+ const xFor=v=>Math.min(600,Math.max(0,v/max*600));
+ const b1=xFor(warn),b2=xFor(critical);
+ for(const [x,w,c] of [[0,b1,"#31b95d"],[b1,b2-b1,"#e9c747"],[b2,600-b2,"#d63e4c"]]){
+  ctx.setFillColor(new Color(c));ctx.fillRect(new Rect(x,3,w,12));
+ }
+ if(valid(rated)){ctx.setFillColor(new Color("#17251f"));ctx.fillRect(new Rect(xFor(rated)-1,3,2,12));}
+ if(valid(value)){const x=Math.min(596,Math.max(4,xFor(value)));ctx.setFillColor(white);ctx.fillRect(new Rect(x-3,0,6,18));}
  return ctx.getImage();
+}
+function metricRow(w,label,valueText,value,warn,critical,max,rated,limits){
+ const row=w.addStack();row.centerAlignContent();
+ line(row,label,11,muted,true);row.addSpacer();line(row,valueText,21,white,true);
+ const image=w.addImage(bar(value,warn,critical,max,rated));
+ image.imageSize=new Size(285,9);image.resizable=true;
+ const ticks=w.addStack();line(ticks,"0",8,muted);ticks.addSpacer();line(ticks,limits,8,muted);
 }
 async function main(){
  const w=new ListWidget();w.backgroundColor=bg;w.setPadding(12,14,11,14);
@@ -50,12 +62,16 @@ async function main(){
   const tone=!fresh?muted:critical?red:warning||!complete?yellow:green;
   const top=w.addStack();top.centerAlignContent();line(top,"⚡ PRINT & PULSE",12,green,true);top.addSpacer();
   line(top,!fresh?"Veraltet":critical?"Hohe Last / Fehler":warning?"Warnung":complete?"Erfasst":"Teilmessung",10,tone,true);
-  w.addSpacer(7);
-  const row=w.addStack();row.layoutHorizontally();
-  const left=row.addStack();left.layoutVertically();line(left,"Gesamtleistung",10,muted);line(left,fmt(d.watts,1)+" W",24,white,true);
-  row.addSpacer();const right=row.addStack();right.layoutVertically();line(right,"Stromsumme",10,muted);line(right,(estimated?"≈ ":"")+fmt(d.amps,2)+" A",24,white,true);
-  w.addSpacer(7);const img=w.addImage(bar(d.amps,tone));img.imageSize=new Size(285,9);img.resizable=true;
-  w.addSpacer(6);const info=w.addStack();line(info,(!fresh?"Letzter Stand: ":"")+String(d.printing??"–")+" Drucker aktiv",10,tone,true);info.addSpacer();
+  const warningW=valid(d.warning_w)&&d.warning_w>0?d.warning_w:2500;
+  const criticalW=valid(d.critical_w)&&d.critical_w>warningW?d.critical_w:Math.max(3200,warningW+100);
+  w.addSpacer(4);
+  metricRow(w,"Gesamtleistung",fmt(d.watts,1)+" W",fresh?d.watts:null,
+   warningW,criticalW,criticalW*1.18,null,
+   fmt(warningW,0)+" W Warnung · "+fmt(criticalW,0)+" W kritisch");
+  w.addSpacer(3);
+  metricRow(w,"Stromsumme",(estimated?"≈ ":"")+fmt(d.amps,2)+" A",fresh?d.amps:null,
+   12,14,18,16,"12 A · 14 A · 16 A Nennstrom");
+  w.addSpacer(4);const info=w.addStack();line(info,(!fresh?"Letzter Stand: ":"")+String(d.printing??"–")+" Drucker aktiv",10,tone,true);info.addSpacer();
   line(info,"W "+(d.watts_measured??"–")+"/"+(d.devices??"–")+" · A "+(d.amps_measured??"–")+"/"+(d.devices??"–"),10,muted);
   const missing=[...new Set([...(d.missing_watts||[]),...(d.missing_amps||[])])];
   if(missing.length){w.addSpacer(3);line(w,"Fehlt/geschätzt: "+missing.join(", "),9,yellow);}

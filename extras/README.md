@@ -6,3 +6,5 @@
 4. Skript starten, HA-Basisadresse inkl. Port und Token eingeben. Für unterwegs die über Tailscale erreichbare HA-Adresse verwenden.
 5. Auf dem iPhone Homescreen ein mittleres Scriptable-Widget hinzufügen, bearbeiten und das Skript wählen.
 6. iOS bestimmt den Refresh. Stand und Messabdeckung beachten. Das Widget ist keine Live-Sicherheitsüberwachung. Die Anzeige öffnet beim Tippen HA.
+
+Widget-Layout 1.1: zwei getrennte Lastbalken für Watt (HA-Warnschwellen) und Ampere (12/14 A, 16 A Nennstrom). Bei veralteten Messwerten wird kein aktueller Lastmarker angezeigt. Nur das Scriptable-Skript aktualisieren; kein weiteres Add-on-Update erforderlich.
