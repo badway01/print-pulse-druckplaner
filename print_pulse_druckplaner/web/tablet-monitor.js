@@ -301,7 +301,8 @@
   const pr=item.printer_state;
   if(item.switch_state==='off')return {label:'Aus',state:'off'};
   if(pr==='error')return {label:'Störung',state:'error'};
-  if(pr==='offline')return {label:'Offline',state:'error'};
+  if(!item.entity)return {label:'Nicht zugeordnet',state:'missing'};
+  if(pr==='offline')return {label:'Offline',state:'offline'};
   if(pr==='paused')return {label:'Pausiert',state:'paused'};
   if(pr==='finished')return {label:'Fertig',state:'finished'};
   if(pr==='idle')return {label:'Bereit',state:'idle'};
@@ -312,7 +313,6 @@
      {label:'Bereitet vor',state:'preparing'};
   }
   if(item.switch_state==='on')return {label:'Eingeschaltet',state:'idle'};
-  if(!item.entity)return {label:'Nicht zugeordnet',state:'missing'};
   if(item.watts==null)return {label:'Nicht erreichbar',state:'missing'};
   return {label:'Misst',state:'idle'};
  }
@@ -354,8 +354,10 @@
   if(item.switch_state==='off')return 4;
   const state=item.printer_state;
   if(state==='printing'||state==='preparing')return 0;
-  if(state==='paused'||state==='finished'||state==='idle'||state==='error'||item.switch_state==='on')return 1;
-  if(state==='offline'||!item.entity||item.watts==null)return 3;
+  if(state==='error')return 1;
+  if(state==='offline'||!item.entity)return 3;
+  if(state==='paused'||state==='finished'||state==='idle'||item.switch_state==='on')return 1;
+  if(item.watts==null)return 3;
   return 2;
  }
  function sortedDevices(items){
@@ -395,8 +397,11 @@
   renderGroupTotals(groups);
   byId('device-summary').textContent=rows.length+' Geräte · '+d.measured+' mit Leistungsmessung';
   const renderRow=item=>{
-   const available=item.watts!=null;
    const phase=displayPhase(item);
+   const stateHint=item.switch_state==='off'?'Shelly-Schalter meldet aus. Messwerte bleiben unverändert.':
+    phase.state==='offline'?'Drucker in Home Assistant nicht erreichbar; Shelly '+(item.switch_state==='on'?'eingeschaltet':'Schaltzustand unbekannt')+'.':
+    phase.state==='missing'?'Messpunkt oder Messwert fehlt.':phase.label;
+   const statusMismatch=item.switch_state==='off'&&((item.watts??0)>0||(item.amps??0)>0);
    const amp=item.amps==null?'–':
       (item.amps_source==='shelly'?'':'≈ ')+fmt(item.amps,3)+' A';
    const maxAmp=item.max_amps==null?'–':
@@ -415,7 +420,8 @@
     (item.kind==='other'?'other-name':'printer-name')+'">'+esc(item.name)+'</td>'+
     '<td>'+esc(power(item.watts))+'</td><td title="'+esc(currentHint)+'">'+esc(amp)+'</td>'+
     '<td class="device-max-amps" title="'+esc(peakHint)+'">'+esc(maxAmp)+'</td><td>'+esc(e)+'</td>'+
-    '<td><span class="pill '+esc(phase.state)+'">'+esc(phase.label)+'</span></td></tr>';
+    '<td><span class="pill '+esc(phase.state)+'" title="'+esc(stateHint)+'">'+esc(phase.label)+'</span>'+
+    (statusMismatch?'<small class="device-status-note">Messwert trotz Aus</small>':'')+'</td></tr>';
   };
   const html=groups.map(group=>
    '<tr class="device-group-heading"><th colspan="6" scope="colgroup">'+
@@ -447,7 +453,7 @@
   const stage=activePrintStage(item.print_stage);
   byId('pd-status').textContent=status.label;
   byId('pd-status').className='pd-state-tag pd-state-'+status.state;
-  byId('pd-subtitle').textContent='Shelly · '+(stage?.label||status.label);
+  byId('pd-subtitle').textContent='Shelly · '+status.label;
   byId('pd-updated').textContent='Live zuletzt: '+dateTime(current.updated);
   byId('pd-watts').textContent=power(item.watts);
   byId('pd-amps').textContent=item.amps==null?'– A':

@@ -477,3 +477,24 @@ body[data-theme=dark] .pd-state-finished{background:#274862;color:#c9e4fd}
 .pd-phase-sort select{max-width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--soft);color:var(--text);font-size:11px}
 .pd-phase-table td:nth-child(4),.pd-phase-table td:nth-child(5){vertical-align:top}
 .pd-phase-table td:nth-child(4) small,.pd-phase-table td:nth-child(5) small{white-space:normal;min-width:75px}
+
+/* Offline is a reachability warning, not a confirmed fault. */
+.devices-table tbody tr.state-offline td{background:#fff3d8}
+.devices-table tbody tr.state-offline td:first-child{border-left-color:#d6a53c}
+.devices-table .pill.offline,.pd-state-offline{background:#fce8b3;color:#78551a}
+.devices-table tbody tr.state-offline .printer-name:before{color:#aa791b}
+.devices-table tbody tr.state-idle td{background:#e8f0f8}
+.devices-table tbody tr.state-idle td:first-child{border-left-color:#6a9bc6}
+.devices-table .pill.idle,.pd-state-idle{background:#dcecff;color:#285d89}
+.devices-table tbody tr.state-missing td{background:#f0f1f1;color:var(--muted)}
+.devices-table tbody tr.state-missing td:first-child{border-left-color:#a4adaa}
+.devices-table tbody tr.state-missing .printer-name:before{color:var(--muted)}
+.devices-table .pill.missing,.pd-state-missing{background:#e8eaea;color:#596963}
+.device-status-note{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+body[data-theme=dark] .devices-table tbody tr.state-offline td{background:#44371b}
+body[data-theme=dark] .devices-table .pill.offline,body[data-theme=dark] .pd-state-offline{background:#665020;color:#ffe4a0}
+body[data-theme=dark] .devices-table tbody tr.state-offline .printer-name:before{color:#e8bd61}
+body[data-theme=dark] .devices-table tbody tr.state-idle td{background:#1c344b}
+body[data-theme=dark] .devices-table .pill.idle,body[data-theme=dark] .pd-state-idle{background:#284966;color:#d4ebff}
+body[data-theme=dark] .devices-table tbody tr.state-missing td{background:#26312b}
+body[data-theme=dark] .devices-table .pill.missing,body[data-theme=dark] .pd-state-missing{background:#424947;color:#e2e7e4}

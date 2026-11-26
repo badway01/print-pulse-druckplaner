@@ -199,6 +199,18 @@ def shelly_current(item):
     return round(amperes, 4) if amperes <= 100 else None
 
 
+def resolve_switch_state(device, states):
+    """Use explicit switch or exact physical Shelly ID; never infer from watts."""
+    entity = device.get("switch_entity") or ""
+    if not entity:
+        match = SHELLY_ID.search(device.get("entity") or "")
+        if match:
+            entity = "switch.shellyplugsg3_" + match.group(1)
+    item = states.get(entity)
+    state = item.get("state") if isinstance(item, dict) else None
+    return state if state in ("on", "off") else None
+
+
 def enrich_currents(snapshot, states):
     """Prefer actual current from the same Shelly, fallback to W/230 if absent.
 

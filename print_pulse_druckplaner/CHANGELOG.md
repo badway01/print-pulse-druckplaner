@@ -1,3 +1,9 @@
+## 0.14.3 – Aus, Offline und Störung eindeutig unterscheiden
+
+- Shelly-Schalter off → Aus (grau), Drucker nicht erreichbar → Offline (gelb), gemeldeter Druckerfehler → Störung (rot), bereit → blau, laufend → bisherige Produktionsfarben. Nicht zugeordnete Messpunkte neutral grau.
+- Fehlende explizite Schalterbindung wird ausschließlich über die exakte Shelly-ID des zugeordneten Leistungssensors aufgelöst. Keine Ableitung aus 0 W, keine Änderungen an gespeicherten Zuordnungen oder Messwerten.
+- Bei Verbrauch trotz gemeldetem Aus bleibt der Messwert vollständig sichtbar und wird mit einem Hinweis versehen. Sortierung und Detailstatus berücksichtigen die Unterscheidung; Gesamtlast, Peaks, Warnungen und Historie bleiben erhalten.
+
 ## 0.14.2 – Peak-Karten mit Druckaktion und sortierbaren Phasenspitzen
 
 - Watt- und Ampere-Peak zeigen die gespeicherte Phase zum jeweiligen Spitzenzeitpunkt. Neue Messungen bewahren zusätzlich bekannte konkrete HA-Arbeitsschritte (z. B. Heizbett/Düse heizen); alte Daten behalten die allgemeine Phase.

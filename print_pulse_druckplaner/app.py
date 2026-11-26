@@ -79,7 +79,7 @@ except ImportError:
 tablet_monitor.power_monitor = power_monitor
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.14.2'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.14.3'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2879,11 +2879,9 @@ def tablet_print_phases(reading, states):
     candidates={item['id']:item['entities']
                 for item in discover_printer_candidates(states)}
     for entry in reading.get('devices',[]):
+        entry['switch_state']=tablet_monitor.resolve_switch_state(entry,states)
         if entry.get('kind')!='printer':
             continue
-        plug=states.get(entry.get('switch_entity') or '')
-        switch=plug.get('state') if isinstance(plug,dict) else None
-        entry['switch_state']=switch if switch in ('on','off') else None
         mapping=bindings.get(entry.get('name'),{})
         sensor=sensor_value(states,mapping,'status')
         if entry.get('name')=='H2D No2' and not sensor:
@@ -3406,9 +3404,7 @@ class Handler(BaseHTTPRequestHandler):
                     entry['max_amps']=peak.get('max_amps')
                     entry['max_amps_at']=peak.get('at')
                     entry['max_amps_source']=peak.get('source')
-                    state=states.get(device.get('switch_entity',''))
-                    switch=state.get('state') if isinstance(state,dict) else None
-                    entry['switch_state']=switch if switch in ('on','off') else None
+                    # Keep switch status resolved from the same HA snapshot.
                 result['updated']=int(time.time())
                 return self.send(200,result)
             except (ValueError, TypeError):
