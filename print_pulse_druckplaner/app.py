@@ -79,7 +79,7 @@ except ImportError:
 tablet_monitor.power_monitor = power_monitor
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.14.4'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.14.5'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -4051,6 +4051,15 @@ def power_alarm_loop():
     while True:
         try:
             states=homeassistant_states()
+            # Provision the verified local profile separately from sampling.
+            # A migration error must never interrupt power recording.
+            try:
+                with connect() as setup_db:
+                    if cfg(setup_db,'tablet_pc_setup_v1')!='1':
+                        setup_db.execute('BEGIN IMMEDIATE')
+                        tablet_monitor.provision_pc(setup_db,cfg,put_cfg,states)
+            except Exception:
+                log.warning('Automatische PC-Zuordnung derzeit nicht möglich.')
             with connect() as db:
                 settings=power_monitor.config(db,cfg)
                 reading=tablet_print_phases(

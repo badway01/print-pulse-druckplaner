@@ -312,9 +312,9 @@
    return pr==='printing'?{label:'Druckt',state:'printing'}:
      {label:'Bereitet vor',state:'preparing'};
   }
+  if(item.watts==null&&item.amps==null)return {label:'Nicht erreichbar',state:'missing'};
   if(item.switch_state==='on')return {label:'Eingeschaltet',state:'idle'};
-  if(item.watts==null)return {label:'Nicht erreichbar',state:'missing'};
-  return {label:'Misst',state:'idle'};
+  return {label:'Schaltzustand unbekannt',state:'missing'};
  }
  function renderPeakHistory(d){
   const list=Array.isArray(d.peak_reset_history)?d.peak_reset_history:[];
@@ -347,18 +347,17 @@
    ).join('')+'</ul></div>'
   ).join('');
  }
- // Stable groups: production first, other powered-on devices next,
- // unavailable/offline devices next, explicitly switched-off devices last.
- // Never infer a switched-off plug from zero watts or an offline printer.
+ // Keep a fixed registry order within each of three status bands.
+ // Active/preparing/ready are equal rank: heating cannot reshuffle them.
+ // Confirmed off follows; missing assignment then offline/fault at the bottom.
  function deviceSortRank(item){
-  if(item.switch_state==='off')return 4;
+  if(item.switch_state==='off')return 1;
   const state=item.printer_state;
-  if(state==='printing'||state==='preparing')return 0;
-  if(state==='error')return 1;
-  if(state==='offline'||!item.entity)return 3;
-  if(state==='paused'||state==='finished'||state==='idle'||item.switch_state==='on')return 1;
-  if(item.watts==null)return 3;
-  return 2;
+  if(state==='error'||state==='offline')return 3;
+  if(!item.entity)return 2;
+  if(item.watts==null&&item.switch_state!=='on'&&
+     !['printing','preparing','paused','finished','idle'].includes(state))return 2;
+  return 0;
  }
  function sortedDevices(items){
   return (items||[]).map((item,index)=>({item,index,rank:deviceSortRank(item)}))

@@ -184,6 +184,92 @@ def save(db, cfg, put_cfg, payload, states):
     return {"ok": True, "devices": result}
 
 
+def provision_pc(db, cfg, put_cfg, states):
+    """One-time, local PC setup. No private hardware IDs in the source.
+    Only use the exact named device and a unique matching Shelly current
+    sensor, corroborated by the same plug's energy sensor. Do not guess.
+    """
+    marker = "tablet_pc_setup_v1"
+    if cfg(db, marker, "") == "1":
+        return False
+
+    def matches(key, cls, friendly):
+        item = states.get(key)
+        attrs = (item or {}).get("attributes") or {}
+        return attrs.get("device_class") == cls and attrs.get("friendly_name") == friendly
+
+    profiles = []
+    for key in states:
+        if not re.fullmatch(r"sensor\.[a-z0-9_]+_pc_leistung", key):
+            continue
+        if not matches(key, "power", "PC Leistung"):
+            continue
+        prefix = key[len("sensor."):-len("_leistung")]
+        energy = "sensor." + prefix + "_energie"
+        switch = "switch." + prefix
+        if not matches(energy, "energy", "PC Energie"):
+            continue
+        if (states.get(switch, {}).get("attributes") or {}).get("friendly_name") != "PC":
+            continue
+        for current in states:
+            mac = SHELLY_ID.search(current)
+            if not mac or not matches(current, "current", "PC Stromstärke"):
+                continue
+            original_energy = "sensor.shellyplugsg3_" + mac.group(1) + "_energieverbrauch"
+            if not matches(original_energy, "energy", "PC Energieverbrauch"):
+                continue
+            profiles.append({"power_entity": key, "energy_entity": energy,
+                             "switch_entity": switch, "current_entity": current})
+    if len(profiles) != 1:
+        return False
+    profile = profiles[0]
+    for field, cls in (("power_entity", "power"), ("energy_entity", "energy"),
+                       ("current_entity", "current")):
+        try:
+            _check_entity(profile[field], states, "sensor", set(), cls)
+        except ValueError:
+            return False
+
+    settings = power_monitor.config(db, cfg)
+    rows = devices(states, settings)
+    # Match the user's existing PC entry by name or exact power sensor.
+    matching = [r for r in rows if r.get("name", "").casefold() == "pc"
+                or r.get("power_entity") == profile["power_entity"]]
+    if len(matching) > 1:
+        return False
+    existing = matching[0] if matching else None
+    current_mac = SHELLY_ID.search(profile["current_entity"]).group(1)
+    for row in rows:
+        if row is existing:
+            continue
+        for field in ("power_entity", "current_entity", "energy_entity", "switch_entity"):
+            value = row.get(field) or ""
+            mac = SHELLY_ID.search(value)
+            if value and (value in profile.values() or (mac and mac.group(1) == current_mac)):
+                return False
+        binding = settings["bindings"].get(row.get("name")) or ""
+        mac = SHELLY_ID.search(binding)
+        if binding == profile["power_entity"] or (mac and mac.group(1) == current_mac):
+            return False
+    if existing is None:
+        if len(rows) >= MAX_DEVICES:
+            return False
+        ident = "auto-pc"
+        if any(r.get("id") == ident for r in rows):
+            return False
+        existing = {"id": ident, "name": "PC", "enabled": True}
+        rows.append(existing)
+    existing.update(profile, kind="other")
+    # Keep all other rows, existing PC ID/name/enabled state, thresholds,
+    # alert state and historical keys. Do not reset notification state.
+    settings["bindings"][existing["name"]] = profile["power_entity"]
+    put_cfg(db, REGISTRY_KEY, json.dumps({"items": rows}, ensure_ascii=False))
+    persisted = {k: settings[k] for k in ("warning_w", "critical_w", "ntfy_topic", "bindings")}
+    put_cfg(db, power_monitor.CONF_KEY, json.dumps(persisted, ensure_ascii=False))
+    put_cfg(db, marker, "1")
+    return True
+
+
 def shelly_current(item):
     """Read a real Shelly current sensor (A or mA); not W divided by voltage."""
     if not isinstance(item, dict):

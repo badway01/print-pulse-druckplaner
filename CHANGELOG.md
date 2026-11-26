@@ -1,3 +1,9 @@
+## 0.14.5 – Feste Statusgruppen und automatische PC-Einrichtung
+
+- Feste Reihenfolge gemäß Geräteverwaltung innerhalb der Statusgruppen: eingeschaltet/aktiv (einschließlich Aufheizen, Drucken, Bereit), bestätigt aus, nicht zugeordnet, offline/Störung. Wechsel zwischen Druckphasen ändert die Reihenfolge nicht mehr.
+- Einmalige lokale PC-Zuordnung bei eindeutigem passenden HA-Profil: Watt, echte Ampere, Energie, Schalter und zugehörige Fehlersensoren. Vorhandener PC-Eintrag wird ergänzt, andere Geräte und Einstellungen bleiben bestehen. Keine private Hardware-ID im Quellcode. Mehrdeutige Zuordnungen werden nicht übernommen.
+- Messwerte und Historie bleiben unabhängig von der Anzeige; fehlende Schalterzustände werden ausdrücklich als unbekannt bezeichnet.
+
 ## 0.14.4 – Explizite Stromsensoren und umbenannte Geräte
 
 - Geräteverwaltung: optionaler Stromsensor in A/mA, auch bei umbenannten Leistungs- und Schalterentitäten. Automatische Shelly-ID-Erkennung bleibt verfügbar.

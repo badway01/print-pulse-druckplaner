@@ -6,9 +6,9 @@ const source=fs.readFileSync(path.join(__dirname,'../print_pulse_druckplaner/web
 const start=source.indexOf(' function deviceSortRank(');
 const end=source.indexOf(' function renderGroupTotals(',start);
 const ctx=vm.runInNewContext(source.slice(start,end)+';({groupDevices,groupTotals})');
-const rows=[{name:'Aus',kind:'printer',switch_state:'off',watts:0,amps:0,amps_source:'shelly'},
- {name:'PC',kind:'other',switch_state:'on',watts:40,amps:.3,amps_source:'calculated'},
- {name:'H2D',kind:'printer',printer_state:'printing',watts:100,amps:.5,amps_source:'shelly'},
+const rows=[{name:'Aus',entity:'sensor.off',kind:'printer',switch_state:'off',watts:0,amps:0,amps_source:'shelly'},
+ {name:'PC',entity:'sensor.pc',kind:'other',switch_state:'on',watts:40,amps:.3,amps_source:'calculated'},
+ {name:'H2D',entity:'sensor.h2d',kind:'printer',printer_state:'printing',watts:100,amps:.5,amps_source:'shelly'},
  {name:'Kühlschrank',kind:'other',watts:null,amps:null}];
 const groups=ctx.groupDevices(rows);
 assert.equal(Array.from(groups[0].items,x=>x.name).join(','),'H2D,Aus');

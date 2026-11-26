@@ -18,7 +18,12 @@ const devices=[
  {name:'Bereit',printer_state:'idle',entity:'sensor.ready',watts:8},
  {name:'Störung',printer_state:'error',switch_state:'on',entity:'sensor.error',watts:5}
 ];
-assert.equal(Array.from(sort(devices),x=>x.name).join('|'),'P1S Old|X2D|H2D No2|Bereit|Störung|H2D|P1S New|U1|A1');
+assert.equal(Array.from(sort(devices),x=>x.name).join('|'),'P1S Old|X2D|H2D No2|Bereit|A1|H2D|P1S New|U1|Störung');
+const before=sort(devices).map(x=>x.name).join('|');
+devices[1].printer_state='preparing';
+devices[4].printer_state='idle';
+devices[7].printer_state='printing';
+assert.equal(sort(devices).map(x=>x.name).join('|'),before);
 assert.equal(devices[0].name,'H2D');
 assert.equal(sort([]).length,0);
 console.log('Tablet device sort: PASS');
