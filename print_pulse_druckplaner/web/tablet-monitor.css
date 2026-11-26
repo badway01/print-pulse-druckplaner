@@ -498,3 +498,12 @@ body[data-theme=dark] .devices-table tbody tr.state-idle td{background:#1c344b}
 body[data-theme=dark] .devices-table .pill.idle,body[data-theme=dark] .pd-state-idle{background:#284966;color:#d4ebff}
 body[data-theme=dark] .devices-table tbody tr.state-missing td{background:#26312b}
 body[data-theme=dark] .devices-table .pill.missing,body[data-theme=dark] .pd-state-missing{background:#424947;color:#e2e7e4}
+
+/* Consumer cards and shared maxima. */
+.pd-kpi[hidden],.pd-panel[hidden]{display:none!important}
+.pd-consumer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.pd-consumer-grid .pd-kpi{padding:10px}
+.pd-consumer-grid .pd-kpi strong{font-size:clamp(16px,2vw,22px)}
+#pd-consumer-stats .pd-panel-heading:not(:first-child){margin-top:18px}
+.device-max-watts{font-weight:650}
+.devices-table tbody tr.state-off .device-max-watts{font-weight:500;color:var(--muted)}

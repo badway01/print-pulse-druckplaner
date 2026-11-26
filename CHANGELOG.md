@@ -1,3 +1,9 @@
+## 0.14.7 – Geräteanalyse für alle Verbraucher und gemeinsame Peak-Resets
+
+- PC, Kühlschrank und Werkstatt Zubehör öffnen dieselbe Geräteanalyse mit Verbrauch, Durchschnitt, Verlauf, Lastanalyse, Shelly-Spannung/Frequenz und Fehlersensoren. Verbrauch und Kosten aus vorhandenen Messungen, Tarif aus der Farm-Konfiguration; Laststarts sind ausdrücklich Schätzungen anhand der gemessenen Gesamtleistung und erst ab neuer Detailerfassung verfügbar.
+- Geräteübersicht zeigt Max W und Max A. Detailkarten verwenden dieselben seit Reset gespeicherten Maxima; die Zeitraumauswahl gilt für die historische Auswertung. Alte Detail-Reset-Protokolle bleiben erhalten, die bisher getrennten Kartenwerte werden ab jetzt durch die gemeinsamen Hauptübersicht-Werte ersetzt.
+- Einzelreset betrifft nur gewählte Messgröße und Gerät, nicht Gesamtpeak oder andere Geräte. Globaler Max-A-Reset lässt Watt-Maxima bestehen. Separate Ersatzstrom-Maxima werden einmalig aus alten Watt-Maxima übernommen; Rohdaten, CSV-Historie und Audit bleiben erhalten.
+
 ## 0.14.6 – Kühlschrank und Werkstatt Zubehör automatisch zuordnen
 
 - Einmalige lokale Einrichtung der bestätigten Verbraucher PC, Kühlschrank und Werkstatt Zubehör anhand eindeutiger HA-Entitäten. Leistung, direkt gemessene Stromstärke, Energie, Schaltstatus und Fehlersensoren werden ohne manuelle Auswahl zugeordnet.

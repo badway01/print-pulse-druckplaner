@@ -457,6 +457,17 @@ def ensure_peak_table(db):
         entity TEXT PRIMARY KEY,
         max_watts REAL NOT NULL CHECK(max_watts >= 0),
         at INTEGER NOT NULL)""")
+    # Separate fallback-current peaks from watt peaks. Seed once from the
+    # legacy watt-derived maxima; after reset the two are independent.
+    exists = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='pp_power_estimated_current_peaks'").fetchone()
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_power_estimated_current_peaks(
+        entity TEXT PRIMARY KEY, max_amps REAL NOT NULL, at INTEGER NOT NULL)""")
+    if not exists:
+        db.execute("""INSERT OR IGNORE INTO pp_power_estimated_current_peaks
+            SELECT entity,max_watts/230,at FROM pp_power_device_peaks""")
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_power_metric_resets(
+        entity TEXT NOT NULL, kind TEXT NOT NULL, at INTEGER NOT NULL,
+        PRIMARY KEY(entity,kind))""")
     db.execute("""CREATE TABLE IF NOT EXISTS pp_power_actual_current_peaks(
         entity TEXT PRIMARY KEY,
         max_amps REAL NOT NULL CHECK(max_amps>=0),
@@ -467,19 +478,52 @@ def ensure_peak_table(db):
 def device_peaks(db):
     """Retain earlier calculated peaks; prefer true Shelly-amp peaks when present."""
     ensure_peak_table(db)
-    peaks = {row["entity"]: {
-                "max_watts": round(row["max_watts"], 1),
-                "max_amps": round(row["max_watts"] / 230, 3),
-                "at": row["at"],
-                "source": "calculated"}
-            for row in db.execute(
-                "SELECT entity,max_watts,at FROM pp_power_device_peaks")}
-    for row in db.execute(
-            "SELECT entity,max_amps,at FROM pp_power_actual_current_peaks"):
-        peak = peaks.setdefault(row["entity"], {})
-        peak.update(max_amps=round(row["max_amps"], 3),
-                    at=row["at"], source="shelly")
+    peaks = {row["entity"]: {"max_watts":round(row["max_watts"],1),
+                            "watts_at":row["at"]}
+             for row in db.execute("SELECT * FROM pp_power_device_peaks")}
+    for table,source in (("pp_power_estimated_current_peaks","calculated"),
+                         ("pp_power_actual_current_peaks","shelly")):
+        for row in db.execute(f"SELECT entity,max_amps,at FROM {table}"):
+            peak=peaks.setdefault(row["entity"],{})
+            peak.update(max_amps=round(row["max_amps"],3),at=row["at"],source=source)
     return peaks
+
+
+def shared_peak_cards(db, entity):
+    """Same lifetime/since-reset values for the overview and detail cards."""
+    peak=device_peaks(db).get(entity,{})
+    resets={r["kind"]:r["at"] for r in db.execute(
+        "SELECT kind,at FROM pp_power_metric_resets WHERE entity=?",(entity,))}
+    return {"watts":{"value":peak.get("max_watts"),"at":peak.get("watts_at"),
+                     "direct":True,"reset_at":resets.get("watts")},
+            "amps":{"value":peak.get("max_amps"),"at":peak.get("at"),
+                    "direct":peak.get("source")=="shelly","reset_at":resets.get("amps")}}
+
+
+def reset_device_metric(db, device, kind, now=None):
+    """Reset just one metric of one device; no deletion of measured history."""
+    if kind not in ("watts","amps"):
+        raise ValueError("Ungültige Messgröße.")
+    entity=device.get("history_key") or device.get("entity")
+    if not isinstance(entity,str) or not re.fullmatch(r"sensor\.[a-z0-9_]{3,170}",entity):
+        raise ValueError("Ungültiger Messpunkt.")
+    now=int(time.time() if now is None else now)
+    before=shared_peak_cards(db,entity)[kind]
+    if kind=="watts":
+        db.execute("DELETE FROM pp_power_device_peaks WHERE entity=?",(entity,))
+    else:
+        ensure_peak_reset_log(db)
+        batch=str(now)+"-"+db.execute("SELECT hex(randomblob(6))").fetchone()[0]
+        db.execute("""INSERT INTO pp_power_peak_reset_log
+            (batch_id,at,device_key,device_name,previous_amps,previous_source,previous_peak_at,scope)
+            VALUES(?,?,?,?,?,?,?,'device')""",
+            (batch,now,entity,str(device.get("name") or entity)[:70],before["value"],
+             ("shelly" if before["direct"] else "calculated") if before["value"] is not None else None,before["at"]))
+        db.execute("DELETE FROM pp_power_actual_current_peaks WHERE entity=?",(entity,))
+        db.execute("DELETE FROM pp_power_estimated_current_peaks WHERE entity=?",(entity,))
+    db.execute("""INSERT INTO pp_power_metric_resets(entity,kind,at) VALUES(?,?,?)
+        ON CONFLICT(entity,kind) DO UPDATE SET at=excluded.at""",(entity,kind,now))
+    return before
 
 
 def ensure_peak_reset_log(db):
@@ -549,11 +593,11 @@ def reset_all_amperes(db, active_devices, now=None):
             VALUES (?,?,?,?,?,?,?,'device')""",
             (batch,now,entity,name,prior.get("max_amps"),
              prior.get("source"),prior.get("at")))
-        # Both peak tables are cleared: otherwise the old W/230 fallback
-        # would immediately reappear instead of the intended fresh Max A.
-        db.execute("DELETE FROM pp_power_actual_current_peaks WHERE entity=?",
-                   (entity,))
-        db.execute("DELETE FROM pp_power_device_peaks WHERE entity=?", (entity,))
+        # Independent current peaks: the watt maximum is not reset.
+        db.execute("DELETE FROM pp_power_actual_current_peaks WHERE entity=?",(entity,))
+        db.execute("DELETE FROM pp_power_estimated_current_peaks WHERE entity=?",(entity,))
+        db.execute("""INSERT INTO pp_power_metric_resets(entity,kind,at) VALUES(?,'amps',?)
+            ON CONFLICT(entity,kind) DO UPDATE SET at=excluded.at""",(entity,now))
         reset_count += 1
     if reset_count == 0:
         raise ValueError("Keine zugeordneten Leistungssensoren vorhanden.")
@@ -662,17 +706,17 @@ def record_sample(db, snapshot, now=None):
         watts = item.get("watts")
         if not isinstance(entity, str) or not entity.startswith("sensor."):
             continue
-        if isinstance(watts, bool) or not isinstance(watts, (int, float)):
-            continue
-        if not math.isfinite(watts) or watts < 0:
-            continue
-        db.execute("""INSERT INTO pp_power_device_peaks(entity,max_watts,at)
-            VALUES(?,?,?)
-            ON CONFLICT(entity) DO UPDATE SET
-                at=CASE WHEN excluded.max_watts > pp_power_device_peaks.max_watts
-                        THEN excluded.at ELSE pp_power_device_peaks.at END,
-                max_watts=MAX(pp_power_device_peaks.max_watts,excluded.max_watts)""",
-                   (entity, watts, now))
+        if (isinstance(watts,(int,float)) and not isinstance(watts,bool)
+                and math.isfinite(watts) and watts>=0):
+            db.execute("""INSERT INTO pp_power_device_peaks(entity,max_watts,at)
+                VALUES(?,?,?) ON CONFLICT(entity) DO UPDATE SET
+                at=CASE WHEN excluded.max_watts>max_watts THEN excluded.at ELSE at END,
+                max_watts=MAX(max_watts,excluded.max_watts)""",(entity,watts,now))
+            # Retain a separate fallback even if the current sensor is temporarily missing.
+            db.execute("""INSERT INTO pp_power_estimated_current_peaks(entity,max_amps,at)
+                VALUES(?,?,?) ON CONFLICT(entity) DO UPDATE SET
+                at=CASE WHEN excluded.max_amps>max_amps THEN excluded.at ELSE at END,
+                max_amps=MAX(max_amps,excluded.max_amps)""",(entity,watts/230,now))
         amps = item.get("amps")
         if (item.get("amps_source") == "shelly"
                 and isinstance(amps, (int, float)) and not isinstance(amps, bool)

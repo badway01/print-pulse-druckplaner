@@ -111,7 +111,7 @@
  byId('reset-amps-peaks').addEventListener('click',async()=>{
   if(peakResetBusy)return;
   if(!window.confirm(
-   'Alle aktuellen Max-A-Werte der Drucker und den Gesamt-Ampere-Peak zurücksetzen? '+
+   'Alle aktuellen Max-A-Werte der Geräte und den Gesamt-Ampere-Peak zurücksetzen? '+
    'Die bisherigen Werte mit Datum bleiben im Protokoll und im CSV-Export erhalten.'))return;
   peakResetBusy=true;
   const button=byId('reset-amps-peaks');
@@ -410,7 +410,7 @@
    const peakHint=item.max_amps_source==='shelly'?'Höchster gemessener Shelly-Ampere-Wert':
       'Höchster errechneter Ersatzwert';
    const e=item.energy_kwh==null?'–':fmt(item.energy_kwh,2)+' kWh';
-   const clickable=item.kind==='printer'&&item.entity;
+   const clickable=!!item.entity;
    const clickAttrs=clickable?
     ' role="button" tabindex="0" data-entity="'+esc(item.entity)+
     '" aria-label="Details zu '+esc(item.name)+' öffnen"':'';
@@ -418,16 +418,17 @@
     (clickable?' pd-clickable':'')+'"'+clickAttrs+'><td class="'+
     (item.kind==='other'?'other-name':'printer-name')+'">'+esc(item.name)+'</td>'+
     '<td>'+esc(power(item.watts))+'</td><td title="'+esc(currentHint)+'">'+esc(amp)+'</td>'+
+    '<td class="device-max-watts">'+esc(power(item.max_watts))+'</td>'+
     '<td class="device-max-amps" title="'+esc(peakHint)+'">'+esc(maxAmp)+'</td><td>'+esc(e)+'</td>'+
     '<td><span class="pill '+esc(phase.state)+'" title="'+esc(stateHint)+'">'+esc(phase.label)+'</span>'+
     (statusMismatch?'<small class="device-status-note">Messwert trotz Aus</small>':'')+'</td></tr>';
   };
   const html=groups.map(group=>
-   '<tr class="device-group-heading"><th colspan="6" scope="colgroup">'+
+   '<tr class="device-group-heading"><th colspan="7" scope="colgroup">'+
    '<span class="device-group-title">'+esc(group.label)+'</span>'+
    '<span class="device-group-count">'+group.items.length+' Geräte</span></th></tr>'+
    (group.items.length?group.items.map(renderRow).join(''):
-    '<tr class="device-group-empty"><td colspan="6">'+
+    '<tr class="device-group-empty"><td colspan="7">'+
      (group.key==='other'?'Noch keine sonstigen Verbraucher eingerichtet.':'Noch keine Drucker eingerichtet.')+
     '</td></tr>')
   ).join('');
@@ -437,7 +438,7 @@
  const detailDialog=byId('printer-detail');
  let detailLastFetch=0;
  function printerOptions(){
-  return sortedDevices(current?.devices).filter(d=>d.kind==='printer'&&d.entity);
+  return groupDevices(current?.devices).flatMap(g=>g.items).filter(d=>d.entity);
  }
  function dateTime(at){
   return at?new Date(at*1000).toLocaleString('de-DE',{
@@ -476,7 +477,7 @@
   const chart=byId('pd-chart');
   const series=Array.isArray(data.series)?data.series:[];
   if(!series.length){
-   chart.innerHTML='<p class="pd-empty">Für diesen Drucker und Zeitraum sind noch keine Phasen-Messwerte gespeichert. Die Aufzeichnung beginnt mit diesem Update.</p>';
+   chart.innerHTML='<p class="pd-empty">Für dieses Gerät und diesen Zeitraum sind noch keine Messwerte gespeichert.</p>';
    return;
   }
   const periods={'1h':3600,'24h':86400,'7d':604800,'30d':2592000};
@@ -506,7 +507,7 @@
   }).join('');
   function line(field,max,color){
    let d='',last=null;
-   const expected=span<=3600?15:span<=86400?300:span<=604800?1800:7200;
+   const expected=data.series_step|| (span<=3600?15:span<=86400?300:span<=604800?1800:7200);
    series.forEach(s=>{
     const v=s[field];
     if(v==null||!Number.isFinite(Number(v))){last=null;return}
@@ -548,9 +549,38 @@
    }).join(''):'<tr><td colspan="6" class="pd-empty">Noch keine Druckphasen aufgezeichnet.</td></tr>';
  }
  byId('pd-phase-sort').addEventListener('change',()=>{if(latestDetail)renderPhaseRows(latestDetail)});
+ function renderConsumer(data){
+  const summary=data.summary||{}, energy=data.energies||{}, load=data.load_stats||{};
+  byId('pd-avg-w').textContent=power(summary.watts_avg);
+  byId('pd-avg-a').textContent=summary.amps_avg==null?'– A':(summary.amps_direct_pct===100?'':'≈ ')+fmt(summary.amps_avg,3)+' A';
+  const tile=(label,value,note='')=>'<div class="pd-kpi"><small>'+esc(label)+'</small><strong>'+esc(value)+'</strong>'+(note?'<span>'+esc(note)+'</span>':'')+'</div>';
+  byId('pd-consumer-energy').innerHTML=[['Heute','today'],['Diese Woche','week'],['Dieser Monat','month']].map(([label,key])=>{
+   const e=energy[key]||{};
+   return tile(label,e.kwh==null?'– kWh':'≈ '+fmt(e.kwh,3)+' kWh',e.kwh==null?'Keine Messwerte':(e.cost==null?'Kein Stromtarif': '≈ '+fmt(e.cost,2)+' €')+' · '+fmt(e.measured_hours,1)+' h erfasst');
+  }).join('')+tile('Shelly-Gesamtzähler',data.energy_total==null?'– kWh':fmt(data.energy_total,3)+' kWh','Direkt vom Shelly');
+  byId('pd-consumer-load-title').textContent=(load.label||'Lastanalyse')+' · 24 h';
+  byId('pd-consumer-load').innerHTML=tile('Grundlast',power(load.base_w))+
+   tile('Erhöhte Last',load.active_minutes==null?'–':fmt(load.active_minutes,1)+' min')+
+   tile('Erkannte Laststarts',load.starts==null?'–':String(load.starts))+
+   tile('Messzeit',fmt(load.measured_minutes,1)+' min');
+  byId('pd-consumer-load-note').textContent='Schätzung anhand der Steckdosenleistung: ab '+load.threshold_w+' W, Ende bei ≤ '+load.release_w+' W. Keine eindeutige Geräte- oder Komponentenerkennung; Messlücken werden nicht hochgerechnet. Detailaufzeichnung ab Update.';
+  const electrical=data.electrical||{};
+  const row=(label,value)=>'<div class="pd-event"><div><strong>'+esc(label)+'</strong></div><b>'+esc(value)+'</b></div>';
+  const faults=new Map((data.faults||[]).map(x=>[x.type,x.state]));
+  byId('pd-consumer-health').innerHTML=row('Spannung',electrical.voltage==null?'– V':fmt(electrical.voltage,1)+' V')+
+   row('Netzfrequenz',electrical.frequency==null?'– Hz':fmt(electrical.frequency,2)+' Hz')+
+   ['Überhitzung','Überlast','Überstrom','Überspannung'].map(label=>row(label,faults.get(label)==='on'?'Störung':faults.get(label)==='off'?'Normal':'Unbekannt')).join('');
+ }
  function renderPrinterDetail(data){
   const summary=data.summary||{};
+  const other=data.kind==='other';
   const avgCount=Number(data.samples)||0;
+  byId('pd-printer-phases').hidden=other;
+  byId('pd-consumer-stats').hidden=!other;
+  byId('pd-avg-w-box').hidden=!other;
+  byId('pd-avg-a-box').hidden=!other;
+  byId('pd-events-caption').textContent=other?'Mit Messzeitpunkt':'Mit Druckphase und Uhrzeit';
+  if(other)renderConsumer(data);
   const cards=data.card_peaks||{};
   const w=cards.watts||{value:summary.watts_peak,at:summary.watts_peak_at};
   const a=cards.amps||{value:summary.amps_peak,at:summary.amps_peak_at,direct:summary.amps_direct_pct===100};
@@ -580,7 +610,7 @@
   for(const id of ['pd-reset-w','pd-reset-a'])byId(id).disabled=detailResetBusy;
   byId('pd-phase-total').textContent=avgCount.toLocaleString('de-DE')+' Messungen';
   const phases=Array.isArray(data.phases)?data.phases:[];
-  renderPhaseRows(data);
+  if(!other)renderPhaseRows(data);
   const events=Array.isArray(data.peaks)?data.peaks:[];
   const approximated=new Set(phases.filter(p=>p.amps_direct_pct!==100).map(p=>p.label));
   byId('pd-events').innerHTML=events.length?events.slice(0,10).map(evt=>{
@@ -596,7 +626,7 @@
   byId('pd-chart-note').textContent=data.note||
    '15-Sekunden-Abtastung; sehr kurze Lastspitzen können unentdeckt bleiben.';
   byId('pd-note').textContent=(data.retention||'Bis zu 31 Tage')+
-   ' · Keine rückwirkende Phasenzuordnung früherer Messungen.';
+   (other?' · Peak-Karten gelten seit Reset, unabhängig vom Diagrammzeitraum.':' · Peak-Karten seit Reset; Druckphasen im gewählten Zeitraum.');
   renderDetailChart(data);
  }
  async function loadDetail(){
@@ -643,10 +673,20 @@
    let data={};
    try{data=await response.json()}catch(_){}
    if(!response.ok||!data.ok)throw new Error(data.error||'Zurücksetzen fehlgeschlagen');
+   if(current){
+    const item=(current.devices||[]).find(x=>x.entity===entity);
+    if(item){
+     if(kind==='amps'){item.max_amps=null;item.max_amps_at=null;item.max_amps_source=null;}
+     else item.max_watts=null;
+    }
+    if(data.history)current.peak_reset_history=data.history;
+    renderDevices(current);renderPeakHistory(current);
+   }
    if(entity===activeDeviceEntity){
     byId('pd-reset-feedback').textContent=label+'-Peak zurückgesetzt. Historie bleibt erhalten.';
     await loadDetail();
    }
+   await refresh();
   }catch(error){
    if(entity===activeDeviceEntity)byId('pd-reset-feedback').textContent='Nicht zurückgesetzt: '+error.message;
   }finally{
@@ -661,6 +701,14 @@
   if(!option)return;
   activeDeviceEntity=entity;
   latestDetail=null;
+  const other=option.kind==='other';
+  byId('pd-device-glyph').textContent=other?'◈':'▣';
+  byId('pd-printer-phases').hidden=other;
+  byId('pd-consumer-stats').hidden=!other;
+  byId('pd-avg-w-box').hidden=!other;byId('pd-avg-a-box').hidden=!other;
+  for(const id of ['pd-consumer-energy','pd-consumer-load','pd-consumer-health'])byId(id).innerHTML='<p>Lade Messwerte …</p>';
+  byId('pd-consumer-load-note').textContent='';
+  byId('pd-avg-w').textContent='– W';byId('pd-avg-a').textContent='– A';
   byId('pd-reset-feedback').textContent='';
   byId('pd-reset-history').hidden=true;
   for(const id of ['pd-reset-w','pd-reset-a'])byId(id).disabled=true;

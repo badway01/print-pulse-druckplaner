@@ -79,7 +79,7 @@ except ImportError:
 tablet_monitor.power_monitor = power_monitor
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.14.6'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.14.7'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -3401,6 +3401,7 @@ class Handler(BaseHTTPRequestHandler):
                     energy=states.get(device.get('energy_entity',''))
                     entry['energy_kwh']=tablet_monitor.energy_kwh(energy)
                     peak=peaks.get(entry.get('history_key') or entry.get('entity') or '',{})
+                    entry['max_watts']=peak.get('max_watts')
                     entry['max_amps']=peak.get('max_amps')
                     entry['max_amps_at']=peak.get('at')
                     entry['max_amps_source']=peak.get('source')
@@ -3422,12 +3423,42 @@ class Handler(BaseHTTPRequestHandler):
                 with connect() as db:
                     settings=power_monitor.config(db,cfg)
                     listed=power_monitor.snapshot(states,settings)['devices']
-                    allowed={x['entity']:x['name'] for x in listed
-                             if x.get('kind')=='printer' and x.get('entity')}
+                    allowed={x['entity']:x for x in listed if x.get('entity')}
                     if entity not in allowed:
-                        return self.send(404,{'error':'Drucker nicht zugeordnet.'})
-                    data=tablet_printer_detail.detail(db,power_monitor.history_key(entity,allowed[entity]),period)
-                    data['name']=allowed[entity]
+                        return self.send(404,{'error':'Gerät nicht zugeordnet.'})
+                    device=allowed[entity]
+                    key=device.get('history_key') or entity
+                    name=device['name']
+                    data=tablet_printer_detail.detail(db,key,period)
+                    if device.get('kind')=='other':
+                        try:
+                            tariff=float(cfg(db,'farm_energy_tariff'))
+                            if not 0<=tariff<=100: tariff=None
+                        except (ValueError,TypeError):
+                            tariff=None
+                        data.update(tablet_history.consumer_detail(db,key,period,tariff=tariff))
+                        data['load_stats']=tablet_history.consumer_load_stats(db,key,name)
+                        data['energy_total']=tablet_monitor.energy_kwh(states.get(device.get('energy_entity','')))
+                        # The explicitly configured current sensor identifies the exact plug.
+                        matched=tablet_monitor.SHELLY_ID.search(device.get('configured_current_entity') or entity)
+                        data['electrical']={}
+                        if matched:
+                            prefix='sensor.shellyplugsg3_'+matched.group(1)+'_'
+                            for field,suffix,unit,cls in (('voltage','spannung','V','voltage'),
+                                                         ('frequency','frequenz','Hz','frequency')):
+                                state=states.get(prefix+suffix,{})
+                                attr=state.get('attributes') or {}
+                                if attr.get('device_class')==cls and attr.get('unit_of_measurement')==unit:
+                                    try:
+                                        value=float(state.get('state'))
+                                        if 0<=value<10000:data['electrical'][field]=value
+                                    except (ValueError,TypeError):pass
+                        data['faults']=[x for x in power_monitor.fault_status(states,settings) if x['device']==name]
+                    data['card_peaks']=tablet_monitor.shared_peak_cards(db,key)
+                    for metric,card in data['card_peaks'].items():
+                        card['context']=tablet_printer_detail.peak_context(db,key,metric,card['at'])
+                    data['name']=name
+                    data['kind']=device.get('kind','printer')
                 return self.send(200,data)
             except ValueError:
                 return self.send(400,{'error':'Ungültige Detailanfrage.'})
@@ -3850,22 +3881,28 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('BEGIN IMMEDIATE')
                     settings=power_monitor.config(db,cfg)
                     current=power_monitor.snapshot(states,settings)
-                    printers={x['entity']:x.get('history_key') or x['entity'] for x in current['devices']
-                              if x.get('kind')=='printer' and x.get('entity')}
+                    devices={x['entity']:x for x in current['devices'] if x.get('entity')}
                     if action=='reset_device_peak':
                         entity=data.get('entity')
-                        if not isinstance(entity,str) or entity not in printers:
-                            return self.send(404,{'error':'Drucker nicht zugeordnet.'})
+                        if not isinstance(entity,str) or entity not in devices:
+                            return self.send(404,{'error':'Gerät nicht zugeordnet.'})
                         period=data.get('period','24h')
-                        if not isinstance(period,str):
+                        if not isinstance(period,str) or period not in tablet_printer_detail.PERIODS:
                             raise ValueError('Ungültiger Zeitraum.')
-                        result=tablet_printer_detail.reset_peak(
-                            db,printers[entity],data.get('kind'),period)
+                        kind=data.get('kind')
+                        now=int(time.time())
+                        device=devices[entity]
+                        key=device.get('history_key') or entity
+                        previous=tablet_monitor.reset_device_metric(db,device,kind,now)
+                        result=tablet_printer_detail.reset_peak(db,key,kind,period,now,previous=previous)
+                        result['history']=tablet_monitor.peak_reset_history(db)
                     else:
+                        previous={entity:tablet_monitor.shared_peak_cards(db,device.get('history_key') or entity)['amps']
+                                  for entity,device in devices.items()}
                         result=tablet_monitor.reset_all_amperes(db,current['devices'])
-                        for entity in sorted(printers):
-                            tablet_printer_detail.reset_peak(
-                                db,printers[entity],'amps','30d',now=result['reset_at'])
+                        for entity,device in devices.items():
+                            tablet_printer_detail.reset_peak(db,device.get('history_key') or entity,
+                                'amps','30d',now=result['reset_at'],previous=previous[entity])
                 return self.send(200,result)
             if path=='/api/tablet-devices':
                 states=homeassistant_states()

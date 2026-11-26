@@ -272,3 +272,85 @@ def export_csv(db, period, now=None):
         cells[20] = event["previous_source"] or ""
         writer.writerow(cells)
     return ("\ufeff"+out.getvalue()).encode("utf-8")
+
+
+def consumer_detail(db, entity, period, now=None, tariff=None):
+    """Existing per-device trend history, without inventing printer phases."""
+    durations={"1h":3600,"24h":86400,"7d":7*86400,"30d":30*86400}
+    if period not in durations:
+        raise ValueError("Ungültiger Zeitraum.")
+    now=int(time.time() if now is None else now)
+    ensure(db)
+    span=durations[period]
+    interval=3600 if period=="30d" else 300
+    table=SCHEMAS[interval]
+    start=(now-span)//interval*interval
+    rows=db.execute(f"""SELECT * FROM {table} WHERE device_key=? AND bucket>=?
+        AND bucket<=? ORDER BY bucket""",(entity,start,now)).fetchall()
+    wc=sum(r["watts_count"] for r in rows)
+    ac=sum(r["amps_count"] for r in rows)
+    direct=sum(r["amps_direct_count"] for r in rows)
+    series=[{"at":r["bucket"],
+             "watts":r["watts_sum"]/r["watts_count"] if r["watts_count"] else None,
+             "amps":r["amps_sum"]/r["amps_count"] if r["amps_count"] else None}
+            for r in rows]
+    midnight=_local_midnight(now)
+    date=datetime.fromtimestamp(now,TZ).date()
+    week=date-timedelta(days=date.weekday())
+    month=date.replace(day=1)
+    def stamp(d):return int(datetime(d.year,d.month,d.day,tzinfo=TZ).timestamp())
+    energies={}
+    for key,since in (("today",midnight),("week",stamp(week)),("month",stamp(month))):
+        row=db.execute("""SELECT SUM(energy_est_kwh) AS kwh,SUM(watts_count) AS n
+            FROM pp_power_trend_1h WHERE device_key=? AND bucket>=? AND bucket<=?""",
+            (entity,since,now)).fetchone()
+        n=row["n"] or 0
+        value=row["kwh"] if n else None
+        energies[key]={"kwh":value,"cost":value*tariff if value is not None and tariff is not None else None,
+                       "measured_hours":n*15/3600}
+    return {"period":period,"updated":now,"samples":sum(r["samples"] for r in rows),
+            "summary":{"watts_avg":sum(r["watts_sum"] for r in rows)/wc if wc else None,
+                       "amps_avg":sum(r["amps_sum"] for r in rows)/ac if ac else None,
+                       "amps_direct_pct":100*direct/ac if ac else None,
+                       "energy_est_kwh":sum(r["energy_est_kwh"] for r in rows) if wc else None},
+            "series":series,"series_step":interval,"energies":energies,
+            "note":"Verlauf aus gespeicherten Intervallmitteln; einzelne Spitzen stehen in den Peak-Karten. Verbrauch aus erfassten 15-Sekunden-Messungen geschätzt, keine Hochrechnung von Lücken.",
+            "retention":"5-Minuten-Historie bis 10 Tage, Stundenhistorie bis 400 Tage"}
+
+
+def consumer_load_stats(db, entity, name, now=None):
+    """Threshold-based observed load, not a component/operating-state diagnosis."""
+    now=int(time.time() if now is None else now)
+    limits={"kühlschrank":(5,2,"Geschätzte Kompressoraktivität"),
+            "pc":(30,25,"Erhöhte PC-Gesamtlast"),
+            "werkstatt zubehör":(15,10,"Erhöhte Zubehör-Gesamtlast")}
+    high,low,label=limits.get(name.casefold(),(15,10,"Erhöhte Last"))
+    exists=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='pp_printer_phase_samples'").fetchone()
+    rows=db.execute("""SELECT at,watts FROM pp_printer_phase_samples
+        WHERE device_key=? AND at>=? AND at<=? ORDER BY at""",(entity,now-86400,now)).fetchall() if exists else []
+    mode=None
+    last=None
+    starts=0
+    active=0
+    base=[]
+    valid=0
+    for row in rows:
+        at,w=row["at"],row["watts"]
+        if w is None:
+            mode=None;last=None
+            continue
+        if last is None or at-last>30:
+            mode=None
+        new=True if w>=high else False if w<=low else mode
+        if mode is False and new is True:
+            starts+=1
+        if new is True:
+            active+=15
+        elif new is False:
+            base.append(w)
+        valid+=1
+        mode=new
+        last=at
+    return {"label":label,"threshold_w":high,"release_w":low,"starts":starts if valid else None,
+            "active_minutes":active/60 if valid else None,"base_w":sum(base)/len(base) if base else None,
+            "measured_minutes":valid*15/60,"window_hours":24}

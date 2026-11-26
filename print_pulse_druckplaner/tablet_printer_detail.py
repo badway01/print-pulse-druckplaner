@@ -174,7 +174,7 @@ def record(db, snapshot, now=None):
     now = int(time.time() if now is None else now)
     ensure(db)
     for item in snapshot.get("devices") or ():
-        if not isinstance(item, dict) or item.get("kind") != "printer":
+        if not isinstance(item, dict) or item.get("kind") not in ("printer","other"):
             continue
         entity = str(item.get("history_key") or item.get("entity") or "")
         if not re.fullmatch(r"sensor\.[a-z0-9_]{3,160}", entity):
@@ -182,6 +182,11 @@ def record(db, snapshot, now=None):
         phase, label = classify(item.get("print_stage"),item.get("printer_state"),
                                 item.get("switch_state"))
         action = exact_action(item.get("print_stage"),phase)
+        if item.get("kind")=="other":
+            phase = "off" if item.get("switch_state")=="off" else (
+                "idle" if item.get("switch_state")=="on" else "unknown")
+            action = "Ausgeschaltet" if phase=="off" else (
+                "Eingeschaltet" if phase=="idle" else "Schaltzustand unbekannt")
         name = str(item.get("name") or entity)[:70]
         watts, amps = number(item.get("watts")), number(item.get("amps"))
         direct = int(amps is not None and item.get("amps_source") == "shelly")
@@ -343,12 +348,15 @@ def peak_context(db, entity, kind, at, fallback_phase=None):
             "label":action or PHASES.get(phase,"Unbekannt")}
 
 
-def reset_peak(db, entity, kind, period="24h", now=None):
+def reset_peak(db, entity, kind, period="24h", now=None, previous=None):
     """Reset exactly one detail-card metric; preserve all original readings."""
     if kind not in ("watts","amps"):
         raise ValueError("Ungültige Messgröße.")
     now=int(time.time() if now is None else now)
-    before=detail(db,entity,period,now)["card_peaks"][kind]
+    ensure(db)
+    if period not in PERIODS:
+        raise ValueError("Ungültiger Zeitraum.")
+    before=previous if previous is not None else detail(db,entity,period,now)["card_peaks"][kind]
     db.execute("""INSERT INTO pp_printer_detail_resets
         (device_key,kind,at,period,previous_value,previous_at,previous_direct)
         VALUES(?,?,?,?,?,?,?)""",
