@@ -1,3 +1,10 @@
+## 0.13.99 – Laststatus: zugeordnete Messpunkte verständlich anzeigen
+
+- Gemessene 0 W / 0 A sind gültige Werte, unabhängig vom Druckerstatus. Watt und Ampere werden getrennt anhand der zugeordneten Shelly-Messpunkte bewertet.
+- Nicht zugeordnete Geräte erscheinen namentlich als „Nicht überwacht“, statt alle vorhandenen Messwerte als unvollständig darzustellen. Fehlen Werte eines zugeordneten Shellys oder gibt es nur geschätzte Ampere, bleibt die entsprechende Anzeige unvollständig.
+- Warnschwellen und Shelly-Störungen behalten Vorrang. Bei nicht überwachten Geräten bleibt die Gesamtkarte neutral; keine Aussage über die tatsächliche vollständige Stromkreislast.
+- Messhistorie, Gesamtspitzenwerte und 24-h-Durchschnitt bleiben unverändert.
+
 ## 0.13.98 – Drucker und sonstige Verbraucher getrennt anzeigen
 
 - Geräteübersicht mit zwei Gruppen: Drucker und sonstige Verbraucher (PC, Kühlschrank, Laser, Beleuchtung usw.). Die bestehende Live-Sortierung und Statusfarben bleiben innerhalb jeder Gruppe erhalten.

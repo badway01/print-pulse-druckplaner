@@ -159,43 +159,56 @@
   byId(titleId).textContent=label;
   byId(detailId).textContent=detail;
  }
+ // Zero is a real measurement. A printer's own offline state is not
+ // evidence of zero electrical load; only Shelly measurements count.
+ function loadCoverage(d,metric){
+  const devices=d.devices||[];
+  const valid=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0;
+  const assigned=devices.filter(x=>metric==='watts'?Boolean(x.entity):
+   Boolean(x.entity||x.switch_entity||x.current_entity));
+  const unassigned=devices.filter(x=>!assigned.includes(x)).map(x=>x.name);
+  const measured=assigned.filter(x=>metric==='watts'?valid(x.watts):
+   valid(x.amps)&&x.amps_source==='shelly');
+  const estimated=metric==='amps'?assigned.filter(x=>valid(x.amps)&&x.amps_source!=='shelly'):[];
+  const missing=assigned.filter(x=>!measured.includes(x)&&!estimated.includes(x));
+  return {assigned:assigned.length,measured:measured.length,unassigned,
+   missing:missing.map(x=>x.name),estimated:estimated.map(x=>x.name),
+   complete:assigned.length>0&&assigned.length===measured.length};
+ }
+ function coverageNote(c){
+  return [c.assigned?c.measured+'/'+c.assigned+' zugeordnete Messpunkte erfasst':'Keine Messpunkte zugeordnet',
+   c.unassigned.length?'Nicht überwacht: '+c.unassigned.join(', '):'',
+   c.missing.length?'Kein Messwert: '+c.missing.join(', '):'',
+   c.estimated.length?'Nur geschätzt: '+c.estimated.join(', '):''].filter(Boolean).join(' · ');
+ }
  function status(d){
   const faults=(d.faults||[]).filter(f=>f.state==='on');
   const unknown=(d.faults||[]).filter(f=>f.state==='unknown').length;
-  let wl='normal',wt='Normal',wd='Unter den eingestellten Watt-Warnschwellen';
-  if(faults.length){wl='critical';wt='Shelly-Störung';wd=faults.length+' aktive Fehlermeldung(en)'}
-  else if(d.watts==null){wl='unknown';wt='Keine Messwerte';wd='Kein Leistungssensor erreichbar'}
-  else if(d.level==='critical'){wl='critical';wt='Kritische Wattlast';wd='Eingestellte Watt-Grenze erreicht'}
-  else if(d.level==='warning'){wl='warning';wt='Watt-Warnung';wd='Eingestellte Watt-Warnschwelle erreicht'}
-  else if(!d.complete){
-   wl='unknown';
-   const missing=(d.devices||[]).filter(x=>x.kind==='printer'&&x.watts==null);
-   const unassigned=missing.filter(x=>!x.entity).map(x=>x.name);
-   const unavailable=missing.filter(x=>x.entity).map(x=>x.name);
-   wt=unassigned.length?'Messpunkte fehlen':'Unvollständige Messung';
-   wd=[
-    unassigned.length?'Nicht zugeordnet: '+unassigned.join(', '):'',
-    unavailable.length?'Kein Messwert: '+unavailable.join(', '):''
-   ].filter(Boolean).join(' · ')||'Nicht alle Watt-Sensoren liefern Werte';
-  }
-  if(unknown&&wl==='normal')wd=unknown+' Shelly-Fehlerstatus nicht verfügbar';
+  const w=loadCoverage(d,'watts'),a=loadCoverage(d,'amps');
+  let wl='normal',wt='Messpunkte vollständig',wd=coverageNote(w);
+  if(faults.length){wl='critical';wt='Shelly-Störung';wd=faults.length+' aktive Fehlermeldung(en) · '+wd}
+  else if(d.watts==null){wl='unknown';wt='Keine Messwerte'}
+  else if(d.level==='critical'){wl='critical';wt='Kritische Wattlast';wd='Eingestellte Watt-Grenze erreicht · '+wd}
+  else if(d.level==='warning'){wl='warning';wt='Watt-Warnung';wd='Eingestellte Watt-Warnschwelle erreicht · '+wd}
+  else if(!w.complete){wl='unknown';wt='Messung unvollständig'}
+  else if(w.unassigned.length){wt='Zugeordnete Messpunkte vollständig'}
+  if(unknown)wd+=' · '+unknown+' Shelly-Fehlerstatus nicht verfügbar';
   setRowStatus('watt-load-row','status','status-title','status-detail',wl,wt,wd);
-  let al='normal',at='Normal',ad='Unter 12 A der erfassten Shellys';
+  let al='normal',at='Messpunkte vollständig',ad=coverageNote(a);
   const valid=typeof d.amps==='number'&&Number.isFinite(d.amps)&&d.amps>=0;
-  const devices=d.devices||[];
-  const allDirect=devices.length>0&&d.amps_real_count===devices.length&&
-   d.amps_estimated_count===0&&d.complete;
-  if(faults.length){al='critical';at='Shelly-Störung';ad=faults.length+' aktive Fehlermeldung(en)'}
-  else if(!valid){al='unknown';at='Keine Stromwerte';ad='Shelly-Ampere nicht verfügbar'}
-  else if(d.amps>=AMP_RATED_A){al='critical';at='16 A erreicht';ad='Nennstromgrenze: Stromkreislast prüfen'}
-  else if(d.amps>=AMP_RED_A){al='critical';at='Hohe Stromlast';ad='Ab 14 A: Last möglichst reduzieren'}
-  else if(d.amps>=AMP_WARN_A){al='warning';at='Strom-Warnung';ad='Ab 12 A: Stromkreis beobachten'}
-  else if(!allDirect){al='unknown';at='Messung unvollständig';ad=d.amps_estimated_count?
-     'Mindestens ein Ampere-Wert nur berechnet':
-     'Nicht alle Shelly-Amperewerte vorhanden'}
+  if(faults.length){al='critical';at='Shelly-Störung';ad=faults.length+' aktive Fehlermeldung(en) · '+ad}
+  else if(!valid){al='unknown';at='Keine Stromwerte'}
+  else if(d.amps>=AMP_RATED_A){al='critical';at='16 A erreicht';ad='Nennstromgrenze: Stromkreislast prüfen · '+ad}
+  else if(d.amps>=AMP_RED_A){al='critical';at='Hohe Stromlast';ad='Ab 14 A: Last möglichst reduzieren · '+ad}
+  else if(d.amps>=AMP_WARN_A){al='warning';at='Strom-Warnung';ad='Ab 12 A: Stromkreis beobachten · '+ad}
+  else if(!a.complete){al='unknown';at='Messung unvollständig'}
+  else if(a.unassigned.length){at='Zugeordnete Messpunkte vollständig'}
   setRowStatus('amps-load-row','amp-status','amp-status-title','amp-status-detail',al,at,ad);
   const severity={normal:0,unknown:1,warning:2,critical:3};
-  byId('load-card').dataset.level=severity[wl]>=severity[al]?wl:al;
+  // A green row only describes its assigned sensors; keep the enclosing
+  // overall card neutral if any load is outside measurement coverage.
+  const level=severity[wl]>=severity[al]?wl:al;
+  byId('load-card').dataset.level=level==='normal'&&(w.unassigned.length||a.unassigned.length)?'unknown':level;
   byId('connection').dataset.state='ok';
   byId('connection-text').textContent='Live · HA verbunden';
  }
@@ -787,7 +800,8 @@
   }
   const t=d.updated?new Date(d.updated*1000):new Date();
   byId('updated').textContent='Letzte Aktualisierung: '+t.toLocaleTimeString('de-DE')+
-   (d.complete?'':' · Messung teilweise unvollständig');
+   ((!loadCoverage(d,'watts').complete||!loadCoverage(d,'amps').complete)?' · Zugeordnete Messwerte fehlen':
+    (loadCoverage(d,'watts').unassigned.length||loadCoverage(d,'amps').unassigned.length)?' · Nicht alle Geräte überwacht':'');
  }
  async function refresh(){
   if(loading||document.hidden)return;

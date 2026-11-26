@@ -46,6 +46,7 @@ jobs:
           node --check print_pulse_druckplaner/web/tablet-monitor.js
           node tests/tablet_device_sort.cjs
           node tests/tablet_device_groups.cjs
+          node tests/tablet_load_coverage.cjs
           node --check print_pulse_druckplaner/web/farm-ui.js
           node --check print_pulse_druckplaner/web/master-insights-ui.js
           node --check print_pulse_druckplaner/web/components-ui.js
