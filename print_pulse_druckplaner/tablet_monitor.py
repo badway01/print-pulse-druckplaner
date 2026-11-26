@@ -465,9 +465,14 @@ def ensure_peak_table(db):
     if not exists:
         db.execute("""INSERT OR IGNORE INTO pp_power_estimated_current_peaks
             SELECT entity,max_watts/230,at FROM pp_power_device_peaks""")
+    reset_exists=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='pp_power_metric_resets'").fetchone()
     db.execute("""CREATE TABLE IF NOT EXISTS pp_power_metric_resets(
         entity TEXT NOT NULL, kind TEXT NOT NULL, at INTEGER NOT NULL,
         PRIMARY KEY(entity,kind))""")
+    if not reset_exists and db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='pp_power_peak_reset_log'").fetchone():
+        db.execute("""INSERT OR IGNORE INTO pp_power_metric_resets
+            SELECT device_key,'amps',MAX(at) FROM pp_power_peak_reset_log
+            WHERE scope='device' GROUP BY device_key""")
     db.execute("""CREATE TABLE IF NOT EXISTS pp_power_actual_current_peaks(
         entity TEXT PRIMARY KEY,
         max_amps REAL NOT NULL CHECK(max_amps>=0),

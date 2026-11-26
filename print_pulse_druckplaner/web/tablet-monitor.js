@@ -590,7 +590,7 @@
   const peakNote=p=>(p.at?'Am '+dateTime(p.at):'Noch kein Wert')+
    (p.reset_at?' · Reset '+dateTime(p.reset_at):'');
   const actionText=p=>p.value==null?'Noch kein Peak':
-   p.context?.label?'Bei: '+p.context.label:'Phase nicht gespeichert';
+   p.context?.label&&p.context.label!=='Unbekannt'?'Bei: '+p.context.label:(other?'Keine Zustandsdaten zum Peak':'Phase nicht gespeichert');
   byId('pd-peak-w-action').textContent=actionText(w);
   byId('pd-peak-a-action').textContent=actionText(a);
   byId('pd-peak-w-note').textContent=peakNote(w);
@@ -619,10 +619,10 @@
    return '<div class="pd-event"><div><strong>'+esc(evt.phase)+
     '</strong><small>'+esc(label)+' · '+esc(dateTime(evt.at))+
     '</small></div><b>'+
-    (evt.kind==='amps'&&approximated.has(evt.phase)?'≈ ':'')+
+    (evt.kind==='amps'&&(other?data.summary?.amps_direct_pct!==100:approximated.has(evt.phase))?'≈ ':'')+
     esc(fmt(evt.value,evt.kind==='amps'?3:1))+
     ' '+unit+'</b></div>';
-  }).join(''):'<p class="pd-empty">Noch keine Spitzen mit Druckphasen gespeichert.</p>';
+  }).join(''):(other?'<p class="pd-empty">Noch keine zeitgenauen Spitzen gespeichert. Die Peak-Karten nutzen die vorhandenen Maxima.</p>':'<p class="pd-empty">Noch keine Spitzen mit Druckphasen gespeichert.</p>');
   byId('pd-chart-note').textContent=data.note||
    '15-Sekunden-Abtastung; sehr kurze Lastspitzen können unentdeckt bleiben.';
   byId('pd-note').textContent=(data.retention||'Bis zu 31 Tage')+
@@ -651,6 +651,7 @@
    byId('pd-chart').innerHTML='<p class="pd-empty">'+esc(error.message)+'</p>';
    byId('pd-phase-rows').innerHTML='<tr><td colspan="6">Keine Phasendaten verfügbar.</td></tr>';
    byId('pd-events').innerHTML='<p>Keine Ereignisse verfügbar.</p>';
+   for(const id of ['pd-consumer-energy','pd-consumer-load','pd-consumer-health'])byId(id).innerHTML='<p>Keine Daten verfügbar.</p>';
   }
  }
  let detailResetBusy=false;

@@ -3438,6 +3438,9 @@ class Handler(BaseHTTPRequestHandler):
                             tariff=None
                         data.update(tablet_history.consumer_detail(db,key,period,tariff=tariff))
                         data['load_stats']=tablet_history.consumer_load_stats(db,key,name)
+                        for event in data.get('peaks',[]):
+                            context=tablet_printer_detail.peak_context(db,key,event['kind'],event['at'])
+                            event['phase']=(context or {}).get('label','Messwert')
                         data['energy_total']=tablet_monitor.energy_kwh(states.get(device.get('energy_entity','')))
                         # The explicitly configured current sensor identifies the exact plug.
                         matched=tablet_monitor.SHELLY_ID.search(device.get('configured_current_entity') or entity)

@@ -160,6 +160,64 @@ class PeakResetTest(unittest.TestCase):
         self.assertEqual(rows[511]["amps"],4.)
         self.assertEqual(rows[511]["watts"],900.)
 
+    def test_single_metric_resets_do_not_affect_other_device_or_total(self):
+        reading=self.snapshot(500.,250.,3.25,1.6)
+        monitor.record_sample(self.db,reading,now=self.now)
+        history.record_sample(self.db,reading,now=self.now)
+        a,b=reading["devices"]
+        original_total=monitor.total_amps_peak(self.db)
+        original_watts_total=monitor.total_peak(self.db)
+        original_b=monitor.shared_peak_cards(self.db,self.b)
+        prior=monitor.reset_device_metric(self.db,a,"amps",now=self.now+1)
+        self.assertEqual(prior["value"],3.25)
+        cards=monitor.shared_peak_cards(self.db,self.a)
+        self.assertIsNone(cards["amps"]["value"])
+        self.assertEqual(cards["watts"]["value"],500.)
+        self.assertEqual(monitor.shared_peak_cards(self.db,self.b),original_b)
+        self.assertEqual(monitor.total_amps_peak(self.db),original_total)
+        self.assertEqual(monitor.total_peak(self.db),original_watts_total)
+        monitor.record_sample(self.db,self.snapshot(100.,50.,.6,.3),now=self.now+15)
+        self.assertAlmostEqual(monitor.shared_peak_cards(self.db,self.a)["amps"]["value"],.6)
+        monitor.reset_device_metric(self.db,a,"watts",now=self.now+16)
+        cards=monitor.shared_peak_cards(self.db,self.a)
+        self.assertIsNone(cards["watts"]["value"])
+        self.assertAlmostEqual(cards["amps"]["value"],.6)
+        self.assertEqual(monitor.shared_peak_cards(self.db,self.b),original_b)
+        self.assertEqual(monitor.total_amps_peak(self.db),original_total)
+        old=next(r for r in history.collect(self.db,"day",now=self.now+17)
+                 if r["device_key"]==self.a)
+        self.assertEqual(old["watts_max"],500.)
+        self.assertEqual(old["amps_max"],3.25)
+
+    def test_fallback_peak_is_independent_of_watts_reset(self):
+        data=self.snapshot(230.,100.,1.,.5)
+        data["devices"][0]["amps_source"]="calculated"
+        monitor.record_sample(self.db,data,now=self.now)
+        a=data["devices"][0]
+        self.assertEqual(monitor.shared_peak_cards(self.db,self.a)["amps"]["value"],1.)
+        monitor.reset_device_metric(self.db,a,"amps",now=self.now+1)
+        self.assertIsNone(monitor.shared_peak_cards(self.db,self.a)["amps"]["value"])
+        self.assertEqual(monitor.shared_peak_cards(self.db,self.a)["watts"]["value"],230.)
+        data["devices"][0]["watts"]=46.
+        data["devices"][0]["amps"]=.2
+        monitor.record_sample(self.db,data,now=self.now+15)
+        self.assertEqual(monitor.shared_peak_cards(self.db,self.a)["amps"]["value"],.2)
+        monitor.reset_device_metric(self.db,a,"watts",now=self.now+16)
+        self.assertEqual(monitor.shared_peak_cards(self.db,self.a)["amps"]["value"],.2)
+
+    def test_consumer_history_uses_measured_values(self):
+        data=self.snapshot(69.,0.,.314,0.)
+        history.record_sample(self.db,data,now=self.now)
+        stats=history.consumer_detail(self.db,self.a,"24h",now=self.now+15,tariff=.3)
+        self.assertEqual(stats["samples"],1)
+        self.assertEqual(stats["summary"]["watts_avg"],69.)
+        self.assertAlmostEqual(stats["summary"]["amps_avg"],.314)
+        self.assertAlmostEqual(stats["summary"]["energy_est_kwh"],69*15/3600000)
+        self.assertEqual(stats["summary"]["amps_direct_pct"],100)
+        empty=history.consumer_detail(self.db,"sensor.missing","24h",now=self.now+15)
+        self.assertIsNone(empty["summary"]["watts_avg"])
+        self.assertIsNone(empty["energies"]["today"]["kwh"])
+
     def test_repeat_reset_keeps_first_audit(self):
         first = self.snapshot(200.,100.,0.8,0.6)
         monitor.record_sample(self.db,first,now=self.now)

@@ -81,7 +81,7 @@
   </section>
   <div class="bottom-grid">
    <section class="panel devices-panel">
-    <div class="panel-title"><h2>Geräteübersicht</h2><span id="device-summary">Drucker anklicken für Details</span></div>
+    <div class="panel-title"><h2>Geräteübersicht</h2><span id="device-summary">Gerät anklicken für Details</span></div>
     <div class="table-wrap"><table class="devices-table">
      <thead><tr><th>Gerät</th><th>Leistung</th><th>Strom*</th><th title="Höchste beobachtete Leistung seit Watt-Reset">Max W</th><th title="Höchster beobachteter Strom seit dem letzten Max-A-Reset">Max A*</th><th>Energie</th><th>Status</th></tr></thead>
      <tbody id="device-rows"><tr><td colspan="7" class="placeholder">Geräte werden geladen …</td></tr></tbody>
@@ -143,15 +143,15 @@
     </div>
    </div>
    <div class="pd-head-actions">
-    <button type="button" id="pd-prev" aria-label="Vorheriger Drucker" title="Vorheriger Drucker">‹</button>
-    <button type="button" id="pd-next" aria-label="Nächster Drucker" title="Nächster Drucker">›</button>
+    <button type="button" id="pd-prev" aria-label="Vorheriges Gerät" title="Vorheriges Gerät">‹</button>
+    <button type="button" id="pd-next" aria-label="Nächstes Gerät" title="Nächstes Gerät">›</button>
     <button type="button" id="pd-close" aria-label="Schließen" title="Schließen">×</button>
    </div>
   </header>
   <div class="pd-live-state"><span id="pd-status" class="pd-state-tag">Lade …</span>
    <span id="pd-updated">Live-Werte aus Home Assistant</span>
   </div>
-  <div class="pd-kpis" aria-label="Druckerkennzahlen">
+  <div class="pd-kpis" aria-label="Gerätekennzahlen">
    <div class="pd-kpi"><small>Aktuelle Leistung</small><strong id="pd-watts">– W</strong></div>
    <div class="pd-kpi"><small>Aktueller Strom</small><strong id="pd-amps">– A</strong></div>
    <div class="pd-kpi"><div class="pd-kpi-heading"><small>Watt-Peak seit Reset</small><button type="button" id="pd-reset-w" class="pd-reset-icon" aria-label="Watt-Peak zurücksetzen" title="Watt-Peak zurücksetzen" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg></button></div><strong id="pd-peak-w">– W</strong><span class="pd-peak-action" id="pd-peak-w-action">–</span><span id="pd-peak-w-note">–</span></div>
