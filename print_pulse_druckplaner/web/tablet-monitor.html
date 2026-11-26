@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f8f5">
 <title>Print &amp; Pulse | Stromüberwachung Live</title>
-<link rel="stylesheet" href="tablet-monitor.css?v=0.13.96">
-<script src="tablet-monitor.js?v=0.13.97" defer></script>
+<link rel="stylesheet" href="tablet-monitor.css?v=0.13.98">
+<script src="tablet-monitor.js?v=0.13.98" defer></script>
 </head>
 <body data-theme="light">
 <div class="monitor-shell">
@@ -41,6 +41,14 @@
    <article class="kpi warning"><div class="kpi-symbol">△</div><div><small>Watt-Warnschwelle</small><strong id="warning">– W</strong></div></article>
    <article class="kpi critical"><div class="kpi-symbol">!</div><div><small>Watt kritisch</small><strong id="critical">– W</strong></div></article>
    <article class="kpi amp-limit-kpi"><div class="kpi-symbol">⌁</div><div><small>Stromkreis-Nennstrom</small><strong id="amp-limit">16,0 A</strong><span class="kpi-note">Vom Nutzer angegeben · B16 prüfen</span></div></article>
+  </section>
+  <section class="device-group-kpis" aria-label="Aktuelle Last nach Gerätegruppe">
+   <article class="group-kpi"><div class="group-kpi-label"><span aria-hidden="true">▣</span><h2>Drucker gesamt</h2></div>
+    <div class="group-kpi-values"><strong id="group-printer-watts">– W</strong><span id="group-printer-amps">– A</span></div>
+    <small id="group-printer-note">Warte auf Messwerte</small></article>
+   <article class="group-kpi"><div class="group-kpi-label"><span aria-hidden="true">◈</span><h2>Sonstige gesamt</h2></div>
+    <div class="group-kpi-values"><strong id="group-other-watts">– W</strong><span id="group-other-amps">– A</span></div>
+    <small id="group-other-note">Warte auf Messwerte</small></article>
   </section>
   <section class="load-card dual-load" id="load-card" data-level="unknown" aria-label="Zwei getrennte Laststatus-Balken">
    <div class="dual-load-heading">

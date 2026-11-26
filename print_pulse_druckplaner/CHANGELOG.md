@@ -1,3 +1,10 @@
+## 0.13.98 – Drucker und sonstige Verbraucher getrennt anzeigen
+
+- Geräteübersicht mit zwei Gruppen: Drucker und sonstige Verbraucher (PC, Kühlschrank, Laser, Beleuchtung usw.). Die bestehende Live-Sortierung und Statusfarben bleiben innerhalb jeder Gruppe erhalten.
+- Zwei kompakte Live-Karten für Watt und Ampere je Gruppe; fehlende Sensoren und geschätzte Stromwerte werden ausdrücklich gekennzeichnet. Null ist ein gültiger Messwert, fehlende Werte bleiben unbekannt.
+- Die Gesamtlast, Warnschwellen, Messhistorie und Reset-Funktionen bleiben unverändert. Der Messpunkt-Zähler umfasst nun sämtliche aktiven Geräte. Die vorhandene Geräteverwaltung unterstützt beide Kategorien.
+- Keine automatische Zuordnung unbekannter Shellys; neue Verbraucher werden in der Geräteverwaltung mit ihren tatsächlichen HA-Sensoren eingerichtet.
+
 ## 0.13.97 – Aktive Drucker automatisch oben
 
 - Geräteübersicht bei jeder Live-Aktualisierung automatisch gruppiert: laufende/vorbereitende Drucker zuerst, weitere eingeschaltete Geräte danach, Offline-/nicht zugeordnete Geräte darunter und ausdrücklich ausgeschaltete Geräte zuletzt. Innerhalb einer Gruppe bleibt die bisherige Reihenfolge stabil. Vor-/Zurück-Navigation der Geräte-Details nutzt dieselbe Sortierung. Fehlermeldungen, Messungen und Schaltfunktionen bleiben unverändert.

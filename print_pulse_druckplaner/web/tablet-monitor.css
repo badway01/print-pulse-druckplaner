@@ -452,3 +452,19 @@ body[data-theme=dark] .pd-state-finished{background:#274862;color:#c9e4fd}
 .devices-table tbody tr.state-off .printer-name:before,
 .devices-table tbody tr.state-off .other-name:before{color:var(--muted);opacity:.65}
 .devices-table tbody tr.state-off .pill.off{font-weight:550}
+
+/* Group subtotals are informational; the existing total load indicators remain unchanged. */
+.device-group-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 15px}
+.group-kpi{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:14px 16px;min-width:0;box-shadow:var(--shadow)}
+.group-kpi-label{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.group-kpi-label span{color:var(--green);font-size:17px}
+.group-kpi-label h2{font-size:13px;margin:0;font-weight:650}
+.group-kpi-values{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 14px;margin:7px 0 5px}
+.group-kpi-values strong{font-size:clamp(20px,2.1vw,30px);line-height:1.1;font-weight:750}
+.group-kpi-values span{font-size:clamp(14px,1.3vw,20px);color:var(--muted);font-weight:600}
+.group-kpi small{display:block;color:var(--muted);font-size:10px;line-height:1.4}
+.devices-table tbody .device-group-heading th{position:relative;background:var(--surface);padding:15px 10px 9px;border-radius:0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text)}
+.device-group-title{font-weight:750}
+.device-group-count{font-weight:500;color:var(--muted);font-size:11px;margin-left:12px}
+.devices-table tbody .device-group-empty td{color:var(--muted);font-size:11px;background:var(--soft)}
+@media(max-width:420px){.device-group-kpis{gap:7px}.group-kpi{padding:10px}.group-kpi-values{display:grid;gap:4px}.group-kpi-label h2{font-size:11px}}

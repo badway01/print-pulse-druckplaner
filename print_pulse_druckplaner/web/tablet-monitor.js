@@ -339,10 +339,39 @@
   return (items||[]).map((item,index)=>({item,index,rank:deviceSortRank(item)}))
    .sort((a,b)=>a.rank-b.rank||a.index-b.index).map(entry=>entry.item);
  }
+ // Group only by the explicitly configured device type, not its name.
+ function groupDevices(items){
+  const rows=sortedDevices(items);
+  return [{key:'printer',label:'Drucker',items:rows.filter(d=>d.kind!=='other')},
+          {key:'other',label:'Sonstige Verbraucher',items:rows.filter(d=>d.kind==='other')}];
+ }
+ function groupTotals(items){
+  const valid=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0;
+  const watts=items.filter(d=>valid(d.watts));
+  const amps=items.filter(d=>valid(d.amps));
+  const estimated=amps.filter(d=>d.amps_source!=='shelly').length;
+  return {count:items.length,wattsCount:watts.length,ampsCount:amps.length,estimated,
+   watts:watts.length?watts.reduce((sum,d)=>sum+d.watts,0):null,
+   amps:amps.length?amps.reduce((sum,d)=>sum+d.amps,0):null};
+ }
+ function renderGroupTotals(groups){
+  for(const group of groups){
+   const totals=groupTotals(group.items);
+   byId('group-'+group.key+'-watts').textContent=power(totals.watts);
+   byId('group-'+group.key+'-amps').textContent=totals.amps==null?'– A':
+    (totals.estimated?'≈ ':'')+fmt(totals.amps,3)+' A';
+   byId('group-'+group.key+'-note').textContent=!totals.count?'Keine Geräte eingerichtet':
+    'W: '+totals.wattsCount+'/'+totals.count+' · A: '+totals.ampsCount+'/'+totals.count+
+    (totals.estimated?' · '+totals.estimated+' geschätzt':'')+
+    (totals.wattsCount<totals.count||totals.ampsCount<totals.count?' · unvollständig':'');
+  }
+ }
  function renderDevices(d){
-  const rows=sortedDevices(d.devices);
+  const groups=groupDevices(d.devices);
+  const rows=groups.flatMap(group=>group.items);
+  renderGroupTotals(groups);
   byId('device-summary').textContent=rows.length+' Geräte · '+d.measured+' mit Leistungsmessung';
-  const html=rows.map(item=>{
+  const renderRow=item=>{
    const available=item.watts!=null;
    const phase=displayPhase(item);
    const amp=item.amps==null?'–':
@@ -364,9 +393,17 @@
     '<td>'+esc(power(item.watts))+'</td><td title="'+esc(currentHint)+'">'+esc(amp)+'</td>'+
     '<td class="device-max-amps" title="'+esc(peakHint)+'">'+esc(maxAmp)+'</td><td>'+esc(e)+'</td>'+
     '<td><span class="pill '+esc(phase.state)+'">'+esc(phase.label)+'</span></td></tr>';
-  }).join('');
-  byId('device-rows').innerHTML=html||
-    '<tr><td colspan="6" class="placeholder">Keine aktiven Geräte. Im Druckplaner hinzufügen.</td></tr>';
+  };
+  const html=groups.map(group=>
+   '<tr class="device-group-heading"><th colspan="6" scope="colgroup">'+
+   '<span class="device-group-title">'+esc(group.label)+'</span>'+
+   '<span class="device-group-count">'+group.items.length+' Geräte</span></th></tr>'+
+   (group.items.length?group.items.map(renderRow).join(''):
+    '<tr class="device-group-empty"><td colspan="6">'+
+     (group.key==='other'?'Noch keine sonstigen Verbraucher eingerichtet.':'Noch keine Drucker eingerichtet.')+
+    '</td></tr>')
+  ).join('');
+  byId('device-rows').innerHTML=html;
  }
  // Per-printer detail window: the main monitoring dashboard stays unchanged.
  const detailDialog=byId('printer-detail');
@@ -740,7 +777,7 @@
     'Am '+new Date(ampHigh.at*1000).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+
     ' · '+ampHigh.measured+' Shellys direkt':
     'Ab Update: nur vollständige Shelly-Werte';
-  byId('measured').textContent=(d.printers_measured??0)+' / '+(d.printers_total??0);
+  byId('measured').textContent=(d.measured??0)+' / '+(d.devices||[]).length;
   byId('warning').textContent=power(d.warning_w);
   byId('critical').textContent=power(d.critical_w);
   status(d);loadBar(d);renderDevices(d);renderPeakHistory(d);renderFaults(d);chart(d);
@@ -768,6 +805,11 @@
    byId('status-detail').textContent=e.message;
    byId('amp-status-title').textContent='Verbindung unterbrochen';
    byId('amp-status-detail').textContent='Keine aktuellen Shelly-Messwerte';
+   for(const key of ['printer','other']){
+    byId('group-'+key+'-watts').textContent='– W';
+    byId('group-'+key+'-amps').textContent='– A';
+    byId('group-'+key+'-note').textContent='Keine aktuellen Daten';
+   }
    byId('updated').textContent='Keine aktuellen Daten: '+e.message;
   }finally{loading=false}
  }

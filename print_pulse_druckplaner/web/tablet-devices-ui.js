@@ -33,7 +33,7 @@
     '<div class="pp-device-edit-grid">'+
      '<label>Gerätename<input class="pp-device-name" maxlength="70" value="'+esc(item.name||'')+'"></label>'+
      '<label>Typ<select class="pp-device-kind"><option value="printer"'+(item.kind==='printer'?' selected':'')+'>3D-Drucker</option>'+
-       '<option value="other"'+(item.kind==='other'?' selected':'')+'>Sonstiges</option></select></label>'+
+       '<option value="other"'+(item.kind==='other'?' selected':'')+'>Sonstige Verbraucher</option></select></label>'+
      '<label>Leistungsmessung (W)<select class="pp-device-power">'+fieldChoices(power,item.power_entity,'Kein Leistungssensor')+'</select></label>'+
      '<label>Verbrauchszähler (kWh)<select class="pp-device-energy">'+fieldChoices(energy,item.energy_entity,'Optional')+'</select></label>'+
      '<label>Steckdosenschalter (nur Status)<select class="pp-device-switch">'+fieldChoices(switches,item.switch_entity,'Optional')+'</select></label>'+

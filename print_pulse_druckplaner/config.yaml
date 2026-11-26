@@ -1,5 +1,5 @@
 name: "Print & Pulse Druckplaner"
-version: "0.13.97"
+version: "0.13.98"
 slug: "print_pulse_druckplaner"
 description: "Lager und Bestellungen: Produktionspool, Druckplanung und Etsy-Aufträge"
 arch:
