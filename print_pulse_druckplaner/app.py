@@ -79,7 +79,7 @@ except ImportError:
 tablet_monitor.power_monitor = power_monitor
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.14.8'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.14.9'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -4065,6 +4065,41 @@ def widget_payload(reading, sampled_at, now=None):
             'warning_w':reading.get('warning_w'),'critical_w':reading.get('critical_w')}}
 
 
+
+def esp32_payload(reading, sampled_at, peak=None, average=None):
+    """Compact read-only HA attribute for the CYD; all configured devices."""
+    valid=lambda v:isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) and v>=0
+    number=lambda v:round(v,3) if valid(v) else None
+    def phase(d):
+        if d.get('switch_state')=='off': return ('Aus',1)
+        p=d.get('printer_state')
+        if p=='error': return ('Fehler',3)
+        if not d.get('entity'): return ('Offen',2)
+        if p=='offline': return ('Offline',3)
+        if p=='paused': return ('Pause',0)
+        if p=='finished': return ('Fertig',0)
+        if p=='idle': return ('Bereit',0)
+        if p=='printing': return ('Druckt',0)
+        if p=='preparing': return ('Startet',0)
+        if d.get('watts') is None and d.get('amps') is None: return ('Fehlt',2)
+        if d.get('switch_state')=='on': return ('An',0)
+        return ('Unklar',2)
+    devices=reading.get('devices') or []
+    rows=[]
+    for d in sorted(devices,key=lambda d:(d.get('kind')=='other',phase(d)[1])):
+        name=str(d.get('name') or '?').translate(str.maketrans({'ä':'ae','ö':'oe','ü':'ue','Ä':'Ae','Ö':'Oe','Ü':'Ue','ß':'ss'}))
+        name=name.encode('ascii','replace').decode('ascii')[:18]
+        rows.append([name,number(d.get('watts')),number(d.get('amps')),
+                     phase(d)[0],d.get('amps_source')=='shelly'])
+    result={'t':sampled_at,'w':number(reading.get('watts')),'a':number(reading.get('amps')),
+            'mw':number(reading.get('warning_w')),'cw':number(reading.get('critical_w')),
+            'p':number((peak or {}).get('amps')),'avg':number((average or {}).get('amps')),
+            'n':len(devices),'nw':sum(valid(d.get('watts')) for d in devices),
+            'na':sum(valid(d.get('amps')) and d.get('amps_source')=='shelly' for d in devices),
+            'e':sum(valid(d.get('amps')) and d.get('amps_source')!='shelly' for d in devices),
+            'rows':rows}
+    return json.dumps(result,ensure_ascii=True,separators=(',',':'),allow_nan=False)
+
 def widget_publish_loop():
     while True:
         try:
@@ -4072,6 +4107,19 @@ def widget_publish_loop():
             sample=WIDGET_READING
             if token and sample:
                 payload=widget_payload(*sample)
+                # Same persisted complete peak and 24h mean as the tablet monitor.
+                # If statistics are temporarily unavailable, still publish live readings.
+                if payload['state']!='unavailable':
+                    peak=average=None
+                    try:
+                        with connect() as db:
+                            peak=tablet_monitor.total_amps_peak(db)
+                            average=tablet_monitor.average_amps_24h(db)
+                    except Exception:
+                        log.debug('ESP32 Spitzenwerte momentan nicht verfügbar.')
+                    payload['attributes']['esp32_payload']=esp32_payload(*sample,peak,average)
+                else:
+                    payload['attributes']['esp32_payload']='{}'
                 req=urllib.request.Request(
                     'http://supervisor/core/api/states/'+WIDGET_ENTITY,
                     data=json.dumps(payload,allow_nan=False).encode('utf-8'),
@@ -4082,7 +4130,7 @@ def widget_publish_loop():
         except Exception:
             # Never expose credentials or disrupt the measurement worker.
             log.debug('Widget-Sensor momentan nicht publizierbar.')
-        time.sleep(60)
+        time.sleep(15)
 
 
 def power_alarm_loop():

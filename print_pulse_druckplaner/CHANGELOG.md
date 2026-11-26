@@ -1,3 +1,7 @@
+## 0.14.9 – ESP32 Strommonitor
+
+- Bestehender HA-Widget-Sensor publiziert alle 15 Sekunden einen kompakten, schreibgeschützten Datenstrom für ESPHome: Watt, Stromsumme, Abdeckung, Grenzwerte, gespeicherter Max-A-Wert, 24h-Mittelwert und alle Geräte mit Status. Keine zusätzlichen Ports, keine Änderungen an Messung oder Reset.
+
 ## 0.14.8 – Kompakte Stromüberwachung
 
 - Drei dauerhaft sichtbare Live-Kennzahlen: Gesamtleistung, Stromsumme und Strompeak gesamt inklusive bestehendem Reset.
