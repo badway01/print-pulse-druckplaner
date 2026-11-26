@@ -78,6 +78,29 @@ class PrinterDetailTest(unittest.TestCase):
         self.assertEqual(detail.classify("printing",None)[0],"printing")
         self.assertEqual(detail.classify("cleaning_nozzle_tip","printing","off")[0],"off")
 
+    def test_peak_action_matches_timestamp_even_after_raw_pruning(self):
+        for i,(stage,w,a) in enumerate([
+            ("heatbed_preheating",400.,1.1),
+            ("heating_hotend",200.,2.2),
+            ("printing",80.,.5),
+        ]):
+            detail.record(self.db,self.capture(self.now+15*i,stage,w,a),now=self.now+15*i)
+        for period in ("1h","24h","7d"):
+            d=detail.detail(self.db,self.h2d,period,now=self.now+60)
+            self.assertEqual(d["card_peaks"]["watts"]["context"]["action"],"Heizbett heizt")
+            self.assertEqual(d["card_peaks"]["amps"]["context"]["action"],"Düse heizt")
+        self.db.execute("DELETE FROM "+detail.RAW_TABLE)
+        d=detail.detail(self.db,self.h2d,"7d",now=self.now+3*86400)
+        self.assertEqual(d["card_peaks"]["watts"]["context"]["action"],"Heizbett heizt")
+        self.assertEqual(d["card_peaks"]["amps"]["context"]["action"],"Düse heizt")
+
+    def test_old_general_phase_and_zero_peak(self):
+        detail.record(self.db,self.capture(self.now,"heating",0.,0.),now=self.now)
+        d=detail.detail(self.db,self.h2d,"24h",now=self.now+1)
+        self.assertEqual(d["card_peaks"]["watts"]["context"]["label"],"Heizt auf")
+        self.assertIsNone(d["card_peaks"]["watts"]["context"]["action"])
+        self.assertEqual(d["card_peaks"]["watts"]["value"],0.)
+
     def test_empty_period_and_validation(self):
         data=detail.detail(self.db,self.h2d,"24h",now=self.now)
         self.assertFalse(data["started"])

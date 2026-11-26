@@ -517,6 +517,32 @@
    '<g class="pd-plot-grid">'+grid+ticks+'</g>'+
    line('watts',maxW,'#36b869')+line('amps',maxA,'#308bd5')+'</svg>';
  }
+ function renderPhaseRows(data){
+  const phases=Array.isArray(data.phases)?data.phases:[];
+  const sort=byId('pd-phase-sort').value;
+  const rows=phases.slice();
+  if(sort==='watts'||sort==='amps'){
+   const key=sort+'_peak';
+   rows.sort((a,b)=>(b[key]??-1)-(a[key]??-1));
+  }
+  function peakCell(phase,kind,value){
+   const at=phase[kind+'_peak_at'],ctx=phase[kind+'_context'];
+   return '<td><strong>'+esc(value)+'</strong>'+
+    (ctx?.action&&ctx.action!==phase.label?'<small>'+esc(ctx.action)+'</small>':'')+
+    (at?'<small>'+esc(dateTime(at))+'</small>':'')+'</td>';
+  }
+  byId('pd-phase-rows').innerHTML=rows.length?rows.map(phase=>{
+    const real=phase.amps_direct_pct===100;
+    const avgA=phase.amps_avg==null?'–':(real?'':'≈ ')+fmt(phase.amps_avg,3)+' A';
+    const peakA=phase.amps_peak==null?'–':(real?'':'≈ ')+fmt(phase.amps_peak,3)+' A';
+    return '<tr><td><strong>'+esc(phase.label)+'</strong><small>'+
+     phase.samples.toLocaleString('de-DE')+' Messungen</small></td>'+
+     '<td>'+esc(power(phase.watts_avg))+'</td><td>'+esc(avgA)+'</td>'+
+     peakCell(phase,'watts',power(phase.watts_peak))+
+     peakCell(phase,'amps',peakA)+'<td>'+esc(fmt(phase.energy_est_kwh,3))+'</td></tr>';
+   }).join(''):'<tr><td colspan="6" class="pd-empty">Noch keine Druckphasen aufgezeichnet.</td></tr>';
+ }
+ byId('pd-phase-sort').addEventListener('change',()=>{if(latestDetail)renderPhaseRows(latestDetail)});
  function renderPrinterDetail(data){
   const summary=data.summary||{};
   const avgCount=Number(data.samples)||0;
@@ -528,6 +554,10 @@
    (a.direct?'':'≈ ')+fmt(a.value,3)+' A';
   const peakNote=p=>(p.at?'Am '+dateTime(p.at):'Noch kein Wert')+
    (p.reset_at?' · Reset '+dateTime(p.reset_at):'');
+  const actionText=p=>p.value==null?'Noch kein Peak':
+   p.context?.label?'Bei: '+p.context.label:'Phase nicht gespeichert';
+  byId('pd-peak-w-action').textContent=actionText(w);
+  byId('pd-peak-a-action').textContent=actionText(a);
   byId('pd-peak-w-note').textContent=peakNote(w);
   byId('pd-peak-a-note').textContent=peakNote(a);
   const resets=Array.isArray(data.reset_history)?data.reset_history:[];
@@ -545,22 +575,7 @@
   for(const id of ['pd-reset-w','pd-reset-a'])byId(id).disabled=detailResetBusy;
   byId('pd-phase-total').textContent=avgCount.toLocaleString('de-DE')+' Messungen';
   const phases=Array.isArray(data.phases)?data.phases:[];
-  byId('pd-phase-rows').innerHTML=phases.length?
-   phases.map(phase=>{
-    const real=phase.amps_direct_pct===100;
-    const avgA=phase.amps_avg==null?'–':
-     (real?'':'≈ ')+fmt(phase.amps_avg,3)+' A';
-    const peakA=phase.amps_peak==null?'–':
-     (real?'':'≈ ')+fmt(phase.amps_peak,3)+' A';
-    return '<tr><td><strong>'+esc(phase.label)+'</strong><small>'+
-     phase.samples.toLocaleString('de-DE')+' Messungen</small></td>'+
-     '<td>'+esc(power(phase.watts_avg))+'</td>'+
-     '<td>'+esc(avgA)+'</td>'+
-     '<td>'+esc(power(phase.watts_peak))+'</td>'+
-     '<td>'+esc(peakA)+'</td>'+
-     '<td>'+esc(fmt(phase.energy_est_kwh,3))+'</td></tr>';
-   }).join(''):
-   '<tr><td colspan="6" class="pd-empty">Noch keine Druckphasen aufgezeichnet.</td></tr>';
+  renderPhaseRows(data);
   const events=Array.isArray(data.peaks)?data.peaks:[];
   const approximated=new Set(phases.filter(p=>p.amps_direct_pct!==100).map(p=>p.label));
   byId('pd-events').innerHTML=events.length?events.slice(0,10).map(evt=>{
@@ -650,6 +665,8 @@
   byId('pd-events').innerHTML='<p>Lade Ereignisse …</p>';
   byId('pd-peak-w').textContent='– W';
   byId('pd-peak-a').textContent='– A';
+  byId('pd-peak-w-action').textContent='–';
+  byId('pd-peak-a-action').textContent='–';
   byId('pd-peak-w-note').textContent='–';
   byId('pd-peak-a-note').textContent='–';
   byId('pd-prev').disabled=printerOptions().length<2;

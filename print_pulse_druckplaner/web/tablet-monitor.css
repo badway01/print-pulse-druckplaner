@@ -470,3 +470,10 @@ body[data-theme=dark] .pd-state-finished{background:#274862;color:#c9e4fd}
 @media(max-width:420px){.device-group-kpis{gap:7px}.group-kpi{padding:10px}.group-kpi-values{display:grid;gap:4px}.group-kpi-label h2{font-size:11px}}
 
 #homescreen-link[hidden]{display:none!important}
+
+/* Peak cards keep the recorded action separate from the timestamp and reset. */
+.pd-kpi .pd-peak-action{font-size:12px;font-weight:700;color:var(--text);line-height:1.35;overflow-wrap:anywhere}
+.pd-phase-sort{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 10px;color:var(--muted);font-size:11px}
+.pd-phase-sort select{max-width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--soft);color:var(--text);font-size:11px}
+.pd-phase-table td:nth-child(4),.pd-phase-table td:nth-child(5){vertical-align:top}
+.pd-phase-table td:nth-child(4) small,.pd-phase-table td:nth-child(5) small{white-space:normal;min-width:75px}

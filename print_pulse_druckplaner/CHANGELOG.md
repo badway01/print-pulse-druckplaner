@@ -1,3 +1,9 @@
+## 0.14.2 – Peak-Karten mit Druckaktion und sortierbaren Phasenspitzen
+
+- Watt- und Ampere-Peak zeigen die gespeicherte Phase zum jeweiligen Spitzenzeitpunkt. Neue Messungen bewahren zusätzlich bekannte konkrete HA-Arbeitsschritte (z. B. Heizbett/Düse heizen); alte Daten behalten die allgemeine Phase.
+- Phasentabelle nach höchster Watt- oder Ampere-Spitze sortierbar, mit Zeitpunkt und genauer Aktion je Spitze, sofern bekannt. Zeitraum und Reset-Semantik bleiben unverändert.
+- Additive SQLite-Erweiterung: keine historischen Daten werden gelöscht; Null bleibt gültig und fehlende Werte bleiben unbekannt. Gesamtlastberechnung, Poll-Frequenz und Warnungen bleiben unverändert.
+
 ## 0.14.1 – iPhone-Homescreen-Direktlink
 
 - Stromüberwachung: Schaltfläche „Homescreen“ öffnet den stabilen HA-Panel-Link mit `?pp_view=strom`. Beim Aufruf leitet der Add-on-Einstieg zur bestehenden Live-Stromansicht weiter. HA übernimmt die Anmeldung und Ingress-Sitzung; keine offenen Ports oder gespeicherten Ingress-Tokens.

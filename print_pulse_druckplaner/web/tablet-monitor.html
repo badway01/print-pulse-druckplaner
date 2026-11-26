@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f8f5">
 <title>Print &amp; Pulse | Stromüberwachung Live</title>
-<link rel="stylesheet" href="tablet-monitor.css?v=0.14.1">
-<script src="homescreen-link.js?v=0.14.1" defer></script><script src="tablet-monitor.js?v=0.14.1" defer></script>
+<link rel="stylesheet" href="tablet-monitor.css?v=0.14.2">
+<script src="homescreen-link.js?v=0.14.1" defer></script><script src="tablet-monitor.js?v=0.14.2" defer></script>
 </head>
 <body data-theme="light">
 <div class="monitor-shell">
@@ -154,8 +154,8 @@
   <div class="pd-kpis" aria-label="Druckerkennzahlen">
    <div class="pd-kpi"><small>Aktuelle Leistung</small><strong id="pd-watts">– W</strong></div>
    <div class="pd-kpi"><small>Aktueller Strom</small><strong id="pd-amps">– A</strong></div>
-   <div class="pd-kpi"><div class="pd-kpi-heading"><small>Watt-Peak im Zeitraum</small><button type="button" id="pd-reset-w" class="pd-reset-icon" aria-label="Watt-Peak zurücksetzen" title="Watt-Peak zurücksetzen" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg></button></div><strong id="pd-peak-w">– W</strong><span id="pd-peak-w-note">–</span></div>
-   <div class="pd-kpi"><div class="pd-kpi-heading"><small>Ampere-Peak im Zeitraum</small><button type="button" id="pd-reset-a" class="pd-reset-icon" aria-label="Ampere-Peak zurücksetzen" title="Ampere-Peak zurücksetzen" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg></button></div><strong id="pd-peak-a">– A</strong><span id="pd-peak-a-note">–</span></div>
+   <div class="pd-kpi"><div class="pd-kpi-heading"><small>Watt-Peak im Zeitraum</small><button type="button" id="pd-reset-w" class="pd-reset-icon" aria-label="Watt-Peak zurücksetzen" title="Watt-Peak zurücksetzen" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg></button></div><strong id="pd-peak-w">– W</strong><span class="pd-peak-action" id="pd-peak-w-action">–</span><span id="pd-peak-w-note">–</span></div>
+   <div class="pd-kpi"><div class="pd-kpi-heading"><small>Ampere-Peak im Zeitraum</small><button type="button" id="pd-reset-a" class="pd-reset-icon" aria-label="Ampere-Peak zurücksetzen" title="Ampere-Peak zurücksetzen" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg></button></div><strong id="pd-peak-a">– A</strong><span class="pd-peak-action" id="pd-peak-a-action">–</span><span id="pd-peak-a-note">–</span></div>
   </div>
   <p id="pd-reset-feedback" class="pd-reset-feedback" role="status"></p>
   <div class="pd-content">
@@ -181,11 +181,12 @@
    <section class="pd-panel pd-phase-panel">
     <div class="pd-panel-heading"><h3>Verbrauch nach Druckphase</h3>
      <span id="pd-phase-total">–</span></div>
+     <div class="pd-phase-sort"><label for="pd-phase-sort">Sortierung</label><select id="pd-phase-sort"><option value="watts">Höchste Watt-Spitze</option><option value="amps">Höchste Ampere-Spitze</option><option value="phase">Druckphasen</option></select></div>
     <div class="pd-table-scroll"><table class="pd-phase-table">
      <thead><tr><th>Druckphase</th><th>Ø W</th><th>Ø A</th><th>Peak W</th><th>Peak A</th><th>≈ kWh</th></tr></thead>
      <tbody id="pd-phase-rows"><tr><td colspan="6">Noch keine Messwerte</td></tr></tbody>
     </table></div>
-    <p class="pd-helper">Durchschnittswerte je tatsächlich erkannter Phase. kWh sind Schätzungen aus 15-Sekunden-Leistungsmessungen. Unbekannte HA-Arbeitsschritte werden separat ausgewiesen.</p>
+    <p class="pd-helper">Durchschnittswerte je tatsächlich erkannter Phase. kWh sind Schätzungen aus 15-Sekunden-Leistungsmessungen. Peak-Zellen zeigen den Zeitpunkt und den genauen HA-Arbeitsschritt, sofern gespeichert. Ältere Daten können nur einer allgemeinen Druckphase zugeordnet werden. Die Tabelle enthält alle Messungen des Zeitraums, auch vor einem Peak-Reset.</p>
    </section>
    <section class="pd-panel pd-events-panel">
     <div class="pd-panel-heading"><h3>Spitzen &amp; Ereignisse</h3><span>Mit Druckphase und Uhrzeit</span></div>

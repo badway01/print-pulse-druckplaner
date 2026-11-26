@@ -66,6 +66,52 @@ def classify(stage, state=None, switch_state=None):
     return "unknown", PHASES["unknown"]
 
 
+# Record precise actions only when the corresponding HA stage is known.
+EXACT_ACTIONS = {
+    "heatbed_preheating": ("heating", "Heizbett heizt"),
+    "heating_bed": ("heating", "Heizbett heizt"),
+    "waiting_for_heatbed_temperature": ("heating", "Heizbett heizt"),
+    "heating_hotend": ("heating", "Düse heizt"),
+    "waiting_for_nozzle_temperature": ("heating", "Düse heizt"),
+    "heating_nozzle": ("heating", "Düse heizt"),
+    "auto_bed_leveling": ("leveling", "Druckbett nivellieren"),
+    "bed_leveling": ("leveling", "Druckbett nivellieren"),
+    "cleaning_nozzle_tip": ("cleaning", "Düse reinigen"),
+    "homing_toolhead": ("calibrating", "Referenzfahrt"),
+    "calibrating_extrusion": ("calibrating", "Extrusion kalibrieren"),
+    "calibrating_extrusion_flow": ("calibrating", "Fluss kalibrieren"),
+    "calibrating_motor_noise": ("calibrating", "Motorkalibrierung"),
+    "calibrating_micro_lidar": ("calibrating", "LiDAR kalibrieren"),
+    "checking_extruder_temperature": ("heating", "Düsentemperatur prüfen"),
+    "scanning_bed_surface": ("calibrating", "Druckbett prüfen"),
+    "inspecting_first_layer": ("calibrating", "Erste Schicht prüfen"),
+    "sweeping_xy_mech_mode": ("calibrating", "Mechanikprüfung"),
+    "filament_loading": ("filament", "Filament laden"),
+    "filament_unloading": ("filament", "Filament entladen"),
+    "changing_filament": ("filament", "Filamentwechsel"),
+    "cooling_chamber": ("cooling", "Bauraum kühlt ab"),
+    "printing": ("printing", "Druckt"),
+}
+
+
+def exact_action(stage, phase):
+    normalized = re.sub(r"[^a-z0-9äöüß]+", "_", str(stage or "").strip().casefold())
+    match = EXACT_ACTIONS.get(normalized)
+    return match[1] if match and match[0] == phase else None
+
+
+def _add_columns(db, table, columns):
+    existing = {row[1] for row in db.execute(f"PRAGMA table_info({table})")}
+    for column in columns:
+        if column not in existing:
+            try:
+                db.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
+            except Exception:
+                # A concurrent request may have completed the same migration.
+                if column not in {row[1] for row in db.execute(f"PRAGMA table_info({table})")}:
+                    raise
+
+
 def ensure(db):
     db.execute(f"""CREATE TABLE IF NOT EXISTS {RAW_TABLE}(
         at INTEGER NOT NULL,
@@ -112,6 +158,9 @@ def ensure(db):
         boundary_direct INTEGER)""")
     db.execute("""CREATE INDEX IF NOT EXISTS idx_pp_detail_resets_device
         ON pp_printer_detail_resets(device_key,kind,id)""")
+    _add_columns(db, RAW_TABLE, ("action_label",))
+    _add_columns(db, ROLL_TABLE, ("watts_peak_action", "amps_peak_action"))
+    _add_columns(db, "pp_printer_detail_resets", ("boundary_phase", "boundary_action"))
 
 
 def number(value):
@@ -132,24 +181,26 @@ def record(db, snapshot, now=None):
             continue
         phase, label = classify(item.get("print_stage"),item.get("printer_state"),
                                 item.get("switch_state"))
+        action = exact_action(item.get("print_stage"),phase)
         name = str(item.get("name") or entity)[:70]
         watts, amps = number(item.get("watts")), number(item.get("amps"))
         direct = int(amps is not None and item.get("amps_source") == "shelly")
         db.execute(f"""INSERT OR REPLACE INTO {RAW_TABLE}
-            (at,device_key,device_name,phase_key,watts,amps,amp_direct)
-            VALUES(?,?,?,?,?,?,?)""",
-            (now,entity,name,phase,watts,amps,direct))
+            (at,device_key,device_name,phase_key,watts,amps,amp_direct,action_label)
+            VALUES(?,?,?,?,?,?,?,?)""",
+            (now,entity,name,phase,watts,amps,direct,action))
         # Track the post-reset portion of the first 5-minute bucket separately.
         # The original bucket remains intact for historical charts and phases.
         for kind, value in (("watts", watts), ("amps", amps)):
             if value is not None:
                 db.execute("""UPDATE pp_printer_detail_resets
-                    SET boundary_value=?,boundary_at=?,boundary_direct=?
+                    SET boundary_value=?,boundary_at=?,boundary_direct=?,
+                        boundary_phase=?,boundary_action=?
                     WHERE id=(SELECT MAX(id) FROM pp_printer_detail_resets
                               WHERE device_key=? AND kind=?)
                       AND at<? AND at>=?
                       AND (boundary_value IS NULL OR boundary_value<?)""",
-                    (value,now,direct if kind=="amps" else 1,
+                    (value,now,direct if kind=="amps" else 1,phase,action,
                      entity,kind,now,now//300*300,value))
         bucket = now//300*300
         wc, ac = int(watts is not None), int(amps is not None)
@@ -157,25 +208,34 @@ def record(db, snapshot, now=None):
             (bucket,device_key,device_name,phase_key,sample_count,
              watts_count,watts_sum,watts_max,watts_peak_at,
              amps_count,amps_sum,amps_max,amps_peak_at,amps_direct_count,
-             energy_est_kwh) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             energy_est_kwh,watts_peak_action,amps_peak_action)
+             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
              ON CONFLICT(bucket,device_key,phase_key) DO UPDATE SET
              device_name=excluded.device_name,
              sample_count=sample_count+1,
              watts_count=watts_count+excluded.watts_count,
              watts_sum=watts_sum+excluded.watts_sum,
-             watts_peak_at=CASE WHEN excluded.watts_max>watts_max
-                               THEN excluded.watts_peak_at ELSE watts_peak_at END,
+             watts_peak_action=CASE WHEN excluded.watts_count>0 AND
+                 (watts_count=0 OR excluded.watts_max>watts_max)
+                 THEN excluded.watts_peak_action ELSE watts_peak_action END,
+             watts_peak_at=CASE WHEN excluded.watts_count>0 AND
+                 (watts_count=0 OR excluded.watts_max>watts_max)
+                 THEN excluded.watts_peak_at ELSE watts_peak_at END,
              watts_max=MAX(watts_max,excluded.watts_max),
              amps_count=amps_count+excluded.amps_count,
              amps_sum=amps_sum+excluded.amps_sum,
-             amps_peak_at=CASE WHEN excluded.amps_max>amps_max
-                              THEN excluded.amps_peak_at ELSE amps_peak_at END,
+             amps_peak_action=CASE WHEN excluded.amps_count>0 AND
+                 (amps_count=0 OR excluded.amps_max>amps_max)
+                 THEN excluded.amps_peak_action ELSE amps_peak_action END,
+             amps_peak_at=CASE WHEN excluded.amps_count>0 AND
+                 (amps_count=0 OR excluded.amps_max>amps_max)
+                 THEN excluded.amps_peak_at ELSE amps_peak_at END,
              amps_max=MAX(amps_max,excluded.amps_max),
              amps_direct_count=amps_direct_count+excluded.amps_direct_count,
              energy_est_kwh=energy_est_kwh+excluded.energy_est_kwh""",
             (bucket,entity,name,phase,1,wc,watts or 0,watts or 0,
              now if wc else None,ac,amps or 0,amps or 0,now if ac else None,
-             direct,(watts or 0)*15/3600000))
+             direct,(watts or 0)*15/3600000,action if wc else None,action if ac else None))
     if now%300 < 16:
         db.execute(f"DELETE FROM {RAW_TABLE} WHERE at<?",(now-2*86400,))
         db.execute(f"DELETE FROM {ROLL_TABLE} WHERE bucket<?",(now-31*86400,))
@@ -256,6 +316,31 @@ def _card_peak(db, entity, kind, period, now, summary):
     else:
         result.update(value=None,at=None,direct=False)
     return result
+
+
+def peak_context(db, entity, kind, at, fallback_phase=None):
+    """Match the recorded peak time, never substitute a current printer stage."""
+    if at is None:
+        return None
+    if kind not in ("watts","amps"):
+        raise ValueError("Ungültige Messgröße.")
+    row = db.execute(f"""SELECT phase_key,action_label
+        FROM {RAW_TABLE} WHERE device_key=? AND at=? AND {kind} IS NOT NULL""",
+        (entity,at)).fetchone()
+    if row is None:
+        row = db.execute(f"""SELECT phase_key,{kind}_peak_action AS action_label
+            FROM {ROLL_TABLE} WHERE device_key=? AND bucket=? AND {kind}_peak_at=?
+            AND {kind}_count>0 ORDER BY phase_key LIMIT 1""",
+            (entity,at//300*300,at)).fetchone()
+    if row is None:
+        row = db.execute("""SELECT boundary_phase AS phase_key,boundary_action AS action_label
+            FROM pp_printer_detail_resets WHERE device_key=? AND kind=? AND boundary_at=?
+            AND boundary_phase IS NOT NULL ORDER BY id DESC LIMIT 1""",
+            (entity,kind,at)).fetchone()
+    phase = row["phase_key"] if row else fallback_phase
+    action = row["action_label"] if row else None
+    return {"phase":PHASES.get(phase,"Unbekannt"),"action":action,
+            "label":action or PHASES.get(phase,"Unbekannt")}
 
 
 def reset_peak(db, entity, kind, period="24h", now=None):
@@ -346,6 +431,12 @@ def detail(db, entity, period="24h", now=None):
     summary=_format_stat(totals)
     card_peaks={kind:_card_peak(db,entity,kind,period,now,summary)
                 for kind in ("watts","amps")}
+    for kind, card in card_peaks.items():
+        card["context"]=peak_context(db,entity,kind,card["at"])
+    for phase in phases:
+        for kind in ("watts","amps"):
+            phase[kind+"_context"]=peak_context(db,entity,kind,
+                phase[kind+"_peak_at"],phase["phase"])
     reset_history=[dict(r) for r in db.execute("""SELECT kind,at,period,
         previous_value,previous_at,previous_direct FROM pp_printer_detail_resets
         WHERE device_key=? AND at>=? AND at<=? ORDER BY id DESC LIMIT 20""",
