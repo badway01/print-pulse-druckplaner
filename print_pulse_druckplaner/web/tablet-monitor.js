@@ -37,6 +37,16 @@
  clock();
  setInterval(clock,1000);
  byId('back-to-planner').addEventListener('click',()=>{
+  try {
+   if(window.top!==window&&window.top.location.origin===location.origin){
+    const parentURL=new URL(window.top.location.href);
+    if(parentURL.searchParams.get('pp_view')==='strom'){
+     parentURL.searchParams.delete('pp_view');
+     window.top.location.assign(parentURL.href);
+     return;
+    }
+   }
+  }catch(_){/* keep normal ingress navigation */}
   // Never redirect to a saved ingress token in a separate browser.
   // /monitor and /monitor/ both return to the same authenticated add-on root.
   const url=new URL(window.location.href);

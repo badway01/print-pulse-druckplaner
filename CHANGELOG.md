@@ -1,3 +1,8 @@
+## 0.14.1 – iPhone-Homescreen-Direktlink
+
+- Stromüberwachung: Schaltfläche „Homescreen“ öffnet den stabilen HA-Panel-Link mit `?pp_view=strom`. Beim Aufruf leitet der Add-on-Einstieg zur bestehenden Live-Stromansicht weiter. HA übernimmt die Anmeldung und Ingress-Sitzung; keine offenen Ports oder gespeicherten Ingress-Tokens.
+- Rückkehr zum Druckplaner entfernt den Direktaufruf. Messung, Warnungen und Widget bleiben unverändert.
+
 ## 0.14.0 – iPhone-Stromwidget
 
 - Neuer HA-Zustand sensor.print_pulse_strom_widget mit Gesamtleistung, Stromsumme, Druckaktivität, Messabdeckung, Fehlerstatus und Messzeitpunkt.

@@ -468,3 +468,5 @@ body[data-theme=dark] .pd-state-finished{background:#274862;color:#c9e4fd}
 .device-group-count{font-weight:500;color:var(--muted);font-size:11px;margin-left:12px}
 .devices-table tbody .device-group-empty td{color:var(--muted);font-size:11px;background:var(--soft)}
 @media(max-width:420px){.device-group-kpis{gap:7px}.group-kpi{padding:10px}.group-kpi-values{display:grid;gap:4px}.group-kpi-label h2{font-size:11px}}
+
+#homescreen-link[hidden]{display:none!important}
