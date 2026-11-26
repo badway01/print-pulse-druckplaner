@@ -1,3 +1,9 @@
+## 0.14.0 – iPhone-Stromwidget
+
+- Neuer HA-Zustand sensor.print_pulse_strom_widget mit Gesamtleistung, Stromsumme, Druckaktivität, Messabdeckung, Fehlerstatus und Messzeitpunkt.
+- Aktualisierung etwa einmal pro Minute in einem separaten Worker; verwendet die vorhandene Messung, ohne die 15-Sekunden-Aufzeichnung, Historie oder Warnschwellen zu verändern.
+- Scriptable-Vorlage mit lokaler Keychain-Anmeldung, Zeitstempel, fehlenden Messpunkten und Lastbalken. iOS steuert den tatsächlichen Widget-Refresh. Keine neuen öffentlichen Ports.
+
 ## 0.13.99 – Laststatus: zugeordnete Messpunkte verständlich anzeigen
 
 - Gemessene 0 W / 0 A sind gültige Werte, unabhängig vom Druckerstatus. Watt und Ampere werden getrennt anhand der zugeordneten Shelly-Messpunkte bewertet.

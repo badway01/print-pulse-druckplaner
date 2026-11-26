@@ -79,7 +79,7 @@ except ImportError:
 tablet_monitor.power_monitor = power_monitor
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.13.99'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.14.0'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -3999,8 +3999,59 @@ def farm_poll_loop():
         time.sleep(60)
 
 
+# One immutable handoff from the existing sampling worker. Publishing the
+# widget state happens in a separate thread, never delaying power recording.
+WIDGET_READING = None
+WIDGET_ENTITY = 'sensor.print_pulse_strom_widget'
+
+
+def widget_payload(reading, sampled_at, now=None):
+    now=time.time() if now is None else now
+    if reading is None or now-sampled_at>90:
+        return {'state':'unavailable','attributes':{
+            'friendly_name':'Print & Pulse Strom Widget','sampled_at':sampled_at}}
+    devices=reading.get('devices') or []
+    valid=lambda v:isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) and v>=0
+    missing_w=[x['name'] for x in devices if not valid(x.get('watts'))]
+    missing_a=[x['name'] for x in devices if not (valid(x.get('amps')) and x.get('amps_source')=='shelly')]
+    estimated=[x['name'] for x in devices if valid(x.get('amps')) and x.get('amps_source')!='shelly']
+    active=sum(x.get('kind')=='printer' and x.get('switch_state')!='off'
+               and x.get('printer_state') in ('printing','preparing') for x in devices)
+    return {'state':str(reading['watts']) if valid(reading.get('watts')) else 'unavailable',
+            'attributes':{'friendly_name':'Print & Pulse Strom Widget',
+            'unit_of_measurement':'W','icon':'mdi:flash',
+            'watts':reading.get('watts'),'amps':reading.get('amps'),
+            'sampled_at':sampled_at,'printing':active,
+            'devices':len(devices),'watts_measured':len(devices)-len(missing_w),
+            'amps_measured':len(devices)-len(missing_a),
+            'missing_watts':missing_w,'missing_amps':missing_a,'estimated_amps':estimated,
+            'faults':sum(x.get('state')=='on' for x in reading.get('faults',[])),
+            'warning_w':reading.get('warning_w'),'critical_w':reading.get('critical_w')}}
+
+
+def widget_publish_loop():
+    while True:
+        try:
+            token=os.environ.get('SUPERVISOR_TOKEN') or os.environ.get('HASSIO_TOKEN','')
+            sample=WIDGET_READING
+            if token and sample:
+                payload=widget_payload(*sample)
+                req=urllib.request.Request(
+                    'http://supervisor/core/api/states/'+WIDGET_ENTITY,
+                    data=json.dumps(payload,allow_nan=False).encode('utf-8'),
+                    headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+                    method='POST')
+                with urllib.request.urlopen(req,timeout=5) as response:
+                    response.read(1024)
+        except Exception:
+            # Never expose credentials or disrupt the measurement worker.
+            log.debug('Widget-Sensor momentan nicht publizierbar.')
+        time.sleep(60)
+
+
 def power_alarm_loop():
     """Sample the tablet history every 15s and send opted-in ntfy warnings."""
+    global WIDGET_READING
     while True:
         try:
             states=homeassistant_states()
@@ -4016,6 +4067,7 @@ def power_alarm_loop():
                 if settings['ntfy_topic']:
                     message=power_monitor.poll_alert(db,cfg,put_cfg,states)
                     fault=power_monitor.poll_fault_alert(db,cfg,put_cfg,states)
+            WIDGET_READING=(reading,int(time.time()))
             if fault:
                 power_monitor.send_ntfy(
                     fault['topic'],fault['title'],fault['message'],fault['priority'])
@@ -4050,4 +4102,5 @@ if __name__=='__main__':
     threading.Thread(target=periodic_sync,daemon=True).start()
     threading.Thread(target=farm_poll_loop,daemon=True).start()
     threading.Thread(target=power_alarm_loop,daemon=True).start()
+    threading.Thread(target=widget_publish_loop,daemon=True).start()
     ThreadingHTTPServer(('0.0.0.0',8099),Handler).serve_forever()
