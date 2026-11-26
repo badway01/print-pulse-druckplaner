@@ -1,3 +1,7 @@
+## 0.13.97 – Aktive Drucker automatisch oben
+
+- Geräteübersicht bei jeder Live-Aktualisierung automatisch gruppiert: laufende/vorbereitende Drucker zuerst, weitere eingeschaltete Geräte danach, Offline-/nicht zugeordnete Geräte darunter und ausdrücklich ausgeschaltete Geräte zuletzt. Innerhalb einer Gruppe bleibt die bisherige Reihenfolge stabil. Vor-/Zurück-Navigation der Geräte-Details nutzt dieselbe Sortierung. Fehlermeldungen, Messungen und Schaltfunktionen bleiben unverändert.
+
 ## 0.13.96 – Ausgeschaltete Geräte optisch zurücknehmen
 
 - Geräte mit Status „Aus“ erhalten dezenteren Text, weniger Fettdruck und ein abgeblendetes Gerätesymbol. Status und Messwerte bleiben lesbar; Offline- und Störungsanzeigen bleiben unverändert auffällig. Gilt für helles und dunkles Design.

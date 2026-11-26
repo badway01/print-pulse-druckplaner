@@ -324,8 +324,23 @@
    ).join('')+'</ul></div>'
   ).join('');
  }
+ // Stable groups: production first, other powered-on devices next,
+ // unavailable/offline devices next, explicitly switched-off devices last.
+ // Never infer a switched-off plug from zero watts or an offline printer.
+ function deviceSortRank(item){
+  if(item.switch_state==='off')return 4;
+  const state=item.printer_state;
+  if(state==='printing'||state==='preparing')return 0;
+  if(state==='paused'||state==='finished'||state==='idle'||state==='error'||item.switch_state==='on')return 1;
+  if(state==='offline'||!item.entity||item.watts==null)return 3;
+  return 2;
+ }
+ function sortedDevices(items){
+  return (items||[]).map((item,index)=>({item,index,rank:deviceSortRank(item)}))
+   .sort((a,b)=>a.rank-b.rank||a.index-b.index).map(entry=>entry.item);
+ }
  function renderDevices(d){
-  const rows=(d.devices||[]);
+  const rows=sortedDevices(d.devices);
   byId('device-summary').textContent=rows.length+' Geräte · '+d.measured+' mit Leistungsmessung';
   const html=rows.map(item=>{
    const available=item.watts!=null;
@@ -357,7 +372,7 @@
  const detailDialog=byId('printer-detail');
  let detailLastFetch=0;
  function printerOptions(){
-  return (current?.devices||[]).filter(d=>d.kind==='printer'&&d.entity);
+  return sortedDevices(current?.devices).filter(d=>d.kind==='printer'&&d.entity);
  }
  function dateTime(at){
   return at?new Date(at*1000).toLocaleString('de-DE',{
