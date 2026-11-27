@@ -1,3 +1,8 @@
+## 0.14.10 – Dynamische Statusfarben der Stromkarten
+
+- Gesamtleistung und Stromsumme übernehmen unabhängig den bestehenden Laststatus. Dezente Rahmen und Tönungen in Hell/Dunkel; nicht überwachte Geräte bleiben als Hinweis sichtbar. Fehlende zugeordnete Messwerte und Verbindungsfehler erhalten keine grüne Entwarnung.
+- Strompeak zeigt die Einstufung des historischen Werts, nicht der aktuellen Last. Gruppen zeigen den jeweils höheren Laststatus, bei unvollständiger Erfassung neutral. Grenzwerte, Messung und Reset unverändert.
+
 ## 0.14.9 – ESP32 Strommonitor
 
 - Bestehender HA-Widget-Sensor publiziert alle 15 Sekunden einen kompakten, schreibgeschützten Datenstrom für ESPHome: Watt, Stromsumme, Abdeckung, Grenzwerte, gespeicherter Max-A-Wert, 24h-Mittelwert und alle Geräte mit Status. Keine zusätzlichen Ports, keine Änderungen an Messung oder Reset.

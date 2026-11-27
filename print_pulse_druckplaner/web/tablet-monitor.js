@@ -191,6 +191,27 @@
    c.missing.length?'Kein Messwert: '+c.missing.join(', '):'',
    c.estimated.length?'Nur geschätzt: '+c.estimated.join(', '):''].filter(Boolean).join(' · ');
  }
+ function cardLevel(id,level,label){
+  byId(id).dataset.cardLevel=level;
+  if(label!==undefined)byId(id+'-status').textContent=label;
+ }
+ function observedLevel(value,warning,critical){
+  if(![value,warning,critical].every(v=>typeof v==='number'&&Number.isFinite(v)&&v>=0)||critical<=warning)return 'unknown';
+  return value>=critical?'critical':value>=warning?'warning':'normal';
+ }
+ function liveCardLabel(level,coverage){
+  if(level==='critical')return 'Kritisch';
+  if(level==='warning')return 'Erhöhte Last';
+  if(level==='unknown')return 'Messung unvollständig';
+  return coverage.unassigned.length?'Erfasste Last normal · Teilsumme':'Normalbereich';
+ }
+ function groupCardLevel(t,d){
+  const w=observedLevel(t.watts,d.warning_w,d.critical_w);
+  const a=observedLevel(t.amps,AMP_WARN_A,AMP_RED_A);
+  if(w==='critical'||a==='critical')return 'critical';
+  if(w==='warning'||a==='warning')return 'warning';
+  return t.count>0&&t.wattsCount===t.count&&t.ampsCount===t.count&&!t.estimated&&w==='normal'&&a==='normal'?'normal':'unknown';
+ }
  function status(d){
   const faults=(d.faults||[]).filter(f=>f.state==='on');
   const unknown=(d.faults||[]).filter(f=>f.state==='unknown').length;
@@ -214,6 +235,11 @@
   else if(!a.complete){al='unknown';at='Messung unvollständig'}
   else if(a.unassigned.length){at='Zugeordnete Messpunkte vollständig'}
   setRowStatus('amps-load-row','amp-status','amp-status-title','amp-status-detail',al,at,ad);
+  cardLevel('kpi-watts',wl,liveCardLabel(wl,w));
+  cardLevel('kpi-amps',al,liveCardLabel(al,a));
+  const peakLevel=observedLevel(d.total_amps_peak?.amps,AMP_WARN_A,AMP_RED_A);
+  cardLevel('kpi-peak',peakLevel,peakLevel==='unknown'?'Noch kein vollständiger Peak':
+   'Historischer Peak · '+({normal:'Normalbereich',warning:'Warnbereich',critical:'Kritischer Bereich'}[peakLevel]));
   const severity={normal:0,unknown:1,warning:2,critical:3};
   // A green row only describes its assigned sensors; keep the enclosing
   // overall card neutral if any load is outside measurement coverage.
@@ -378,9 +404,10 @@
    watts:watts.length?watts.reduce((sum,d)=>sum+d.watts,0):null,
    amps:amps.length?amps.reduce((sum,d)=>sum+d.amps,0):null};
  }
- function renderGroupTotals(groups){
+ function renderGroupTotals(groups,d){
   for(const group of groups){
    const totals=groupTotals(group.items);
+   cardLevel('kpi-group-'+group.key,groupCardLevel(totals,d));
    byId('group-'+group.key+'-watts').textContent=power(totals.watts);
    byId('group-'+group.key+'-amps').textContent=totals.amps==null?'– A':
     (totals.estimated?'≈ ':'')+fmt(totals.amps,3)+' A';
@@ -393,7 +420,7 @@
  function renderDevices(d){
   const groups=groupDevices(d.devices);
   const rows=groups.flatMap(group=>group.items);
-  renderGroupTotals(groups);
+  renderGroupTotals(groups,d);
   byId('device-summary').textContent=rows.length+' Geräte · '+d.measured+' mit Leistungsmessung';
   const renderRow=item=>{
    const phase=displayPhase(item);
@@ -895,6 +922,8 @@
    byId('connection').dataset.state='error';
    byId('connection-text').textContent='Keine Live-Verbindung';
    byId('load-card').dataset.level='unknown';
+   for(const id of ['kpi-watts','kpi-amps','kpi-peak'])cardLevel(id,'unknown','Keine aktuellen Daten');
+   for(const key of ['printer','other'])cardLevel('kpi-group-'+key,'unknown');
    for(const name of ['watt-load-row','amps-load-row'])byId(name).dataset.level='unknown';
    byId('status-title').textContent='Verbindung unterbrochen';
    byId('status-detail').textContent=e.message;

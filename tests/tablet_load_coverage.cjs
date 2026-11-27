@@ -8,7 +8,7 @@ const end=source.indexOf(' function loadBar(d){',start);
 assert.ok(start>=0&&end>start);
 const nodes=new Map();
 const byId=id=>{if(!nodes.has(id))nodes.set(id,{dataset:{},querySelector:()=>({})});return nodes.get(id)};
-const ctx=vm.runInNewContext(source.slice(start,end)+';({loadCoverage,status})',{byId});
+const ctx=vm.runInNewContext(source.slice(start,end)+';({loadCoverage,status,groupCardLevel,observedLevel})',{byId});
 const devices=[
  {name:'Druckt',entity:'sensor.a',watts:80,amps:.5,amps_source:'shelly'},
  {name:'Aus',entity:'sensor.b',switch_state:'off',watts:0,amps:0,amps_source:'shelly'},
@@ -21,6 +21,9 @@ ctx.status(data);
 assert.equal(byId('watt-load-row').dataset.level,'normal');
 assert.equal(byId('amps-load-row').dataset.level,'normal');
 assert.equal(byId('load-card').dataset.level,'unknown');
+assert.equal(byId('kpi-watts').dataset.cardLevel,'normal');
+assert.match(byId('kpi-watts-status').textContent,/Teilsumme/);
+assert.equal(byId('kpi-peak').dataset.cardLevel,'unknown');
 assert.match(byId('amp-status-detail').textContent,/Nicht überwacht: H2D/);
 devices[1].amps=null;
 ctx.status(data);
@@ -34,6 +37,16 @@ assert.match(byId('amp-status-detail').textContent,/Nur geschätzt: Aus/);
 ctx.status({...data,amps:14.5,level:'warning'});
 assert.equal(byId('amps-load-row').dataset.level,'critical');
 assert.equal(byId('watt-load-row').dataset.level,'warning');
+assert.equal(byId('kpi-watts').dataset.cardLevel,'warning');
+assert.equal(byId('kpi-amps').dataset.cardLevel,'critical');
+ctx.status({...data,total_amps_peak:{amps:14.1}});
+assert.equal(byId('kpi-peak').dataset.cardLevel,'critical');
+assert.match(byId('kpi-peak-status').textContent,/Historischer/);
+const group={count:2,wattsCount:2,ampsCount:2,estimated:0,watts:100,amps:.5};
+const limits={warning_w:2500,critical_w:3200};
+assert.equal(ctx.groupCardLevel(group,limits),'normal');
+assert.equal(ctx.groupCardLevel({...group,ampsCount:1},limits),'unknown');
+assert.equal(ctx.groupCardLevel({...group,ampsCount:1,amps:14},limits),'critical');
 ctx.status({...data,faults:[{state:'on'}]});
 assert.equal(byId('watt-load-row').dataset.level,'critical');
 assert.equal(byId('amps-load-row').dataset.level,'critical');
