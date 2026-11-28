@@ -29,8 +29,8 @@
  }));
  media.addEventListener?.('change',()=>{if(theme==='auto')applyTheme()});
  applyTheme();
- let compact=false,tariffDirty=false,tariffSaving=false;
- try{compact=localStorage.getItem('pp-monitor-compact')==='1'}catch(_){}
+ let compact=true,tariffDirty=false,tariffSaving=false;
+ try{compact=localStorage.getItem('pp-monitor-compact')!=='0'}catch(_){}
  const compactButton=byId('compact-toggle');
  function applyCompact(){
   document.body.dataset.compact=compact?'yes':'no';

@@ -1,3 +1,7 @@
+## 0.14.17 – Kompaktere Stromübersicht
+
+- Kompaktmodus ab 700 px unabhängig von der Ausrichtung, standardmäßig aktiv (gespeicherte Wahl bleibt erhalten). Flachere Lastbalken, Gruppen und Gerätezeilen; alle Messwerte, Warnhinweise und Schutzfunktionen bleiben erhalten. Geräteübersicht bei schmaleren Fenstern über die volle Breite, Schutzstatus und Verlauf darunter nebeneinander.
+
 ## 0.14.16 – Druckstrom-Prüffälle
 
 - Gezielte Tests für vollständige Drucke, Abbruch, Zählerwechsel, Messlücken, Tarifwechsel und unveränderte gespeicherte Kosten. Doppelt zugeordnete Energiezähler liefern keinen Druckpreis. Tarifanzeige bei Verbindungsverlust als nicht aktuell gekennzeichnet.

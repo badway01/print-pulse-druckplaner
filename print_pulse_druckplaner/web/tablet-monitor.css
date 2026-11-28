@@ -554,7 +554,7 @@ body[data-theme=dark] [data-card-level=critical]{--card-accent:#ff9b9e!important
 #pd-last-print-energy-content p{margin:4px 0}
 .device-print-cost{font-weight:650;font-variant-numeric:tabular-nums}
 .compact-toggle[aria-pressed=true]{color:var(--green);border-color:var(--green)}
-@media(min-width:781px) and (orientation:landscape){
+@media(min-width:700px){
  body[data-compact=yes] .monitor-shell{padding:7px 10px 5px}
  body[data-compact=yes] .topbar{padding:0 0 5px;gap:8px}
  body[data-compact=yes] .brand-mark{width:32px;height:32px}
@@ -621,4 +621,42 @@ body[data-theme=dark] [data-card-level=critical]{--card-accent:#ff9b9e!important
  body[data-compact=yes] .chart-source-note,body[data-compact=yes] .history-export-note{font-size:9px;margin:3px 0}
  body[data-compact=yes] .history-export,body[data-compact=yes] .peak-reset-section{margin-top:5px;padding-top:5px}
  body[data-compact=yes] footer{padding:4px 2px;font-size:9px}
+}
+
+/* v0.14.17: dense monitor, including narrow HA ingress and portrait windows. */
+@media(min-width:700px){
+ body[data-compact=yes] .group-kpi{padding:4px 8px}
+ body[data-compact=yes] .group-kpi-label{gap:4px}
+ body[data-compact=yes] .group-kpi-label span{font-size:12px;line-height:1}
+ body[data-compact=yes] .group-kpi-values{margin:1px 0;line-height:1.1}
+ body[data-compact=yes] .dual-load{padding:6px 8px;margin-bottom:5px}
+ body[data-compact=yes] .dual-load .load-bar-row{grid-template-columns:104px minmax(0,1fr) minmax(175px,220px);grid-template-rows:auto;align-items:center;gap:6px;padding:5px 7px;margin:3px 0}
+ body[data-compact=yes] .dual-load .load-row-icon{flex-basis:15px;font-size:17px}
+ body[data-compact=yes] .dual-load .load-side-title{gap:4px}
+ body[data-compact=yes] .dual-load .load-side-title strong{line-height:1.12}
+ body[data-compact=yes] .dual-load .load-bar-row .status{gap:5px;justify-self:stretch}
+ body[data-compact=yes] .dual-load .load-bar-row .status div{min-width:0}
+ body[data-compact=yes] .dual-load .load-bar-row .status div span{margin-top:1px;line-height:1.2}
+ body[data-compact=yes] .dual-load .load-gradient-box{height:30px;padding-top:16px;margin-top:0}
+ body[data-compact=yes] .dual-load .load-gradient{height:12px}
+ body[data-compact=yes] .dual-load .load-pin{bottom:15px}
+ body[data-compact=yes] .dual-load .load-ticks{line-height:1.12;margin-top:1px}
+ body[data-compact=yes] .dual-load-disclaimer{margin:3px 0 0;line-height:1.15}
+ body[data-compact=yes] .devices-table th,body[data-compact=yes] .devices-table td{padding:4px 5px;font-size:11px;line-height:1.25}
+ body[data-compact=yes] .devices-table tbody tr.device-row td{height:30px;box-sizing:border-box}
+ body[data-compact=yes] .devices-table tbody .device-group-heading th{padding:3px 5px}
+ body[data-compact=yes] .devices-table .pill{padding:2px 5px;line-height:1.2;font-size:10px}
+ body[data-compact=yes] .device-status-note{font-size:9px;white-space:normal;line-height:1.15}
+ body[data-compact=yes] .peak-reset-section{margin-top:4px;padding-top:4px}
+ body[data-compact=yes] .peak-reset-title strong{font-size:11px}
+ body[data-compact=yes] .peak-reset-title span{font-size:10px}
+ body[data-compact=yes] .peak-reset-history{margin-top:3px;font-size:10px}
+ body[data-compact=yes] .peak-reset-history summary{padding:3px 0}
+}
+@media(min-width:700px) and (max-width:1199px){
+ body[data-compact=yes] .bottom-grid{grid-template-columns:minmax(0,1fr)}
+ body[data-compact=yes] .side-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(min-width:1200px){
+ body[data-compact=yes] .bottom-grid{grid-template-columns:minmax(0,2.4fr) minmax(0,1fr)}
 }
