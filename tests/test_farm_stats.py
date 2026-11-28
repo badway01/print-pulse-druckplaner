@@ -146,3 +146,46 @@ class FarmTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PrintEnergyJobTests(unittest.TestCase):
+    def setUp(self):
+        self.db=sqlite3.connect(':memory:')
+        self.db.row_factory=sqlite3.Row
+        self.tariffs=[{'from':'2026-01-01','rate':.39},{'from':'2027-01-01','rate':.2879}]
+        self.at=1795900000
+    def sample(self,state,value,offset,entity='sensor.energy',name='job'):
+        d={'name':'Printer','kind':'printer','entity':'sensor.power','history_key':'sensor.power',
+           'printer_state':state,'energy_entity':entity,'job_name':name}
+        s={entity:{'state':str(value),'attributes':{'device_class':'energy','state_class':'total_increasing','unit_of_measurement':'kWh'}}}
+        farm_stats.record_print_energy(self.db,[d],s,self.tariffs,self.at+offset)
+    def test_complete_and_no_double_count(self):
+        self.sample('idle',10,0)
+        self.sample('preparing',10.1,15)
+        self.sample('printing',10.2,30)
+        self.sample('paused',10.3,45)
+        self.sample('finished',10.4,60)
+        self.sample('finished',10.5,75)
+        r=farm_stats.last_print_energy(self.db,'sensor.power')
+        self.assertTrue(r['complete'])
+        self.assertAlmostEqual(r['kwh'],.4)
+        self.assertAlmostEqual(r['cost'],.156)
+        self.assertEqual(self.db.execute('SELECT count(*) FROM pp_print_energy_jobs').fetchone()[0],1)
+    def test_missing_start_and_gap(self):
+        self.sample('printing',10,0)
+        self.sample('finished',11,15)
+        self.assertIsNone(farm_stats.last_print_energy(self.db,'sensor.power')['cost'])
+        self.sample('preparing',11.1,30)
+        self.sample('finished',11.2,150)
+        self.assertFalse(farm_stats.last_print_energy(self.db,'sensor.power')['complete'])
+    def test_counter_reset(self):
+        self.sample('idle',10,0)
+        self.sample('printing',10.1,15)
+        self.sample('finished',.1,30)
+        self.assertIsNone(farm_stats.last_print_energy(self.db,'sensor.power')['cost'])
+    def test_tariff_boundary(self):
+        import datetime as dt
+        from zoneinfo import ZoneInfo
+        at=int(dt.datetime(2027,1,1,tzinfo=ZoneInfo('Europe/Berlin')).timestamp())
+        s=farm_stats.tariff_segments(self.tariffs,at-10,at+10,.2)
+        self.assertEqual(s,[(.39,.1),(.2879,.1)])

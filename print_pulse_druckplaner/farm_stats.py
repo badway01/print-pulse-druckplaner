@@ -4,6 +4,7 @@ Only observed HA sensor intervals are measured. Gaps and unconfigured printers
 are never silently treated as idle; manual runs are clearly identified.
 """
 import time
+import json
 import math
 import datetime as dt
 from zoneinfo import ZoneInfo
@@ -239,3 +240,169 @@ def summary(db, days=7, now=None, since=None):
         "capacity_percent":round(100*total_printing/(len(printers)*capacity),1),
         "printers":printers
     }
+
+
+# Measured electricity per completed print. Independent of the existing
+# minute-based utilization and daily energy counters.
+JOB_TZ = ZoneInfo('Europe/Berlin')
+JOB_ACTIVE = {'preparing','printing','paused'}
+JOB_BASELINE = {'idle','finished'}
+JOB_MAX_GAP = 90
+TARIFF_KEY = 'print_energy_tariffs'
+TARIFF_DATES = ('2026-01-01','2027-01-01')
+
+def valid_rate(value):
+    try:
+        n=float(value)
+        return n if math.isfinite(n) and 0<=n<=10 else None
+    except (ValueError,TypeError,OverflowError):
+        return None
+
+def job_tariffs(db,cfg):
+    try:
+        raw=json.loads(cfg(db,TARIFF_KEY,''))
+        if isinstance(raw,list) and len(raw)==2 and all(
+            isinstance(x,dict) and x.get('from')==day and valid_rate(x.get('rate')) is not None
+            for x,day in zip(raw,TARIFF_DATES)):
+            return [{'from':x['from'],'rate':valid_rate(x['rate'])} for x in raw]
+    except (ValueError,TypeError):
+        pass
+    old=valid_rate(cfg(db,'farm_energy_tariff',''))
+    return [{'from':TARIFF_DATES[0],'rate':old if old is not None else .39},
+            {'from':TARIFF_DATES[1],'rate':.2879}]
+
+def rate_at(tariffs,at):
+    day=dt.datetime.fromtimestamp(at,JOB_TZ).date().isoformat()
+    return next((x['rate'] for x in reversed(tariffs) if x['from']<=day),None)
+
+def save_job_tariffs(db,cfg,put_cfg,values):
+    if not isinstance(values,list) or len(values)!=2:
+        raise ValueError('Zwei Stromtarife erforderlich.')
+    result=[]
+    for day,item in zip(TARIFF_DATES,values):
+        if not isinstance(item,dict) or item.get('from')!=day or valid_rate(item.get('rate')) is None:
+            raise ValueError('Strompreis muss zwischen 0 und 10 €/kWh liegen.')
+        result.append({'from':day,'rate':round(valid_rate(item['rate']),6)})
+    put_cfg(db,TARIFF_KEY,json.dumps(result,separators=(',',':')))
+    return result
+
+def tariff_segments(tariffs,start,end,kwh):
+    """Split a counter delta across a tariff boundary by elapsed time."""
+    if end<=start:return []
+    boundaries=[start]+[int(dt.datetime.fromisoformat(x['from']).replace(tzinfo=JOB_TZ).timestamp())
+        for x in tariffs if start<int(dt.datetime.fromisoformat(x['from']).replace(tzinfo=JOB_TZ).timestamp())<end]+[end]
+    return [(rate_at(tariffs,a),kwh*(b-a)/(end-start)) for a,b in zip(boundaries,boundaries[1:])]
+
+def ensure_jobs(db):
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_print_energy_tracker(
+        device_key TEXT PRIMARY KEY, entity TEXT NOT NULL, printer TEXT NOT NULL,
+        at INTEGER NOT NULL, state TEXT NOT NULL, counter REAL,
+        started INTEGER, valid INTEGER NOT NULL, job TEXT NOT NULL,
+        kwh REAL NOT NULL, cost REAL NOT NULL, rates TEXT NOT NULL, split INTEGER NOT NULL)""")
+    db.execute("""CREATE TABLE IF NOT EXISTS pp_print_energy_jobs(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, device_key TEXT NOT NULL, printer TEXT NOT NULL,
+        started INTEGER NOT NULL, ended INTEGER NOT NULL, job TEXT NOT NULL,
+        kwh REAL, cost REAL, rates TEXT NOT NULL, split INTEGER NOT NULL, complete INTEGER NOT NULL)""")
+    db.execute("CREATE INDEX IF NOT EXISTS pp_print_energy_latest ON pp_print_energy_jobs(device_key,ended,id)")
+    db.execute("CREATE INDEX IF NOT EXISTS pp_print_energy_end ON pp_print_energy_jobs(ended)")
+
+def record_print_energy(db,devices,states,tariffs,now=None):
+    """Track only observed transitions and cumulative energy from the same meter.
+    Incomplete or ambiguous runs never acquire a fabricated electricity cost.
+    """
+    now=int(time.time() if now is None else now)
+    ensure_jobs(db)
+    selected=[d for d in devices if d.get('kind')=='printer' and d.get('history_key') and d.get('entity')]
+    seen=set()
+    counts={}
+    for d in selected:
+        meter=d.get('energy_entity') or ''
+        counts[meter]=counts.get(meter,0)+1
+    for d in selected:
+        key=d['history_key'];seen.add(key)
+        meter=d.get('energy_entity') or ''
+        state=d.get('printer_state') or 'unknown'
+        if d.get('switch_state')=='off':state='offline'
+        counter=energy_value(states.get(meter)) if meter and counts[meter]==1 else None
+        name=d['name'];filename=str(d.get('job_name') or '')[:180]
+        old=db.execute('SELECT * FROM pp_print_energy_tracker WHERE device_key=?',(key,)).fetchone()
+        if old and now<=old['at']:continue
+        started=old['started'] if old else None
+        valid=bool(old['valid']) if old else False
+        kwh=float(old['kwh']) if old else 0.
+        cost=float(old['cost']) if old else 0.
+        rates=json.loads(old['rates']) if old else {}
+        split=bool(old['split']) if old else False
+        job=old['job'] if old else ''
+        consecutive=bool(old and 0<now-old['at']<=JOB_MAX_GAP and meter==old['entity']
+            and counter is not None and old['counter'] is not None and counter>=old['counter'])
+        active=state in JOB_ACTIVE
+        if active and started is None:
+            # First active sample after a confirmed idle/finished baseline.
+            valid=bool(consecutive and old['state'] in JOB_BASELINE)
+            started=old['at'] if valid else now
+            kwh=cost=0.;rates={};split=False;job=filename
+        if started is not None:
+            if active or state=='finished':
+                if not consecutive:valid=False
+                # Filenames may change during preparation; once actually printing,
+                # a different nonempty filename indicates an ambiguous job boundary.
+                if active and old and old['state'] in ('printing','paused') and job and filename and filename!=job:
+                    valid=False
+                if filename and (not job or (old and old['state']=='preparing')):job=filename
+                if valid:
+                    delta=counter-old['counter']
+                    segments=tariff_segments(tariffs,old['at'],now,delta)
+                    if not segments or any(rate is None for rate,_ in segments):
+                        valid=False
+                    else:
+                        kwh+=delta
+                        split=split or len(segments)>1
+                        for rate,amount in segments:
+                            cost+=rate*amount
+                            label=str(rate)
+                            rates[label]=rates.get(label,0.)+amount
+                if state=='finished':
+                    db.execute("""INSERT INTO pp_print_energy_jobs
+                        (device_key,printer,started,ended,job,kwh,cost,rates,split,complete)
+                        VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                        (key,name,started,now,job,kwh if valid else None,cost if valid else None,
+                         json.dumps(rates if valid else {}),int(split),int(valid)))
+                    started=None
+            elif state in ('error','idle'):
+                # Aborted or unconfirmed completion: no successful job record.
+                started=None
+            else:
+                valid=False
+        if started is None:
+            valid=False;kwh=cost=0.;rates={};split=False;job=''
+        db.execute("""INSERT INTO pp_print_energy_tracker VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(device_key) DO UPDATE SET entity=excluded.entity,printer=excluded.printer,
+            at=excluded.at,state=excluded.state,counter=excluded.counter,started=excluded.started,
+            valid=excluded.valid,job=excluded.job,kwh=excluded.kwh,cost=excluded.cost,
+            rates=excluded.rates,split=excluded.split""",
+            (key,meter,name,now,state,counter,started,int(valid),job,kwh,cost,json.dumps(rates),int(split)))
+    # Removed devices cannot silently resume an in-flight measurement.
+    for row in db.execute('SELECT device_key FROM pp_print_energy_tracker WHERE started IS NOT NULL').fetchall():
+        if row['device_key'] not in seen:
+            db.execute("UPDATE pp_print_energy_tracker SET valid=0,state='unknown' WHERE device_key=?",(row['device_key'],))
+
+def last_print_energy(db,key):
+    ensure_jobs(db)
+    row=db.execute("""SELECT * FROM pp_print_energy_jobs WHERE device_key=?
+        ORDER BY ended DESC,id DESC LIMIT 1""",(key,)).fetchone()
+    if not row:return None
+    item=dict(row);item['rates']=json.loads(item['rates']);item['complete']=bool(item['complete'])
+    item['split']=bool(item['split']);return item
+
+def print_energy_summary(db,now=None):
+    ensure_jobs(db)
+    now=int(time.time() if now is None else now)
+    date=dt.datetime.fromtimestamp(now,JOB_TZ).date()
+    result={}
+    for label,day in [('today',date),('week',date-dt.timedelta(days=date.weekday())),('month',date.replace(day=1))]:
+        start=int(dt.datetime.combine(day,dt.time.min,JOB_TZ).timestamp())
+        row=db.execute("""SELECT SUM(cost) cost,COUNT(cost) measured,COUNT(*) total
+            FROM pp_print_energy_jobs WHERE ended>=? AND ended<=?""",(start,now)).fetchone()
+        result[label]={'cost':row['cost'],'measured':row['measured'],'total':row['total']}
+    return result

@@ -29,6 +29,43 @@
  }));
  media.addEventListener?.('change',()=>{if(theme==='auto')applyTheme()});
  applyTheme();
+ let compact=false,tariffDirty=false,tariffSaving=false;
+ try{compact=localStorage.getItem('pp-monitor-compact')==='1'}catch(_){}
+ const compactButton=byId('compact-toggle');
+ function applyCompact(){
+  document.body.dataset.compact=compact?'yes':'no';
+  compactButton.setAttribute('aria-pressed',String(compact));
+  compactButton.textContent=compact?'Standard':'Kompakt';
+ }
+ compactButton.addEventListener('click',()=>{
+  compact=!compact;try{localStorage.setItem('pp-monitor-compact',compact?'1':'0')}catch(_){}
+  applyCompact();
+ });
+ applyCompact();
+ const tariffForm=byId('print-tariff-form');
+ tariffForm.addEventListener('input',()=>{tariffDirty=true});
+ tariffForm.addEventListener('submit',async e=>{
+  e.preventDefault();if(tariffSaving)return;tariffSaving=true;
+  const feedback=byId('print-tariff-feedback');
+  try{
+   const tariffs=['2026','2027'].map(year=>({from:year+'-01-01',rate:byId('print-tariff-'+year).valueAsNumber}));
+   if(tariffs.some(x=>!Number.isFinite(x.rate)||x.rate<0||x.rate>10))throw Error('Ungültiger Arbeitspreis');
+   const res=await fetch('api/print-energy-tariffs',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({tariffs})});
+   const data=await res.json();if(!res.ok)throw Error(data.error||'Speichern fehlgeschlagen');
+   tariffDirty=false;feedback.textContent='Gespeichert';refresh();
+  }catch(err){feedback.textContent=err.message}finally{tariffSaving=false}
+ });
+ function renderPrintCosts(d){
+  for(const key of ['today','week','month']){
+   const x=d.print_energy_summary?.[key]||{};
+   byId('print-cost-'+key).textContent=x.cost==null?'– €':fmt(x.cost,2)+' €';
+   byId('print-cost-'+key+'-note').textContent=(x.measured||0)+'/'+(x.total||0)+' vollständige abgeschlossene Drucke';
+  }
+  byId('print-tariff-active').textContent=d.active_energy_tariff==null?'Kein aktiver Tarif':'Aktuell '+fmt(d.active_energy_tariff,4)+' €/kWh';
+  if(!tariffDirty&&!tariffSaving)for(const x of d.energy_tariffs||[]){
+   const year=x.from.slice(0,4);if(['2026','2027'].includes(year))byId('print-tariff-'+year).value=x.rate;
+  }
+ }
  function clock(){
   const now=new Date();
   byId('clock').textContent=timeFmt.format(now);
@@ -437,6 +474,9 @@
    const peakHint=item.max_amps_source==='shelly'?'Höchster gemessener Shelly-Ampere-Wert':
       'Höchster errechneter Ersatzwert';
    const e=item.energy_kwh==null?'–':fmt(item.energy_kwh,2)+' kWh';
+   const job=item.last_print_energy;
+   const jobCost=job?.complete&&job.cost!=null?fmt(job.cost,2)+' €':'–';
+   const jobHint=job?.complete?fmt(job.kwh,3)+' kWh · '+dateTime(job.ended):job?'Letzter Druck nicht vollständig erfasst':'Noch kein vollständig erfasster Druck';
    const clickable=!!item.entity;
    const clickAttrs=clickable?
     ' role="button" tabindex="0" data-entity="'+esc(item.entity)+
@@ -447,15 +487,16 @@
     '<td>'+esc(power(item.watts))+'</td><td title="'+esc(currentHint)+'">'+esc(amp)+'</td>'+
     '<td class="device-max-watts">'+esc(power(item.max_watts))+'</td>'+
     '<td class="device-max-amps" title="'+esc(peakHint)+'">'+esc(maxAmp)+'</td><td>'+esc(e)+'</td>'+
+    '<td class="device-print-cost" title="'+esc(item.kind==='other'?'Kein Drucker':jobHint)+'">'+esc(item.kind==='other'?'–':jobCost)+'</td>'+
     '<td><span class="pill '+esc(phase.state)+'" title="'+esc(stateHint)+'">'+esc(phase.label)+'</span>'+
     (statusMismatch?'<small class="device-status-note">Messwert trotz Aus</small>':'')+'</td></tr>';
   };
   const html=groups.map(group=>
-   '<tr class="device-group-heading"><th colspan="7" scope="colgroup">'+
+   '<tr class="device-group-heading"><th colspan="8" scope="colgroup">'+
    '<span class="device-group-title">'+esc(group.label)+'</span>'+
    '<span class="device-group-count">'+group.items.length+' Geräte</span></th></tr>'+
    (group.items.length?group.items.map(renderRow).join(''):
-    '<tr class="device-group-empty"><td colspan="7">'+
+    '<tr class="device-group-empty"><td colspan="8">'+
      (group.key==='other'?'Noch keine sonstigen Verbraucher eingerichtet.':'Noch keine Drucker eingerichtet.')+
     '</td></tr>')
   ).join('');
@@ -608,6 +649,10 @@
   byId('pd-avg-a-box').hidden=!other;
   byId('pd-events-caption').textContent=other?'Mit Messzeitpunkt':'Mit Druckphase und Uhrzeit';
   if(other)renderConsumer(data);
+  const job=data.last_print_energy;
+  byId('pd-last-print-energy').hidden=other;
+  const jobRates=Object.entries(job?.rates||{}).map(([rate,kwh])=>fmt(kwh,3)+' kWh × '+fmt(Number(rate),4)+' €/kWh').join(' · ');
+  byId('pd-last-print-energy-content').innerHTML=other?'':job?.complete?'<strong>'+esc(fmt(job.cost,2))+' €</strong><p>'+esc(job.job||'Druckauftrag')+' · '+esc(dateTime(job.ended))+' · '+esc(fmt((job.ended-job.started)/3600,2))+' h · '+esc(fmt(job.kwh,3))+' kWh</p><p>'+esc(jobRates)+(job.split?' · Tarifwechsel zeitanteilig':'')+'</p>':job?'Letzter Druck nicht vollständig erfasst.':'Noch keine vollständige Druckmessung seit Update.';
   const cards=data.card_peaks||{};
   const w=cards.watts||{value:summary.watts_peak,at:summary.watts_peak_at};
   const a=cards.amps||{value:summary.amps_peak,at:summary.amps_peak_at,direct:summary.amps_direct_pct===100};
@@ -901,7 +946,7 @@
   byId('measured').textContent=(d.measured??0)+' / '+(d.devices||[]).length;
   byId('warning').textContent=power(d.warning_w);
   byId('critical').textContent=power(d.critical_w);
-  status(d);loadBar(d);renderDevices(d);renderPeakHistory(d);renderFaults(d);chart(d);
+  renderPrintCosts(d);status(d);loadBar(d);renderDevices(d);renderPeakHistory(d);renderFaults(d);chart(d);
   if(activeDeviceEntity&&detailDialog.open){
    updateDetailLive();
    if(Date.now()-detailLastFetch>30000)loadDetail();

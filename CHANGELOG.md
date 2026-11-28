@@ -1,3 +1,9 @@
+## 0.14.15 – Tablet-Kompaktmodus und Druckstromkosten
+
+- Kompaktmodus für Querformat, pro Browser gespeichert; bestehende Lastbalken, Geräte, Schutzstatus, Historie und Reset bleiben erhalten.
+- Neue Spalte Letzter Druck: Kosten aus kumulativen kWh-Zählern zwischen beobachtetem Druckstart und erfolgreichem Ende, inkl. Vorbereitung/Pause. Lücken, Zählerwechsel und unvollständige Starts liefern keinen erfundenen Preis. Kosten und verwendete Tarife dauerhaft gespeichert.
+- Editierbare Arbeitspreise ab 2026 und 2027, automatischer Wechsel nach Europe/Berlin, zeitanteilige Zuordnung eines Zählerintervalls am Tarifwechsel. Summen abgeschlossener Aufträge heute/Woche/Monat. Keine rückwirkende Schätzung und kein Grundpreis. Bestehende Kalkulator-Einstellungen unverändert.
+
 ## 0.14.14 – Test Management: unabhängige Produktionsplanung
 
 - Separater Reiter mit echten Bestellungen, Mengenprüfung, Modell-/Bauteilzuordnungen, sieben HA-Druckern, Plan und direkter 3MF-Öffnung. Keine Bestell-, Lager- oder Druckersteuerungs-Schreibzugriffe. Testregeln und Rückmeldungen lokal im Browser.

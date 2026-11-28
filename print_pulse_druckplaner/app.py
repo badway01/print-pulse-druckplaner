@@ -79,7 +79,7 @@ except ImportError:
 tablet_monitor.power_monitor = power_monitor
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.14.10'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.14.15'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -2898,6 +2898,7 @@ def tablet_print_phases(reading, states):
             candidate=candidates.get(mapping.get('status'),{}).get('stage')
             stage=sensor_text(states.get(candidate)) if candidate else None
         entry['print_stage']=stage
+        entry['job_name']=sensor_text(sensor_value(states,mapping,'filename'))
     return reading
 
 
@@ -3394,6 +3395,12 @@ class Handler(BaseHTTPRequestHandler):
                     result['average_amps_24h']=tablet_monitor.average_amps_24h(db)
                     result['peak_reset_history']=tablet_monitor.peak_reset_history(db)
                     peaks=tablet_monitor.device_peaks(db)
+                    result['print_energy_summary']=farm_stats.print_energy_summary(db)
+                    result['energy_tariffs']=farm_stats.job_tariffs(db,cfg)
+                    result['active_energy_tariff']=farm_stats.rate_at(result['energy_tariffs'],int(time.time()))
+                    for entry in result['devices']:
+                        if entry.get('kind')=='printer' and entry.get('history_key'):
+                            entry['last_print_energy']=farm_stats.last_print_energy(db,entry['history_key'])
                 records=tablet_monitor.devices(states,settings)
                 by_name={d['name']:d for d in records if d.get('enabled',True)}
                 for entry in result['devices']:
@@ -3462,6 +3469,7 @@ class Handler(BaseHTTPRequestHandler):
                         card['context']=tablet_printer_detail.peak_context(db,key,metric,card['at'])
                     data['name']=name
                     data['kind']=device.get('kind','printer')
+                    if data['kind']=='printer':data['last_print_energy']=farm_stats.last_print_energy(db,key)
                 return self.send(200,data)
             except ValueError:
                 return self.send(400,{'error':'Ungültige Detailanfrage.'})
@@ -3873,6 +3881,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,overview())
             if path=='/api/farm-energy-settings':
                 return self.send(200,save_energy_settings(data))
+            if path=='/api/print-energy-tariffs':
+                if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
+                    return self.send(403,{'error':'Ungültiger Ursprung.'})
+                with connect() as db:
+                    tariffs=farm_stats.save_job_tariffs(db,cfg,put_cfg,data.get('tariffs'))
+                return self.send(200,{'tariffs':tariffs})
             if path=='/api/tablet-reset-peaks':
                 if self.headers.get('Sec-Fetch-Site') not in (None,'same-origin','none'):
                     return self.send(403,{'error':'Ungültiger Ursprung.'})
@@ -4157,6 +4171,18 @@ def power_alarm_loop():
                 tablet_monitor.record_sample(db,reading)
                 tablet_history.record_sample(db,reading)
                 tablet_printer_detail.record(db,reading)
+                # Job tracking uses the registry's exact cumulative energy meter.
+                # Never let a new statistics failure roll back the power history.
+                db.execute('SAVEPOINT print_energy_job')
+                try:
+                    records={d['name']:d for d in tablet_monitor.devices(states,settings) if d.get('enabled',True)}
+                    job_devices=[dict(d,energy_entity=records.get(d['name'],{}).get('energy_entity','')) for d in reading['devices']]
+                    farm_stats.record_print_energy(db,job_devices,states,farm_stats.job_tariffs(db,cfg))
+                    db.execute('RELEASE print_energy_job')
+                except Exception:
+                    db.execute('ROLLBACK TO print_energy_job')
+                    db.execute('RELEASE print_energy_job')
+                    log.exception('Druckstrom-Aufzeichnung fehlgeschlagen')
                 message=fault=None
                 if settings['ntfy_topic']:
                     message=power_monitor.poll_alert(db,cfg,put_cfg,states)
