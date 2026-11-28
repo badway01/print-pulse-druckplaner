@@ -200,13 +200,15 @@ const navCheck=await page.locator('.workspace-tabs').evaluate(nav=>{
   scrollWidth:nav.scrollWidth,clientWidth:nav.clientWidth};
 });
 assert.deepEqual(navCheck.labels,
- ['Dashboard','Bestellungen','Druckwarteschlange','Modelle','Filament','Drucker','Statistik','Rechner'],
+ ['Dashboard','Bestellungen','Nächste Drucke','Modelle','Filament','Drucker','Statistik'],
  'short labels stay readable');
 assert.equal(navCheck.wrap,'nowrap','navigation never wraps to a second row');
 assert.equal(new Set(navCheck.tops).size,1,'all tabs are in one horizontal row');
 assert(navCheck.scrollWidth>=navCheck.clientWidth-3,'desktop navigation remains in one scrollable row without clipping');
-// Connected calculator and real printer checklist work inside the Home Assistant preview.
-await page.locator('[data-workspace="calculator"]').click();
+// Calculator is no longer in navigation, but its existing functionality remains intact.
+assert.equal(await page.locator('.workspace-tabs [data-workspace="calculator"]').count(),0,'calculator is not in navigation');
+assert.equal(await page.locator('#calculator-shell').isVisible(),false,'calculator stays hidden on dashboard');
+await page.evaluate(()=>showWorkspace('calculator'));
 await page.locator('#calculator-shell').waitFor({state:'visible'});
 await page.waitForFunction(()=>document.querySelectorAll('#econ-printer-checklist .econ-printer-chip').length===7);
 assert.equal(await page.locator('#econ-printer-checklist .econ-printer-chip').count(),7,'five production printers plus two legacy printers');

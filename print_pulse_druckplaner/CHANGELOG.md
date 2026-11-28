@@ -1,3 +1,7 @@
+## 0.14.11 – Navigation verschlankt: Rechner ausgeblendet
+
+- Rechner aus der oberen Navigation entfernt. Die bestehende Kostenberechnung, Produktdaten und übrige Bereiche bleiben unverändert. Keine Datenmigration.
+
 ## 0.14.10 – Dynamische Statusfarben der Stromkarten
 
 - Gesamtleistung und Stromsumme übernehmen unabhängig den bestehenden Laststatus. Dezente Rahmen und Tönungen in Hell/Dunkel; nicht überwachte Geräte bleiben als Hinweis sichtbar. Fehlende zugeordnete Messwerte und Verbindungsfehler erhalten keine grüne Entwarnung.
