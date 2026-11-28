@@ -78,6 +78,30 @@ class PeakResetTest(unittest.TestCase):
         self.assertIn("Strompeak gesamt", csv)
         self.assertIn("Messwerte", csv)
 
+    def test_total_amps_peak_uses_available_real_sensors(self):
+        sample = self.snapshot(100., 200., .5, 2.)
+        sample["devices"].append({"name":"Offline","entity":"sensor.offline","amps":None,"amps_source":"unavailable","watts":None})
+        sample["devices"].append({"name":"Unassigned","entity":"","amps":None,"amps_source":"unavailable","watts":None})
+        sample["devices"][1]["amps_source"]="calculated"
+        monitor.record_sample(self.db,sample,now=self.now)
+        peak=monitor.total_amps_peak(self.db)
+        self.assertEqual((peak["amps"],peak["measured"],peak["expected"]),(.5,1,4))
+        sample["devices"][0]["amps"]=3.
+        monitor.record_sample(self.db,sample,now=self.now+15)
+        self.assertEqual(monitor.total_amps_peak(self.db)["amps"],3.)
+        sample["devices"][0]["amps"]=None
+        sample["devices"][0]["amps_source"]="unavailable"
+        monitor.record_sample(self.db,sample,now=self.now+30)
+        self.assertEqual(monitor.total_amps_peak(self.db)["amps"],3.)
+        monitor.reset_all_amperes(self.db,sample["devices"],now=self.now+31)
+        self.assertIsNone(monitor.total_amps_peak(self.db))
+        monitor.record_sample(self.db,sample,now=self.now+45)
+        self.assertIsNone(monitor.total_amps_peak(self.db))
+        sample["devices"][0]["amps"]=0.
+        sample["devices"][0]["amps_source"]="shelly"
+        monitor.record_sample(self.db,sample,now=self.now+60)
+        self.assertEqual(monitor.total_amps_peak(self.db)["amps"],0.)
+
     def test_24h_average_is_real_observed_current_and_survives_peak_reset(self):
         first = self.snapshot(100., 200., 1.25, 2.75)  # 4.0 A total
         monitor.record_sample(self.db, first, now=self.now)

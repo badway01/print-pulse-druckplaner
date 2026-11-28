@@ -1,3 +1,8 @@
+## 0.14.19 – Laststatus und gemessener Strompeak
+
+- Lastfarben richten sich nach erfasster Last; fehlende oder unzugeordnete Messpunkte bleiben separat sichtbar. Keine Messwerte bleiben grau, aktive Shelly-Fehler und Grenzwertüberschreitungen bleiben rot/gelb.
+- Gesamt-Strompeak speichert ab Update die Summe direkt gemessener Shelly-Ströme auch bei fehlenden Geräten, mit Zeit und Messpunktanzahl. Keine Schätzwerte, kein rückwirkendes Auffüllen. Reset, Historie, 24-h-Durchschnitt und Schutzlogik unverändert.
+
 ## 0.14.18 – Laststatus etwas höher
 
 - Nur im Kompaktmodus mehr vertikaler Abstand und Höhe für Watt- und Ampere-Laststatus. Restliche Darstellung und Messlogik unverändert.

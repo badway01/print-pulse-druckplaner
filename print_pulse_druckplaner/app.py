@@ -79,7 +79,7 @@ except ImportError:
 tablet_monitor.power_monitor = power_monitor
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.14.18'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.14.19'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -4121,7 +4121,7 @@ def widget_publish_loop():
             sample=WIDGET_READING
             if token and sample:
                 payload=widget_payload(*sample)
-                # Same persisted complete peak and 24h mean as the tablet monitor.
+                # Same persisted observed peak and complete-sample 24h mean as the tablet monitor.
                 # If statistics are temporarily unavailable, still publish live readings.
                 if payload['state']!='unavailable':
                     peak=average=None

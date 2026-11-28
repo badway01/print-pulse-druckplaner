@@ -239,49 +239,46 @@
  function liveCardLabel(level,coverage){
   if(level==='critical')return 'Kritisch';
   if(level==='warning')return 'Erhöhte Last';
-  if(level==='unknown')return 'Messung unvollständig';
-  return coverage.unassigned.length?'Erfasste Last normal · Teilsumme':'Normalbereich';
+  if(level==='unknown')return 'Keine aktuellen Messwerte';
+  return 'Normalbereich · erfasste Last';
  }
  function groupCardLevel(t,d){
   const w=observedLevel(t.watts,d.warning_w,d.critical_w);
   const a=observedLevel(t.amps,AMP_WARN_A,AMP_RED_A);
   if(w==='critical'||a==='critical')return 'critical';
   if(w==='warning'||a==='warning')return 'warning';
-  return t.count>0&&t.wattsCount===t.count&&t.ampsCount===t.count&&!t.estimated&&w==='normal'&&a==='normal'?'normal':'unknown';
+  return w==='normal'||a==='normal'?'normal':'unknown';
  }
  function status(d){
   const faults=(d.faults||[]).filter(f=>f.state==='on');
   const unknown=(d.faults||[]).filter(f=>f.state==='unknown').length;
   const w=loadCoverage(d,'watts'),a=loadCoverage(d,'amps');
-  let wl='normal',wt='Messpunkte vollständig',wd=coverageNote(w);
+  let wl='normal',wt='Normalbereich · erfasste Last',wd=coverageNote(w);
   if(faults.length){wl='critical';wt='Shelly-Störung';wd=faults.length+' aktive Fehlermeldung(en) · '+wd}
   else if(d.watts==null){wl='unknown';wt='Keine Messwerte'}
   else if(d.level==='critical'){wl='critical';wt='Kritische Wattlast';wd='Eingestellte Watt-Grenze erreicht · '+wd}
   else if(d.level==='warning'){wl='warning';wt='Watt-Warnung';wd='Eingestellte Watt-Warnschwelle erreicht · '+wd}
-  else if(!w.complete){wl='unknown';wt='Messung unvollständig'}
-  else if(w.unassigned.length){wt='Zugeordnete Messpunkte vollständig'}
   if(unknown)wd+=' · '+unknown+' Shelly-Fehlerstatus nicht verfügbar';
   setRowStatus('watt-load-row','status','status-title','status-detail',wl,wt,wd);
-  let al='normal',at='Messpunkte vollständig',ad=coverageNote(a);
+  let al='normal',at='Normalbereich · erfasste Last',ad=coverageNote(a);
   const valid=typeof d.amps==='number'&&Number.isFinite(d.amps)&&d.amps>=0;
   if(faults.length){al='critical';at='Shelly-Störung';ad=faults.length+' aktive Fehlermeldung(en) · '+ad}
   else if(!valid){al='unknown';at='Keine Stromwerte'}
   else if(d.amps>=AMP_RATED_A){al='critical';at='16 A erreicht';ad='Nennstromgrenze: Stromkreislast prüfen · '+ad}
   else if(d.amps>=AMP_RED_A){al='critical';at='Hohe Stromlast';ad='Ab 14 A: Last möglichst reduzieren · '+ad}
   else if(d.amps>=AMP_WARN_A){al='warning';at='Strom-Warnung';ad='Ab 12 A: Stromkreis beobachten · '+ad}
-  else if(!a.complete){al='unknown';at='Messung unvollständig'}
-  else if(a.unassigned.length){at='Zugeordnete Messpunkte vollständig'}
+  else if(!a.measured&&!a.estimated){al='unknown';at='Keine Stromwerte'}
+  else if(!a.measured){al='unknown';at='Nur geschätzte Stromwerte'}
   setRowStatus('amps-load-row','amp-status','amp-status-title','amp-status-detail',al,at,ad);
   cardLevel('kpi-watts',wl,liveCardLabel(wl,w));
   cardLevel('kpi-amps',al,liveCardLabel(al,a));
   const peakLevel=observedLevel(d.total_amps_peak?.amps,AMP_WARN_A,AMP_RED_A);
-  cardLevel('kpi-peak',peakLevel,peakLevel==='unknown'?'Noch kein vollständiger Peak':
-   'Historischer Peak · '+({normal:'Normalbereich',warning:'Warnbereich',critical:'Kritischer Bereich'}[peakLevel]));
+  cardLevel('kpi-peak',peakLevel,peakLevel==='unknown'?'Noch kein gemessener Peak':
+   'Historischer Messpeak · '+({normal:'Normalbereich',warning:'Warnbereich',critical:'Kritischer Bereich'}[peakLevel]));
   const severity={normal:0,unknown:1,warning:2,critical:3};
-  // A green row only describes its assigned sensors; keep the enclosing
-  // overall card neutral if any load is outside measurement coverage.
+  // Colours describe observed load, not completeness or circuit safety.
   const level=severity[wl]>=severity[al]?wl:al;
-  byId('load-card').dataset.level=level==='normal'&&(w.unassigned.length||a.unassigned.length)?'unknown':level;
+  byId('load-card').dataset.level=level;
   byId('connection').dataset.state='ok';
   byId('connection-text').textContent='Live · HA verbunden';
  }
@@ -451,7 +448,7 @@
    byId('group-'+group.key+'-note').textContent=!totals.count?'Keine Geräte eingerichtet':
     'W: '+totals.wattsCount+'/'+totals.count+' · A: '+totals.ampsCount+'/'+totals.count+
     (totals.estimated?' · '+totals.estimated+' geschätzt':'')+
-    (totals.wattsCount<totals.count||totals.ampsCount<totals.count?' · unvollständig':'');
+    (totals.wattsCount<totals.count||totals.ampsCount<totals.count?' · weitere ohne Messwert':'');
   }
  }
  function renderDevices(d){
@@ -920,7 +917,7 @@
  }
  function render(d){
   byId('watts').textContent=power(d.watts);
-  byId('amps').textContent=d.amps==null?'– A':fmt(d.amps,2)+' A';
+  byId('amps').textContent=d.amps==null?'– A':(d.amps_estimated_count?'≈ ':'')+fmt(d.amps,2)+' A';
   const real=Number(d.amps_real_count)||0,estimated=Number(d.amps_estimated_count)||0;
   byId('amps-method').textContent=real&&estimated?
     real+' direkt · '+estimated+' geschätzt':
@@ -941,8 +938,8 @@
   byId('total-amps-peak').textContent=ampHigh?fmt(ampHigh.amps,2)+' A':'– A';
   byId('total-amps-peak-note').textContent=ampHigh?
     'Am '+new Date(ampHigh.at*1000).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+
-    ' · '+ampHigh.measured+' Shellys direkt':
-    'Ab Update: nur vollständige Shelly-Werte';
+    ' · '+ampHigh.measured+'/'+ampHigh.expected+' Geräte direkt gemessen':
+    'Warte auf erste direkte Shelly-Messung';
   byId('measured').textContent=(d.measured??0)+' / '+(d.devices||[]).length;
   byId('warning').textContent=power(d.warning_w);
   byId('critical').textContent=power(d.critical_w);
