@@ -441,7 +441,8 @@
  function renderGroupTotals(groups,d){
   for(const group of groups){
    const totals=groupTotals(group.items);
-   cardLevel('kpi-group-'+group.key,groupCardLevel(totals,d));
+   const level=groupCardLevel(totals,d);
+   cardLevel('kpi-group-'+group.key,level,liveCardLabel(level,{}));
    byId('group-'+group.key+'-watts').textContent=power(totals.watts);
    byId('group-'+group.key+'-amps').textContent=totals.amps==null?'– A':
     (totals.estimated?'≈ ':'')+fmt(totals.amps,3)+' A';
@@ -965,7 +966,7 @@
    byId('connection-text').textContent='Keine Live-Verbindung';
    byId('load-card').dataset.level='unknown';
    for(const id of ['kpi-watts','kpi-amps','kpi-peak'])cardLevel(id,'unknown','Keine aktuellen Daten');
-   for(const key of ['printer','other'])cardLevel('kpi-group-'+key,'unknown');
+   for(const key of ['printer','other'])cardLevel('kpi-group-'+key,'unknown','Keine aktuellen Daten');
    for(const name of ['watt-load-row','amps-load-row'])byId(name).dataset.level='unknown';
    byId('status-title').textContent='Verbindung unterbrochen';
    byId('status-detail').textContent=e.message;

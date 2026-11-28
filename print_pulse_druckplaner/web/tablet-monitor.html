@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f8f5">
 <title>Print &amp; Pulse | Stromüberwachung Live</title>
-<link rel="stylesheet" href="tablet-monitor.css?v=0.14.18">
-<script src="homescreen-link.js?v=0.14.1" defer></script><script src="tablet-monitor.js?v=0.14.19" defer></script>
+<link rel="stylesheet" href="tablet-monitor.css?v=0.14.20">
+<script src="homescreen-link.js?v=0.14.1" defer></script><script src="tablet-monitor.js?v=0.14.20" defer></script>
 </head>
 <body data-theme="light">
 <div class="monitor-shell">
@@ -29,47 +29,29 @@
   </div>
  </header>
  <main>
+  <div class="overview-grid">
   <section class="kpis kpis-primary" aria-label="Wichtigste Live-Kennzahlen">
    <article class="kpi" id="kpi-watts" data-card-level="unknown"><div class="kpi-symbol">ϟ</div><div><small>Gesamtleistung</small><strong id="watts">– W</strong><span class="kpi-note card-status-label" id="kpi-watts-status">Warte auf Messwerte</span></div></article>
    <article class="kpi" id="kpi-amps" data-card-level="unknown"><div class="kpi-symbol">⌁</div><div><small>Stromsumme der Geräte</small><strong id="amps">– A</strong><span id="amps-method" class="kpi-note">Shelly-Sensoren werden geprüft</span><span class="kpi-note card-status-label" id="kpi-amps-status">Warte auf Messwerte</span></div></article>
-   <article class="kpi peak-amps-kpi" id="kpi-peak" data-card-level="unknown"><div class="kpi-symbol">↗</div><div><small>Strompeak gesamt (gemessen)</small><strong id="total-amps-peak">– A</strong><span id="total-amps-peak-note" class="kpi-note">Aufzeichnung beginnt</span><span class="kpi-note card-status-label" id="kpi-peak-status">Noch kein Peak</span>
-    <button id="reset-amps-peaks" type="button" class="peak-reset-button kpi-reset-button">Max A zurücksetzen</button>
-    <span id="peak-reset-feedback" class="peak-reset-feedback" role="status" aria-live="polite"></span>
-   </div></article>
   </section>
-  <details class="kpi-more" id="kpi-more">
-   <summary><span class="kpi-more-label"><span class="kpi-more-chevron" aria-hidden="true">⌄</span><span class="kpi-more-closed">Weitere Kennzahlen anzeigen</span><span class="kpi-more-open">Weitere Kennzahlen ausblenden</span></span><span class="kpi-more-count">9 Kennzahlen · Tarif</span></summary>
-   <section class="kpis kpis-extra" aria-label="Weitere Live-Kennzahlen">
-    <article class="kpi peak-kpi"><div class="kpi-symbol">↑</div><div><small>Gesamtpeak seit Aufzeichnung</small><strong id="total-peak">– W</strong><span id="total-peak-note" class="kpi-note">Noch keine Messung</span></div></article>
-    <article class="kpi"><div class="kpi-symbol">▣</div><div><small>Aktive Messpunkte</small><strong id="measured">– / –</strong></div></article>
-    <article class="kpi avg-amps-kpi"><div class="kpi-symbol">Ø</div><div><small>Durchschnittsstrom · 24 h</small><strong id="average-amps-24h">– A</strong><span id="average-amps-note" class="kpi-note">Warte auf erste Messwerte</span></div></article>
-    <article class="kpi warning"><div class="kpi-symbol">△</div><div><small>Watt-Warnschwelle</small><strong id="warning">– W</strong></div></article>
-    <article class="kpi critical"><div class="kpi-symbol">!</div><div><small>Watt kritisch</small><strong id="critical">– W</strong></div></article>
-    <article class="kpi amp-limit-kpi"><div class="kpi-symbol">⌁</div><div><small>Stromkreis-Nennstrom</small><strong id="amp-limit">16,0 A</strong><span class="kpi-note">Vom Nutzer angegeben · B16 prüfen</span></div></article>
-    <article class="kpi"><div class="kpi-symbol">€</div><div><small>Druckstrom heute</small><strong id="print-cost-today">– €</strong><span class="kpi-note" id="print-cost-today-note"></span></div></article>
-    <article class="kpi"><div class="kpi-symbol">€</div><div><small>Druckstrom diese Woche</small><strong id="print-cost-week">– €</strong><span class="kpi-note" id="print-cost-week-note"></span></div></article>
-    <article class="kpi"><div class="kpi-symbol">€</div><div><small>Druckstrom diesen Monat</small><strong id="print-cost-month">– €</strong><span class="kpi-note" id="print-cost-month-note"></span></div></article>
-   </section>
-   <form id="print-tariff-form" class="print-tariff-form">
-    <strong>Stromtarif für Druckaufträge</strong><span id="print-tariff-active">–</span>
-    <label>Ab 01.01.2026 (€/kWh)<input id="print-tariff-2026" type="number" min="0" max="10" step="0.000001" required></label>
-    <label>Ab 01.01.2027 (€/kWh)<input id="print-tariff-2027" type="number" min="0" max="10" step="0.000001" required></label>
-    <button type="submit" class="peak-reset-button">Tarife speichern</button>
-    <span id="print-tariff-feedback" role="status"></span>
-    <small>Arbeitspreise bitte mit dem Vertrag abgleichen. Nur neue Messintervalle, keine Änderung gespeicherter Druckkosten. Summen nach Abschlussdatum; ohne Grundpreis.</small>
-   </form>
-  </details>
   <section class="device-group-kpis" aria-label="Aktuelle Last nach Gerätegruppe">
-   <article class="group-kpi" id="kpi-group-printer" data-card-level="unknown"><div class="group-kpi-label"><span aria-hidden="true">▣</span><h2>Drucker gesamt</h2></div>
+   <article class="group-kpi" id="kpi-group-printer" data-card-level="unknown"><div class="kpi-symbol" aria-hidden="true">▣</div><div class="group-kpi-content"><div class="group-kpi-label"><h2>Drucker gesamt</h2></div>
     <div class="group-kpi-values"><strong id="group-printer-watts">– W</strong><span id="group-printer-amps">– A</span></div>
-    <small id="group-printer-note">Warte auf Messwerte</small></article>
-   <article class="group-kpi" id="kpi-group-other" data-card-level="unknown"><div class="group-kpi-label"><span aria-hidden="true">◈</span><h2>Sonstige gesamt</h2></div>
+    <small id="group-printer-note">Warte auf Messwerte</small><span class="card-status-label group-status" id="kpi-group-printer-status">Warte auf Messwerte</span></div></article>
+   <article class="group-kpi" id="kpi-group-other" data-card-level="unknown"><div class="kpi-symbol" aria-hidden="true">◈</div><div class="group-kpi-content"><div class="group-kpi-label"><h2>Sonstige gesamt</h2></div>
     <div class="group-kpi-values"><strong id="group-other-watts">– W</strong><span id="group-other-amps">– A</span></div>
-    <small id="group-other-note">Warte auf Messwerte</small></article>
+    <small id="group-other-note">Warte auf Messwerte</small><span class="card-status-label group-status" id="kpi-group-other-status">Warte auf Messwerte</span></div></article>
   </section>
+  </div>
   <section class="load-card dual-load" id="load-card" data-level="unknown" aria-label="Zwei getrennte Laststatus-Balken">
    <div class="dual-load-heading">
     <div><h2>Laststatus</h2><p>Watt und Ampere separat überwacht</p></div>
+    <div class="inline-peak" id="kpi-peak" data-card-level="unknown">
+     <div class="inline-peak-value"><span>Strompeak gesamt (gemessen)</span><strong id="total-amps-peak">– A</strong></div>
+     <button id="reset-amps-peaks" type="button" class="peak-reset-button" title="Gesamtpeak und alle aktuellen Max-A-Werte zurücksetzen">Max A zurücksetzen</button>
+     <div class="inline-peak-meta"><span id="total-amps-peak-note">Aufzeichnung beginnt</span><span class="card-status-label" id="kpi-peak-status">Noch kein Peak</span></div>
+     <span id="peak-reset-feedback" class="peak-reset-feedback" role="status" aria-live="polite"></span>
+    </div>
     <span class="dual-load-note">Shelly-Summen sind keine direkte Messung des Stromkreisstroms</span>
    </div>
    <div class="load-bar-row watt-row" id="watt-load-row" data-level="unknown">
@@ -104,16 +86,6 @@
      <tbody id="device-rows"><tr><td colspan="8" class="placeholder">Geräte werden geladen …</td></tr></tbody>
     </table></div>
     <p class="table-note">Letzter Druck: gemessene kWh × Arbeitspreis; – = keine vollständige Aufzeichnung. Ampere direkt aus dem Shelly-Stromsensor, falls verfügbar. ≈ kennzeichnet Ersatzwerte aus Watt / 230 V. Max A zeigt den höchsten Strom je Shelly seit dem letzten Reset (15-Sekunden-Abfrage). Frühere Peaks bleiben im Protokoll und CSV-Export. Nicht verfügbare Sensoren zählen nicht als 0.</p>
-    <div class="peak-reset-section">
-     <div class="peak-reset-action">
-      <div class="peak-reset-title"><strong>Max-A-Rekorde</strong>
-       <span>Reset oben in „Strompeak gesamt“. Frühere Spitzenwerte bleiben hier und im CSV-Export erhalten.</span></div>
-     </div>
-     <details class="peak-reset-history">
-      <summary>Zurücksetzungen und frühere Spitzenwerte <span id="peak-reset-count"></span></summary>
-      <div id="peak-reset-log" class="peak-reset-log"><p>Protokoll wird geladen …</p></div>
-     </details>
-    </div>
    </section>
    <div class="side-panels">
     <section class="panel faults-panel">
@@ -124,6 +96,40 @@
      <div class="panel-title"><h2 id="chart-title">Leistungsverlauf</h2><div class="chart-controls"><div class="chart-metric-switch" role="group" aria-label="Messgröße"><button type="button" id="chart-watts" aria-pressed="true">Watt</button><button type="button" id="chart-amps" aria-pressed="false">Ampere</button></div><label for="chart-range" class="sr-only">Zeitraum</label><select id="chart-range"><option value="15">15 Minuten</option><option value="60" selected>1 Stunde</option><option value="180">3 Stunden</option><option value="1440">24 Stunden</option></select><span class="live-pill"><i></i> Live</span></div></div>
      <div class="chart-host" id="chart" data-metric="watts"><p class="placeholder">Verlauf wird aufgezeichnet …</p></div>
      <p id="chart-source-note" class="chart-source-note">Gemessene Gesamtleistung der zugeordneten Geräte.</p>
+    </section>
+   </div>
+  </div>
+  <details class="kpi-more" id="kpi-more">
+   <summary><span class="kpi-more-label"><span class="kpi-more-chevron" aria-hidden="true">⌄</span><span class="kpi-more-closed">Weitere Kennzahlen, Stromtarife und Historie anzeigen</span><span class="kpi-more-open">Weitere Kennzahlen, Stromtarife und Historie ausblenden</span></span><span class="kpi-more-count">9 Kennzahlen · Tarif · CSV</span></summary>
+   <section class="kpis kpis-extra" aria-label="Weitere Live-Kennzahlen">
+    <article class="kpi peak-kpi"><div class="kpi-symbol">↑</div><div><small>Gesamtpeak seit Aufzeichnung</small><strong id="total-peak">– W</strong><span id="total-peak-note" class="kpi-note">Noch keine Messung</span></div></article>
+    <article class="kpi"><div class="kpi-symbol">▣</div><div><small>Aktive Messpunkte</small><strong id="measured">– / –</strong></div></article>
+    <article class="kpi avg-amps-kpi"><div class="kpi-symbol">Ø</div><div><small>Durchschnittsstrom · 24 h</small><strong id="average-amps-24h">– A</strong><span id="average-amps-note" class="kpi-note">Warte auf erste Messwerte</span></div></article>
+    <article class="kpi warning"><div class="kpi-symbol">△</div><div><small>Watt-Warnschwelle</small><strong id="warning">– W</strong></div></article>
+    <article class="kpi critical"><div class="kpi-symbol">!</div><div><small>Watt kritisch</small><strong id="critical">– W</strong></div></article>
+    <article class="kpi amp-limit-kpi"><div class="kpi-symbol">⌁</div><div><small>Stromkreis-Nennstrom</small><strong id="amp-limit">16,0 A</strong><span class="kpi-note">Vom Nutzer angegeben · B16 prüfen</span></div></article>
+    <article class="kpi"><div class="kpi-symbol">€</div><div><small>Druckstrom heute</small><strong id="print-cost-today">– €</strong><span class="kpi-note" id="print-cost-today-note"></span></div></article>
+    <article class="kpi"><div class="kpi-symbol">€</div><div><small>Druckstrom diese Woche</small><strong id="print-cost-week">– €</strong><span class="kpi-note" id="print-cost-week-note"></span></div></article>
+    <article class="kpi"><div class="kpi-symbol">€</div><div><small>Druckstrom diesen Monat</small><strong id="print-cost-month">– €</strong><span class="kpi-note" id="print-cost-month-note"></span></div></article>
+   </section>
+   <form id="print-tariff-form" class="print-tariff-form">
+    <strong>Stromtarif für Druckaufträge</strong><span id="print-tariff-active">–</span>
+    <label>Ab 01.01.2026 (€/kWh)<input id="print-tariff-2026" type="number" min="0" max="10" step="0.000001" required></label>
+    <label>Ab 01.01.2027 (€/kWh)<input id="print-tariff-2027" type="number" min="0" max="10" step="0.000001" required></label>
+    <button type="submit" class="peak-reset-button">Tarife speichern</button>
+    <span id="print-tariff-feedback" role="status"></span>
+    <small>Arbeitspreise bitte mit dem Vertrag abgleichen. Nur neue Messintervalle, keine Änderung gespeicherter Druckkosten. Summen nach Abschlussdatum; ohne Grundpreis.</small>
+   </form>
+    <div class="peak-reset-section">
+     <div class="peak-reset-action">
+      <div class="peak-reset-title"><strong>Max-A-Rekorde</strong>
+       <span>Reset oben in „Strompeak gesamt“. Frühere Spitzenwerte bleiben hier und im CSV-Export erhalten.</span></div>
+     </div>
+     <details class="peak-reset-history">
+      <summary>Zurücksetzungen und frühere Spitzenwerte <span id="peak-reset-count"></span></summary>
+      <div id="peak-reset-log" class="peak-reset-log"><p>Protokoll wird geladen …</p></div>
+     </details>
+    </div>
      <div class="history-export">
       <div class="history-export-heading">
        <strong>Messhistorie exportieren</strong>
@@ -143,9 +149,7 @@
       <p class="history-export-note">Die Datei enthält Watt, Ampere, Spitzenwerte, Messabdeckung und geschätzte kWh.
        Längere Zeiträume werden platzsparend verdichtet. Aufzeichnung ab dieser Version.</p>
      </div>
-    </section>
-   </div>
-  </div>
+  </details>
  </main>
  <footer><span id="updated">Warte auf ersten Messwert …</span><span>Messung über Home Assistant · Keine elektrische Schutzabschaltung</span></footer>
 </div>

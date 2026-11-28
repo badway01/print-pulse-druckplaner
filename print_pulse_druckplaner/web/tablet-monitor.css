@@ -660,3 +660,51 @@ body[data-theme=dark] [data-card-level=critical]{--card-accent:#ff9b9e!important
 @media(min-width:1200px){
  body[data-compact=yes] .bottom-grid{grid-template-columns:minmax(0,2.4fr) minmax(0,1fr)}
 }
+
+/* v0.14.20: two equal overview columns, full-width devices, paired lower panels. */
+.overview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;gap:12px;margin:18px 0 12px}
+.overview-grid .kpis.kpis-primary,.overview-grid .device-group-kpis{display:contents}
+.overview-grid .kpi,.overview-grid .group-kpi{display:flex;align-items:center;gap:14px;min-width:0;min-height:90px;padding:13px 15px;border-radius:15px;margin:0}
+.overview-grid .group-kpi .kpi-symbol{color:var(--card-accent,var(--muted))}
+.group-kpi-content,.overview-grid .kpi>div:last-child{min-width:0}
+.overview-grid .group-kpi-label h2,.overview-grid .kpi small{font-size:clamp(10px,.95vw,15px);font-weight:500;line-height:1.2;margin:0 0 4px;color:var(--muted)}
+.overview-grid .group-kpi-values{margin:0;gap:4px 12px}
+.overview-grid .group-kpi-values strong,.overview-grid .kpi strong{font-size:clamp(21px,2.2vw,35px);line-height:1.1;letter-spacing:-.6px}
+.overview-grid .group-kpi-values span{font-size:clamp(13px,1.3vw,20px)}
+.group-status{display:block;color:var(--card-accent,var(--muted));font-size:11px;font-weight:650;line-height:1.2;margin-top:2px}
+.dual-load-heading{align-items:center}
+.dual-load-heading .inline-peak{display:flex;align-items:center;flex-wrap:wrap;gap:3px 9px;min-width:0;flex:0 1 auto;--card-accent:var(--muted)}
+.inline-peak-value{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.inline-peak-value>span{font-size:11px;font-weight:650;color:var(--muted)}
+.inline-peak-value strong{font-size:21px;color:var(--card-accent);white-space:nowrap;line-height:1.1}
+.inline-peak .peak-reset-button{font-size:10px;padding:5px 8px;min-height:28px}
+.inline-peak-meta{display:flex;flex-direction:column;gap:2px;font-size:10px;color:var(--muted);line-height:1.2}
+.inline-peak-meta .card-status-label{color:var(--card-accent);font-weight:650}
+.inline-peak .peak-reset-feedback{flex-basis:100%;margin:0;font-size:10px;line-height:1.2}
+.monitor-shell main .bottom-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:stretch}
+.monitor-shell main .side-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}
+.monitor-shell main>.kpi-more{margin-top:12px}
+.monitor-shell main>.kpi-more .peak-reset-section,.monitor-shell main>.kpi-more .history-export{padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px}
+@media(min-width:700px){
+ body[data-compact=yes] .overview-grid{gap:6px;margin:6px 0}
+ body[data-compact=yes] .overview-grid .kpi,body[data-compact=yes] .overview-grid .group-kpi{min-height:74px;padding:7px 10px;gap:8px;border-radius:10px}
+ body[data-compact=yes] .overview-grid .group-kpi-label h2,body[data-compact=yes] .overview-grid .kpi small{font-size:11px;margin-bottom:2px}
+ body[data-compact=yes] .overview-grid .group-kpi-values strong,body[data-compact=yes] .overview-grid .kpi strong{font-size:22px}
+ body[data-compact=yes] .overview-grid .group-kpi-values span{font-size:13px}
+ body[data-compact=yes] .overview-grid .group-status{font-size:9px}
+ body[data-compact=yes] .inline-peak-value strong{font-size:18px}
+ body[data-compact=yes] .inline-peak-meta,body[data-compact=yes] .inline-peak-value>span{font-size:9px}
+ body[data-compact=yes] .monitor-shell main .bottom-grid,body[data-compact=yes] .monitor-shell main .side-panels{gap:6px}
+ body[data-compact=yes] .monitor-shell main>.kpi-more{margin-top:6px}
+}
+@media(max-width:699px){
+ .overview-grid{gap:7px;margin:10px 0}
+ .overview-grid .kpi,.overview-grid .group-kpi{padding:9px 7px;gap:5px;min-height:80px}
+ .overview-grid .kpi-symbol{font-size:22px;width:22px}
+ .overview-grid .group-kpi-values{gap:2px 6px}
+ .overview-grid .kpi strong,.overview-grid .group-kpi-values strong{font-size:20px;letter-spacing:-.4px}
+ .overview-grid .group-kpi-values span{font-size:12px}
+ .overview-grid .group-status{font-size:10px}
+ .dual-load-heading .inline-peak{flex-basis:100%}
+ .monitor-shell main .side-panels{grid-template-columns:minmax(0,1fr)}
+}

@@ -1,3 +1,7 @@
+## 0.14.20 – Stromübersicht in zwei Spalten
+
+- Vier gleich große dynamisch eingefärbte Live-Karten; Strompeak mit Reset direkt im Laststatus. Gerätetabelle über volle Breite; Shelly-Schutzstatus und Verlauf darunter gleich breit. Weitere Kennzahlen, Tarife, Resetprotokoll und CSV-Export am Ende aufklappbar. Mess- und Schutzlogik unverändert.
+
 ## 0.14.19 – Laststatus und gemessener Strompeak
 
 - Lastfarben richten sich nach erfasster Last; fehlende oder unzugeordnete Messpunkte bleiben separat sichtbar. Keine Messwerte bleiben grau, aktive Shelly-Fehler und Grenzwertüberschreitungen bleiben rot/gelb.

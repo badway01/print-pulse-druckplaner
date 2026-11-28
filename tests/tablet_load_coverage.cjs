@@ -57,3 +57,9 @@ ctx.status({devices:[{name:'Nur Ersatz',entity:'sensor.c',watts:100,amps:.4,amps
 assert.equal(byId('amps-load-row').dataset.level,'unknown');
 assert.equal(byId('watt-load-row').dataset.level,'normal');
 console.log('Tablet load coverage: PASS');
+
+// Keep the main monitor hierarchy stable and keep reset/export IDs unique.
+const html=fs.readFileSync(path.join(__dirname,'../print_pulse_druckplaner/web/tablet-monitor.html'),'utf8');
+const order=['id="kpi-watts"','id="kpi-amps"','id="kpi-group-printer"','id="kpi-group-other"','id="load-card"','id="kpi-peak"','id="reset-amps-peaks"','class="panel devices-panel"','class="panel faults-panel"','class="panel chart-panel"','id="kpi-more"','id="peak-reset-log"','id="history-export-link"'];
+for(let i=0;i<order.length;i++){assert.ok(html.includes(order[i]),order[i]);if(i)assert.ok(html.indexOf(order[i])>html.indexOf(order[i-1]),order[i]);}
+for(const id of ['total-amps-peak','reset-amps-peaks','peak-reset-feedback','history-export-link'])assert.equal(html.split('id="'+id+'"').length,2);
