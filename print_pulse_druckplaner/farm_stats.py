@@ -253,6 +253,7 @@ TARIFF_DATES = ('2026-01-01','2027-01-01')
 
 def valid_rate(value):
     try:
+        if isinstance(value,bool):return None
         n=float(value)
         return n if math.isfinite(n) and 0<=n<=10 else None
     except (ValueError,TypeError,OverflowError):
@@ -315,7 +316,7 @@ def record_print_energy(db,devices,states,tariffs,now=None):
     selected=[d for d in devices if d.get('kind')=='printer' and d.get('history_key') and d.get('entity')]
     seen=set()
     counts={}
-    for d in selected:
+    for d in devices:
         meter=d.get('energy_entity') or ''
         counts[meter]=counts.get(meter,0)+1
     for d in selected:

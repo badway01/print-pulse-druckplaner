@@ -1,3 +1,7 @@
+## 0.14.16 – Druckstrom-Prüffälle
+
+- Gezielte Tests für vollständige Drucke, Abbruch, Zählerwechsel, Messlücken, Tarifwechsel und unveränderte gespeicherte Kosten. Doppelt zugeordnete Energiezähler liefern keinen Druckpreis. Tarifanzeige bei Verbindungsverlust als nicht aktuell gekennzeichnet.
+
 ## 0.14.15 – Tablet-Kompaktmodus und Druckstromkosten
 
 - Kompaktmodus für Querformat, pro Browser gespeichert; bestehende Lastbalken, Geräte, Schutzstatus, Historie und Reset bleiben erhalten.

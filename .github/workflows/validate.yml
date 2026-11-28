@@ -82,6 +82,9 @@ jobs:
           node --check tests/order_existing_master_ui.cjs
           bash -n print_pulse_druckplaner/web/install-slicer-helper-mac.command
 
+      - name: Druckstrom-Messung gezielt prüfen
+        run: python -m unittest discover -s tests -p test_farm_stats.py -v
+
       - name: Private Daten suchen
         run: python scripts/check_public.py
 

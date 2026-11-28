@@ -980,6 +980,7 @@
     byId('group-'+key+'-note').textContent='Keine aktuellen Daten';
    }
    byId('updated').textContent='Keine aktuellen Daten: '+e.message;
+   byId('print-tariff-active').textContent='Keine aktuellen Daten';
   }finally{loading=false}
  }
  refresh();
