@@ -1,3 +1,7 @@
+## 0.14.18 – Laststatus etwas höher
+
+- Nur im Kompaktmodus mehr vertikaler Abstand und Höhe für Watt- und Ampere-Laststatus. Restliche Darstellung und Messlogik unverändert.
+
 ## 0.14.17 – Kompaktere Stromübersicht
 
 - Kompaktmodus ab 700 px unabhängig von der Ausrichtung, standardmäßig aktiv (gespeicherte Wahl bleibt erhalten). Flachere Lastbalken, Gruppen und Gerätezeilen; alle Messwerte, Warnhinweise und Schutzfunktionen bleiben erhalten. Geräteübersicht bei schmaleren Fenstern über die volle Breite, Schutzstatus und Verlauf darunter nebeneinander.
