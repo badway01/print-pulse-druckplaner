@@ -1383,6 +1383,8 @@ function showWorkspace(value){
  if(powerPanel)powerPanel.hidden=!production;
  $('summary').hidden=true;
  $('priority-shell').hidden=value!=='queue';
+ $('pp-test-shell').hidden=value!=='test-management';
+ if(value==='test-management')window.ppTestManagement?.enter();
  for(const id of ['product-toolbar','product-sort-note','products'])$(id).hidden=value!=='stock';
  if(model){if(value==='stock')render();else updateHTML($('products'),'');}
  if(value==='queue'&&typeof renderPriorityUI==='function'){priorityExpanded=true;renderPriorityUI();}

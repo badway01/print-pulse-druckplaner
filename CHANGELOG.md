@@ -1,3 +1,8 @@
+## 0.14.14 – Test Management: unabhängige Produktionsplanung
+
+- Separater Reiter mit echten Bestellungen, Mengenprüfung, Modell-/Bauteilzuordnungen, sieben HA-Druckern, Plan und direkter 3MF-Öffnung. Keine Bestell-, Lager- oder Druckersteuerungs-Schreibzugriffe. Testregeln und Rückmeldungen lokal im Browser.
+- Eindeutige Setgrößen werden zusätzlich geprüft; unklare Varianten, Farbkonflikte und fehlende oder unbestätigte Masterdateien werden nicht als sichere Druckaufträge behandelt. Chargengröße und Druckzeit aus vorhandener 3MF; keine lineare Schätzung. Laufende Aufträge nur nach ausdrücklicher Zuordnung, kein automatisches Fertigbuchen.
+
 ## 0.14.13 – Druckerfarm: Einzelansicht und Sicherheit
 
 - Umschaltung Meine Drucker / Sicherheit mit kompakten Karten, separater Einzelansicht, Kameraübersicht und Hell-/Dunkel-/Auto-Umschaltung. Vorhandene Kameraentitäten werden im angemeldeten HA-Frontend gelesen; Vorschau nur über gleichursprüngliche HA-Kamera-Proxy-URLs, Live-/Steuerdialog über HA. Keine Tokenkopie und keine neuen Freigaben.

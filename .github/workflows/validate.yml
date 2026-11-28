@@ -53,6 +53,8 @@ jobs:
           node --check print_pulse_druckplaner/web/catalog-3mf-info.js
           node --check print_pulse_druckplaner/web/priority-ui.js
           node --check print_pulse_druckplaner/web/production-pool-ui.js
+          node --check print_pulse_druckplaner/web/test-management.js
+          node tests/test_management.cjs
           node --check tests/production_pool_ui.cjs
           node tests/production_pool_ui.cjs
           node --check print_pulse_druckplaner/web/economics-ui.js
