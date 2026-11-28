@@ -1,3 +1,8 @@
+## 0.14.12 – Kompakte Druckerfarm
+
+- Drucker-Reiter mit kompakten, responsiven Karten im Stil von Bambu Connect: vorhandene lokale Druckerbilder, Status, Bett-Temperatur, Fortschritt, Schichten, Restzeit und aktuelle Datei, soweit verfügbar. Fehlende Bilder erhalten ein neutrales Druckersymbol.
+- Druckerdetails per Kartenklick, bisherige HA-Druckerfarm einschließlich Kameras und Sensorzuordnung über Detailansicht erreichbar. Dashboard, Strommessung, Druckersteuerung und Datenbank unverändert.
+
 ## 0.14.11 – Navigation verschlankt: Rechner ausgeblendet
 
 - Rechner aus der oberen Navigation entfernt. Die bestehende Kostenberechnung, Produktdaten und übrige Bereiche bleiben unverändert. Keine Datenmigration.

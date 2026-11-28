@@ -3711,3 +3711,33 @@ html[data-theme="dark"] .master-shared-printer-tile.is-linked{background:#244b38
 html[data-theme="dark"] .master-shared-printers{border-color:#496d56}
 @media(max-width:540px){.master-shared-printer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 .master-shared-printers>summary{flex-wrap:wrap}.master-shared-printers>summary small{white-space:normal}}
+
+/* Compact Bambu Connect-inspired printer overview. */
+.pp-connect-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pp-connect-head h2{font:600 19px system-ui,sans-serif;margin:0;color:var(--ink)}
+.pp-connect-actions{display:flex;gap:8px;flex-wrap:wrap}
+.pp-connect-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px;align-items:stretch}
+.pp-connect-card{display:flex;align-items:center;gap:8px;text-align:left;min-width:0;min-height:108px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);box-shadow:none}
+.pp-connect-card:hover,.pp-connect-card:focus-visible{border-color:var(--green)}
+.pp-connect-picture{position:relative;display:grid;place-items:center;flex:0 0 64px;width:64px;height:76px;color:var(--muted)}
+.pp-connect-picture svg{width:44px;height:44px;grid-area:1/1}
+.pp-connect-picture img{grid-area:1/1;z-index:1;max-width:100%;width:100%;height:100%;object-fit:contain;background:#fff}
+.pp-connect-picture img[hidden]{display:none}
+.pp-connect-info{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;font:11px/1.3 system-ui,sans-serif}
+.pp-connect-info strong{font-size:13px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pp-connect-info small{font-size:10px;color:var(--muted)}
+.pp-connect-state{color:var(--muted);font-weight:600}
+.pp-connect-card.printing .pp-connect-state,.pp-connect-card.idle .pp-connect-state,.pp-connect-card.finished .pp-connect-state{color:var(--green)}
+.pp-connect-card.offline .pp-connect-state,.pp-connect-card.error .pp-connect-state{color:#c64536}
+.pp-connect-card.paused .pp-connect-state,.pp-connect-card.preparing .pp-connect-state{color:#9a691d}
+.pp-connect-meta{display:flex;justify-content:space-between;gap:4px;font-size:10px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.pp-connect-meta span:first-child{color:var(--green);font-weight:650}
+.pp-connect-track{height:4px;border-radius:4px;background:var(--line);overflow:hidden}
+.pp-connect-track>span{display:block;height:100%;background:var(--green);border-radius:4px}
+.pp-connect-file{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#printer-details-area{margin-top:22px}
+#printer-details-area[hidden]{display:none!important}
+html[data-theme="dark"] .pp-connect-card{background:var(--surface-soft);border-color:var(--border-strong)}
+html[data-theme="dark"] .pp-connect-picture img{background:transparent}
+html[data-theme="dark"] .pp-connect-card.offline .pp-connect-state,html[data-theme="dark"] .pp-connect-card.error .pp-connect-state{color:#ff9386}
+html[data-theme="dark"] .pp-connect-card.paused .pp-connect-state,html[data-theme="dark"] .pp-connect-card.preparing .pp-connect-state{color:#e8c587}

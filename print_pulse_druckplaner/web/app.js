@@ -1396,7 +1396,7 @@ function showWorkspace(value){
  if(value==='calculator'){if(typeof economyLoaded!=='undefined'&&economyLoaded)econRefresh();else loadEconomics();}
  if(value==='catalog'){renderCatalog();loadPrintTools();}
  if(value==='filament')loadFilaments();
- syncPrinterFarm(value==='printers');
+ if(value!=='printers')closePrinterDetails();
  if(value==='printers'){renderPrinterMonitor();loadPrinters();}
  if(value==='farm'&&typeof loadFarmStats==='function'){
   loadFarmStats();window.ppFilamentStats?.refresh?.(true);
@@ -2663,8 +2663,28 @@ function printerLine(label,value){
  return '<div class="printer-metric"><span>'+esc(label)+'</span><strong>'+esc(value===null||value===undefined||value===''?'–':String(value))+'</strong></div>';
 }
 function printerTemp(t){return Number.isFinite(t)?t.toLocaleString('de-DE',{maximumFractionDigits:1})+' °C':'–';}
+const connectImages={'P1S Old':'p1s-old.png','P1S New':'p1s-new.png','H2D':'h2d.png','H2D No2':'h2d.png','Snapmaker U1':'u1.png','X2D':'x2d.png','A1':'a1.png'};
+function renderConnectCard(p){
+ const state=printerStateLabels[p.state]||'Status unklar';
+ const active=['printing','paused','preparing'].includes(p.state);
+ const online=!['offline','setup','unknown'].includes(p.state);
+ const progress=active&&Number.isFinite(p.progress)?Math.max(0,Math.min(100,p.progress)):null;
+ const layers=p.layers||{};
+ const layer=active&&layers.layer!=null&&layers.total_layers!=null?String(layers.layer)+'/'+String(layers.total_layers):'';
+ const image=connectImages[p.id];
+ const bed=online&&Number.isFinite(p.temps?.bed)?'Bett: '+printerTemp(p.temps.bed):'';
+ return '<button type="button" class="pp-connect-card '+esc(p.state)+'" data-connect-printer="'+esc(p.id)+'" aria-label="'+esc(p.id+', '+state+', Details öffnen')+'">'+
+ '<span class="pp-connect-picture"><svg viewBox="0 0 64 64" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="12" y="6" width="40" height="51" rx="3"/><rect x="17" y="12" width="30" height="35" rx="2"/><path d="M20 40h24M32 17v12m-5 0h10M20 51h9"/></svg>'+
+ (image?'<img src="/local/print-pulse-farm/'+image+'" alt="" loading="lazy">':'')+'</span>'+
+ '<span class="pp-connect-info"><strong>'+esc(p.id)+'</strong>'+
+ (bed?'<small>'+esc(bed)+'</small>':'')+'<span class="pp-connect-state">'+esc(state)+'</span>'+
+ (active?'<span class="pp-connect-meta"><span>'+esc(progress===null?'–':progress+'%')+'</span><span>'+esc(layer)+'</span><span>'+esc(printerRemaining(p.remaining_seconds))+'</span></span>'+
+ (progress!==null?'<span class="pp-connect-track" role="progressbar" aria-label="Druckfortschritt" aria-valuenow="'+progress+'" aria-valuemin="0" aria-valuemax="100"><span style="width:'+progress+'%"></span></span>':'')+
+ (p.filename?'<span class="pp-connect-file" title="'+esc(p.filename)+'">'+esc(p.filename)+'</span>':''):'')+'</span></button>';
+}
 function renderPrinterMonitor(){
  const rows=printerRows();
+ updateHTML($('printer-connect-grid'),rows.map(renderConnectCard).join(''));
  updateHTML($('printer-strip-row'),rows.map(p=>{
   const status=printerStateLabels[p.state]||'Unbekannt';
   const subtitle=p.state==='printing'||p.state==='paused'?printerRemaining(p.remaining_seconds):status;
@@ -2820,6 +2840,32 @@ async function openPrinterConfig(id){
  }catch(err){$('printer-config-info').textContent='Sensorliste nicht erreichbar: '+err.message;}
 }
 let printerFarmTimeout=null,printerFarmReady=false;
+function closePrinterDetails(){
+ resetPrinterFarm();
+ $('printer-details-area').hidden=true;
+ $('printer-full-view').setAttribute('aria-expanded','false');
+ $('printer-full-view').textContent='Detailansicht';
+}
+function openPrinterDetails(id){
+ resetPrinterFarm();
+ $('printer-details-area').hidden=false;
+ $('printer-full-view').setAttribute('aria-expanded','true');
+ $('printer-full-view').textContent='Details ausblenden';
+ if(id){
+  const panel=[...$('printer-detail-grid').querySelectorAll('[data-printer-panel]')].find(x=>x.dataset.printerPanel===id);
+  panel?.scrollIntoView({behavior:'smooth',block:'nearest'});
+ }else syncPrinterFarm(true);
+}
+$('printer-full-view').addEventListener('click',()=>{
+ if($('printer-details-area').hidden)openPrinterDetails();else closePrinterDetails();
+});
+$('printer-connect-grid').addEventListener('click',event=>{
+ const card=event.target.closest('[data-connect-printer]');
+ if(card)openPrinterDetails(card.dataset.connectPrinter);
+});
+$('printer-connect-grid').addEventListener('error',event=>{
+ if(event.target.tagName==='IMG')event.target.hidden=true;
+},true);
 function resetPrinterFarm(){
  clearTimeout(printerFarmTimeout);
  printerFarmReady=false;
@@ -2876,7 +2922,7 @@ $('printer-farm-toggle').addEventListener('click',()=>{
 $('printer-strip-more').addEventListener('click',()=>showWorkspace('printers'));
 $('printer-strip-row').addEventListener('click',event=>{
  const b=event.target.closest('[data-printer-focus]');
- if(b){showWorkspace('printers');const panel=[...document.querySelectorAll('[data-printer-panel]')].find(x=>x.dataset.printerPanel===b.dataset.printerFocus);panel?.scrollIntoView({behavior:'smooth',block:'nearest'});}
+ if(b){showWorkspace('printers');openPrinterDetails(b.dataset.printerFocus);}
 });
 $('printers-shell').addEventListener('click',event=>{
  const b=event.target.closest('[data-printer-config]');if(b)openPrinterConfig(b.dataset.printerConfig);
