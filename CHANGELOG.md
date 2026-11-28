@@ -1,3 +1,8 @@
+## 0.14.13 – Druckerfarm: Einzelansicht und Sicherheit
+
+- Umschaltung Meine Drucker / Sicherheit mit kompakten Karten, separater Einzelansicht, Kameraübersicht und Hell-/Dunkel-/Auto-Umschaltung. Vorhandene Kameraentitäten werden im angemeldeten HA-Frontend gelesen; Vorschau nur über gleichursprüngliche HA-Kamera-Proxy-URLs, Live-/Steuerdialog über HA. Keine Tokenkopie und keine neuen Freigaben.
+- Eindeutige Zuordnung aus bestehender Farm-Konfiguration bzw. Gerätenamen, weitere erkannte Tapo-/Druckerkameras separat. Messwerte und vorhandene Steuerentitäten aus bestehender Konfiguration; fehlende Werte bleiben offen, geschätzte Ampere sind markiert. Bestehende Detailansicht bleibt erreichbar. Keine Änderungen an Bestellungen oder Produktionsdaten.
+
 ## 0.14.12 – Kompakte Druckerfarm
 
 - Drucker-Reiter mit kompakten, responsiven Karten im Stil von Bambu Connect: vorhandene lokale Druckerbilder, Status, Bett-Temperatur, Fortschritt, Schichten, Restzeit und aktuelle Datei, soweit verfügbar. Fehlende Bilder erhalten ein neutrales Druckersymbol.

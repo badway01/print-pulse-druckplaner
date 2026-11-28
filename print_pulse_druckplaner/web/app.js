@@ -17,6 +17,7 @@ const systemDark=window.matchMedia('(prefers-color-scheme: dark)');
 function systemTheme(){return systemDark.matches?'dark':'light';}
 function resolvedTheme(value){document.documentElement.dataset.theme=value;}
 function showThemeMode(){
+ for(const b of document.querySelectorAll('[data-farm-theme]'))b.setAttribute('aria-pressed',String(b.dataset.farmTheme===themeMode));
  for(const button of document.querySelectorAll('[data-theme-mode]')){
   const pressed=button.dataset.themeMode===themeMode;
   button.setAttribute('aria-pressed',String(pressed));
@@ -1397,7 +1398,7 @@ function showWorkspace(value){
  if(value==='catalog'){renderCatalog();loadPrintTools();}
  if(value==='filament')loadFilaments();
  if(value!=='printers')closePrinterDetails();
- if(value==='printers'){renderPrinterMonitor();loadPrinters();}
+ if(value==='printers'){showThemeMode();renderPrinterMonitor();loadPrinters();}
  if(value==='farm'&&typeof loadFarmStats==='function'){
   loadFarmStats();window.ppFilamentStats?.refresh?.(true);
   if(typeof loadSalesStatistics==='function')loadSalesStatistics();
@@ -2725,6 +2726,7 @@ function renderPrinterMonitor(){
    (p.configured?'Sensorzuordnung bearbeiten':'Sensoren zuordnen')+'</button>'+
    (p.state==='setup'?'<small>'+(p.id.startsWith('P1S')&&(printerLive?.candidates||[]).some(c=>c.model==='P1S')?'P1S einmal zuordnen':'Kein Druckstatus erkannt · HA-Integration prüfen')+'</small>':'')+'</div></article>';
  }).join(''));
+ applySinglePrinterFilter();
  const extra=$('printer-no2-extra');
  if(extra){
   const card=$('printer-detail-grid').querySelector('[data-printer-panel="H2D No2"]');
@@ -2840,29 +2842,167 @@ async function openPrinterConfig(id){
  }catch(err){$('printer-config-info').textContent='Sensorliste nicht erreichbar: '+err.message;}
 }
 let printerFarmTimeout=null,printerFarmReady=false;
-function closePrinterDetails(){
- resetPrinterFarm();
- $('printer-details-area').hidden=true;
- $('printer-full-view').setAttribute('aria-expanded','false');
- $('printer-full-view').textContent='Detailansicht';
+let ppFarmView='overview',ppSelectedPrinter=null,ppCameraChoice=null,ppCameraConfig=[],ppRegistry=[],ppPowerDevices=[],ppFarmRequest=0;
+function ppFindHA(){
+ let w=window;
+ for(let i=0;i<8;i++){
+  try{const el=w.document.querySelector('home-assistant');if(el?.hass?.states&&el.hass.connected!==false)return el;if(w.parent===w)break;w=w.parent;}catch{break;}
+ }
+ return null;
 }
-function openPrinterDetails(id){
- resetPrinterFarm();
- $('printer-details-area').hidden=false;
- $('printer-full-view').setAttribute('aria-expanded','true');
- $('printer-full-view').textContent='Details ausblenden';
- if(id){
-  const panel=[...$('printer-detail-grid').querySelectorAll('[data-printer-panel]')].find(x=>x.dataset.printerPanel===id);
-  panel?.scrollIntoView({behavior:'smooth',block:'nearest'});
- }else syncPrinterFarm(true);
+function ppNorm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
+function ppPrinterMatch(s){
+ const n=ppNorm(s);
+ if(!n)return null;
+ if(/h2d(no|nr|number)?0?2/.test(n)||n.includes('h2dsecond'))return 'H2D No2';
+ if(n.includes('p1snew')||n.includes('p1sneu'))return 'P1S New';
+ if(n.includes('p1sold')||n.includes('p1salt'))return 'P1S Old';
+ if(n.includes('snapmakeru1')||n==='u1'||n.includes('u1camera')||n.includes('camerau1')||n.includes('u1webcam'))return 'Snapmaker U1';
+ if(n.includes('x2d'))return 'X2D';
+ if(n.includes('a1mini'))return 'A1 mini';
+ if(n.includes('h2d'))return 'H2D';
+ if(n==='a1'||n.includes('bambua1')||n.includes('cameraa1')||n.includes('a1camera'))return 'A1';
+ return null;
 }
-$('printer-full-view').addEventListener('click',()=>{
- if($('printer-details-area').hidden)openPrinterDetails();else closePrinterDetails();
+function ppCollectEntities(v,domain,out=new Set()){
+ if(typeof v==='string'&&v.startsWith(domain+'.')&&/^[a-z_]+\.[a-z0-9_]+$/.test(v))out.add(v);
+ else if(v&&typeof v==='object')for(const val of Object.values(v))ppCollectEntities(val,domain,out);
+ return out;
+}
+function ppFindFarmConfig(config){
+ const matches=[];
+ function visit(v){if(!v||typeof v!=='object')return;if(['custom:print-pulse-farm','print-pulse-farm'].includes(v.type)&&!v.demo)matches.push(v);for(const child of Object.values(v))visit(child);}
+ visit(config);
+ return matches.length===1&&Array.isArray(matches[0].printers)?matches[0].printers:[];
+}
+function ppConfigPrinter(p){const a=ppPrinterMatch(p.name),b=ppPrinterMatch(p.id);if(a==='H2D No2'||b==='H2D No2')return 'H2D No2';return a&&b&&a!==b?null:a||b;}
+function ppCameraRows(root){
+ const states=root?.hass?.states||{};
+ const assigned=new Map(),deviceGroups=new Map();
+ const registryById=new Map(ppRegistry.map(e=>[e.entity_id,e]));
+ for(const p of ppCameraConfig){
+  const name=ppConfigPrinter(p);
+  if(name)for(const domain of ['sensor','camera','light','switch'])for(const id of ppCollectEntities(p,domain)){
+   const device=registryById.get(id)?.device_id;
+   if(device){if(!deviceGroups.has(device))deviceGroups.set(device,name);else if(deviceGroups.get(device)!==name)deviceGroups.set(device,null);}
+  }
+  for(const id of ppCollectEntities(p,'camera')){
+   if(!assigned.has(id))assigned.set(id,name);
+   else if(assigned.get(id)!==name)assigned.set(id,null);
+  }
+ }
+ const reg=new Map(ppRegistry.map(e=>[e.entity_id,e]));
+ return Object.entries(states).filter(([id])=>id.startsWith('camera.')).map(([id,s])=>{
+  const label=s.attributes?.friendly_name||id;
+  const r=reg.get(id)||{};
+  const group=assigned.has(id)?assigned.get(id):r.device_id&&deviceGroups.has(r.device_id)?deviceGroups.get(r.device_id):ppPrinterMatch(label)||ppPrinterMatch(id);
+  const tapo=/tapo|c110|c200|c210|c220|c310|c320|c520/i.test(id+' '+label+' '+(r.platform||''));
+  const printerIntegration=/bambu|snapmaker|moonraker/i.test(r.platform||'');
+  return {id,label,group,tapo,related:assigned.has(id)||Boolean(group)||tapo||printerIntegration,state:s.state,picture:s.attributes?.entity_picture};
+ }).filter(x=>x.related).sort((a,b)=>(a.group||'zz').localeCompare(b.group||'zz','de')||a.label.localeCompare(b.label,'de'));
+}
+function ppCameraPicture(camera){
+ if(!camera.picture||['unavailable','unknown','off'].includes(camera.state))return '';
+ try{const u=new URL(camera.picture,location.origin);if(u.origin!==location.origin||!u.pathname.startsWith('/api/camera_proxy/')||u.pathname!=='/api/camera_proxy/'+camera.id)return '';u.searchParams.set('_pp',String(Math.floor(Date.now()/15000)));return u.pathname+u.search;}catch{return '';}
+}
+function ppCameraCard(camera){
+ const pic=ppCameraPicture(camera);
+ const available=!['unavailable','unknown','off'].includes(camera.state);
+ return '<article class="pp-camera-card"><div class="pp-camera-card-head"><strong>'+esc(camera.label)+'</strong><span class="'+(available?'pp-camera-ok':'pp-camera-off')+'">'+esc(available?'Verfügbar':camera.state==='off'?'Aus':'Nicht verfügbar')+'</span></div>'+
+ '<small>'+esc((camera.group||'Nicht zugeordnet')+(camera.tapo?' · Tapo':''))+'</small>'+
+ '<button type="button" class="pp-camera-preview" data-pp-camera="'+esc(camera.id)+'" aria-label="'+esc(camera.label+' öffnen')+'">'+
+ '<span class="pp-camera-placeholder">Kamerabild nicht verfügbar</span>'+(pic?'<img loading="lazy" alt="'+esc(camera.label)+'" src="'+esc(pic)+'">':'')+
+ '<span class="pp-camera-open">↗ Kamera öffnen</span></button></article>';
+}
+function ppRenderCameras(){
+ const root=ppFindHA(),rows=ppCameraRows(root);
+ if(ppFarmView==='security'){
+  const groups=new Map();
+  for(const camera of rows){const key=camera.group|| (camera.tapo?'Tapo · nicht zugeordnet':'Druckerkameras · nicht zugeordnet');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(camera);}
+  $('pp-camera-grid').innerHTML=groups.size?[...groups].map(([key,list])=>'<section class="pp-camera-group"><h4>'+esc(key)+'</h4><div class="pp-camera-group-grid">'+list.map(ppCameraCard).join('')+'</div></section>').join(''):'<p class="hint">'+(root?'Keine passenden Kameraentitäten gefunden. Kamera in Home Assistant prüfen.':'Home-Assistant-Oberfläche nicht erreichbar. Bitte das Add-on über HA öffnen.')+'</p>';
+ }
+ if(ppFarmView==='single'){
+  const matches=rows.filter(x=>x.group===ppSelectedPrinter);
+  if(!matches.some(x=>x.id===ppCameraChoice))ppCameraChoice=matches[0]?.id||null;
+  const chosen=matches.find(x=>x.id===ppCameraChoice);
+  $('pp-single-camera').innerHTML=matches.length?'<div class="pp-camera-select">'+matches.map(x=>'<button type="button" class="secondary small" data-pp-camera-select="'+esc(x.id)+'" aria-pressed="'+String(x.id===ppCameraChoice)+'">'+esc(x.label)+(x.tapo?' · Tapo':'')+'</button>').join('')+'</div>'+ppCameraCard(chosen):'<p class="hint">Keine eindeutig zugeordnete Kamera. Weitere Kameras findest du unter Sicherheit.</p>';
+  ppRenderExtras(root);
+ }
+}
+function ppRenderExtras(root){
+ const match=ppPowerDevices.filter(x=>ppPrinterMatch(x.name)===ppSelectedPrinter);
+ const d=match.length===1?match[0]:null;
+ const states=root?.hass?.states||{};
+ const current=states[d?.configured_current_entity];
+ const unit=current?.attributes?.unit_of_measurement;
+ const actual=current&&['A','mA','a','ma'].includes(unit)&&current.state!==''&&Number.isFinite(Number(current.state))?Number(current.state)/(String(unit).toLowerCase()==='ma'?1000:1):null;
+ const watt=Number.isFinite(d?.watts)?d.watts:null;
+ const amps=actual!==null?actual:watt!==null?watt/230:null;
+ const fmt=(n,digits)=>n===null?'–':n.toLocaleString('de-DE',{maximumFractionDigits:digits});
+ const controls=new Set();
+ for(const p of ppCameraConfig.filter(x=>ppConfigPrinter(x)===ppSelectedPrinter))for(const domain of ['light','switch'])for(const id of ppCollectEntities(p.controls||[],domain))controls.add(id);
+ if(d?.switch_entity)controls.add(d.switch_entity);
+ const buttons=[...controls].filter(id=>states[id]).map(id=>{
+ const s=states[id];return '<button type="button" class="secondary small" data-pp-entity="'+esc(id)+'">'+esc(s.attributes?.friendly_name||id)+' · '+esc(s.state==='on'?'Ein':s.state==='off'?'Aus':'Unbekannt')+' ↗</button>';
+ }).join('');
+ $('pp-single-extras').innerHTML='<div class="pp-camera-card"><h4>Strom &amp; Geräte</h4><div class="pp-power-pair"><div><small>Leistung</small><strong>'+esc(fmt(watt,1))+' W</strong></div><div><small>Stromstärke'+(actual===null&&amps!==null?' (ca.)':'')+'</small><strong>'+esc(fmt(amps,2))+' A</strong></div></div><div class="pp-camera-select">'+buttons+'</div>'+(!buttons?'<p class="hint">Keine vorhandene Licht- oder Shelly-Steuerung eindeutig zugeordnet.</p>':'<p class="hint">Steuerung öffnet den vorhandenen HA-Dialog.</p>')+'</div>';
+}
+async function ppRefreshFarmData(){
+ if(workspace!=='printers'||ppFarmView==='overview'||ppFarmView==='all'||document.hidden)return;
+ const seq=++ppFarmRequest,root=ppFindHA();
+ if(root?.hass?.callWS){
+  const hass=root.hass;
+  try{
+   const panels=Object.entries(hass.panels||{}).filter(([,p])=>String(p.title||'').trim().toLowerCase()==='druckerfarm');
+   if(panels.length===1){const [path,panel]=panels[0];const cfg=await hass.callWS({type:'lovelace/config',url_path:panel.url_path||path});if(seq===ppFarmRequest)ppCameraConfig=ppFindFarmConfig(cfg);}else if(seq===ppFarmRequest)ppCameraConfig=[];
+  }catch{if(seq===ppFarmRequest)ppCameraConfig=[];}
+  try{const r=await hass.callWS({type:'config/entity_registry/list'});if(seq===ppFarmRequest)ppRegistry=Array.isArray(r)?r:[];}catch{if(seq===ppFarmRequest)ppRegistry=[];}
+ }
+ if(ppFarmView==='single')try{const d=await api('power-monitor');if(seq===ppFarmRequest)ppPowerDevices=Array.isArray(d.devices)?d.devices:[];}catch{if(seq===ppFarmRequest)ppPowerDevices=[];}
+ if(seq===ppFarmRequest&&workspace==='printers')ppRenderCameras();
+}
+function applySinglePrinterFilter(){
+ for(const el of $('printer-detail-grid').querySelectorAll('[data-printer-panel]'))el.hidden=ppFarmView==='single'&&el.dataset.printerPanel!==ppSelectedPrinter;
+}
+function ppSetFarmView(view,id=null){
+ ppFarmRequest++;ppFarmView=view;ppSelectedPrinter=id;ppCameraChoice=null;ppPowerDevices=[];
+ resetPrinterFarm();
+ $('printer-connect-grid').hidden=view!=='overview';
+ $('printer-connection').hidden=view==='security';
+ $('pp-farm-cameras').hidden=view!=='security';
+ $('printer-details-area').hidden=!['single','all'].includes(view);
+ $('pp-printer-single').hidden=view!=='single';
+ $('pp-printer-title').textContent=id||'';
+ $('pp-farm-printers').setAttribute('aria-pressed',String(view!=='security'));
+ $('pp-farm-security').setAttribute('aria-pressed',String(view==='security'));
+ $('printer-full-view').setAttribute('aria-expanded',String(view==='all'));
+ $('printer-full-view').textContent=view==='all'?'Zur Übersicht':'Bisherige Detailansicht';
+ $('printer-full-view').hidden=view==='security';
+ $('pp-camera-grid').innerHTML='';
+ $('pp-single-camera').innerHTML='';
+ $('pp-single-extras').innerHTML='';
+ applySinglePrinterFilter();
+ if(view==='all')syncPrinterFarm(true);
+ if(view==='single'||view==='security'){ppRenderCameras();ppRefreshFarmData();}
+}
+function closePrinterDetails(){ppSetFarmView('overview');}
+function openPrinterDetails(id){ppSetFarmView(id?'single':'all',id||null);}
+$('printer-full-view').addEventListener('click',()=>ppFarmView==='all'?closePrinterDetails():openPrinterDetails());
+$('pp-farm-printers').addEventListener('click',closePrinterDetails);
+$('pp-farm-security').addEventListener('click',()=>ppSetFarmView('security'));
+$('pp-printer-back').addEventListener('click',closePrinterDetails);
+$('printer-connect-grid').addEventListener('click',event=>{const card=event.target.closest('[data-connect-printer]');if(card)openPrinterDetails(card.dataset.connectPrinter);});
+$('printers-shell').addEventListener('click',event=>{
+ const theme=event.target.closest('[data-farm-theme]');if(theme){selectThemeMode(theme.dataset.farmTheme);return;}
+ const choice=event.target.closest('[data-pp-camera-select]');if(choice){ppCameraChoice=choice.dataset.ppCameraSelect;ppRenderCameras();return;}
+ const btn=event.target.closest('[data-pp-camera],[data-pp-entity]');if(!btn)return;
+ const id=btn.dataset.ppCamera||btn.dataset.ppEntity,root=ppFindHA();
+ if(!root?.hass?.states?.[id]){flash('Entität nicht verfügbar.',true);return;}
+ const view=root.ownerDocument.defaultView;
+ root.dispatchEvent(new view.CustomEvent('hass-more-info',{detail:{entityId:id},bubbles:true,composed:true}));
 });
-$('printer-connect-grid').addEventListener('click',event=>{
- const card=event.target.closest('[data-connect-printer]');
- if(card)openPrinterDetails(card.dataset.connectPrinter);
-});
+$('printers-shell').addEventListener('error',event=>{if(event.target.matches?.('.pp-camera-preview img'))event.target.hidden=true;},true);
+setInterval(ppRefreshFarmData,15000);
 $('printer-connect-grid').addEventListener('error',event=>{
  if(event.target.tagName==='IMG')event.target.hidden=true;
 },true);
@@ -2927,7 +3067,7 @@ $('printer-strip-row').addEventListener('click',event=>{
 $('printers-shell').addEventListener('click',event=>{
  const b=event.target.closest('[data-printer-config]');if(b)openPrinterConfig(b.dataset.printerConfig);
 });
-$('printer-refresh').addEventListener('click',()=>loadPrinters(true));
+$('printer-refresh').addEventListener('click',()=>{loadPrinters(true);ppRefreshFarmData();});
 $('printer-suggest').addEventListener('click',printerAutofill);
 $('printer-config-form').addEventListener('submit',async event=>{
  event.preventDefault();

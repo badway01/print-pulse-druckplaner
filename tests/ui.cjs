@@ -373,6 +373,16 @@ assert.equal(await page.locator('.pp-connect-card').count(),await page.locator('
 assert.equal(await page.locator('#printer-details-area').isVisible(),false);
 await page.locator('[data-connect-printer="H2D"]').click();
 assert.equal(await page.locator('#printer-details-area').isVisible(),true);
+assert.equal(await page.locator('#printer-detail-grid .printer-panel:visible').count(),1);
+await page.locator('[data-farm-theme="dark"]').click();
+assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
+await page.locator('[data-farm-theme="light"]').click();
+assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
+await page.locator('#pp-farm-security').click();
+assert.equal(await page.locator('#pp-farm-cameras').isVisible(),true);
+assert.equal(await page.locator('#printer-connect-grid').isVisible(),false);
+await page.locator('#pp-farm-printers').click();
+await page.locator('[data-connect-printer="H2D"]').click();
 await page.locator('[data-printer-config="H2D"]').click();
 assert.equal(await page.locator('#printer-config-dialog').isVisible(),true);
 assert.equal(await page.locator('[data-printer-field="status"]').count(),1);
