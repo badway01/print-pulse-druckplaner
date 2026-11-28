@@ -359,6 +359,7 @@
  }
  function displayPhase(item){
   const pr=item.printer_state;
+  if(item.maintenance===true&&pr!=='error')return {label:'Wartung',state:'maintenance'};
   if(item.switch_state==='off')return {label:'Aus',state:'off'};
   if(pr==='error')return {label:'Störung',state:'error'};
   if(!item.entity)return {label:'Nicht zugeordnet',state:'missing'};
@@ -411,6 +412,7 @@
  // Active/preparing/ready are equal rank: heating cannot reshuffle them.
  // Confirmed off follows; missing assignment then offline/fault at the bottom.
  function deviceSortRank(item){
+  if(item.maintenance===true&&item.printer_state!=='error')return 2;
   if(item.switch_state==='off')return 1;
   const state=item.printer_state;
   if(state==='error'||state==='offline')return 3;
@@ -459,7 +461,7 @@
   byId('device-summary').textContent=rows.length+' Geräte · '+d.measured+' mit Leistungsmessung';
   const renderRow=item=>{
    const phase=displayPhase(item);
-   const stateHint=item.switch_state==='off'?'Shelly-Schalter meldet aus. Messwerte bleiben unverändert.':
+   const stateHint=phase.state==='maintenance'?'Manueller Wartungsstatus. Verfügbare Messwerte werden weiterhin berücksichtigt.':item.switch_state==='off'?'Shelly-Schalter meldet aus. Messwerte bleiben unverändert.':
     phase.state==='offline'?'Drucker in Home Assistant nicht erreichbar; Shelly '+(item.switch_state==='on'?'eingeschaltet':'Schaltzustand unbekannt')+'.':
     phase.state==='missing'?'Messpunkt oder Messwert fehlt.':phase.label;
    const statusMismatch=item.switch_state==='off'&&((item.watts??0)>0||(item.amps??0)>0);

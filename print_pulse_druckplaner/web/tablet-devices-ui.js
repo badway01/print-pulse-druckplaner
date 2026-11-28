@@ -38,7 +38,8 @@
      '<label>Strommessung (A)<select class="pp-device-current">'+fieldChoices(current,item.current_entity,'Automatisch (gleiche Shelly-ID)')+'</select></label>'+
      '<label>Verbrauchszähler (kWh)<select class="pp-device-energy">'+fieldChoices(energy,item.energy_entity,'Optional')+'</select></label>'+
      '<label>Steckdosenschalter (nur Status)<select class="pp-device-switch">'+fieldChoices(switches,item.switch_entity,'Optional')+'</select></label>'+
-     '<label class="pp-device-enabled"><input class="pp-device-active" type="checkbox"'+(item.enabled!==false?' checked':'')+'>Aktiv überwachen</label>'+
+     '<label class="pp-device-enabled"><input class="pp-device-active" type="checkbox"'+(item.enabled!==false?' checked':'')+'>Aktiv überwachen</label>'+ 
+     '<label class="pp-device-enabled"><input class="pp-device-maintenance" type="checkbox"'+(item.maintenance===true?' checked':'')+'>Wartung (Messung bleibt aktiv)</label>'+
     '</div></article>'
   ).join('')||'<p class="pp-power-help">Noch kein Gerät vorhanden. Über „Gerät hinzufügen“ starten.</p>';
   info.textContent=items.length+' Geräte angelegt. Nur aktive Geräte erscheinen im Tablet-Monitor.';
@@ -63,7 +64,8 @@
    energy_entity:row.querySelector('.pp-device-energy').value,
    current_entity:row.querySelector('.pp-device-current').value,
    switch_entity:row.querySelector('.pp-device-switch').value,
-   enabled:row.querySelector('.pp-device-active').checked
+   enabled:row.querySelector('.pp-device-active').checked,
+   maintenance:row.querySelector('.pp-device-maintenance').checked
   }));
  }
  function automatch(row){

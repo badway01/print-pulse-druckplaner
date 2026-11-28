@@ -70,6 +70,30 @@ def devices(states, settings):
     return [dict(item) for item in registry if isinstance(item, dict)]
 
 
+def migrate_local_farm_status(db, cfg, put_cfg):
+    """Apply the owner's requested device changes once to the existing farm."""
+    marker = "farm_status_01421_applied"
+    if cfg(db, marker, "") == "1":
+        return False
+    settings = power_monitor.config(db, cfg)
+    rows = settings.get("registry")
+    changed = False
+    if isinstance(rows, list) and any(x.get("name") == "H2D No2" for x in rows if isinstance(x, dict)):
+        for row in rows:
+            if not isinstance(row, dict) or row.get("kind") != "printer":
+                continue
+            if row.get("name") == "A1":
+                row["enabled"] = False
+                changed = True
+            elif row.get("name") == "H2D":
+                row["maintenance"] = True
+                changed = True
+        if changed:
+            put_cfg(db, REGISTRY_KEY, json.dumps({"items": rows}, ensure_ascii=False))
+    put_cfg(db, marker, "1")
+    return changed
+
+
 def choices(states, domain):
     items = []
     for key, item in states.items():
@@ -147,6 +171,9 @@ def save(db, cfg, put_cfg, payload, states):
         if type(enabled) is not bool:
             raise ValueError("Ungültiger Aktiv-Status.")
         previous = old_by_id.get(ident, {})
+        maintenance = item.get("maintenance", previous.get("maintenance", False))
+        if type(maintenance) is not bool:
+            raise ValueError("Ungültiger Wartungsstatus.")
         get_old = lambda field: {str(previous.get(field) or "")}
         p = _check_entity(item.get("power_entity", ""), states, "sensor",
                           get_old("power_entity"), "power")
@@ -166,7 +193,8 @@ def save(db, cfg, put_cfg, payload, states):
             powers.add(p)
         result.append({"id": ident, "name": name, "kind": kind,
                        "power_entity": p, "energy_entity": e,
-                       "switch_entity": sw, "current_entity": current, "enabled": enabled})
+                       "switch_entity": sw, "current_entity": current, "enabled": enabled,
+                       "maintenance": maintenance})
         ids.add(ident)
         names.add(name.casefold())
     put_cfg(db, REGISTRY_KEY, json.dumps({"items": result}, ensure_ascii=False))

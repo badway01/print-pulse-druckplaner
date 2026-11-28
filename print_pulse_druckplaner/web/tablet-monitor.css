@@ -708,3 +708,11 @@ body[data-theme=dark] [data-card-level=critical]{--card-accent:#ff9b9e!important
  .dual-load-heading .inline-peak{flex-basis:100%}
  .monitor-shell main .side-panels{grid-template-columns:minmax(0,1fr)}
 }
+
+/* Explicit maintenance is informational and does not suppress measured load. */
+.devices-table tbody tr.state-maintenance td{background:#f0edf8}
+.devices-table tbody tr.state-maintenance td:first-child{border-left-color:#9380ba}
+.devices-table tbody tr.state-maintenance .printer-name:before{color:#8066ae}
+.devices-table .pill.maintenance,.pd-state-maintenance{background:#e5ddf3;color:#67498d}
+body[data-theme=dark] .devices-table tbody tr.state-maintenance td{background:#30283f}
+body[data-theme=dark] .devices-table .pill.maintenance,body[data-theme=dark] .pd-state-maintenance{background:#514064;color:#e8d9ff}

@@ -27,3 +27,9 @@ assert.equal(sort(devices).map(x=>x.name).join('|'),before);
 assert.equal(devices[0].name,'H2D');
 assert.equal(sort([]).length,0);
 console.log('Tablet device sort: PASS');
+
+const phaseStart=source.indexOf(' function displayPhase('),phaseEnd=source.indexOf(' function renderPeakHistory(',phaseStart);
+const phase=vm.runInNewContext(source.slice(phaseStart,phaseEnd)+';displayPhase');
+assert.equal(phase({maintenance:true,printer_state:'offline',entity:''}).label,'Wartung');
+assert.equal(phase({maintenance:true,switch_state:'off'}).label,'Wartung');
+assert.equal(phase({maintenance:true,printer_state:'error'}).label,'Störung');

@@ -1,3 +1,7 @@
+## 0.14.21 – Wartungsstatus und Farm-Geräte
+
+- Wartung manuell in der Gerätekonfiguration umschaltbar, violetter Status in der Stromübersicht. Verfügbare Messwerte und Schutzmeldungen bleiben aktiv. Einmalige lokale Anpassung der vorhandenen Farm mit H2D No2: A1 nicht mehr aktiv überwachen, alten H2D auf Wartung setzen. Historie und Sensorzuordnungen bleiben erhalten; keine Steckdose wird geschaltet.
+
 ## 0.14.20 – Stromübersicht in zwei Spalten
 
 - Vier gleich große dynamisch eingefärbte Live-Karten; Strompeak mit Reset direkt im Laststatus. Gerätetabelle über volle Breite; Shelly-Schutzstatus und Verlauf darunter gleich breit. Weitere Kennzahlen, Tarife, Resetprotokoll und CSV-Export am Ende aufklappbar. Mess- und Schutzlogik unverändert.

@@ -178,6 +178,7 @@ def snapshot(states, settings):
             measured += 1
         devices.append({'name': name, 'entity': entity, 'history_key': history_key(entity,name), 'watts': value,
                         'kind': item.get('kind', 'printer'),
+                        'maintenance': item.get('maintenance') is True,
                         'energy_entity': item.get('energy_entity') or '',
                         'switch_entity': item.get('switch_entity') or '',
                         'configured_current_entity': item.get('current_entity') or ''})

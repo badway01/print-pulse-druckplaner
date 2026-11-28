@@ -79,7 +79,7 @@ except ImportError:
 tablet_monitor.power_monitor = power_monitor
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = os.environ.get('PP_VERSION') or '0.14.20'
+APP_VERSION = os.environ.get('PP_VERSION') or '0.14.21'
 DATA = Path(os.environ.get("PP_DATA_DIR", "/data"))
 DATA.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA / "production.sqlite3"
@@ -4219,6 +4219,9 @@ def periodic_sync():
 if __name__=='__main__':
     init_db()
     migrate_h2d_no2()
+    with connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        tablet_monitor.migrate_local_farm_status(db,cfg,put_cfg)
     threading.Thread(target=periodic_sync,daemon=True).start()
     threading.Thread(target=farm_poll_loop,daemon=True).start()
     threading.Thread(target=power_alarm_loop,daemon=True).start()

@@ -65,6 +65,28 @@ class ConsumerProvisioningTest(unittest.TestCase):
                 self.assertEqual(t.resolve_switch_state(row,self.states),"on")
                 self.assertEqual(row["amps_source"],"shelly")
 
+    def test_local_farm_status_one_time_preserves_measurements(self):
+        rows = [
+            {"id":"a1","name":"A1","kind":"printer","enabled":True,"power_entity":"sensor.a1"},
+            {"id":"h2d","name":"H2D","kind":"printer","enabled":True,"power_entity":"sensor.old"},
+            {"id":"h2d2","name":"H2D No2","kind":"printer","enabled":True,"power_entity":"sensor.new"}
+        ]
+        self.store[t.REGISTRY_KEY]=json.dumps({"items":rows})
+        self.assertTrue(t.migrate_local_farm_status(None,self.cfg,self.put))
+        settings=p.config(None,self.cfg)
+        self.assertFalse(settings["registry"][0]["enabled"])
+        self.assertTrue(settings["registry"][1]["maintenance"])
+        self.assertEqual(settings["registry"][1]["power_entity"],"sensor.old")
+        self.states["sensor.old"]={"state":"25","attributes":{"unit_of_measurement":"W","device_class":"power"}}
+        snap=p.snapshot(self.states,settings)
+        self.assertEqual([x["name"] for x in snap["devices"]],["H2D","H2D No2"])
+        self.assertTrue(snap["devices"][0]["maintenance"])
+        self.assertEqual(snap["watts"],25.)
+        settings["registry"][1]["maintenance"]=False
+        self.store[t.REGISTRY_KEY]=json.dumps({"items":settings["registry"]})
+        self.assertFalse(t.migrate_local_farm_status(None,self.cfg,self.put))
+        self.assertFalse(p.config(None,self.cfg)["registry"][1]["maintenance"])
+
     def test_ambiguous_profile_not_saved(self):
         profile=t.CONSUMER_PROFILES[1]
         self.add_profile(profile[0],profile[1],self.mac)
